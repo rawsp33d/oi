@@ -154,6 +154,7 @@ fn (user User) can_register() bool {
 		- `"%s, %s"` `go python`
 - FFI
 - zeroed values? `v go`
+- async how?
 # vet
 ## targets
 - V
