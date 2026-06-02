@@ -34,6 +34,7 @@
 - namespaces `clojure revo`
 - operator overloading `lua nim v`
 - `unreachable` `rust zig`
+- `try foo()` `zig`
 - `defer` `v go zig`
 - `defer/err` (`errdefer`) `zig`
 - zeroed values `v go`
@@ -41,7 +42,8 @@
 	- `assert` `rust v zig`
 	- `test` (and also `suite` and `test/skip`) `zig revo`
 	- `build` `zig revo`
-	- units and unit conversion
+	- units and unit conversion (can be an imported stdlib that adds `impl`s)
+	- primitive data type for paths `nu nix`
 - cli
 	- `fmt` `v go`
 	- `doc` `rust v go gdscript`
@@ -58,6 +60,8 @@
 - `loop`
 ## playground
 ```rust
+## comments
+
 # Single line comments
 # (can be stacked)
 
@@ -72,7 +76,28 @@
 ## # code block language defaults to itself
 ## ```
 
-# functions
+## modules
+
+#{
+	For now Oi is going to do what V does for modules.
+	directory == module
+	I don't love how it handles nested modules, but I will likely revisit this in the future.
+}#
+
+# specify module
+module module_name
+
+# imports
+import os
+
+# selective imports
+import os { input }
+
+# import aliases
+import crypto.sha256
+import mymod.sha256 as mysha256
+
+## functions
 
 # implicit return
 fn add(x int, y int) int {
@@ -87,11 +112,12 @@ fn random_user() User {
 }
 
 # multiple returns
+# NOTE: still deciding between allowing multiple returns, or encouraging tuples
 fn foo() (int, int) {
 	2, 3
 }
 
-# structs
+## structs
 
 struct User {
 	age int
@@ -106,13 +132,34 @@ impl User {
 	}
 }
 
-# main entrypoint
+## main entrypoint
 
 fn main() {
-	# variables
+	## variables
+	
 	no_mute := "immutable"
 	mut mute := "mutable"
 	mute = "trololololol"
+	
+	# primatives
+	bull := true
+	str := "string"
+	raw := r"hi\nmom"
+	integer := 1337
+	flt := 69.420
+	
+	# arrays
+	num_array := [1, 2, 3]
+	
+	# maps
+	num_map := {
+		one: 1
+		two: 2
+	}
+	print(num_map["one"])
+	mut typed_map := map[string]int{}
+	typed_map["three"] = 4
+	typed_map.delete["three"]
 	
 	# all types have zeroed values
 	u := User{}
@@ -126,7 +173,7 @@ fn main() {
 	who := "mom"
 	print("hi {who}!")
 
-	# loops
+	## loops
 	
 	# forever
 	loop {
@@ -150,7 +197,7 @@ fn main() {
 	  print(x)
 	}
 	
-	# everything is an expression
+	## everything is an expression
 	
 	# returns the LHS object (`user`)
 	user.age = 30
@@ -160,7 +207,16 @@ fn main() {
 
 	# ternary (`if` is an expression)
 	foo := if true { "yes" } else { "no" }
+
+	# built-in functions
+	result := assert(check()) |> next
 	
+	# match
+	n := match true {
+		1 < 3 { "love ya" }
+		else { "no dice" }
+	}
+
 	# Option and Result types
 
 	nope := ?int(none)
@@ -191,7 +247,117 @@ fn main() {
 	
 	user := repo.find_user(7) or { return }
 	
-	# errors
+	## enums
+	
+	# plain
+	enum Color {
+		red
+		green
+		blue
+	}
+	c := Color.red
+	c := .red
+	c := :red
+	
+	# variants with payloads
+	enum Shape {
+		circle { radius f64 }
+		rectangle { width f64, height f64 }
+		triangle(f64, f64, f64)
+		point
+	}
+	s := Shape.circle { radius: 5.0 }
+	s := .circle { radius: 5.0 }
+	s := Shape.triangle(3.0, 4.0, 5.0)
+	s := Shape.point
+	
+	# pattern matching (exhaustive)
+	area := match s {
+		.circle { radius } => PI * radius * radius,
+		.rectangle { width, height } => width * height,
+		.triangle(a, b, c) => heron(a, b, c),
+		.point => 0.0,
+	}
+	
+	# specified values
+	enum Status: int {
+		ok = 200
+		not_found = 404
+		server_error = 500
+	}
+	
+	# ?T and !T are syntax suger for these:
+	enum Option<T> {
+		some(T)
+		none
+	}
+	enum Result<T, E> {
+		ok(T)
+		err(E)
+	}
+	
+	# first value is default
+	c := Color{} # .red
+	s := Shape{} # .circle { radius: 0.0 }
+			
+	# methods
+	
+	enum Color {
+		red
+		green
+		blue
+	}
+	
+	impl Color {
+		fn hex(self) string {
+			match self {
+				.red => "#ff0000",
+				.green => "#00ff00",
+				.blue => "#0000ff",
+			}
+		}
+		
+		fn is_warm(self) bool {
+			self == .red
+		}
+		
+		# Associated function (no self)
+		fn primary() Color {
+			.red
+		}
+	}
+	
+	# Display is auto-derived for enums, but can be overridden
+	impl Display for Color {
+		fn display(self) string {
+			match self {
+				.red => "🔴",
+				.green => "🟢",
+				.blue => "🔵",
+			}
+		}
+	}
+	
+	c := Color.red
+	print(c.hex()) # "#ff0000"
+	default := Color.primary()
+	
+	# enums can be created from string or integer value and converted into string
+	
+	enum Cycle {
+		one
+		two = 2
+		three
+	}
+	
+	// create enum from value
+	print(Cycle.from(10) or { Cycle.three })
+	print(Cycle.from("two")!)
+	
+	// convert an enum value to a string
+	print(Cycle.one.str())
+
+	## errors
 	
 	# built-in Error trait
 	trait Error {
@@ -209,7 +375,7 @@ fn main() {
 		panic("uh oh...")
 	}
 	
-	# closures
+	## closures
 
 	# lambda form
 	nums.map(|x| x * 2)
@@ -241,8 +407,61 @@ fn main() {
 	mutex.with {
 		do_work()
 	}
+	
+	## matching
+	
+	# else for catch-all
+	os := "linux"
+	match os {
+		"darwin" { print("I used to hate macOS but now I realize it's at least better than Windows.") }
+		"linux" { print("I use Artix Linux btw") }
+		else { print(os) }
+	}
 
-	# metaprogramming
+	# comma can be used to test multiple values
+	fn is_red_or_blue(c Color) bool {
+		return match c {
+			.red, .blue { true }
+			.green { false }
+		}
+	}
+	
+	## misc.
+	
+	# defer
+	
+	# defer takes an expression
+	mut f := os.create("out.log")!
+	defer f.close()
+	
+	# blocks are expressions too
+	defer {
+		print("closing file")
+		f.close()
+	}
+	
+	# defer gets the return values if relevant
+	# NOTE: will likely change the var name / syntax
+	fn do_stuff() bool {
+		defer {
+			if !$res() {
+				print("uh oh...")
+			}
+		}
+		if os.env("DEBUG") { return false }
+		return true
+	}
+
+	# defer/err only runs if an error was raised
+	defer/err eprint()
+	
+	# defers in loops run at the end of each iteration
+	loop {
+		defer print("here we go again...")
+		do_stuff()
+	}
+	
+	## metaprogramming
 	
 	# compile-time eval with comp
 	
@@ -340,16 +559,18 @@ fn main() {
 	}
 }
 
-# stdlib
+## stdlib
 
 # this is stdlib print
 fn print<T: Display>(value T)
 
+# I'm honestly not yet sure which of these should be macros vs functions
 print(value) # stdout, with newline
 write(value) # stdout, no newline
 eprint(value) # stderr, with newline
 ewrite(value) # stderr, no newline
 macro dbg!(expr) # debug-print, value passthru
+macro assert!(expr)
 ```
 ## lab 
 Things I'm playing with that might not work or make it.
@@ -395,6 +616,58 @@ formatted := name
     |> wrap("[", _, "]")     # _ marks where the threaded value goes
     |> log(level: :info, _)
 ```
+# TODO
+- [ ] bit flags syntax
+- [ ] channels
+- [ ] async
+	- not sure on model yet, but will probably start with V's and then figure out implementing a model with an effect system
+- [x] methods
+	- Rust-like `trait`s `impl { ... }`
+	- ~~V/Go-like receivers `fn (t Type) method() ret { ... }`
+- [x] assignment
+	- V/Go-like `:=`
+	- ~~Rust-like `let`
+- [x] error handling
+	- V-like `or { ... }`
+	- ~~Zig-like
+- [x] comments
+	- `#`, `## doc`, `#[ ... ]#` or `#{ ... }#` or similar (nests supported) `nim gdscript`
+	- ~~`//`, `/// doc`, `/* ... */` (nests supported) `rust`
+- strings
+	- multiline syntax
+	- interpolation syntax
+		- `println!("{} {2} {1} {foo}", a, b, c)` `rust`
+		- `"$a $b $c"` `v bash`
+		- `"`
+		- `"%s %s %s" % [ a, b, c ]` `go python gdscript`
+	- [x] raw syntax
+		- `r"tagged string"` `v rust python`
+		- ~~backtick? `nushell`
+- FFI
+- some sort of `todo`/`unimplemented` macros `rust`
+## consider
+- UCFS? `nim`
+# stdlib
+- `os`
+- `fs`
+- `net`
+- `math`
+- `json`
+- `log`
+- `slog`
+- `time`
+- `units`
+# vet
+## targets
+- V
+- C
+- Zig
+- LLVM
+- WASM
+- μC
+## implementation
+- V
+- Zig
 # influences
 - V
 - [revo](https://github.com/if-not-nil/revo)
@@ -414,51 +687,6 @@ formatted := name
 - Elixir
 - Haskell
 - GDScript
-# decisions
-- methods
-	- V/Go-like `fn (t Type) method() ret { ... }`
-	- Rust-like `trait`s `impl { ... }`
-- assignment
-	- V/Go-like `:=`
-	- ~~Rust-like `let`~~
-- error handling
-	- Zig-like
-	- V-like `or { ... }`
-- metaprogramming how?
-- UCFS? `nim`
-- modules / imports
-- comments
-	- `#`, `## doc`, `#[ ... ]#` or `#{ ... }#` or similar (nests supported) `nim gdscript`
-	- ~~`//`, `/// doc`, `/* ... */` (nests supported) `rust`
-- strings
-	- multiline syntax?
-	- interpolation syntax?
-		- `println!("{} {2} {1} {foo}", a, b, c)` `rust`
-		- `"$a $b $c"` `v bash`
-		- `"`
-		- `"%s %s %s" % [ a, b, c ]` `go python gdscript`
-	- raw syntax?
-		- backtick? `nushell`
-- printing
-	- `println!()`
-	- `println()`
-	- `print()` and `print_raw()` or something
-	- `echo()`
-	- `puts()`
-- FFI
-- async how?
-- some sort of `todo`/`unimplemented` (but I'd rather keep them out of the global namespace) `rust`
-# vet
-## targets
-- V
-- C
-- Zig
-- LLVM
-- WASM
-- μC
-## implementation
-- V
-- Zig
 # name
 ## shortlist
 - vex
