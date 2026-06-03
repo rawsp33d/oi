@@ -1,3 +1,6 @@
+# principles
+- everything is an expression
+- 
 # facets
 - trailing struct literals `v`
 - strongly & statically typed `rust v go zig`
@@ -31,7 +34,7 @@
 - multiple returns `v lua`
 - enum literals `zig v`
 - doc comments `zig v rust`
-- namespaces `clojure revo`
+- namespaced variables/functions`clojure revo`
 - operator overloading `lua nim v`
 - `unreachable` `rust zig`
 - `try foo()` `zig`
@@ -131,6 +134,22 @@ impl User {
 		user.age > 16
 	}
 }
+
+# trailing struct literals
+
+struct Options {
+	foo int
+	bar bool
+}
+impl User {
+	fn with_options(opt Options) {
+		print(opt)
+	}
+}
+user := User{}
+user.with_options(bar: true, foo: 4)
+
+# params
 
 ## main entrypoint
 
@@ -643,6 +662,9 @@ formatted := name
 	- [x] raw syntax
 		- `r"tagged string"` `v rust python`
 		- ~~backtick? `nushell`
+	- [ ] annotation syntax
+		- `@ann` `rust v`
+		- just keywords or can the be passed data? `@ann(data)`
 - FFI
 - some sort of `todo`/`unimplemented` macros `rust`
 ## consider
