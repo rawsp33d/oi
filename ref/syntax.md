@@ -63,18 +63,18 @@ fn random_user() User {
 	user.name = "I Dunno"
 }
 
-# implicit `$in` var is the data passed to a function
+# implicit `$` var is the data passed to a function
 
-# `$in` directly matches the call signature, so it is strongly typed and enforceable by the compiler
+# `$` directly matches the call signature, so it is strongly typed and enforceable by the compiler
 fn single_val(x int) {
-	assert(x == $in)
+	assert(x == $)
 }
 fn one_tuple(x int,) {
-	assert(x == $in.0)
+	assert(x == $.0)
 }
 fn two_tuple(x int, y int) {
-	assert(x == $in.0)
-	assert(y == $in.1)
+	assert(x == $.0)
+	assert(y == $.1)
 }
 
 # named returns
@@ -550,9 +550,9 @@ fn main() {
 	# under the hood many things are tuples, and some if it bleeds through in [hopefully] interesting ways
 	# function input params are [planned to be] treated as tuples in the compiler
 	
-	# the `$in` var you've seen in other places makes this really clear
+	# the `$` var you've seen in other places makes this really clear
 	fn its_all_tuples_man(a bool, b int, c string) (bool, int, string) {
-		$in
+		$
 	}
 	result := its_all_tuples_man(true, 2, "lol")
 	print(result) # (true, 2, "lol")
@@ -633,14 +633,15 @@ fn main() {
 	
 	# atoms are contextually coerced into Enum values
 	# (this hopefully reminds the reader of the `.value` enum shorthand in Zig and V)
-	enum Stat { str dex int }
+	enum Stat { health mana stamina }
 	struct User {
 		mut stat Stat
 	}
-	user1 := User{ Stat:dex } # this is normal enum syntax
-	user2 := User{ :dex } # this is a coerced atom
+	user1 := User{ Stat:mana } # this is normal enum syntax
+	user2 := User{ :mana } # this is a coerced atom
 	assert(user1.stat == user2.stat)
-	# TODO: should this be expected to fail, or coerce despite no type annotations to hint the compiler?: assert(Stat:dex == :dex)
+	# another context that coerces
+	assert(Stat:stamina == :stamina)
 	
 	# this might be useful for quick prototyping to organically become finalized
 	
@@ -758,9 +759,9 @@ fn main() {
 	}
 	
 	# ?T and !T must be handled — the or block is required to unwrap
-	# $in is the Error value (!T) or none (?T)
+	# $ is the Error value (!T) or none (?T)
 	user := repo.find_user(7) or {
-		print($in.message())  # "User 7 not found"
+		print($.message())  # "User 7 not found"
 		return
 	}
 	
@@ -769,8 +770,8 @@ fn main() {
 	
 	# check error type in the or block
 	file := fs.open(path) or {
-		if $in is fs.NotFoundError { return create_default() }
-		panic($in.message())
+		if $ is fs.NotFoundError { return create_default() }
+		panic($.message())
 	}
 	
 	# postfix `!` propagates error up to the caller
@@ -818,7 +819,7 @@ fn main() {
 		return ParseError{ line: 4, col: 2 }  # auto-cast to Error
 	}
 	
-	parse(src) or { panic($in.message()) }
+	parse(src) or { panic($.message()) }
 	
 	# error chaining via cause()
 	struct WrappedError {
@@ -840,9 +841,9 @@ fn main() {
 		green
 		blue
 	}
-	c := Color.red
-	c := .red
-	c := :red
+	mut c := Color.green
+	c = .red
+	c = :blue
 	
 	# variants with payloads
 	enum Shape {
@@ -973,20 +974,20 @@ fn main() {
 	}
 	
 	# normally blocks are eager, but when directly passed to something that expects a callable, they are deferred and treated as callables
-	nums.map({ $in * 2 })
+	nums.map({ $ * 2 })
 	
 	# trailing blocks
 	
 	# if a block is the last argument of a function, it may be placed outside the parens
 	spy() {
-		dump($in)
-		$in
+		dump($)
+		$
 	}
 	
 	# if a leading literal and/or trailing block were the only params of a function, the parens may be omitted entirely
 	spy {
-		dump($in)
-		$in
+		dump($)
+		$
 	}
 	
 	# all of this intentionally composes with leading literals,
@@ -1004,20 +1005,19 @@ fn main() {
 	retry 3 { fetch(url)! }
 	timeout 5.sec { slow_call() }
 	
-	# implicit `$in` var refers to the input args as stated above, which in this case is whatever the function calls such blocks with
+	# implicit `$` var refers to the input args as stated above, which in this case is whatever the function calls such blocks with
 	db.transaction {
-		$in.insert(user)
-		$in.insert(order)
+		$.insert(user)
+		$.insert(order)
 	}
 
 	# the input data can be bound to a name when desired
+	# this lets you handle nested blocks
 	# db.transaction({|tx| ...})
 	db.transaction {|tx|
 		tx.insert(user)
 		tx.insert(order)
 	}
-	# this lets you handle nested blocks
-	# TODO: consider removineg this syntax and just encouraging `orig := $in` var caching
 	
 	# mutex.with({ do_work() })
 	mutex.with {
@@ -1074,10 +1074,10 @@ fn main() {
 		}
 	}
 
-	# TODO: not sure whether Oi should support `$in` in match or use binding
+	# TODO: not sure whether Oi should support `$` in match or use binding
 	match user {
 		u @ User { age: 0..18 } => "minor: {u.name}"
-		User { age: 0..18 } => "minor: {$in.name}"
+		User { age: 0..18 } => "minor: {$.name}"
 		_ => "adult"
 	}
 	
@@ -1098,7 +1098,7 @@ fn main() {
 	# defer gets the return values if relevant
 	fn do_stuff() bool {
 		defer {
-			if !$in {
+			if !$ {
 				print("uh oh...")
 			}
 		}
@@ -1131,13 +1131,13 @@ fn main() {
 	"result-aware" |> upper!
 	result := input |> trim |> upper |> save!
 	
-	# `$in` is the data flowing into the pipeline step
+	# `$` is the data flowing into the pipeline step
 	# this lets us do clojure-like threading
 	"threading"
-	  |> wrap("[", $in, "]")
-	  or log_errors("foo", $in)
-	"hello" |> $in + " world"
-	[2 4 6 8] |> if $in.len() > 0 { print(true) }
+	  |> wrap("[", $, "]")
+	  or log_errors("foo", $)
+	"hello" |> $ + " world"
+	[2 4 6 8] |> if $.len() > 0 { print(true) }
 	
 	# any errors in the pipeline flow directly to an `or`
 	"error-only pipes"
@@ -1147,21 +1147,21 @@ fn main() {
 	# pipeline steps can be blocks too
 	result := "error-only pipes with block"
 		|> {
-			idk($in)
+			idk($)
 		}
 		|> {
-			log.info("stuff and things: {$in}")
+			log.info("stuff and things: {$}")
 			true
 		}
 		or {
-			eprint($in)
-			return $in
+			eprint($)
+			return $
 		}
 	config := os.env("config_path")
 		|> read_file!
 		|> parse!
 		or {
-			log.warn("Config load failed: {$in}. Using default.")
+			log.warn("Config load failed: {$}. Using default.")
 			default_config()
 		}
 	"gtfo" |> process or { panic("uh oh...") }
@@ -1170,31 +1170,31 @@ fn main() {
 	# input data can be optionally bound to names when desired
 	# this lets you unambiguously nest
 	"foo" |> {|outer|
-		assert(outer == $in)
+		assert(outer == $)
 		outer |> {|inner|
-			assert(inner == $in)
+			assert(inner == $)
 			log.debug("inner: {inner}, outer: {outer}")
 		}
-		assert(outer == $in)
+		assert(outer == $)
 	}
 	
 	# all together now (all together now!)
 	result := data
 		|> validate
-		|> transform(4, $in.name)?
-		|> filter($in > 0)
+		|> transform(4, $.name)?
+		|> filter($ > 0)
 		|> send?
-		|> wrap("[", $in, "]")
+		|> wrap("[", $, "]")
 		|> {
-			log.info("saving {$in}...")
-			save($in)!
+			log.info("saving {$}...")
+			save($)!
 		}
 		or log
 	
 	formatted := name
 		|> uppercase
-		|> wrap("[", $in, "]")
-		|> log(level: :info, $in)
+		|> wrap("[", $, "]")
+		|> log(level: :info, $)
 		
 	# pipeline functions
 
@@ -1212,8 +1212,8 @@ fn main() {
 	# rather than each stage only having access to the return of the prior stage
 	fn count_letters(s string) int =
 		lower |> uniq |> replace("[^A-Za-z]", "") |> len |> {
-			log.info("called count_letters with {s}, and it has {$in} unique letters")
-			$in
+			log.info("called count_letters with {s}, and it has {$} unique letters")
+			$
 		}
 	assert(count_letters("hi, mom!") == 4)
 	

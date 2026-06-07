@@ -80,6 +80,9 @@
 	- lambdas vs. anonymous fns
 	- explicit vs implicit captures
 ## consider
+- doing `$in` differently
+	- the concept is cool and work well but it's still a magic var
+	- maybe rename it?: `$ ~ in _ :in`
 ### on multiple returns
 Multiple returns are weird as they are, with lots of rough edges.
 1. They could stay how they are, as sugary tuples.
