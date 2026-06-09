@@ -122,7 +122,7 @@ print "lol"
 sleep 1_000
 log.group :process
 
-# this can be used in conjunction with trailing blocks
+# this can be used in conjunction with trailing functions
 test "foo" { assert(foo == bar) }
 benchmark 1_000_000 { do_work() }
 config :production { ... }
@@ -681,8 +681,8 @@ fn main() {
 	print(op(4, fn (n int) int {
 		return 3 * n
 	})) # 12
-	# lambda function
-	print(op(4, |n| 4 * n)) # 16
+	# anonymous function shorthand (types inferred, input accessible via `$`)
+	print(op(4, fn { $ * 4 })) # 16
 	
 	# all types have zeroed values
 	u := User{}
@@ -972,93 +972,95 @@ fn main() {
 	## blocks
 	
 	# blocks are groups of expressions
-	# the final expression is the result of the block
+	# the final expression is the block's value
 	three := {
 		light_the_beacons()
 		3
 	}
 	
-	# blocks may use `;` to indicate joined lines
+	# `;` joins lines
 	long_but_short := { do_thing(); 3 }
 	
-	# normally blocks are eager, but when directly passed to something that expects a callable, they are deferred and treated as callables
-	nums.map({ $ * 2 })
+	# blocks are eager and run in place
+	# they can fully read and mutate the enclosing scope
 	
-	# trailing blocks
+	## anonymous functions
 	
-	# if a block is the last argument of a function, it may be placed outside the parens
-	spy() {
-		dump($)
-		$
-	}
-	
-	# if a leading literal and/or trailing block were the only params of a function, the parens may be omitted entirely
-	spy {
-		dump($)
-		$
-	}
-	
-	# all of this intentionally composes with leading literals,
-	# allowing for ordinary functions that look like they are built-in
-	# ```
-	# test("registration", {
-	#	 user := make_user()
-	#	 assert(user.can_register())
-	# })
-	# ```
-	test "registration" {
-		user := make_user()
-		assert(user.can_register())
-	}
-	retry 3 { fetch(url)! }
-	timeout 5.sec { slow_call() }
-	
-	# `$` refers to the input args as stated above, which in this case is whatever the function calls such blocks with
-	db.transaction {
-		$.insert(user)
-		$.insert(order)
-	}
+	#{
+		Anonymous functions may be created with `fn`.
+		The syntax scales from tiny pure functions to fully typed closures with explicit captures.
+		All of these parts behave just as they do in normal, named functions (except captures which are unique to anon fns).
+		Implicit captures are read-only by reference.
+		```
+		# NOTE: `ret` takes precedence over `name`, by which I mean if only one identifier is present Oi treats it as the return spec (since that's far more common than naming anon fns).
+		fn name? [captures]? (params)? ret? { body }
+		```
+		- name: optional name declaration
+		- captures: optional capture spec
+			- [] no explict captures (this is the default when omitted)
+			- [mut x] to mutate an outer binding
+			- [move x] to own/escape it
+		- params: optional param spec
+		- ret: optional return spec
+	}#
 
-	# the input data can be bound to a name when desired
-	# this lets you handle nested blocks
-	# db.transaction({|tx| ...})
-	db.transaction {|tx|
-		tx.insert(user)
-		tx.insert(order)
-	}
+	double := fn (x int) int { x * 2 }
+	# pure: captures nothing
+	mul := fn (x int, y int) int { x * y }
+	# no defined params
+	nums.map(fn { $ * 2 })
+	nums.sort_by(fn (a, b) { a.age < b.age })
+	spawn(fn { do_work() })
 	
-	# mutex.with({ do_work() })
-	mutex.with {
-		do_work()
-	}
-	
-	## closures
-
-	# anonymous functions
-	
-	adder := fn (n int) int { n + n }
-	spawn(fn () { do_work() })
-	
-	# optional capture list, defaulting to [] when not provided
+	# explicit captures
 	mut counter := 0
 	increment := fn [mut counter] (x int) int {
 		counter += x
 		counter
 	}
+	spawn(fn [move data] { process(data) })
 	
-	## lambdas
-	# captures immutable bindings, by reference
-
-	# inline form
-	double := |x| x * 2
-	nums.map(|x| x * 2)
-	sort_by(|a, b| a.age < b.age)
-	spawn(|| do_work())
+	## trailing functions
 	
-	# blocks may be used for the body (since blocks are expressions)
-	process := |x| {
-		y := validate(x)!
-		y * 2
+	# if a function is the last argument of a call, it may be written after the parens
+	retry(3) fn {
+		fetch(url)!
+	}
+	
+	# if no named params are needed, the `fn` may be omitted (`$` is still accessible)
+	retry(3) {
+		fetch(url)!
+	}
+	
+	# if the trailing function is the only argument, the parens may be omitted too
+	spawn {
+		do_work()
+	}
+	mutex.with { do_work() }
+	
+	# composed with leading literals, function calls may be written like this:
+	# test("registration", fn { ... })
+	test "registration" {
+		user := make_user()
+		assert(user.can_register())
+	}
+	retry 3 {
+		fetch(url)!
+	}
+	timeout 5.sec {
+		slow_call()
+	}
+	
+	# like with normal functions, `$` is the input passed to the anonymous function
+	db.transaction {
+		$.insert(user)
+		$.insert(order)
+	}
+	
+	# named (and typed) params may optionally be provided
+	db.transaction fn (tx) {
+		tx.insert(user)
+		tx.insert(order)
 	}
 	
 	## matching
@@ -1173,14 +1175,22 @@ fn main() {
 			default_config()
 		}
 	"gtfo" |> process or { panic("uh oh...") }
-	"err binding" |> raise_err |> or {|err| log.error(err) }
+	"err binding" |> raise_err |> or { log.error($) }
 	
-	# input data can be optionally bound to names when desired
-	# this lets you unambiguously nest
-	"foo" |> {|outer|
+	# you can specify params
+	#  to a name when nesting to avoid ambiguity
+	"foo" |> fn (outer) {
+		outer |> fn (inner) {
+			log.debug("inner: {inner}, outer: {outer}")
+		}
 		assert(outer == $)
-		outer |> {|inner|
-			assert(inner == $)
+	}
+
+	# or you can cache the `$`
+	"foo" |> {
+		outer := $
+		outer |> {
+			inner := $
 			log.debug("inner: {inner}, outer: {outer}")
 		}
 		assert(outer == $)
@@ -1293,7 +1303,7 @@ fn main() {
 		quote {
 			impl Eq for $name {
 				fn eq(self, other Self) bool {
-					$(fields.map(|f| quote { self.$f == other.$f }).join(" && "))
+					$(fields.map(fn (f) { quote { self.$f == other.$f } }).join(" && "))
 				}
 			}
 		}

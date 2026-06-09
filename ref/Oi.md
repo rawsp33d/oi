@@ -7,7 +7,7 @@
 ## [[projects/env/oi/lab|lab]]
 # facets
 - leading literals `oi`
-- trailing blocks `oi`
+- trailing functions `oi`
 - named returns `oi go`
 - destructured named returns `fn divmod(a int, b int) (q int, r int) { (a / b, a % b) }` `oi go`
 - trailing struct literals `v`
@@ -90,10 +90,10 @@
 - [ ] some sort of `todo`/`unimplemented` macros `rust`
 ## consider
 - C++20 uses `operator|`, a naked `|` for pipelines
-	- Is that _really_ off the table?
-- remove nushell-style block bindings `{|vars here| ...}` in favor of just encouraging explicit `orig := $` var caching
-	- lambdas are fine, leave them alone `|x| x * 2`
+	- back on the table now that `|x|` lambda fences are gone
 - mutable `$` by default or opt-in?
+- adding colon before return type sig `fn foo(x int, y int): z int { ... }`
+- make the presence of `[]` in anon fns (empty or populated) turn off implicit captures, meaning `[]` would force a pure fn that could be passed around freely
 # stdlib
 - `os`
 - `fs`
