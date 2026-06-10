@@ -106,15 +106,4 @@
 - `slog`
 - `time`
 - `units`
-# compiler %% fold %%
-## possible compiler language
-- V
-- Zig
-## possible compilation targets
-- V
-- C
-- Zig
-- LLVM
-- WASM
-- μC
 # [[archive]]

@@ -98,3 +98,15 @@ Multiple returns are weird as they are, with lots of rough edges.
 3. They could just be removed. I think having tuples and pattern matching / destructuring is enough.
 	- I'm worried they might be a little plague-y, like `async`.
 	- Can add back later if compelled.
+# compiler %% fold %%
+## possible compiler language
+- Rust
+- V
+- Zig
+## possible compilation targets
+- V
+- C
+- Zig
+- LLVM
+- WASM
+- μC
