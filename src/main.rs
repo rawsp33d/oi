@@ -8,7 +8,7 @@ use logos::{Logos, Span};
 #[derive(Logos, Clone, PartialEq, Debug)]
 #[logos(skip r"[ \t\r\n\f]+")]
 enum Token {
-	#[regex(r"-?[0-9]+", |lex| lex.slice().parse().ok())]
+	#[regex(r"[0-9]+", |lex| lex.slice().parse().ok())]
 	Int(i64),
 
 	// binary operators
@@ -45,6 +45,7 @@ impl std::fmt::Display for Token {
 	}
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 enum Expr {
 	Int(i64),
@@ -82,11 +83,21 @@ where
 		.or(expr.delimited_by(just(Token::LParen), just(Token::RParen)));
 
 		atom.pratt((
-			prefix(3, just(Token::Minus), |_, rhs, _| Expr::Negative(Box::new(rhs))),
-			infix(left(2), just(Token::Asterisk), |l, _, r, _| Expr::Mul(Box::new(l), Box::new(r))),
-			infix(left(2), just(Token::Slash),    |l, _, r, _| Expr::Div(Box::new(l), Box::new(r))),
-			infix(left(1), just(Token::Plus),     |l, _, r, _| Expr::Add(Box::new(l), Box::new(r))),
-			infix(left(1), just(Token::Minus),    |l, _, r, _| Expr::Sub(Box::new(l), Box::new(r))),
+			prefix(3, just(Token::Minus), |_, rhs, _| {
+				Expr::Negative(Box::new(rhs))
+			}),
+			infix(left(2), just(Token::Asterisk), |l, _, r, _| {
+				Expr::Mul(Box::new(l), Box::new(r))
+			}),
+			infix(left(2), just(Token::Slash), |l, _, r, _| {
+				Expr::Div(Box::new(l), Box::new(r))
+			}),
+			infix(left(1), just(Token::Plus), |l, _, r, _| {
+				Expr::Add(Box::new(l), Box::new(r))
+			}),
+			infix(left(1), just(Token::Minus), |l, _, r, _| {
+				Expr::Sub(Box::new(l), Box::new(r))
+			}),
 		))
 	})
 	.then_ignore(end())
