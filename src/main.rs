@@ -3,7 +3,7 @@ use chumsky::{
 	pratt::{infix, left, prefix},
 	prelude::*,
 };
-use logos::{Lexer, Logos, Span};
+use logos::{Logos, Span};
 
 #[derive(Logos, Clone, PartialEq, Debug)]
 #[logos(skip r"[ \t\r\n\f]+")]
@@ -12,6 +12,15 @@ enum Token {
 	Int(i32),
 	#[regex(r"[0-9]+\.[0-9]+", |lex| lex.slice().parse().ok())]
 	Float(f64),
+
+	#[regex(r#""[^"]*""#, |lex| { let s = lex.slice(); s[1..s.len() - 1].to_string() })]
+	String(String),
+
+	#[regex(r"[A-Za-z_][A-Za-z0-9_]*", |lex| lex.slice().to_string())]
+	Ident(String),
+
+	#[token(":=")]
+	Assign,
 
 	// binary operators
 	#[token("+")]
@@ -34,15 +43,15 @@ impl std::fmt::Display for Token {
 		match self {
 			Token::Int(n) => write!(f, "{n}"),
 			Token::Float(x) => write!(f, "{x}"),
-			// Token::Str(s) => write!(f, "\"{s}\""),
-			// Token::Ident(s) => write!(f, "{s}"),
-			// Token::Assign => write!(f, ":="),
+			Token::String(s) => write!(f, "\"{s}\""),
+			Token::Ident(name) => write!(f, "{name}"),
 			Token::Plus => write!(f, "+"),
 			Token::Minus => write!(f, "-"),
 			Token::Asterisk => write!(f, "*"),
 			Token::Slash => write!(f, "/"),
 			Token::LParen => write!(f, "("),
 			Token::RParen => write!(f, ")"),
+			_ => Ok(()),
 		}
 	}
 }
@@ -52,6 +61,8 @@ impl std::fmt::Display for Token {
 enum Expr {
 	Int(i32),
 	Float(f64),
+	String(String),
+	Ident(String),
 
 	// unary operators
 	Negative(Box<Expr>),
@@ -82,7 +93,9 @@ where
 	recursive(|expr| {
 		let atom = select! {
 			Token::Int(n) => Expr::Int(n),
-			Token::Float(n) => Expr::Float(n),
+			Token::Float(x) => Expr::Float(x),
+			Token::String(s) => Expr::String(s),
+			Token::Ident(name) => Expr::Ident(name),
 		}
 		.or(expr.delimited_by(just(Token::LParen), just(Token::RParen)));
 
