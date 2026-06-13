@@ -6,4 +6,8 @@ edition = "2024"
 [dependencies]
 ariadne = "0.6.0"
 chumsky = { version = "0.13.0", features = ["pratt"] }
+cranelift = "0.132.1"
+cranelift-jit = "0.132.1"
+cranelift-module = "0.132.1"
+cranelift-native = "0.132.1"
 logos = "0.16.1"

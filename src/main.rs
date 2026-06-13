@@ -1,4 +1,5 @@
 mod ast;
+mod compiler;
 mod lexer;
 mod parser;
 
@@ -23,7 +24,7 @@ fn lex(src: &str) -> Vec<(Token, Span)> {
 fn main() {
 	let file = match std::env::args().nth(1) {
 		Some(file) => file,
-		None => "examples/hello.oi".into(),
+		None => "examples/tiny.oi".into(),
 	};
 	let src = std::fs::read_to_string(file).unwrap();
 
@@ -31,5 +32,11 @@ fn main() {
 	let stream = Stream::from_iter(lexed.into_iter().map(|(t, s)| (t, s.into())))
 		.map((src.len()..src.len()).into(), |(t, s)| (t, s));
 	let ast = parser().parse(stream).into_result().unwrap();
+
 	println!("{ast:#?}");
+
+	let mut compiler = compiler::Compiler::default();
+	let code = compiler.compile(&ast).unwrap();
+	let f = unsafe { std::mem::transmute::<*const u8, fn() -> isize>(code) };
+	println!("{}", f());
 }
