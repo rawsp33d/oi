@@ -1,5 +1,7 @@
 use logos::Logos;
 
+pub enum Operator {}
+
 #[derive(Logos, Clone, PartialEq, Debug)]
 #[logos(skip r"[ \t\r\n\f]+")]
 pub enum Token {

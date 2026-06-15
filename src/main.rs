@@ -2,6 +2,7 @@ mod ast;
 mod compiler;
 mod lexer;
 mod parser;
+mod runtime;
 
 use crate::lexer::*;
 use crate::parser::*;
@@ -37,6 +38,6 @@ fn main() {
 
 	let mut compiler = compiler::Compiler::default();
 	let code = compiler.compile(&ast).unwrap();
-	let f = unsafe { std::mem::transmute::<*const u8, fn() -> isize>(code) };
-	println!("{}", f());
+	let f = unsafe { std::mem::transmute::<*const u8, fn()>(code) };
+	f();
 }
