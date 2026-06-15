@@ -34,7 +34,7 @@ fn main() {
 		.map((src.len()..src.len()).into(), |(t, s)| (t, s));
 	let ast = parser().parse(stream).into_result().unwrap();
 
-	println!("{ast:#?}");
+	eprintln!("{ast:#?}");
 
 	let mut compiler = compiler::Compiler::default();
 	let code = compiler.compile(&ast).unwrap();
