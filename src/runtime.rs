@@ -3,10 +3,15 @@
 
 use std::ffi::{c_char, CStr};
 
+pub const PRINT_BOOL: &str = "oi_print_bool";
 pub const PRINT_INT: &str = "oi_print_int";
 pub const PRINT_FLOAT: &str = "oi_print_float";
 pub const PRINT_STR: &str = "oi_print_str";
 pub const STR_CONCAT: &str = "oi_str_concat";
+
+pub extern "C" fn print_bool(x: i64) {
+	println!("{}", x == 1);
+}
 
 pub extern "C" fn print_int(x: i64) {
 	println!("{x}");

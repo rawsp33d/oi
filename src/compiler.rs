@@ -25,6 +25,7 @@ impl Default for Compiler {
 			.finish(settings::Flags::new(flag_builder))
 			.unwrap();
 		let mut builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
+		builder.symbol(runtime::PRINT_BOOL, runtime::print_bool as *const u8);
 		builder.symbol(runtime::PRINT_INT, runtime::print_int as *const u8);
 		builder.symbol(runtime::PRINT_FLOAT, runtime::print_float as *const u8);
 		builder.symbol(runtime::PRINT_STR, runtime::print_str as *const u8);
@@ -229,9 +230,10 @@ impl<'a> Translator<'a> {
 	// Emit a call to the runtime print for the result's type.
 	fn emit_print(&mut self, val: Value, typ: Typ) {
 		let name = match typ {
+			Typ::Bool => runtime::PRINT_BOOL,
+			Typ::Int => runtime::PRINT_INT,
 			Typ::Float => runtime::PRINT_FLOAT,
 			Typ::Str => runtime::PRINT_STR,
-			Typ::Int | Typ::Bool => runtime::PRINT_INT,
 		};
 		let param = if typ == Typ::Float {
 			types::F64
