@@ -12,14 +12,28 @@ where
 	I: ValueInput<'token, Token = Token, Span = SimpleSpan>,
 {
 	let expr = recursive(|expr| {
-		let atom = select! {
+		let literal = select! {
 			Token::Bool(b) => Expr::Bool(b),
 			Token::Int(n) => Expr::Int(n),
 			Token::Float(x) => Expr::Float(x),
 			Token::String(s) => Expr::String(s),
-			Token::Ident(name) => Expr::Ident(name),
-		}
-		.or(expr.delimited_by(just(Token::LParen), just(Token::RParen)));
+		};
+
+		// `name` (variable) vs. `name()` (call)
+		let var_or_call = select! { Token::Ident(name) => name }
+			.then(
+				just(Token::LParen)
+					.ignore_then(just(Token::RParen))
+					.or_not(),
+			)
+			.map(|(name, call)| match call {
+				Some(_) => Expr::Call(name),
+				None => Expr::Ident(name),
+			});
+
+		let atom = literal
+			.or(var_or_call)
+			.or(expr.delimited_by(just(Token::LParen), just(Token::RParen)));
 
 		atom.pratt((
 			prefix(3, just(Token::Minus), |_, rhs, _| {

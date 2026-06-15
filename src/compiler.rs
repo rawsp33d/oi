@@ -60,15 +60,16 @@ impl Compiler {
 			}
 		}
 
-		// every named function is compiled
-		// only the entrypoint prints its result
+		// compile each named fn, recording its id and return type so the rest can call it
+		let mut funcs: HashMap<String, (FuncId, Typ)> = HashMap::new();
 		for &(name, body) in &others {
 			let stmts: Vec<&Expr> = body.iter().collect();
-			self.compile_fn(int, &format!("oi_{name}"), &stmts, false)?;
+			let (id, typ) = self.compile_fn(int, &format!("oi_{name}"), &stmts, &funcs)?;
+			funcs.insert(name.to_string(), (id, typ));
 		}
 
 		// `main` is the entrypoint if present
-		// otherwise top-level statements run as if wrapped in an implicit `main`
+		// otherwise the loose statements run as if wrapped in an implicit `main`
 		let entry: Vec<&Expr> = match main_body {
 			Some(body) => {
 				if !loose.is_empty() {
@@ -78,21 +79,61 @@ impl Compiler {
 			}
 			None => loose,
 		};
-		let id = self.compile_fn(int, "__oi_main", &entry, true)?;
+		// the program prints whatever it returns
+		let (entry_id, typ) = self.compile_fn(int, "oi_main", &entry, &funcs)?;
+		let id = self.compile_entry(int, entry_id, typ, &funcs)?;
 
 		self.module.finalize_definitions().unwrap();
 		Ok(self.module.get_finalized_function(id))
 	}
 
-	// Declare and define a function from a list of statements.
+	// Compile a fn body, which returns its final value to its caller.
 	fn compile_fn(
 		&mut self,
 		int: types::Type,
 		name: &str,
 		stmts: &[&Expr],
-		print_last: bool,
+		funcs: &HashMap<String, (FuncId, Typ)>,
+	) -> Result<(FuncId, Typ), String> {
+		let typ = self.translate(int, stmts, funcs);
+		let id = self.finish_fn(name)?;
+		Ok((id, typ))
+	}
+
+	// Run the entrypoint and print its return.
+	fn compile_entry(
+		&mut self,
+		int: types::Type,
+		entry: FuncId,
+		typ: Typ,
+		funcs: &HashMap<String, (FuncId, Typ)>,
 	) -> Result<FuncId, String> {
-		self.translate(int, stmts, print_last);
+		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
+		let block = b.create_block();
+		b.switch_to_block(block);
+		b.seal_block(block);
+
+		let mut trans = Translator {
+			int,
+			b,
+			vars: HashMap::new(),
+			module: &mut self.module,
+			funcs,
+			string_idx: &mut self.string_idx,
+		};
+
+		let callee = trans.module.declare_func_in_func(entry, trans.b.func);
+		let call = trans.b.ins().call(callee, &[]);
+		let val = trans.b.inst_results(call)[0];
+		trans.emit_print(val, typ);
+		trans.b.ins().return_(&[]);
+		trans.b.finalize();
+
+		self.finish_fn("__oi_main")
+	}
+
+	// Declare and define whatever is in the current ctx, then reset it.
+	fn finish_fn(&mut self, name: &str) -> Result<FuncId, String> {
 		let id = self
 			.module
 			.declare_function(name, Linkage::Local, &self.ctx.func.signature)
@@ -104,7 +145,12 @@ impl Compiler {
 		Ok(id)
 	}
 
-	fn translate(&mut self, int: types::Type, stmts: &[&Expr], print_last: bool) {
+	fn translate(
+		&mut self,
+		int: types::Type,
+		stmts: &[&Expr],
+		funcs: &HashMap<String, (FuncId, Typ)>,
+	) -> Typ {
 		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
 		let block = b.create_block();
 		b.switch_to_block(block);
@@ -115,6 +161,7 @@ impl Compiler {
 			b,
 			vars: HashMap::new(),
 			module: &mut self.module,
+			funcs,
 			string_idx: &mut self.string_idx,
 		};
 
@@ -139,12 +186,13 @@ impl Compiler {
 			}
 		}
 
-		if print_last {
-			let (val, typ) = last;
-			trans.emit_print(val, typ);
-		}
-		trans.b.ins().return_(&[]);
+		// the return type of a fn matches its final value
+		let (val, typ) = last;
+		let cl = if typ == Typ::Float { types::F64 } else { int };
+		trans.b.func.signature.returns.push(AbiParam::new(cl));
+		trans.b.ins().return_(&[val]);
 		trans.b.finalize();
+		typ
 	}
 }
 
@@ -171,6 +219,7 @@ struct Translator<'a> {
 	b: FunctionBuilder<'a>,
 	vars: HashMap<String, (Variable, Typ)>,
 	module: &'a mut JITModule,
+	funcs: &'a HashMap<String, (FuncId, Typ)>,
 	string_idx: &'a mut usize,
 }
 
@@ -219,6 +268,16 @@ impl<'a> Translator<'a> {
 			Expr::Sub(l, r) => self.binop(Op::Sub, l, r),
 			Expr::Mul(l, r) => self.binop(Op::Mul, l, r),
 			Expr::Div(l, r) => self.binop(Op::Div, l, r),
+
+			Expr::Call(name) => {
+				let (id, typ) = *self
+					.funcs
+					.get(name)
+					.unwrap_or_else(|| panic!("undefined fn: {name}"));
+				let func = self.module.declare_func_in_func(id, self.b.func);
+				let call = self.b.ins().call(func, &[]);
+				(self.b.inst_results(call)[0], typ)
+			}
 
 			Expr::Assign { .. } => unreachable!("assign in expression position"),
 			Expr::Fn { .. } => unreachable!("fn definition in expression position"),

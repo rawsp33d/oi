@@ -1,11 +1,8 @@
-# helper fn
+# a fn returns its final value
 fn double() {
 	21 * 2
 }
 
-# `main` is the entrypoint
-# its last value is printed
-fn main() {
-	x := 40
-	x + 2
-}
+# no `main`, so the loose statements run as an implicit `main`
+# a bare script prints its final value
+double()

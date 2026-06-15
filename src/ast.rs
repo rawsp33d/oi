@@ -18,6 +18,8 @@ pub enum Expr {
 		body: Vec<Expr>,
 	},
 
+	Call(String),
+
 	// unary operators
 	Negative(Box<Expr>),
 
