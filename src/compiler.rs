@@ -27,6 +27,8 @@ impl Default for Compiler {
 		let mut builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
 		builder.symbol(runtime::PRINT_INT, runtime::print_int as *const u8);
 		builder.symbol(runtime::PRINT_FLOAT, runtime::print_float as *const u8);
+		builder.symbol(runtime::PRINT_STR, runtime::print_str as *const u8);
+		builder.symbol(runtime::STR_CONCAT, runtime::str_concat as *const u8);
 
 		let module = JITModule::new(builder);
 		Self {
@@ -73,18 +75,18 @@ impl Compiler {
 			string_idx: 0,
 		};
 
-		let mut last = trans.b.ins().iconst(int, 0);
+		let mut last = (trans.b.ins().iconst(int, 0), Typ::Int);
 		for stmt in program {
 			match stmt {
 				Expr::Assign { name, value, .. } => {
-					let val = trans.expr(value);
+					let (val, typ) = trans.expr(value);
 					// a variable takes the type of its first assigned value
 					let var = match trans.vars.get(name) {
-						Some(&var) => var,
+						Some(&(var, _)) => var,
 						None => {
-							let typ = trans.b.func.dfg.value_type(val);
-							let var = trans.b.declare_var(typ);
-							trans.vars.insert(name.clone(), var);
+							let cl = trans.b.func.dfg.value_type(val);
+							let var = trans.b.declare_var(cl);
+							trans.vars.insert(name.clone(), (var, typ));
 							var
 						}
 					};
@@ -94,13 +96,15 @@ impl Compiler {
 			}
 		}
 
-		trans.emit_print(last);
+		let (val, typ) = last;
+		trans.emit_print(val, typ);
 		trans.b.ins().return_(&[]);
 		trans.b.finalize();
 		Ok(())
 	}
 }
 
+#[derive(Clone, Copy, Debug)]
 enum Op {
 	Add,
 	Sub,
@@ -108,20 +112,30 @@ enum Op {
 	Div,
 }
 
+// An expression's Oi type.
+// int, bool, and str are all i64 to cranelift, so this lets us distinguish.
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum Typ {
+	Int,
+	Float,
+	Bool,
+	Str,
+}
+
 struct Translator<'a> {
 	int: types::Type,
 	b: FunctionBuilder<'a>,
-	vars: HashMap<String, Variable>,
+	vars: HashMap<String, (Variable, Typ)>,
 	module: &'a mut JITModule,
 	string_idx: usize,
 }
 
 impl<'a> Translator<'a> {
-	fn expr(&mut self, expr: &Expr) -> Value {
+	fn expr(&mut self, expr: &Expr) -> (Value, Typ) {
 		match expr {
-			Expr::Int(n) => self.b.ins().iconst(self.int, *n as i64),
-			Expr::Bool(v) => self.b.ins().iconst(self.int, *v as i64),
-			Expr::Float(x) => self.b.ins().f64const(*x),
+			Expr::Int(n) => (self.b.ins().iconst(self.int, *n as i64), Typ::Int),
+			Expr::Bool(v) => (self.b.ins().iconst(self.int, *v as i64), Typ::Bool),
+			Expr::Float(x) => (self.b.ins().f64const(*x), Typ::Float),
 
 			Expr::String(s) => {
 				let mut bytes = s.as_bytes().to_vec();
@@ -136,22 +150,25 @@ impl<'a> Translator<'a> {
 				desc.define(bytes.into_boxed_slice());
 				self.module.define_data(id, &desc).unwrap();
 				let gv = self.module.declare_data_in_func(id, &mut self.b.func);
-				self.b.ins().symbol_value(self.int, gv)
+				(self.b.ins().symbol_value(self.int, gv), Typ::Str)
 			}
 
-			Expr::Ident(name) => self.b.use_var(
-				*self
+			Expr::Ident(name) => {
+				let (var, typ) = *self
 					.vars
 					.get(name)
-					.unwrap_or_else(|| panic!("undefined: {name}")),
-			),
+					.unwrap_or_else(|| panic!("undefined: {name}"));
+				(self.b.use_var(var), typ)
+			}
 
 			Expr::Negative(e) => {
-				let v = self.expr(e);
-				match self.b.func.dfg.value_type(v) {
-					types::F64 => self.b.ins().fneg(v),
-					_ => self.b.ins().ineg(v),
-				}
+				let (v, typ) = self.expr(e);
+				let out = match typ {
+					Typ::Int => self.b.ins().ineg(v),
+					Typ::Float => self.b.ins().fneg(v),
+					_ => panic!("cannot negate {typ:?}"),
+				};
+				(out, typ)
 			}
 
 			Expr::Add(l, r) => self.binop(Op::Add, l, r),
@@ -164,17 +181,24 @@ impl<'a> Translator<'a> {
 	}
 
 	// Add binary op instruction.
-	fn binop(&mut self, op: Op, l: &Expr, r: &Expr) -> Value {
-		let lv = self.expr(l);
-		let rv = self.expr(r);
-		let float = self.b.func.dfg.value_type(lv) == types::F64;
-		// make sure both sides match
-		// NOTE: For now. I might go with V-style promotion eventually.
-		if float != (self.b.func.dfg.value_type(rv) == types::F64) {
-			panic!("cannot mix int and float; cast explicitly");
+	fn binop(&mut self, op: Op, l: &Expr, r: &Expr) -> (Value, Typ) {
+		let (lv, lt) = self.expr(l);
+		let (rv, rt) = self.expr(r);
+
+		// string concatenation
+		if let (Op::Add, Typ::Str, Typ::Str) = (op, lt, rt) {
+			return (self.call_concat(lv, rv), Typ::Str);
 		}
+
+		// no int/float mixing for now
+		// NOTE: I might go with V-style promotion eventually.
+		let float = match (lt, rt) {
+			(Typ::Int, Typ::Int) => false,
+			(Typ::Float, Typ::Float) => true,
+			_ => panic!("cannot {op:?} {lt:?} and {rt:?}"),
+		};
 		let b = self.b.ins();
-		match (op, float) {
+		let out = match (op, float) {
 			(Op::Add, true) => b.fadd(lv, rv),
 			(Op::Add, false) => b.iadd(lv, rv),
 			(Op::Sub, true) => b.fsub(lv, rv),
@@ -183,15 +207,36 @@ impl<'a> Translator<'a> {
 			(Op::Mul, false) => b.imul(lv, rv),
 			(Op::Div, true) => b.fdiv(lv, rv),
 			(Op::Div, false) => b.sdiv(lv, rv),
-		}
+		};
+		(out, if float { Typ::Float } else { Typ::Int })
 	}
 
-	// Emit a call to the runtime print function for the result's type.
-	fn emit_print(&mut self, val: Value) {
-		let (name, param) = if self.b.func.dfg.value_type(val) == types::F64 {
-			(runtime::PRINT_FLOAT, types::F64)
+	// Call the runtime string concat.
+	fn call_concat(&mut self, a: Value, b: Value) -> Value {
+		let mut sig = self.module.make_signature();
+		sig.params.push(AbiParam::new(self.int));
+		sig.params.push(AbiParam::new(self.int));
+		sig.returns.push(AbiParam::new(self.int));
+		let id = self
+			.module
+			.declare_function(runtime::STR_CONCAT, Linkage::Import, &sig)
+			.unwrap();
+		let func = self.module.declare_func_in_func(id, self.b.func);
+		let call = self.b.ins().call(func, &[a, b]);
+		self.b.inst_results(call)[0]
+	}
+
+	// Emit a call to the runtime print for the result's type.
+	fn emit_print(&mut self, val: Value, typ: Typ) {
+		let name = match typ {
+			Typ::Float => runtime::PRINT_FLOAT,
+			Typ::Str => runtime::PRINT_STR,
+			Typ::Int | Typ::Bool => runtime::PRINT_INT,
+		};
+		let param = if typ == Typ::Float {
+			types::F64
 		} else {
-			(runtime::PRINT_INT, self.int)
+			self.int
 		};
 		let mut sig = self.module.make_signature();
 		sig.params.push(AbiParam::new(param));
