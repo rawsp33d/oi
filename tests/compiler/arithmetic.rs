@@ -29,10 +29,3 @@ fn float_add() {
 fn negation() {
 	check("-5", "-5");
 }
-
-// variables
-
-#[test]
-fn variable() {
-	check("x := 42\nx", "42");
-}
