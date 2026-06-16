@@ -6,6 +6,7 @@ mod lexer;
 mod parser;
 mod runtime;
 
+use std::io::Read;
 use std::path::Path;
 
 use crate::cli::{Cli, Command};
@@ -20,19 +21,41 @@ fn main() {
 	let cli = Cli::parse();
 	match cli.command {
 		Command::Run { file, debug_ast } => run(&file, debug_ast),
+		Command::Exec { source, debug_ast } => exec(source, debug_ast),
 	}
 }
 
 /// Compile and run a file.
 fn run(file: &Path, debug_ast: bool) {
-	let name = file.display().to_string();
 	let src = std::fs::read_to_string(file).unwrap_or_else(|e| {
 		eprintln!("oi: cannot read {}: {e}", file.display());
 		std::process::exit(1);
 	});
+	run_source(&file.display().to_string(), &src, debug_ast);
+}
 
+/// Compile and run a script passed as an argument or read from stdin.
+fn exec(source: Option<String>, debug_ast: bool) {
+	let (name, src) = match source {
+		Some(src) => ("<exec>", src),
+		None => {
+			let mut src = String::new();
+			std::io::stdin()
+				.read_to_string(&mut src)
+				.unwrap_or_else(|e| {
+					eprintln!("oi: cannot read stdin: {e}");
+					std::process::exit(1);
+				});
+			("<stdin>", src)
+		}
+	};
+	run_source(name, &src, debug_ast);
+}
+
+/// Compile and run a program.
+fn run_source(name: &str, src: &str, debug_ast: bool) {
 	// lex
-	let tokens = lex(&src);
+	let tokens = lex(src);
 	let stream = Stream::from_iter(tokens).map((src.len()..src.len()).into(), |(t, s)| (t, s));
 	// parse
 	let ast = parser()
@@ -40,7 +63,7 @@ fn run(file: &Path, debug_ast: bool) {
 		.into_result()
 		.unwrap_or_else(|errors| {
 			for e in &errors {
-				Diagnostic::from_rich(e).report(&name, &src);
+				Diagnostic::from_rich(e).report(name, src);
 			}
 			std::process::exit(1);
 		});
@@ -53,7 +76,7 @@ fn run(file: &Path, debug_ast: bool) {
 	let mut compiler = compiler::Compiler::default();
 	let code = compiler.compile(&ast).unwrap_or_else(|error| {
 		// report errors
-		error.report(&name, &src);
+		error.report(name, src);
 		std::process::exit(1);
 	});
 
