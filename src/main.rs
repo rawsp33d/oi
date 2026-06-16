@@ -23,10 +23,17 @@ fn lex(src: &str) -> Vec<(Token, Span)> {
 }
 
 fn main() {
-	let file = match std::env::args().nth(1) {
-		Some(file) => file,
-		None => "examples/hello.oi".into(),
-	};
+	let mut file = None;
+	let mut debug_ast = false;
+
+	for arg in std::env::args().skip(1) {
+		match arg.as_str() {
+			"--debug-ast" => debug_ast = true,
+			_ => file = Some(arg),
+		}
+	}
+
+	let file = file.unwrap_or_else(|| "examples/main.oi".into());
 	let src = std::fs::read_to_string(file).unwrap();
 
 	let lexed = lex(&src);
@@ -34,7 +41,9 @@ fn main() {
 		.map((src.len()..src.len()).into(), |(t, s)| (t, s));
 	let ast = parser().parse(stream).into_result().unwrap();
 
-	eprintln!("{ast:#?}");
+	if debug_ast {
+		eprintln!("{ast:#?}");
+	}
 
 	let mut compiler = compiler::Compiler::default();
 	let code = compiler.compile(&ast).unwrap();
