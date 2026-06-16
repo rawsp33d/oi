@@ -9,15 +9,23 @@ fn missing_file_errors() {
 }
 
 #[test]
-fn default_file_runs() {
-	// with no path, `run` falls back to examples/main.oi
-	let out = oi(&["run"], None);
+fn default_file_is_main_oi_in_cwd() {
+	// with no path, `run` runs ./main.oi in the current directory
+	let dir = std::env::temp_dir().join(format!("oi_run_default_{}", std::process::id()));
+	std::fs::create_dir_all(&dir).unwrap();
+	std::fs::write(dir.join("main.oi"), "1 + 2").unwrap();
+	let out = std::process::Command::new(env!("CARGO_BIN_EXE_oi"))
+		.current_dir(&dir)
+		.arg("run")
+		.output()
+		.unwrap();
+	std::fs::remove_dir_all(&dir).ok();
 	assert!(
 		out.status.success(),
 		"stderr:\n{}",
 		String::from_utf8_lossy(&out.stderr)
 	);
-	assert!(!String::from_utf8(out.stdout).unwrap().trim().is_empty());
+	assert_eq!(String::from_utf8(out.stdout).unwrap().trim(), "3");
 }
 
 #[test]

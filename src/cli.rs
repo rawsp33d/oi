@@ -15,7 +15,7 @@ pub enum Command {
 	/// Compile and run an Oi program.
 	Run {
 		/// Path to the .oi source file.
-		#[arg(default_value = "examples/main.oi")]
+		#[arg(default_value = "main.oi")]
 		file: PathBuf,
 
 		/// Dump the parsed AST to stderr.
