@@ -11,6 +11,24 @@ fn undefined_function() {
 }
 
 #[test]
+fn wrong_arg_count() {
+	let src = indoc! {"
+		fn add(x int, y int) { x + y }
+		add(1)
+	"};
+	assert!(fail(src).contains("expects 2 argument"));
+}
+
+#[test]
+fn wrong_arg_type() {
+	let src = indoc! {r#"
+		fn double(x int) { x + x }
+		double("nope")
+	"#};
+	assert!(fail(src).contains("expected Int argument"));
+}
+
+#[test]
 fn type_mismatch() {
 	assert!(fail(r#"1 + "x""#).contains("cannot Add"));
 }
