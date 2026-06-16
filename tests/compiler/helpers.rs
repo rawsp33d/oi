@@ -6,6 +6,21 @@ pub(crate) use indoc::indoc;
 
 static ID: AtomicUsize = AtomicUsize::new(0);
 
+/// Run compiler.
+fn exec(path: &Path) -> String {
+	let out = Command::new(env!("CARGO_BIN_EXE_oi"))
+		.arg(path)
+		.output()
+		.unwrap();
+	assert!(
+		out.status.success(),
+		"compiler failed:\n{}",
+		String::from_utf8_lossy(&out.stderr)
+	);
+	let s = String::from_utf8(out.stdout).unwrap();
+	s.strip_suffix('\n').unwrap_or(&s).to_string()
+}
+
 /// Run provided source.
 pub(crate) fn run(src: &str) -> String {
 	let n = ID.fetch_add(1, Ordering::Relaxed);
@@ -23,21 +38,6 @@ pub(crate) fn run_file(name: &str) -> String {
 		.join("tests/cases")
 		.join(name);
 	exec(&path)
-}
-
-/// Run compiler.
-fn exec(path: &Path) -> String {
-	let out = Command::new(env!("CARGO_BIN_EXE_oi"))
-		.arg(path)
-		.output()
-		.unwrap();
-	assert!(
-		out.status.success(),
-		"compiler failed:\n{}",
-		String::from_utf8_lossy(&out.stderr)
-	);
-	let s = String::from_utf8(out.stdout).unwrap();
-	s.strip_suffix('\n').unwrap_or(&s).to_string()
 }
 
 /// Run provided source expecting a compilation error.
