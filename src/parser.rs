@@ -1,4 +1,4 @@
-use crate::ast::{Expr, Spanned};
+use crate::ast::{Expr, Param, Spanned};
 use crate::lexer::Token;
 
 use chumsky::{
@@ -20,15 +20,17 @@ where
 			Token::String(s) => Expr::String(s),
 		};
 
-		// `name` (variable) vs. `name()` (call)
+		// variable vs. call
+		let args = expr
+			.clone()
+			.separated_by(just(Token::Comma))
+			.allow_trailing()
+			.collect::<Vec<_>>()
+			.delimited_by(just(Token::LParen), just(Token::RParen));
 		let var_or_call = select! { Token::Ident(name) => name }
-			.then(
-				just(Token::LParen)
-					.ignore_then(just(Token::RParen))
-					.or_not(),
-			)
-			.map(|(name, call)| match call {
-				Some(_) => Expr::Call(name),
+			.then(args.or_not())
+			.map(|(name, args)| match args {
+				Some(args) => Expr::Call { name, args },
 				None => Expr::Ident(name),
 			});
 
@@ -84,18 +86,32 @@ where
 	// a statement is an assignment or a bare expression
 	let stmt = assign.or(expr);
 
-	// `fn name() { ... }`
+	// param type is kept for the compiler to resolve
+	let param = select! { Token::Ident(name) => name }
+		.then(select! { Token::Ident(typ) => typ })
+		.map_with(|(name, typ), ex| Param {
+			name,
+			typ,
+			span: ex.span(),
+		});
+	let params = param
+		.separated_by(just(Token::Comma))
+		.allow_trailing()
+		.collect::<Vec<_>>()
+		.delimited_by(just(Token::LParen), just(Token::RParen));
+
+	// `fn name(params) ret? { ... }` — the return type is parsed but ignored for now
 	let func = just(Token::Fn)
 		.ignore_then(select! { Token::Ident(name) => name })
-		.then_ignore(just(Token::LParen))
-		.then_ignore(just(Token::RParen))
+		.then(params)
+		.then_ignore(select! { Token::Ident(_) => () }.or_not())
 		.then(
 			stmt.clone()
 				.repeated()
 				.collect::<Vec<_>>()
 				.delimited_by(just(Token::LBrace), just(Token::RBrace)),
 		)
-		.map_with(|(name, body), ex| (Expr::Fn { name, body }, ex.span()));
+		.map_with(|((name, params), body), ex| (Expr::Fn { name, params, body }, ex.span()));
 
 	func.or(stmt).repeated().collect().then_ignore(end())
 }

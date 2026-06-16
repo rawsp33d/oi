@@ -21,10 +21,14 @@ pub enum Expr {
 
 	Fn {
 		name: String,
+		params: Vec<Param>,
 		body: Vec<Spanned<Expr>>,
 	},
 
-	Call(String),
+	Call {
+		name: String,
+		args: Vec<Spanned<Expr>>,
+	},
 
 	// unary operators
 	Negative(Box<Spanned<Expr>>),
@@ -34,4 +38,13 @@ pub enum Expr {
 	Sub(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Mul(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Div(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+}
+
+// A function parameter.
+// `typ` is the declared type name.
+#[derive(Debug)]
+pub struct Param {
+	pub name: String,
+	pub typ: String,
+	pub span: Span,
 }

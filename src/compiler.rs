@@ -5,9 +5,12 @@ use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{DataDescription, FuncId, Linkage, Module};
 
-use crate::ast::{Expr, Span, Spanned};
+use crate::ast::{Expr, Param, Span, Spanned};
 use crate::diagnostics::Diagnostic;
 use crate::runtime;
+
+// A top-level named function awaiting compilation.
+type FnItem<'a> = (&'a str, &'a [Param], &'a [Spanned<Expr>]);
 
 pub struct Compiler {
 	builder_ctx: FunctionBuilderContext,
@@ -51,22 +54,35 @@ impl Compiler {
 
 		// split the top level into fn defs and loose statements
 		let mut main_body: Option<&[Spanned<Expr>]> = None;
-		let mut others: Vec<(&str, &[Spanned<Expr>])> = vec![];
+		let mut others: Vec<FnItem> = vec![];
 		let mut loose: Vec<&Spanned<Expr>> = vec![];
 		for item in program {
 			match &item.0 {
-				Expr::Fn { name, body } if name == "main" => main_body = Some(body),
-				Expr::Fn { name, body } => others.push((name.as_str(), body)),
+				Expr::Fn { name, body, .. } if name == "main" => main_body = Some(body),
+				Expr::Fn { name, params, body } => others.push((name.as_str(), params, body)),
 				_ => loose.push(item),
 			}
 		}
 
-		// compile each named fn, recording its id and return type so the rest can call it
-		let mut funcs: HashMap<String, (FuncId, Typ)> = HashMap::new();
-		for &(name, body) in &others {
+		// compile each named fn, recording its signature so the rest can call it
+		let mut funcs: HashMap<String, FnSig> = HashMap::new();
+		for &(name, params, body) in &others {
+			// resolve declared param types up front
+			let params: Vec<(String, Typ)> = params
+				.iter()
+				.map(|p| Ok((p.name.clone(), typ_from_name(&p.typ, p.span)?)))
+				.collect::<Result<_, Diagnostic>>()?;
 			let stmts: Vec<&Spanned<Expr>> = body.iter().collect();
-			let (id, typ) = self.compile_fn(int, &format!("oi_{name}"), &stmts, &funcs)?;
-			funcs.insert(name.to_string(), (id, typ));
+			let (id, ret) = self.compile_fn(int, &format!("oi_{name}"), &params, &stmts, &funcs)?;
+			let param_typs = params.iter().map(|(_, t)| *t).collect();
+			funcs.insert(
+				name.to_string(),
+				FnSig {
+					id,
+					params: param_typs,
+					ret,
+				},
+			);
 		}
 
 		// `main` is the entrypoint if present
@@ -88,7 +104,7 @@ impl Compiler {
 			None => loose,
 		};
 		// the program prints whatever it returns
-		let (entry_id, typ) = self.compile_fn(int, "oi_main", &entry, &funcs)?;
+		let (entry_id, typ) = self.compile_fn(int, "oi_main", &[], &entry, &funcs)?;
 		let id = self.compile_entry(int, entry_id, typ, &funcs);
 
 		self.module
@@ -102,10 +118,11 @@ impl Compiler {
 		&mut self,
 		int: types::Type,
 		name: &str,
+		params: &[(String, Typ)],
 		stmts: &[&Spanned<Expr>],
-		funcs: &HashMap<String, (FuncId, Typ)>,
+		funcs: &HashMap<String, FnSig>,
 	) -> Result<(FuncId, Typ), Diagnostic> {
-		let typ = self.translate(int, stmts, funcs)?;
+		let typ = self.translate(int, params, stmts, funcs)?;
 		let id = self.finish_fn(name);
 		Ok((id, typ))
 	}
@@ -116,7 +133,7 @@ impl Compiler {
 		int: types::Type,
 		entry: FuncId,
 		typ: Typ,
-		funcs: &HashMap<String, (FuncId, Typ)>,
+		funcs: &HashMap<String, FnSig>,
 	) -> FuncId {
 		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
 		let block = b.create_block();
@@ -158,11 +175,20 @@ impl Compiler {
 	fn translate(
 		&mut self,
 		int: types::Type,
+		params: &[(String, Typ)],
 		stmts: &[&Spanned<Expr>],
-		funcs: &HashMap<String, (FuncId, Typ)>,
+		funcs: &HashMap<String, FnSig>,
 	) -> Result<Typ, Diagnostic> {
 		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
+		// declare the parameter types before the entry block claims them
+		for (_, typ) in params {
+			b.func
+				.signature
+				.params
+				.push(AbiParam::new(cl_type(*typ, int)));
+		}
 		let block = b.create_block();
+		b.append_block_params_for_function_params(block);
 		b.switch_to_block(block);
 		b.seal_block(block);
 
@@ -174,6 +200,15 @@ impl Compiler {
 			funcs,
 			string_idx: &mut self.string_idx,
 		};
+
+		// bind each parameter to a variable holding its incoming block param
+		let param_vals: Vec<Value> = trans.b.block_params(block).to_vec();
+		for ((name, typ), val) in params.iter().zip(param_vals) {
+			let cl = trans.b.func.dfg.value_type(val);
+			let var = trans.b.declare_var(cl);
+			trans.b.def_var(var, val);
+			trans.vars.insert(name.clone(), (var, *typ));
+		}
 
 		let mut last = (trans.b.ins().iconst(int, 0), Typ::Int);
 		for &stmt in stmts {
@@ -198,8 +233,12 @@ impl Compiler {
 
 		// the return type of a fn matches its final value
 		let (val, typ) = last;
-		let cl = if typ == Typ::Float { types::F64 } else { int };
-		trans.b.func.signature.returns.push(AbiParam::new(cl));
+		trans
+			.b
+			.func
+			.signature
+			.returns
+			.push(AbiParam::new(cl_type(typ, int)));
 		trans.b.ins().return_(&[val]);
 		trans.b.finalize();
 		Ok(typ)
@@ -224,12 +263,42 @@ enum Typ {
 	Str,
 }
 
+/// The cranelift type backing an Oi type.
+/// Floats are f64, everything else is pointer-sized.
+fn cl_type(typ: Typ, int: types::Type) -> types::Type {
+	if typ == Typ::Float { types::F64 } else { int }
+}
+
+/// Resolve a declared type name to an Oi type.
+fn typ_from_name(name: &str, span: Span) -> Result<Typ, Diagnostic> {
+	Ok(match name {
+		"int" => Typ::Int,
+		"f64" | "float" => Typ::Float,
+		"bool" => Typ::Bool,
+		"string" | "str" => Typ::Str,
+		_ => {
+			return Err(
+				Diagnostic::new(format!("unknown type `{name}`"), span.into_range())
+					.with_label("not a known type"),
+			);
+		}
+	})
+}
+
+/// A compiled function's calling info.
+#[derive(Clone)]
+struct FnSig {
+	id: FuncId,
+	params: Vec<Typ>,
+	ret: Typ,
+}
+
 struct Translator<'a> {
 	int: types::Type,
 	b: FunctionBuilder<'a>,
 	vars: HashMap<String, (Variable, Typ)>,
 	module: &'a mut JITModule,
-	funcs: &'a HashMap<String, (FuncId, Typ)>,
+	funcs: &'a HashMap<String, FnSig>,
 	string_idx: &'a mut usize,
 }
 
@@ -285,14 +354,38 @@ impl<'a> Translator<'a> {
 			Expr::Mul(l, r) => self.binop(Op::Mul, l, r, expr.1),
 			Expr::Div(l, r) => self.binop(Op::Div, l, r, expr.1),
 
-			Expr::Call(name) => {
-				let (id, typ) = self.funcs.get(name).copied().ok_or_else(|| {
+			Expr::Call { name, args } => {
+				let sig = self.funcs.get(name).cloned().ok_or_else(|| {
 					Diagnostic::new(format!("undefined function `{name}`"), expr.1.into_range())
 						.with_label("not defined")
 				})?;
-				let func = self.module.declare_func_in_func(id, self.b.func);
-				let call = self.b.ins().call(func, &[]);
-				Ok((self.b.inst_results(call)[0], typ))
+				if args.len() != sig.params.len() {
+					return Err(Diagnostic::new(
+						format!(
+							"`{name}` expects {} argument(s), got {}",
+							sig.params.len(),
+							args.len()
+						),
+						expr.1.into_range(),
+					)
+					.with_label("wrong number of arguments"));
+				}
+				// evaluate each argument, checking it against the declared parameter type
+				let mut vals = Vec::with_capacity(args.len());
+				for (arg, &expected) in args.iter().zip(&sig.params) {
+					let (val, typ) = self.expr(arg)?;
+					if typ != expected {
+						return Err(Diagnostic::new(
+							format!("expected {expected:?} argument, got {typ:?}"),
+							arg.1.into_range(),
+						)
+						.with_label("wrong argument type"));
+					}
+					vals.push(val);
+				}
+				let func = self.module.declare_func_in_func(sig.id, self.b.func);
+				let call = self.b.ins().call(func, &vals);
+				Ok((self.b.inst_results(call)[0], sig.ret))
 			}
 
 			Expr::Assign { .. } => unreachable!("assign in expression position"),

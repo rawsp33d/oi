@@ -43,6 +43,7 @@ pub enum Token {
 	#[token("/")]
 	Slash,
 
+	// delimiters
 	#[token("(")]
 	LParen,
 	#[token(")")]
@@ -51,16 +52,15 @@ pub enum Token {
 	LBrace,
 	#[token("}")]
 	RBrace,
-
-	// skipped
+	#[token(",")]
+	Comma,
+	// statement separator (for joining lines)
+	#[token(";", logos::skip)]
+	Semicolon,
 
 	// comments
 	#[regex(r"#.*", logos::skip, allow_greedy = true)]
 	Comment,
-
-	// statement separator (for joining lines)
-	#[token(";", logos::skip)]
-	Semicolon,
 }
 
 impl fmt::Display for Token {
@@ -84,6 +84,7 @@ impl fmt::Display for Token {
 			Token::RParen => write!(f, ")"),
 			Token::LBrace => write!(f, "{{"),
 			Token::RBrace => write!(f, "}}"),
+			Token::Comma => write!(f, ","),
 			Token::Semicolon => write!(f, ";"),
 		}
 	}
