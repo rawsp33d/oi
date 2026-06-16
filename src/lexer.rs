@@ -8,11 +8,8 @@ pub enum Operator {}
 #[derive(Logos, Clone, PartialEq, Debug)]
 #[logos(skip r"[ \t\r\n\f]+")]
 pub enum Token {
-	// An unrecognized lexeme, kept as a token so lexing never fails and the parser reports it.
+	// an unrecognized lexeme, kept as a token so lexing never fails and the parser reports it
 	Error(String),
-
-	#[regex(r"#.*", logos::skip, allow_greedy = true)]
-	Comment,
 
 	// literals
 	#[regex(r"(true|false)", |lex| lex.slice().parse().ok())]
@@ -54,6 +51,16 @@ pub enum Token {
 	LBrace,
 	#[token("}")]
 	RBrace,
+
+	// skipped
+
+	// comments
+	#[regex(r"#.*", logos::skip, allow_greedy = true)]
+	Comment,
+
+	// statement separator (for joining lines)
+	#[token(";", logos::skip)]
+	Semicolon,
 }
 
 impl fmt::Display for Token {
@@ -77,6 +84,7 @@ impl fmt::Display for Token {
 			Token::RParen => write!(f, ")"),
 			Token::LBrace => write!(f, "{{"),
 			Token::RBrace => write!(f, "}}"),
+			Token::Semicolon => write!(f, ";"),
 		}
 	}
 }
