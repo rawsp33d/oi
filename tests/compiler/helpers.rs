@@ -6,7 +6,7 @@ pub(crate) use indoc::indoc;
 
 static ID: AtomicUsize = AtomicUsize::new(0);
 
-/// Run provided Oi source.
+/// Run provided source.
 pub(crate) fn run(src: &str) -> String {
 	let n = ID.fetch_add(1, Ordering::Relaxed);
 	let path = std::env::temp_dir().join(format!("oi_test_{n}.oi"));
@@ -16,7 +16,7 @@ pub(crate) fn run(src: &str) -> String {
 	out
 }
 
-/// Run provided Oi file.
+/// Run provided file.
 #[allow(dead_code)]
 pub(crate) fn run_file(name: &str) -> String {
 	let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -40,7 +40,25 @@ fn exec(path: &Path) -> String {
 	s.strip_suffix('\n').unwrap_or(&s).to_string()
 }
 
-/// Check that provide Oi source produces the expected result.
+/// Run provided source expecting a compilation error.
+pub(crate) fn fail(src: &str) -> String {
+	let n = ID.fetch_add(1, Ordering::Relaxed);
+	let path = std::env::temp_dir().join(format!("oi_test_{n}.oi"));
+	std::fs::write(&path, src).unwrap();
+	let out = Command::new(env!("CARGO_BIN_EXE_oi"))
+		.arg(&path)
+		.output()
+		.unwrap();
+	std::fs::remove_file(&path).ok();
+	assert!(
+		!out.status.success(),
+		"expected failure but compiler succeeded\nsrc:\n{src}\nstdout:\n{}",
+		String::from_utf8_lossy(&out.stdout)
+	);
+	String::from_utf8_lossy(&out.stderr).into_owned()
+}
+
+/// Run provided source expecting a given result.
 pub(crate) fn check(src: &str, expected: &str) {
 	assert_eq!(run(src), expected, "\nsrc:\n{src}");
 }
