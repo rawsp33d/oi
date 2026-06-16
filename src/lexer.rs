@@ -1,5 +1,6 @@
 use std::fmt;
 
+use chumsky::span::SimpleSpan;
 use logos::Logos;
 
 pub enum Operator {}
@@ -7,6 +8,9 @@ pub enum Operator {}
 #[derive(Logos, Clone, PartialEq, Debug)]
 #[logos(skip r"[ \t\r\n\f]+")]
 pub enum Token {
+	// An unrecognized lexeme, kept as a token so lexing never fails and the parser reports it.
+	Error,
+
 	#[regex(r"#.*", logos::skip, allow_greedy = true)]
 	Comment,
 
@@ -55,6 +59,7 @@ pub enum Token {
 impl fmt::Display for Token {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
+			Token::Error => write!(f, "invalid token"),
 			Token::Comment => write!(f, "comment"),
 			Token::Bool(b) => write!(f, "{b}"),
 			Token::Int(n) => write!(f, "{n}"),
@@ -74,4 +79,16 @@ impl fmt::Display for Token {
 			Token::RBrace => write!(f, "}}"),
 		}
 	}
+}
+
+// Lex `src`.
+// Convert errors into tokens so parsing stays recoverable.
+pub fn lex(src: &str) -> Vec<(Token, SimpleSpan)> {
+	Token::lexer(src)
+		.spanned()
+		.map(|(token, span)| match token {
+			Ok(token) => (token, span.into()),
+			Err(()) => (Token::Error, span.into()),
+		})
+		.collect()
 }

@@ -1,3 +1,9 @@
+use chumsky::span::SimpleSpan;
+
+// A value paired with the span it came from.
+pub type Span = SimpleSpan;
+pub type Spanned<T> = (T, Span);
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum Expr {
@@ -10,22 +16,22 @@ pub enum Expr {
 	Assign {
 		mutable: bool,
 		name: String,
-		value: Box<Expr>,
+		value: Box<Spanned<Expr>>,
 	},
 
 	Fn {
 		name: String,
-		body: Vec<Expr>,
+		body: Vec<Spanned<Expr>>,
 	},
 
 	Call(String),
 
 	// unary operators
-	Negative(Box<Expr>),
+	Negative(Box<Spanned<Expr>>),
 
 	// binary operators
-	Add(Box<Expr>, Box<Expr>),
-	Sub(Box<Expr>, Box<Expr>),
-	Mul(Box<Expr>, Box<Expr>),
-	Div(Box<Expr>, Box<Expr>),
+	Add(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+	Sub(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+	Mul(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+	Div(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 }

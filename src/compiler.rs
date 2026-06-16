@@ -5,7 +5,8 @@ use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{DataDescription, FuncId, Linkage, Module};
 
-use crate::ast::Expr;
+use crate::ast::{Expr, Span, Spanned};
+use crate::diagnostics::Diagnostic;
 use crate::runtime;
 
 pub struct Compiler {
@@ -45,35 +46,42 @@ impl Default for Compiler {
 }
 
 impl Compiler {
-	pub fn compile(&mut self, program: &[Expr]) -> Result<*const u8, String> {
+	pub fn compile(&mut self, program: &[Spanned<Expr>]) -> Result<*const u8, Diagnostic> {
 		let int = self.module.target_config().pointer_type();
 
 		// split the top level into fn defs and loose statements
-		let mut main_body: Option<&[Expr]> = None;
-		let mut others: Vec<(&str, &[Expr])> = vec![];
-		let mut loose: Vec<&Expr> = vec![];
+		let mut main_body: Option<&[Spanned<Expr>]> = None;
+		let mut others: Vec<(&str, &[Spanned<Expr>])> = vec![];
+		let mut loose: Vec<&Spanned<Expr>> = vec![];
 		for item in program {
-			match item {
+			match &item.0 {
 				Expr::Fn { name, body } if name == "main" => main_body = Some(body),
 				Expr::Fn { name, body } => others.push((name.as_str(), body)),
-				other => loose.push(other),
+				_ => loose.push(item),
 			}
 		}
 
 		// compile each named fn, recording its id and return type so the rest can call it
 		let mut funcs: HashMap<String, (FuncId, Typ)> = HashMap::new();
 		for &(name, body) in &others {
-			let stmts: Vec<&Expr> = body.iter().collect();
+			let stmts: Vec<&Spanned<Expr>> = body.iter().collect();
 			let (id, typ) = self.compile_fn(int, &format!("oi_{name}"), &stmts, &funcs)?;
 			funcs.insert(name.to_string(), (id, typ));
 		}
 
 		// `main` is the entrypoint if present
 		// otherwise the loose statements run as if wrapped in an implicit `main`
-		let entry: Vec<&Expr> = match main_body {
+		let entry: Vec<&Spanned<Expr>> = match main_body {
 			Some(body) => {
-				if !loose.is_empty() {
-					return Err("top-level statements are not allowed alongside `fn main`".into());
+				if let Some(first) = loose.first() {
+					return Err(Diagnostic::new(
+						"top-level statements are not allowed alongside `fn main`",
+						first.1.into_range(),
+					)
+					.with_label("move this inside a function")
+					.with_note(
+						"`fn main` is the entrypoint, so loose statements have nowhere to run",
+					));
 				}
 				body.iter().collect()
 			}
@@ -81,9 +89,11 @@ impl Compiler {
 		};
 		// the program prints whatever it returns
 		let (entry_id, typ) = self.compile_fn(int, "oi_main", &entry, &funcs)?;
-		let id = self.compile_entry(int, entry_id, typ, &funcs)?;
+		let id = self.compile_entry(int, entry_id, typ, &funcs);
 
-		self.module.finalize_definitions().unwrap();
+		self.module
+			.finalize_definitions()
+			.expect("finalize definitions");
 		Ok(self.module.get_finalized_function(id))
 	}
 
@@ -92,11 +102,11 @@ impl Compiler {
 		&mut self,
 		int: types::Type,
 		name: &str,
-		stmts: &[&Expr],
+		stmts: &[&Spanned<Expr>],
 		funcs: &HashMap<String, (FuncId, Typ)>,
-	) -> Result<(FuncId, Typ), String> {
-		let typ = self.translate(int, stmts, funcs);
-		let id = self.finish_fn(name)?;
+	) -> Result<(FuncId, Typ), Diagnostic> {
+		let typ = self.translate(int, stmts, funcs)?;
+		let id = self.finish_fn(name);
 		Ok((id, typ))
 	}
 
@@ -107,7 +117,7 @@ impl Compiler {
 		entry: FuncId,
 		typ: Typ,
 		funcs: &HashMap<String, (FuncId, Typ)>,
-	) -> Result<FuncId, String> {
+	) -> FuncId {
 		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
 		let block = b.create_block();
 		b.switch_to_block(block);
@@ -133,24 +143,24 @@ impl Compiler {
 	}
 
 	// Declare and define whatever is in the current ctx, then reset it.
-	fn finish_fn(&mut self, name: &str) -> Result<FuncId, String> {
+	fn finish_fn(&mut self, name: &str) -> FuncId {
 		let id = self
 			.module
 			.declare_function(name, Linkage::Local, &self.ctx.func.signature)
-			.map_err(|e| e.to_string())?;
+			.expect("declare function");
 		self.module
 			.define_function(id, &mut self.ctx)
-			.map_err(|e| e.to_string())?;
+			.expect("define function");
 		self.module.clear_context(&mut self.ctx);
-		Ok(id)
+		id
 	}
 
 	fn translate(
 		&mut self,
 		int: types::Type,
-		stmts: &[&Expr],
+		stmts: &[&Spanned<Expr>],
 		funcs: &HashMap<String, (FuncId, Typ)>,
-	) -> Typ {
+	) -> Result<Typ, Diagnostic> {
 		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
 		let block = b.create_block();
 		b.switch_to_block(block);
@@ -167,9 +177,9 @@ impl Compiler {
 
 		let mut last = (trans.b.ins().iconst(int, 0), Typ::Int);
 		for &stmt in stmts {
-			match stmt {
+			match &stmt.0 {
 				Expr::Assign { name, value, .. } => {
-					let (val, typ) = trans.expr(value);
+					let (val, typ) = trans.expr(value)?;
 					// a variable takes the type of its first assigned value
 					let var = match trans.vars.get(name) {
 						Some(&(var, _)) => var,
@@ -182,7 +192,7 @@ impl Compiler {
 					};
 					trans.b.def_var(var, val);
 				}
-				e => last = trans.expr(e),
+				_ => last = trans.expr(stmt)?,
 			}
 		}
 
@@ -192,7 +202,7 @@ impl Compiler {
 		trans.b.func.signature.returns.push(AbiParam::new(cl));
 		trans.b.ins().return_(&[val]);
 		trans.b.finalize();
-		typ
+		Ok(typ)
 	}
 }
 
@@ -224,11 +234,11 @@ struct Translator<'a> {
 }
 
 impl<'a> Translator<'a> {
-	fn expr(&mut self, expr: &Expr) -> (Value, Typ) {
-		match expr {
-			Expr::Int(n) => (self.b.ins().iconst(self.int, *n as i64), Typ::Int),
-			Expr::Bool(v) => (self.b.ins().iconst(self.int, *v as i64), Typ::Bool),
-			Expr::Float(x) => (self.b.ins().f64const(*x), Typ::Float),
+	fn expr(&mut self, expr: &Spanned<Expr>) -> Result<(Value, Typ), Diagnostic> {
+		match &expr.0 {
+			Expr::Int(n) => Ok((self.b.ins().iconst(self.int, *n as i64), Typ::Int)),
+			Expr::Bool(v) => Ok((self.b.ins().iconst(self.int, *v as i64), Typ::Bool)),
+			Expr::Float(x) => Ok((self.b.ins().f64const(*x), Typ::Float)),
 
 			Expr::String(s) => {
 				let mut bytes = s.as_bytes().to_vec();
@@ -242,41 +252,47 @@ impl<'a> Translator<'a> {
 				let mut desc = DataDescription::new();
 				desc.define(bytes.into_boxed_slice());
 				self.module.define_data(id, &desc).unwrap();
-				let gv = self.module.declare_data_in_func(id, &mut self.b.func);
-				(self.b.ins().symbol_value(self.int, gv), Typ::Str)
+				let gv = self.module.declare_data_in_func(id, self.b.func);
+				Ok((self.b.ins().symbol_value(self.int, gv), Typ::Str))
 			}
 
 			Expr::Ident(name) => {
-				let (var, typ) = *self
-					.vars
-					.get(name)
-					.unwrap_or_else(|| panic!("undefined: {name}"));
-				(self.b.use_var(var), typ)
+				let (var, typ) = self.vars.get(name).copied().ok_or_else(|| {
+					Diagnostic::new(format!("undefined variable `{name}`"), expr.1.into_range())
+						.with_label("not found in scope")
+				})?;
+				Ok((self.b.use_var(var), typ))
 			}
 
 			Expr::Negative(e) => {
-				let (v, typ) = self.expr(e);
+				let (v, typ) = self.expr(e)?;
 				let out = match typ {
 					Typ::Int => self.b.ins().ineg(v),
 					Typ::Float => self.b.ins().fneg(v),
-					_ => panic!("cannot negate {typ:?}"),
+					_ => {
+						return Err(Diagnostic::new(
+							format!("cannot negate {typ:?}"),
+							expr.1.into_range(),
+						)
+						.with_label(format!("this is {typ:?}")));
+					}
 				};
-				(out, typ)
+				Ok((out, typ))
 			}
 
-			Expr::Add(l, r) => self.binop(Op::Add, l, r),
-			Expr::Sub(l, r) => self.binop(Op::Sub, l, r),
-			Expr::Mul(l, r) => self.binop(Op::Mul, l, r),
-			Expr::Div(l, r) => self.binop(Op::Div, l, r),
+			Expr::Add(l, r) => self.binop(Op::Add, l, r, expr.1),
+			Expr::Sub(l, r) => self.binop(Op::Sub, l, r, expr.1),
+			Expr::Mul(l, r) => self.binop(Op::Mul, l, r, expr.1),
+			Expr::Div(l, r) => self.binop(Op::Div, l, r, expr.1),
 
 			Expr::Call(name) => {
-				let (id, typ) = *self
-					.funcs
-					.get(name)
-					.unwrap_or_else(|| panic!("undefined fn: {name}"));
+				let (id, typ) = self.funcs.get(name).copied().ok_or_else(|| {
+					Diagnostic::new(format!("undefined function `{name}`"), expr.1.into_range())
+						.with_label("not defined")
+				})?;
 				let func = self.module.declare_func_in_func(id, self.b.func);
 				let call = self.b.ins().call(func, &[]);
-				(self.b.inst_results(call)[0], typ)
+				Ok((self.b.inst_results(call)[0], typ))
 			}
 
 			Expr::Assign { .. } => unreachable!("assign in expression position"),
@@ -285,13 +301,19 @@ impl<'a> Translator<'a> {
 	}
 
 	// Add binary op instruction.
-	fn binop(&mut self, op: Op, l: &Expr, r: &Expr) -> (Value, Typ) {
-		let (lv, lt) = self.expr(l);
-		let (rv, rt) = self.expr(r);
+	fn binop(
+		&mut self,
+		op: Op,
+		l: &Spanned<Expr>,
+		r: &Spanned<Expr>,
+		span: Span,
+	) -> Result<(Value, Typ), Diagnostic> {
+		let (lv, lt) = self.expr(l)?;
+		let (rv, rt) = self.expr(r)?;
 
 		// string concatenation
 		if let (Op::Add, Typ::Str, Typ::Str) = (op, lt, rt) {
-			return (self.call_concat(lv, rv), Typ::Str);
+			return Ok((self.call_concat(lv, rv), Typ::Str));
 		}
 
 		// no int/float mixing for now
@@ -299,7 +321,13 @@ impl<'a> Translator<'a> {
 		let float = match (lt, rt) {
 			(Typ::Int, Typ::Int) => false,
 			(Typ::Float, Typ::Float) => true,
-			_ => panic!("cannot {op:?} {lt:?} and {rt:?}"),
+			_ => {
+				return Err(Diagnostic::new(
+					format!("cannot {op:?} {lt:?} and {rt:?}"),
+					span.into_range(),
+				)
+				.with_label("operands have mismatched types"));
+			}
 		};
 		let b = self.b.ins();
 		let out = match (op, float) {
@@ -312,7 +340,7 @@ impl<'a> Translator<'a> {
 			(Op::Div, true) => b.fdiv(lv, rv),
 			(Op::Div, false) => b.sdiv(lv, rv),
 		};
-		(out, if float { Typ::Float } else { Typ::Int })
+		Ok((out, if float { Typ::Float } else { Typ::Int }))
 	}
 
 	// Call the runtime string concat.

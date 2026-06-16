@@ -1,4 +1,4 @@
-use crate::ast::Expr;
+use crate::ast::{Expr, Spanned};
 use crate::lexer::Token;
 
 use chumsky::{
@@ -7,7 +7,8 @@ use chumsky::{
 	prelude::*,
 };
 
-pub fn parser<'token, I>() -> impl Parser<'token, I, Vec<Expr>, extra::Err<Rich<'token, Token>>>
+pub fn parser<'token, I>()
+-> impl Parser<'token, I, Vec<Spanned<Expr>>, extra::Err<Rich<'token, Token>>>
 where
 	I: ValueInput<'token, Token = Token, Span = SimpleSpan>,
 {
@@ -31,25 +32,26 @@ where
 				None => Expr::Ident(name),
 			});
 
-		let atom = literal
-			.or(var_or_call)
-			.or(expr.delimited_by(just(Token::LParen), just(Token::RParen)));
+		// leaf atoms pair themselves with their span
+		let leaf = literal.or(var_or_call).map_with(|e, ex| (e, ex.span()));
+
+		let atom = leaf.or(expr.delimited_by(just(Token::LParen), just(Token::RParen)));
 
 		atom.pratt((
-			prefix(3, just(Token::Minus), |_, rhs, _| {
-				Expr::Negative(Box::new(rhs))
+			prefix(3, just(Token::Minus), |_, rhs, ex| {
+				(Expr::Negative(Box::new(rhs)), ex.span())
 			}),
-			infix(left(2), just(Token::Asterisk), |l, _, r, _| {
-				Expr::Mul(Box::new(l), Box::new(r))
+			infix(left(2), just(Token::Asterisk), |l, _, r, ex| {
+				(Expr::Mul(Box::new(l), Box::new(r)), ex.span())
 			}),
-			infix(left(2), just(Token::Slash), |l, _, r, _| {
-				Expr::Div(Box::new(l), Box::new(r))
+			infix(left(2), just(Token::Slash), |l, _, r, ex| {
+				(Expr::Div(Box::new(l), Box::new(r)), ex.span())
 			}),
-			infix(left(1), just(Token::Plus), |l, _, r, _| {
-				Expr::Add(Box::new(l), Box::new(r))
+			infix(left(1), just(Token::Plus), |l, _, r, ex| {
+				(Expr::Add(Box::new(l), Box::new(r)), ex.span())
 			}),
-			infix(left(1), just(Token::Minus), |l, _, r, _| {
-				Expr::Sub(Box::new(l), Box::new(r))
+			infix(left(1), just(Token::Minus), |l, _, r, ex| {
+				(Expr::Sub(Box::new(l), Box::new(r)), ex.span())
 			}),
 		))
 	});
@@ -61,10 +63,15 @@ where
 		})
 		.then_ignore(just(Token::Assign))
 		.then(expr.clone())
-		.map(|((mutable, name), value)| Expr::Assign {
-			mutable: mutable.is_some(),
-			name,
-			value: Box::new(value),
+		.map_with(|((mutable, name), value), ex| {
+			(
+				Expr::Assign {
+					mutable: mutable.is_some(),
+					name,
+					value: Box::new(value),
+				},
+				ex.span(),
+			)
 		});
 
 	// a statement is an assignment or a bare expression
@@ -81,7 +88,7 @@ where
 				.collect::<Vec<_>>()
 				.delimited_by(just(Token::LBrace), just(Token::RBrace)),
 		)
-		.map(|(name, body)| Expr::Fn { name, body });
+		.map_with(|(name, body), ex| (Expr::Fn { name, body }, ex.span()));
 
 	func.or(stmt).repeated().collect().then_ignore(end())
 }
