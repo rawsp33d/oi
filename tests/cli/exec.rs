@@ -30,17 +30,6 @@ fn stdin_arithmetic() {
 }
 
 #[test]
-fn debug_ast_goes_to_stderr() {
-	let out = oi(&["exec", "1 + 1", "--debug-ast"], None);
-	assert!(out.status.success());
-	assert_eq!(String::from_utf8(out.stdout).unwrap().trim(), "2");
-	assert!(
-		String::from_utf8_lossy(&out.stderr).contains("Add"),
-		"expected the AST dump on stderr"
-	);
-}
-
-#[test]
 fn error_names_exec_source() {
 	let out = oi(&["exec", "2 +"], None);
 	assert!(!out.status.success());

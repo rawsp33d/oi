@@ -4,7 +4,7 @@ use oi::Reported;
 use oi::driver::run_source;
 
 /// Compile and run source passed as an argument, or read from stdin.
-pub fn run(source: Option<String>, debug_ast: bool) -> Result<(), Reported> {
+pub fn run(source: Option<String>) -> Result<(), Reported> {
 	let (name, src) = match source {
 		Some(src) => ("<exec>", src),
 		None => {
@@ -16,5 +16,5 @@ pub fn run(source: Option<String>, debug_ast: bool) -> Result<(), Reported> {
 			("<stdin>", src)
 		}
 	};
-	run_source(name, &src, debug_ast)
+	run_source(name, &src, false)
 }

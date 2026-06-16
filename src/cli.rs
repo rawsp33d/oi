@@ -28,9 +28,5 @@ pub enum Command {
 		/// Source to run. If omitted, read from stdin.
 		#[arg(allow_hyphen_values = true)]
 		source: Option<String>,
-
-		/// Dump the parsed AST to stderr.
-		#[arg(long)]
-		debug_ast: bool,
 	},
 }

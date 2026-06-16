@@ -9,6 +9,6 @@ use crate::cli::Command;
 pub fn dispatch(command: Command) -> Result<(), Reported> {
 	match command {
 		Command::Run { file, debug_ast } => run::run(&file, debug_ast),
-		Command::Exec { source, debug_ast } => exec::run(source, debug_ast),
+		Command::Exec { source } => exec::run(source),
 	}
 }
