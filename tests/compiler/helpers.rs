@@ -9,6 +9,7 @@ static ID: AtomicUsize = AtomicUsize::new(0);
 /// Run compiler.
 fn exec(path: &Path) -> String {
 	let out = Command::new(env!("CARGO_BIN_EXE_oi"))
+		.arg("run")
 		.arg(path)
 		.output()
 		.unwrap();
@@ -46,6 +47,7 @@ pub(crate) fn fail(src: &str) -> String {
 	let path = std::env::temp_dir().join(format!("oi_test_{n}.oi"));
 	std::fs::write(&path, src).unwrap();
 	let out = Command::new(env!("CARGO_BIN_EXE_oi"))
+		.arg("run")
 		.arg(&path)
 		.output()
 		.unwrap();

@@ -1,30 +1,33 @@
 mod ast;
+mod cli;
 mod compiler;
 mod diagnostics;
 mod lexer;
 mod parser;
 mod runtime;
 
+use std::path::Path;
+
+use crate::cli::{Cli, Command};
 use crate::diagnostics::Diagnostic;
 use crate::lexer::lex;
 use crate::parser::parser;
 
 use chumsky::{input::Stream, prelude::*};
+use clap::Parser as _;
 
 fn main() {
-	let mut file = None;
-	let mut debug_ast = false;
-
-	for arg in std::env::args().skip(1) {
-		match arg.as_str() {
-			"--debug-ast" => debug_ast = true,
-			_ => file = Some(arg),
-		}
+	let cli = Cli::parse();
+	match cli.command {
+		Command::Run { file, debug_ast } => run(&file, debug_ast),
 	}
+}
 
-	let file = file.unwrap_or_else(|| "examples/main.oi".into());
-	let src = std::fs::read_to_string(&file).unwrap_or_else(|e| {
-		eprintln!("oi: cannot read {file}: {e}");
+/// Compile and run a file.
+fn run(file: &Path, debug_ast: bool) {
+	let name = file.display().to_string();
+	let src = std::fs::read_to_string(file).unwrap_or_else(|e| {
+		eprintln!("oi: cannot read {}: {e}", file.display());
 		std::process::exit(1);
 	});
 
@@ -37,7 +40,7 @@ fn main() {
 		.into_result()
 		.unwrap_or_else(|errors| {
 			for e in &errors {
-				Diagnostic::from_rich(e).report(&file, &src);
+				Diagnostic::from_rich(e).report(&name, &src);
 			}
 			std::process::exit(1);
 		});
@@ -50,7 +53,7 @@ fn main() {
 	let mut compiler = compiler::Compiler::default();
 	let code = compiler.compile(&ast).unwrap_or_else(|error| {
 		// report errors
-		error.report(&file, &src);
+		error.report(&name, &src);
 		std::process::exit(1);
 	});
 
