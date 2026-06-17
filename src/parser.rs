@@ -83,8 +83,13 @@ where
 			)
 		});
 
-	// a statement is an assignment or a bare expression
-	let stmt = assign.or(expr);
+	// `return expr` or a bare `return`
+	let ret_stmt = just(Token::Return)
+		.ignore_then(expr.clone().or_not())
+		.map_with(|value, ex| (Expr::Return(value.map(Box::new)), ex.span()));
+
+	// a statement is a return, an assignment, or an expression
+	let stmt = ret_stmt.or(assign).or(expr);
 
 	// param type is kept for the compiler to resolve
 	let param = select! { Token::Ident(name) => name }

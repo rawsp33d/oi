@@ -245,6 +245,20 @@ impl Compiler {
 					};
 					trans.b.def_var(var, val);
 				}
+
+				Expr::Return(value) => {
+					last = match value {
+						Some(e) => trans.expr(e)?,
+						// a bare `return` yields the zero value of the return type
+						None => {
+							let typ = ret.map_or(Typ::Int, |(t, _)| t);
+							(trans.zero(typ), typ)
+						}
+					};
+					last_span = Some(stmt.1);
+					break;
+				}
+
 				_ => {
 					last = trans.expr(stmt)?;
 					last_span = Some(stmt.1);
@@ -294,13 +308,13 @@ enum Typ {
 	Str,
 }
 
-/// The cranelift type backing an Oi type.
-/// Floats are f64, everything else is pointer-sized.
+// The cranelift type backing an Oi type.
+// Floats are f64, everything else is pointer-sized.
 fn cl_type(typ: Typ, int: types::Type) -> types::Type {
 	if typ == Typ::Float { types::F64 } else { int }
 }
 
-/// Resolve a declared type name to an Oi type.
+// Resolve a declared type name to an Oi type.
 fn typ_from_name(name: &str, span: Span) -> Result<Typ, Diagnostic> {
 	Ok(match name {
 		"int" => Typ::Int,
@@ -316,7 +330,7 @@ fn typ_from_name(name: &str, span: Span) -> Result<Typ, Diagnostic> {
 	})
 }
 
-/// A compiled function's calling info.
+// A compiled function's calling info.
 #[derive(Clone)]
 struct FnSig {
 	id: FuncId,
@@ -339,22 +353,7 @@ impl<'a> Translator<'a> {
 			Expr::Int(n) => Ok((self.b.ins().iconst(self.int, *n as i64), Typ::Int)),
 			Expr::Bool(v) => Ok((self.b.ins().iconst(self.int, *v as i64), Typ::Bool)),
 			Expr::Float(x) => Ok((self.b.ins().f64const(*x), Typ::Float)),
-
-			Expr::String(s) => {
-				let mut bytes = s.as_bytes().to_vec();
-				bytes.push(0);
-				let name = format!("__str_{}", *self.string_idx);
-				*self.string_idx += 1;
-				let id = self
-					.module
-					.declare_data(&name, Linkage::Local, false, false)
-					.unwrap();
-				let mut desc = DataDescription::new();
-				desc.define(bytes.into_boxed_slice());
-				self.module.define_data(id, &desc).unwrap();
-				let gv = self.module.declare_data_in_func(id, self.b.func);
-				Ok((self.b.ins().symbol_value(self.int, gv), Typ::Str))
-			}
+			Expr::String(s) => Ok((self.str_const(s), Typ::Str)),
 
 			Expr::Ident(name) => {
 				let (var, typ) = self.vars.get(name).copied().ok_or_else(|| {
@@ -421,6 +420,33 @@ impl<'a> Translator<'a> {
 
 			Expr::Assign { .. } => unreachable!("assign in expression position"),
 			Expr::Fn { .. } => unreachable!("fn definition in expression position"),
+			Expr::Return(..) => unreachable!("return in expression position"),
+		}
+	}
+
+	// Emit a 0-terminated string constant and return a pointer to it.
+	fn str_const(&mut self, s: &str) -> Value {
+		let mut bytes = s.as_bytes().to_vec();
+		bytes.push(0);
+		let name = format!("__str_{}", *self.string_idx);
+		*self.string_idx += 1;
+		let id = self
+			.module
+			.declare_data(&name, Linkage::Local, false, false)
+			.unwrap();
+		let mut desc = DataDescription::new();
+		desc.define(bytes.into_boxed_slice());
+		self.module.define_data(id, &desc).unwrap();
+		let gv = self.module.declare_data_in_func(id, self.b.func);
+		self.b.ins().symbol_value(self.int, gv)
+	}
+
+	// The zero value for an Oi type.
+	fn zero(&mut self, typ: Typ) -> Value {
+		match typ {
+			Typ::Float => self.b.ins().f64const(0.0),
+			Typ::Str => self.str_const(""),
+			Typ::Int | Typ::Bool => self.b.ins().iconst(self.int, 0),
 		}
 	}
 

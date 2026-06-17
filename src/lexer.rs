@@ -24,6 +24,8 @@ pub enum Token {
 	// keywords
 	#[token("fn")]
 	Fn,
+	#[token("return")]
+	Return,
 
 	// identifiers
 	#[token("mut")]
@@ -73,6 +75,7 @@ impl fmt::Display for Token {
 			Token::Float(x) => write!(f, "{x}"),
 			Token::String(s) => write!(f, "\"{s}\""),
 			Token::Fn => write!(f, "fn"),
+			Token::Return => write!(f, "return"),
 			Token::Mut => write!(f, "mut"),
 			Token::Ident(name) => write!(f, "{name}"),
 			Token::Assign => write!(f, ":="),

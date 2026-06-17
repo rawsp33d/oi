@@ -31,6 +31,8 @@ pub enum Expr {
 		args: Vec<Spanned<Expr>>,
 	},
 
+	Return(Option<Box<Spanned<Expr>>>),
+
 	// unary operators
 	Negative(Box<Spanned<Expr>>),
 
