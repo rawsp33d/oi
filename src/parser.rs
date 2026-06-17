@@ -67,7 +67,7 @@ where
 
 		atom.pratt((
 			// fields
-			postfix(6, just(Token::Dot).ignore_then(field), |lhs, field, ex| {
+			postfix(8, just(Token::Dot).ignore_then(field), |lhs, field, ex| {
 				(
 					Expr::Field {
 						tuple: Box::new(lhs),
@@ -77,42 +77,52 @@ where
 				)
 			}),
 			// unary
-			prefix(5, just(Token::Minus), |_, rhs, ex| {
+			prefix(7, just(Token::Minus), |_, rhs, ex| {
 				(Expr::Negative(Box::new(rhs)), ex.span())
 			}),
+			prefix(7, just(Token::Not), |_, rhs, ex| {
+				(Expr::Not(Box::new(rhs)), ex.span())
+			}),
 			// arithmetic
-			infix(left(4), just(Token::Asterisk), |l, _, r, ex| {
+			infix(left(6), just(Token::Asterisk), |l, _, r, ex| {
 				(Expr::Mul(Box::new(l), Box::new(r)), ex.span())
 			}),
-			infix(left(4), just(Token::Slash), |l, _, r, ex| {
+			infix(left(6), just(Token::Slash), |l, _, r, ex| {
 				(Expr::Div(Box::new(l), Box::new(r)), ex.span())
 			}),
 			// arithmetic
-			infix(left(3), just(Token::Plus), |l, _, r, ex| {
+			infix(left(5), just(Token::Plus), |l, _, r, ex| {
 				(Expr::Add(Box::new(l), Box::new(r)), ex.span())
 			}),
-			infix(left(3), just(Token::Minus), |l, _, r, ex| {
+			infix(left(5), just(Token::Minus), |l, _, r, ex| {
 				(Expr::Sub(Box::new(l), Box::new(r)), ex.span())
 			}),
 			// relational
-			infix(left(2), just(Token::Lt), |l, _, r, ex| {
+			infix(left(4), just(Token::Lt), |l, _, r, ex| {
 				(Expr::Lt(Box::new(l), Box::new(r)), ex.span())
 			}),
-			infix(left(2), just(Token::Gt), |l, _, r, ex| {
+			infix(left(4), just(Token::Gt), |l, _, r, ex| {
 				(Expr::Gt(Box::new(l), Box::new(r)), ex.span())
 			}),
-			infix(left(2), just(Token::Le), |l, _, r, ex| {
+			infix(left(4), just(Token::Le), |l, _, r, ex| {
 				(Expr::Le(Box::new(l), Box::new(r)), ex.span())
 			}),
-			infix(left(2), just(Token::Ge), |l, _, r, ex| {
+			infix(left(4), just(Token::Ge), |l, _, r, ex| {
 				(Expr::Ge(Box::new(l), Box::new(r)), ex.span())
 			}),
 			// equality
-			infix(left(1), just(Token::Eq), |l, _, r, ex| {
+			infix(left(3), just(Token::Eq), |l, _, r, ex| {
 				(Expr::Eq(Box::new(l), Box::new(r)), ex.span())
 			}),
-			infix(left(1), just(Token::Ne), |l, _, r, ex| {
+			infix(left(3), just(Token::Ne), |l, _, r, ex| {
 				(Expr::Ne(Box::new(l), Box::new(r)), ex.span())
+			}),
+			// logical
+			infix(left(2), just(Token::And), |l, _, r, ex| {
+				(Expr::And(Box::new(l), Box::new(r)), ex.span())
+			}),
+			infix(left(1), just(Token::Or), |l, _, r, ex| {
+				(Expr::Or(Box::new(l), Box::new(r)), ex.span())
 			}),
 		))
 	});

@@ -61,6 +61,14 @@ pub enum Token {
 	#[token(">=")]
 	Ge,
 
+	// logical operators
+	#[token("&&")]
+	And,
+	#[token("||")]
+	Or,
+	#[token("!")]
+	Not,
+
 	// grouping
 	#[token("(")]
 	LParen,
@@ -113,6 +121,9 @@ impl fmt::Display for Token {
 			Token::Gt => write!(f, ">"),
 			Token::Le => write!(f, "<="),
 			Token::Ge => write!(f, ">="),
+			Token::And => write!(f, "&&"),
+			Token::Or => write!(f, "||"),
+			Token::Not => write!(f, "!"),
 			Token::LParen => write!(f, "("),
 			Token::RParen => write!(f, ")"),
 			Token::LBrace => write!(f, "{{"),

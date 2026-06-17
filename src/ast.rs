@@ -48,22 +48,29 @@ pub enum Expr {
 		field: String,
 	},
 
-	// unary operators
+	// operators
+
+	// unary
 	Negative(Box<Spanned<Expr>>),
 
-	// binary operators
+	// arithmetic
 	Add(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Sub(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Mul(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Div(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 
-	// comparison operators
+	// comparison
 	Eq(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Ne(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Lt(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Gt(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Le(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Ge(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+
+	// logical
+	And(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+	Or(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+	Not(Box<Spanned<Expr>>),
 }
 
 // A function parameter.

@@ -458,6 +458,21 @@ impl<'a> Translator<'a> {
 				expr.1,
 			),
 
+			Expr::And(l, r) => self.logical(true, l, r),
+			Expr::Or(l, r) => self.logical(false, l, r),
+			Expr::Not(e) => {
+				let (v, typ) = self.expr(e)?;
+				if typ != Typ::Bool {
+					return Err(Diagnostic::new(
+						format!("expected Bool, got {typ:?}"),
+						expr.1.into_range(),
+					)
+					.with_label("`!` needs a Bool operand"));
+				}
+				// a bool is always 0 or 1, so flipping the low bit negates it
+				Ok((self.b.ins().bxor_imm(v, 1), Typ::Bool))
+			}
+
 			Expr::Call { name, args } => {
 				let sig = self.funcs.get(name).cloned().ok_or_else(|| {
 					Diagnostic::new(format!("undefined function `{name}`"), expr.1.into_range())
@@ -651,6 +666,50 @@ impl<'a> Translator<'a> {
 		};
 		let out = self.b.ins().uextend(self.int, raw);
 		Ok((out, Typ::Bool))
+	}
+
+	// Lower a `&&` or `||`, yielding a Bool.
+	// Short-circuits (the right side is only evaluated when the left doesn't already decide the result).
+	fn logical(
+		&mut self,
+		and: bool,
+		l: &Spanned<Expr>,
+		r: &Spanned<Expr>,
+	) -> Result<(Value, Typ), Diagnostic> {
+		let (lv, lt) = self.expr(l)?;
+		if lt != Typ::Bool {
+			return Err(
+				Diagnostic::new(format!("expected Bool, got {lt:?}"), l.1.into_range())
+					.with_label("logical operators need Bool operands"),
+			);
+		}
+
+		// the result defaults to the short-circuit value: `false` for `&&`, `true` for `||`
+		let result = self.b.declare_var(self.int);
+		let short = self.b.ins().iconst(self.int, if and { 0 } else { 1 });
+		self.b.def_var(result, short);
+
+		// `&&` evaluates the right side when the left is true, `||` when it's false
+		let rhs_block = self.b.create_block();
+		let merge = self.b.create_block();
+		let (then, els) = if and { (rhs_block, merge) } else { (merge, rhs_block) };
+		self.b.ins().brif(lv, then, &[], els, &[]);
+
+		self.b.switch_to_block(rhs_block);
+		self.b.seal_block(rhs_block);
+		let (rv, rt) = self.expr(r)?;
+		if rt != Typ::Bool {
+			return Err(
+				Diagnostic::new(format!("expected Bool, got {rt:?}"), r.1.into_range())
+					.with_label("logical operators need Bool operands"),
+			);
+		}
+		self.b.def_var(result, rv);
+		self.b.ins().jump(merge, &[]);
+
+		self.b.switch_to_block(merge);
+		self.b.seal_block(merge);
+		Ok((self.b.use_var(result), Typ::Bool))
 	}
 
 	// Declare an imported runtime fn in the current function and return its ref.
