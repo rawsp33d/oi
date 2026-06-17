@@ -339,6 +339,7 @@ enum Op {
 	Sub,
 	Mul,
 	Div,
+	Mod,
 }
 
 // An expression's Oi type.
@@ -436,6 +437,7 @@ impl<'a> Translator<'a> {
 			Expr::Sub(l, r) => self.binop(Op::Sub, l, r, expr.1),
 			Expr::Mul(l, r) => self.binop(Op::Mul, l, r, expr.1),
 			Expr::Div(l, r) => self.binop(Op::Div, l, r, expr.1),
+			Expr::Mod(l, r) => self.binop(Op::Mod, l, r, expr.1),
 
 			Expr::Eq(l, r) => self.cmp(IntCC::Equal, FloatCC::Equal, l, r, expr.1),
 			Expr::Ne(l, r) => self.cmp(IntCC::NotEqual, FloatCC::NotEqual, l, r, expr.1),
@@ -627,6 +629,13 @@ impl<'a> Translator<'a> {
 				.with_label("operands have mismatched types"));
 			}
 		};
+		if let (Op::Mod, true) = (op, float) {
+			// TODO: apparently cranelift has no float remainder
+			return Err(
+				Diagnostic::new("`%` is not yet supported on floats".to_string(), span.into_range())
+					.with_label("only integer operands"),
+			);
+		}
 		let b = self.b.ins();
 		let out = match (op, float) {
 			(Op::Add, true) => b.fadd(lv, rv),
@@ -637,6 +646,8 @@ impl<'a> Translator<'a> {
 			(Op::Mul, false) => b.imul(lv, rv),
 			(Op::Div, true) => b.fdiv(lv, rv),
 			(Op::Div, false) => b.sdiv(lv, rv),
+			(Op::Mod, false) => b.srem(lv, rv),
+			(Op::Mod, true) => unreachable!("float `%` rejected above"),
 		};
 		Ok((out, if float { Typ::Float } else { Typ::Int }))
 	}

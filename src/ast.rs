@@ -58,6 +58,7 @@ pub enum Expr {
 	Sub(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Mul(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Div(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+	Mod(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 
 	// comparison
 	Eq(Box<Spanned<Expr>>, Box<Spanned<Expr>>),

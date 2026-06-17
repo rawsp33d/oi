@@ -90,6 +90,9 @@ where
 			infix(left(6), just(Token::Slash), |l, _, r, ex| {
 				(Expr::Div(Box::new(l), Box::new(r)), ex.span())
 			}),
+			infix(left(6), just(Token::Percent), |l, _, r, ex| {
+				(Expr::Mod(Box::new(l), Box::new(r)), ex.span())
+			}),
 			// arithmetic
 			infix(left(5), just(Token::Plus), |l, _, r, ex| {
 				(Expr::Add(Box::new(l), Box::new(r)), ex.span())

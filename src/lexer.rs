@@ -46,6 +46,8 @@ pub enum Token {
 	Asterisk,
 	#[token("/")]
 	Slash,
+	#[token("%")]
+	Percent,
 
 	// comparison operators
 	#[token("==")]
@@ -115,6 +117,7 @@ impl fmt::Display for Token {
 			Token::Minus => write!(f, "-"),
 			Token::Asterisk => write!(f, "*"),
 			Token::Slash => write!(f, "/"),
+			Token::Percent => write!(f, "%"),
 			Token::Eq => write!(f, "=="),
 			Token::Ne => write!(f, "!="),
 			Token::Lt => write!(f, "<"),
