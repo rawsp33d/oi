@@ -1,29 +1,49 @@
-//! Functions a compiled Oi program calls at runtime. Backend-agnostic: the JIT
-//! registers them as symbols, an object backend would link them in.
+//! Functions a compiled Oi program calls at runtime.
+//! Backend-agnostic: the JIT registers them as symbols, an object backend would link them in.
 
 use std::ffi::{CStr, c_char};
 
-pub const PRINT_BOOL: &str = "oi_print_bool";
-pub const PRINT_INT: &str = "oi_print_int";
-pub const PRINT_FLOAT: &str = "oi_print_float";
-pub const PRINT_STR: &str = "oi_print_str";
 pub const STR_CONCAT: &str = "oi_str_concat";
+pub const ALLOC: &str = "oi_alloc";
+pub const PRINT: &str = "oi_print";
+pub const WRITE: &str = "oi_write";
 
-pub extern "C" fn print_bool(x: i64) {
-	println!("{}", x == 1);
+// Type tag shared with the compiler.
+#[repr(i64)]
+#[derive(Clone, Copy)]
+pub enum Tag {
+	Bool,
+	Int,
+	Float,
+	Str,
+	Raw,
 }
 
-pub extern "C" fn print_int(x: i64) {
-	println!("{x}");
+// Render one value to a string.
+fn render(tag: Tag, bits: i64, quote: bool) -> String {
+	match tag {
+		Tag::Bool => (bits == 1).to_string(),
+		Tag::Int => bits.to_string(),
+		Tag::Float => format!("{:?}", f64::from_bits(bits as u64)),
+		Tag::Str | Tag::Raw => {
+			let s = unsafe { CStr::from_ptr(bits as *const c_char) }.to_string_lossy();
+			if quote && matches!(tag, Tag::Str) {
+				format!("{s:?}")
+			} else {
+				s.into_owned()
+			}
+		}
+	}
 }
 
-pub extern "C" fn print_float(x: f64) {
-	println!("{x:?}");
+// Print a top-level value with a newline.
+pub extern "C" fn print(tag: Tag, bits: i64) {
+	println!("{}", render(tag, bits, false));
 }
 
-pub extern "C" fn print_str(s: *const u8) {
-	let s = unsafe { CStr::from_ptr(s as *const c_char) };
-	println!("{}", s.to_string_lossy());
+// Write a value fragment with no newline.
+pub extern "C" fn write(tag: Tag, bits: i64) {
+	print!("{}", render(tag, bits, true));
 }
 
 // Concatenate two 0-terminated strings into a fresh one.
@@ -36,4 +56,11 @@ pub extern "C" fn str_concat(a: *const u8, b: *const u8) -> *const u8 {
 	out.push(0);
 	// TODO: address this without leaking
 	Box::leak(out.into_boxed_slice()).as_ptr()
+}
+
+// Allocate `size` zeroed bytes for a composite value (e.g. a tuple's field slots).
+pub extern "C" fn alloc(size: i64) -> *mut u8 {
+	// TODO: address this without leaking
+	let size = size.max(1) as usize;
+	Box::leak(vec![0u8; size].into_boxed_slice()).as_mut_ptr()
 }

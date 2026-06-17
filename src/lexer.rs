@@ -47,7 +47,7 @@ pub enum Token {
 	#[token("/")]
 	Slash,
 
-	// delimiters
+	// grouping
 	#[token("(")]
 	LParen,
 	#[token(")")]
@@ -56,9 +56,14 @@ pub enum Token {
 	LBrace,
 	#[token("}")]
 	RBrace,
+
+	// delimiters
+	#[token(".")]
+	Dot,
+	#[token(":")]
+	Colon,
 	#[token(",")]
 	Comma,
-	// statement separator (for joining lines)
 	#[token(";", logos::skip)]
 	Semicolon,
 
@@ -82,6 +87,8 @@ impl fmt::Display for Token {
 			Token::Ident(name) => write!(f, "{name}"),
 			Token::Bind => write!(f, ":="),
 			Token::Assign => write!(f, "="),
+			Token::Dot => write!(f, "."),
+			Token::Colon => write!(f, ":"),
 			Token::Plus => write!(f, "+"),
 			Token::Minus => write!(f, "-"),
 			Token::Asterisk => write!(f, "*"),

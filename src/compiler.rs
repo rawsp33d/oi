@@ -36,11 +36,10 @@ impl Default for Compiler {
 			.finish(settings::Flags::new(flag_builder))
 			.unwrap();
 		let mut builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
-		builder.symbol(runtime::PRINT_BOOL, runtime::print_bool as *const u8);
-		builder.symbol(runtime::PRINT_INT, runtime::print_int as *const u8);
-		builder.symbol(runtime::PRINT_FLOAT, runtime::print_float as *const u8);
-		builder.symbol(runtime::PRINT_STR, runtime::print_str as *const u8);
 		builder.symbol(runtime::STR_CONCAT, runtime::str_concat as *const u8);
+		builder.symbol(runtime::ALLOC, runtime::alloc as *const u8);
+		builder.symbol(runtime::PRINT, runtime::print as *const u8);
+		builder.symbol(runtime::WRITE, runtime::write as *const u8);
 
 		let module = JITModule::new(builder);
 		Self {
@@ -89,7 +88,7 @@ impl Compiler {
 			let stmts: Vec<&Spanned<Expr>> = body.iter().collect();
 			let (id, ret) =
 				self.compile_fn(int, &format!("oi_{name}"), &params, ret, &stmts, &funcs)?;
-			let param_typs = params.iter().map(|(_, t)| *t).collect();
+			let param_typs = params.iter().map(|(_, t)| t.clone()).collect();
 			funcs.insert(
 				name.to_string(),
 				FnSig {
@@ -168,7 +167,7 @@ impl Compiler {
 		let callee = trans.module.declare_func_in_func(entry, trans.b.func);
 		let call = trans.b.ins().call(callee, &[]);
 		let val = trans.b.inst_results(call)[0];
-		trans.emit_print(val, typ);
+		trans.emit_print(val, &typ, true);
 		trans.b.ins().return_(&[]);
 		trans.b.finalize();
 
@@ -202,7 +201,7 @@ impl Compiler {
 			b.func
 				.signature
 				.params
-				.push(AbiParam::new(cl_type(*typ, int)));
+				.push(AbiParam::new(cl_type(typ, int)));
 		}
 		let block = b.create_block();
 		b.append_block_params_for_function_params(block);
@@ -228,7 +227,7 @@ impl Compiler {
 				name.clone(),
 				Local {
 					var,
-					typ: *typ,
+					typ: typ.clone(),
 					mutable: false,
 				},
 			);
@@ -260,7 +259,7 @@ impl Compiler {
 
 				Expr::Assign { name, value } => {
 					let (val, typ) = trans.expr(value)?;
-					let local = trans.vars.get(name).copied().ok_or_else(|| {
+					let local = trans.vars.get(name).cloned().ok_or_else(|| {
 						Diagnostic::new(
 							format!("cannot assign to undefined variable `{name}`"),
 							stmt.1.into_range(),
@@ -295,8 +294,8 @@ impl Compiler {
 						Some(e) => trans.expr(e)?,
 						// a bare `return` yields the zero value of the return type
 						None => {
-							let typ = ret.map_or(Typ::Int, |(t, _)| t);
-							(trans.zero(typ), typ)
+							let typ = ret.as_ref().map_or(Typ::Int, |(t, _)| t.clone());
+							(trans.zero(&typ), typ)
 						}
 					};
 					last_span = Some(stmt.1);
@@ -327,7 +326,7 @@ impl Compiler {
 			.func
 			.signature
 			.returns
-			.push(AbiParam::new(cl_type(typ, int)));
+			.push(AbiParam::new(cl_type(&typ, int)));
 		trans.b.ins().return_(&[val]);
 		trans.b.finalize();
 		Ok(typ)
@@ -343,19 +342,21 @@ enum Op {
 }
 
 // An expression's Oi type.
-// int, bool, and str are all i64 to cranelift, so this lets us distinguish.
-#[derive(Clone, Copy, PartialEq, Debug)]
+// A tuple field is an optional name paired with its type.
+// TODO: `PartialEq` compares names too right now, but comparisons need to ignore them
+#[derive(Clone, PartialEq, Debug)]
 enum Typ {
 	Int,
 	Float,
 	Bool,
 	Str,
+	Tuple(Vec<(Option<String>, Typ)>),
 }
 
 // The cranelift type backing an Oi type.
-// Floats are f64, everything else is pointer-sized.
-fn cl_type(typ: Typ, int: types::Type) -> types::Type {
-	if typ == Typ::Float { types::F64 } else { int }
+// Floats are f64. Everything else is pointer-sized.
+fn cl_type(typ: &Typ, int: types::Type) -> types::Type {
+	if *typ == Typ::Float { types::F64 } else { int }
 }
 
 // Resolve a declared type name to an Oi type.
@@ -383,7 +384,7 @@ struct FnSig {
 }
 
 // A local variable.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct Local {
 	var: Variable,
 	typ: Typ,
@@ -408,7 +409,7 @@ impl<'a> Translator<'a> {
 			Expr::String(s) => Ok((self.str_const(s), Typ::Str)),
 
 			Expr::Ident(name) => {
-				let local = self.vars.get(name).copied().ok_or_else(|| {
+				let local = self.vars.get(name).cloned().ok_or_else(|| {
 					Diagnostic::new(format!("undefined variable `{name}`"), expr.1.into_range())
 						.with_label("not found in scope")
 				})?;
@@ -454,9 +455,9 @@ impl<'a> Translator<'a> {
 				}
 				// evaluate each argument, checking it against the declared parameter type
 				let mut vals = Vec::with_capacity(args.len());
-				for (arg, &expected) in args.iter().zip(&sig.params) {
+				for (arg, expected) in args.iter().zip(&sig.params) {
 					let (val, typ) = self.expr(arg)?;
-					if typ != expected {
+					if &typ != expected {
 						return Err(Diagnostic::new(
 							format!("expected {expected:?} argument, got {typ:?}"),
 							arg.1.into_range(),
@@ -468,6 +469,62 @@ impl<'a> Translator<'a> {
 				let func = self.module.declare_func_in_func(sig.id, self.b.func);
 				let call = self.b.ins().call(func, &vals);
 				Ok((self.b.inst_results(call)[0], sig.ret))
+			}
+
+			// a tuple is a heap block of pointer-sized slots, one per field
+			Expr::Tuple(elems) => {
+				let ptr = self.call_alloc(elems.len());
+				let mut fields = Vec::with_capacity(elems.len());
+				for (i, (name, value)) in elems.iter().enumerate() {
+					let (val, typ) = self.expr(value)?;
+					self.b
+						.ins()
+						.store(MemFlags::new(), val, ptr, (i * 8) as i32);
+					fields.push((name.clone(), typ));
+				}
+				Ok((ptr, Typ::Tuple(fields)))
+			}
+
+			Expr::Field { tuple, field } => {
+				let (ptr, typ) = self.expr(tuple)?;
+				let fields = match &typ {
+					Typ::Tuple(fields) => fields,
+					_ => {
+						return Err(Diagnostic::new(
+							format!("cannot access a field of {typ:?}"),
+							tuple.1.into_range(),
+						)
+						.with_label("not a tuple"));
+					}
+				};
+				// an integer field is an index, anything else a field name
+				let idx = match field.parse::<usize>() {
+					Ok(i) if i < fields.len() => i,
+					Ok(i) => {
+						return Err(Diagnostic::new(
+							format!("tuple index {i} out of range (len {})", fields.len()),
+							expr.1.into_range(),
+						)
+						.with_label("no such field"));
+					}
+					Err(_) => fields
+						.iter()
+						.position(|(name, _)| name.as_deref() == Some(field.as_str()))
+						.ok_or_else(|| {
+							Diagnostic::new(
+								format!("tuple has no field `{field}`"),
+								expr.1.into_range(),
+							)
+							.with_label("no such field")
+						})?,
+				};
+				let field_typ = fields[idx].1.clone();
+				let cl = cl_type(&field_typ, self.int);
+				let v = self
+					.b
+					.ins()
+					.load(cl, MemFlags::new(), ptr, (idx * 8) as i32);
+				Ok((v, field_typ))
 			}
 
 			Expr::Bind { .. } => unreachable!("bind in expression position"),
@@ -495,11 +552,13 @@ impl<'a> Translator<'a> {
 	}
 
 	// The zero value for an Oi type.
-	fn zero(&mut self, typ: Typ) -> Value {
+	fn zero(&mut self, typ: &Typ) -> Value {
 		match typ {
 			Typ::Float => self.b.ins().f64const(0.0),
 			Typ::Str => self.str_const(""),
 			Typ::Int | Typ::Bool => self.b.ins().iconst(self.int, 0),
+			// unreachable until tuple return types exist, returns are scalar names for now
+			Typ::Tuple(_) => unreachable!("tuple return types aren't supported yet"),
 		}
 	}
 
@@ -515,13 +574,13 @@ impl<'a> Translator<'a> {
 		let (rv, rt) = self.expr(r)?;
 
 		// string concatenation
-		if let (Op::Add, Typ::Str, Typ::Str) = (op, lt, rt) {
+		if let (Op::Add, Typ::Str, Typ::Str) = (op, &lt, &rt) {
 			return Ok((self.call_concat(lv, rv), Typ::Str));
 		}
 
 		// no int/float mixing for now
 		// NOTE: I might go with V-style promotion eventually.
-		let float = match (lt, rt) {
+		let float = match (&lt, &rt) {
 			(Typ::Int, Typ::Int) => false,
 			(Typ::Float, Typ::Float) => true,
 			_ => {
@@ -546,41 +605,92 @@ impl<'a> Translator<'a> {
 		Ok((out, if float { Typ::Float } else { Typ::Int }))
 	}
 
-	// Call the runtime string concat.
-	fn call_concat(&mut self, a: Value, b: Value) -> Value {
+	// Declare an imported runtime fn in the current function and return its ref.
+	fn import_fn(
+		&mut self,
+		name: &str,
+		params: &[types::Type],
+		ret: Option<types::Type>,
+	) -> codegen::ir::FuncRef {
 		let mut sig = self.module.make_signature();
-		sig.params.push(AbiParam::new(self.int));
-		sig.params.push(AbiParam::new(self.int));
-		sig.returns.push(AbiParam::new(self.int));
-		let id = self
-			.module
-			.declare_function(runtime::STR_CONCAT, Linkage::Import, &sig)
-			.unwrap();
-		let func = self.module.declare_func_in_func(id, self.b.func);
-		let call = self.b.ins().call(func, &[a, b]);
-		self.b.inst_results(call)[0]
-	}
-
-	// Emit a call to the runtime print for the result's type.
-	fn emit_print(&mut self, val: Value, typ: Typ) {
-		let name = match typ {
-			Typ::Bool => runtime::PRINT_BOOL,
-			Typ::Int => runtime::PRINT_INT,
-			Typ::Float => runtime::PRINT_FLOAT,
-			Typ::Str => runtime::PRINT_STR,
-		};
-		let param = if typ == Typ::Float {
-			types::F64
-		} else {
-			self.int
-		};
-		let mut sig = self.module.make_signature();
-		sig.params.push(AbiParam::new(param));
+		for &p in params {
+			sig.params.push(AbiParam::new(p));
+		}
+		if let Some(r) = ret {
+			sig.returns.push(AbiParam::new(r));
+		}
 		let id = self
 			.module
 			.declare_function(name, Linkage::Import, &sig)
 			.unwrap();
-		let func = self.module.declare_func_in_func(id, self.b.func);
-		self.b.ins().call(func, &[val]);
+		self.module.declare_func_in_func(id, self.b.func)
+	}
+
+	// Call the runtime string concat.
+	fn call_concat(&mut self, a: Value, b: Value) -> Value {
+		let func = self.import_fn(runtime::STR_CONCAT, &[self.int, self.int], Some(self.int));
+		let call = self.b.ins().call(func, &[a, b]);
+		self.b.inst_results(call)[0]
+	}
+
+	// Allocate the block for a tuple of `n` fields, returning the pointer.
+	fn call_alloc(&mut self, n: usize) -> Value {
+		let func = self.import_fn(runtime::ALLOC, &[self.int], Some(self.int));
+		let size = self.b.ins().iconst(self.int, (n * 8) as i64);
+		let call = self.b.ins().call(func, &[size]);
+		self.b.inst_results(call)[0]
+	}
+
+	// Write a literal text fragment (delimiter, field) with no newline.
+	fn write_lit(&mut self, s: &str) {
+		let ptr = self.str_const(s);
+		self.emit_value(runtime::WRITE, runtime::Tag::Raw, ptr);
+	}
+
+	// Call a runtime printer with a type tag.
+	fn emit_value(&mut self, func_name: &str, tag: runtime::Tag, bits: Value) {
+		let tag = self.b.ins().iconst(self.int, tag as i64);
+		let func = self.import_fn(func_name, &[self.int, self.int], None);
+		self.b.ins().call(func, &[tag, bits]);
+	}
+
+	// Print value.
+	// Top level adds a newline.
+	fn emit_print(&mut self, val: Value, typ: &Typ, top: bool) {
+		if let Typ::Tuple(fields) = typ {
+			self.write_lit("(");
+			for (i, (name, ft)) in fields.iter().enumerate() {
+				if i > 0 {
+					self.write_lit(", ");
+				}
+				if let Some(name) = name {
+					self.write_lit(&format!("{name}: "));
+				}
+				let cl = cl_type(ft, self.int);
+				let fv = self.b.ins().load(cl, MemFlags::new(), val, (i * 8) as i32);
+				self.emit_print(fv, ft, false);
+			}
+			self.write_lit(")");
+			if top {
+				self.write_lit("\n");
+			}
+			return;
+		}
+
+		let tag = match typ {
+			Typ::Bool => runtime::Tag::Bool,
+			Typ::Int => runtime::Tag::Int,
+			Typ::Float => runtime::Tag::Float,
+			Typ::Str => runtime::Tag::Str,
+			Typ::Tuple(_) => unreachable!("tuple handled above"),
+		};
+		// pass floats by raw bits since the runtime reads every value from an 8-byte slot
+		let bits = if *typ == Typ::Float {
+			self.b.ins().bitcast(self.int, MemFlags::new(), val)
+		} else {
+			val
+		};
+		let func = if top { runtime::PRINT } else { runtime::WRITE };
+		self.emit_value(func, tag, bits);
 	}
 }

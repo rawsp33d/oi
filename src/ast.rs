@@ -7,6 +7,7 @@ pub type Spanned<T> = (T, Span);
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum Expr {
+	// literals
 	Bool(bool),
 	Int(i32),
 	Float(f64),
@@ -39,6 +40,13 @@ pub enum Expr {
 	},
 
 	Return(Option<Box<Spanned<Expr>>>),
+
+	// structures
+	Tuple(Vec<(Option<String>, Spanned<Expr>)>),
+	Field {
+		tuple: Box<Spanned<Expr>>,
+		field: String,
+	},
 
 	// unary operators
 	Negative(Box<Spanned<Expr>>),

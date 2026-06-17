@@ -3,7 +3,7 @@ use crate::lexer::Token;
 
 use chumsky::{
 	input::ValueInput,
-	pratt::{infix, left, prefix},
+	pratt::{infix, left, postfix, prefix},
 	prelude::*,
 };
 
@@ -42,11 +42,39 @@ where
 			Err(Rich::custom(span, format!("unexpected character `{text}`")))
 		});
 
-		let atom = leaf
-			.or(expr.delimited_by(just(Token::LParen), just(Token::RParen)))
-			.or(bad);
+		// grouping before tuple rule to avoid making 1ples, which are instead made with `(expr,)`
+		let group = expr
+			.clone()
+			.delimited_by(just(Token::LParen), just(Token::RParen));
+
+		let elem = select! { Token::Ident(name) => name }
+			.then_ignore(just(Token::Colon))
+			.or_not()
+			.then(expr.clone());
+		let tuple = elem
+			.separated_by(just(Token::Comma))
+			.allow_trailing()
+			.collect::<Vec<_>>()
+			.delimited_by(just(Token::LParen), just(Token::RParen))
+			.map_with(|elems, ex| (Expr::Tuple(elems), ex.span()));
+
+		let atom = leaf.or(group).or(tuple).or(bad);
+
+		let field = select! {
+			Token::Int(n) => n.to_string(),
+			Token::Ident(name) => name,
+		};
 
 		atom.pratt((
+			postfix(4, just(Token::Dot).ignore_then(field), |lhs, field, ex| {
+				(
+					Expr::Field {
+						tuple: Box::new(lhs),
+						field,
+					},
+					ex.span(),
+				)
+			}),
 			prefix(3, just(Token::Minus), |_, rhs, ex| {
 				(Expr::Negative(Box::new(rhs)), ex.span())
 			}),
