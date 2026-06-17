@@ -56,6 +56,14 @@ pub enum Expr {
 	Sub(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Mul(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Div(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+
+	// comparison operators
+	Eq(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+	Ne(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+	Lt(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+	Gt(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+	Le(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
+	Ge(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 }
 
 // A function parameter.

@@ -66,7 +66,8 @@ where
 		};
 
 		atom.pratt((
-			postfix(4, just(Token::Dot).ignore_then(field), |lhs, field, ex| {
+			// fields
+			postfix(6, just(Token::Dot).ignore_then(field), |lhs, field, ex| {
 				(
 					Expr::Field {
 						tuple: Box::new(lhs),
@@ -75,20 +76,43 @@ where
 					ex.span(),
 				)
 			}),
-			prefix(3, just(Token::Minus), |_, rhs, ex| {
+			// unary
+			prefix(5, just(Token::Minus), |_, rhs, ex| {
 				(Expr::Negative(Box::new(rhs)), ex.span())
 			}),
-			infix(left(2), just(Token::Asterisk), |l, _, r, ex| {
+			// arithmetic
+			infix(left(4), just(Token::Asterisk), |l, _, r, ex| {
 				(Expr::Mul(Box::new(l), Box::new(r)), ex.span())
 			}),
-			infix(left(2), just(Token::Slash), |l, _, r, ex| {
+			infix(left(4), just(Token::Slash), |l, _, r, ex| {
 				(Expr::Div(Box::new(l), Box::new(r)), ex.span())
 			}),
-			infix(left(1), just(Token::Plus), |l, _, r, ex| {
+			// arithmetic
+			infix(left(3), just(Token::Plus), |l, _, r, ex| {
 				(Expr::Add(Box::new(l), Box::new(r)), ex.span())
 			}),
-			infix(left(1), just(Token::Minus), |l, _, r, ex| {
+			infix(left(3), just(Token::Minus), |l, _, r, ex| {
 				(Expr::Sub(Box::new(l), Box::new(r)), ex.span())
+			}),
+			// relational
+			infix(left(2), just(Token::Lt), |l, _, r, ex| {
+				(Expr::Lt(Box::new(l), Box::new(r)), ex.span())
+			}),
+			infix(left(2), just(Token::Gt), |l, _, r, ex| {
+				(Expr::Gt(Box::new(l), Box::new(r)), ex.span())
+			}),
+			infix(left(2), just(Token::Le), |l, _, r, ex| {
+				(Expr::Le(Box::new(l), Box::new(r)), ex.span())
+			}),
+			infix(left(2), just(Token::Ge), |l, _, r, ex| {
+				(Expr::Ge(Box::new(l), Box::new(r)), ex.span())
+			}),
+			// equality
+			infix(left(1), just(Token::Eq), |l, _, r, ex| {
+				(Expr::Eq(Box::new(l), Box::new(r)), ex.span())
+			}),
+			infix(left(1), just(Token::Ne), |l, _, r, ex| {
+				(Expr::Ne(Box::new(l), Box::new(r)), ex.span())
 			}),
 		))
 	});

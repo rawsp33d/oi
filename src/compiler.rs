@@ -437,6 +437,27 @@ impl<'a> Translator<'a> {
 			Expr::Mul(l, r) => self.binop(Op::Mul, l, r, expr.1),
 			Expr::Div(l, r) => self.binop(Op::Div, l, r, expr.1),
 
+			Expr::Eq(l, r) => self.cmp(IntCC::Equal, FloatCC::Equal, l, r, expr.1),
+			Expr::Ne(l, r) => self.cmp(IntCC::NotEqual, FloatCC::NotEqual, l, r, expr.1),
+			Expr::Lt(l, r) => self.cmp(IntCC::SignedLessThan, FloatCC::LessThan, l, r, expr.1),
+			Expr::Gt(l, r) => {
+				self.cmp(IntCC::SignedGreaterThan, FloatCC::GreaterThan, l, r, expr.1)
+			}
+			Expr::Le(l, r) => self.cmp(
+				IntCC::SignedLessThanOrEqual,
+				FloatCC::LessThanOrEqual,
+				l,
+				r,
+				expr.1,
+			),
+			Expr::Ge(l, r) => self.cmp(
+				IntCC::SignedGreaterThanOrEqual,
+				FloatCC::GreaterThanOrEqual,
+				l,
+				r,
+				expr.1,
+			),
+
 			Expr::Call { name, args } => {
 				let sig = self.funcs.get(name).cloned().ok_or_else(|| {
 					Diagnostic::new(format!("undefined function `{name}`"), expr.1.into_range())
@@ -603,6 +624,33 @@ impl<'a> Translator<'a> {
 			(Op::Div, false) => b.sdiv(lv, rv),
 		};
 		Ok((out, if float { Typ::Float } else { Typ::Int }))
+	}
+
+	// Add a comparison instruction, yielding a Bool.
+	fn cmp(
+		&mut self,
+		icc: IntCC,
+		fcc: FloatCC,
+		l: &Spanned<Expr>,
+		r: &Spanned<Expr>,
+		span: Span,
+	) -> Result<(Value, Typ), Diagnostic> {
+		let (lv, lt) = self.expr(l)?;
+		let (rv, rt) = self.expr(r)?;
+
+		let raw = match (&lt, &rt) {
+			(Typ::Int, Typ::Int) | (Typ::Bool, Typ::Bool) => self.b.ins().icmp(icc, lv, rv),
+			(Typ::Float, Typ::Float) => self.b.ins().fcmp(fcc, lv, rv),
+			_ => {
+				return Err(Diagnostic::new(
+					format!("cannot compare {lt:?} and {rt:?}"),
+					span.into_range(),
+				)
+				.with_label("operands have mismatched types"));
+			}
+		};
+		let out = self.b.ins().uextend(self.int, raw);
+		Ok((out, Typ::Bool))
 	}
 
 	// Declare an imported runtime fn in the current function and return its ref.

@@ -47,6 +47,20 @@ pub enum Token {
 	#[token("/")]
 	Slash,
 
+	// comparison operators
+	#[token("==")]
+	Eq,
+	#[token("!=")]
+	Ne,
+	#[token("<")]
+	Lt,
+	#[token(">")]
+	Gt,
+	#[token("<=")]
+	Le,
+	#[token(">=")]
+	Ge,
+
 	// grouping
 	#[token("(")]
 	LParen,
@@ -93,6 +107,12 @@ impl fmt::Display for Token {
 			Token::Minus => write!(f, "-"),
 			Token::Asterisk => write!(f, "*"),
 			Token::Slash => write!(f, "/"),
+			Token::Eq => write!(f, "=="),
+			Token::Ne => write!(f, "!="),
+			Token::Lt => write!(f, "<"),
+			Token::Gt => write!(f, ">"),
+			Token::Le => write!(f, "<="),
+			Token::Ge => write!(f, ">="),
 			Token::LParen => write!(f, "("),
 			Token::RParen => write!(f, ")"),
 			Token::LBrace => write!(f, "{{"),
