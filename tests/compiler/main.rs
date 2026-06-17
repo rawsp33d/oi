@@ -9,4 +9,5 @@ mod functions;
 mod literals;
 mod statements;
 mod strings;
+mod tuples;
 mod vars;
