@@ -162,6 +162,7 @@ impl Compiler {
 			module: &mut self.module,
 			funcs,
 			string_idx: &mut self.string_idx,
+			ret: None,
 		};
 
 		let callee = trans.module.declare_func_in_func(entry, trans.b.func);
@@ -208,6 +209,9 @@ impl Compiler {
 		b.switch_to_block(block);
 		b.seal_block(block);
 
+		// a span to blame if the fall-through value mismatches a declared return type
+		let decl_span = ret.as_ref().map(|(_, s)| *s);
+
 		let mut trans = Translator {
 			int,
 			b,
@@ -215,6 +219,7 @@ impl Compiler {
 			module: &mut self.module,
 			funcs,
 			string_idx: &mut self.string_idx,
+			ret,
 		};
 
 		// bind each parameter to a variable holding its incoming block param
@@ -233,103 +238,19 @@ impl Compiler {
 			);
 		}
 
-		let mut last = (trans.b.ins().iconst(int, 0), Typ::Int);
-		let mut last_span: Option<Span> = None;
-		for &stmt in stmts {
-			match &stmt.0 {
-				Expr::Bind {
-					mutable,
-					name,
-					value,
-				} => {
-					let (val, typ) = trans.expr(value)?;
-					// `:=` always declares a fresh binding, shadowing any earlier one
-					let cl = trans.b.func.dfg.value_type(val);
-					let var = trans.b.declare_var(cl);
-					trans.b.def_var(var, val);
-					trans.vars.insert(
-						name.clone(),
-						Local {
-							var,
-							typ,
-							mutable: *mutable,
-						},
-					);
-				}
-
-				Expr::Assign { name, value } => {
-					let (val, typ) = trans.expr(value)?;
-					let local = trans.vars.get(name).cloned().ok_or_else(|| {
-						Diagnostic::new(
-							format!("cannot assign to undefined variable `{name}`"),
-							stmt.1.into_range(),
-						)
-						.with_label("not found in scope")
-						.with_note(format!("declare it first with `{name} := ...`"))
-					})?;
-					if !local.mutable {
-						return Err(Diagnostic::new(
-							format!("cannot assign to immutable `{name}`"),
-							stmt.1.into_range(),
-						)
-						.with_label("declared without `mut`")
-						.with_note(format!("use `mut {name} := ...` to allow assignment")));
-					}
-					// a binding keeps the type it was declared with
-					if typ != local.typ {
-						return Err(Diagnostic::new(
-							format!(
-								"cannot assign {typ:?} to `{name}`, which is {:?}",
-								local.typ
-							),
-							value.1.into_range(),
-						)
-						.with_label("type mismatch"));
-					}
-					trans.b.def_var(local.var, val);
-				}
-
-				Expr::Return(value) => {
-					last = match value {
-						Some(e) => trans.expr(e)?,
-						// a bare `return` yields the zero value of the return type
-						None => {
-							let typ = ret.as_ref().map_or(Typ::Int, |(t, _)| t.clone());
-							(trans.zero(&typ), typ)
-						}
-					};
-					last_span = Some(stmt.1);
-					break;
-				}
-
-				_ => {
-					last = trans.expr(stmt)?;
-					last_span = Some(stmt.1);
-				}
-			}
-		}
-
 		// the fn returns its final value
-		// if a return type was declared, it must match
-		let (val, typ) = last;
-		if let Some((declared, decl_span)) = ret
-			&& typ != declared
-		{
-			return Err(Diagnostic::new(
-				format!("expected {declared:?} return value, got {typ:?}"),
-				last_span.unwrap_or(decl_span).into_range(),
-			)
-			.with_label("wrong return type"));
+		if let Some((val, typ)) = trans.block(stmts)? {
+			let span = stmts
+				.last()
+				.map(|s| s.1)
+				.or(decl_span)
+				.unwrap_or((0..0).into());
+			trans.emit_return(val, typ, span)?;
 		}
-		trans
-			.b
-			.func
-			.signature
-			.returns
-			.push(AbiParam::new(cl_type(&typ, int)));
-		trans.b.ins().return_(&[val]);
 		trans.b.finalize();
-		Ok(typ)
+
+		// the return type, declared or inferred, is the value type the fn produces
+		Ok(trans.ret.map(|(t, _)| t).unwrap_or(Typ::Int))
 	}
 }
 
@@ -399,9 +320,223 @@ struct Translator<'a> {
 	module: &'a mut JITModule,
 	funcs: &'a HashMap<String, FnSig>,
 	string_idx: &'a mut usize,
+	// the fn's return type (locked in by the first return, and later returns must agree)
+	ret: Option<(Typ, Span)>,
 }
 
 impl<'a> Translator<'a> {
+	// Evaluate statements in the current cranelift block.
+	// The block's value is its final expression.
+	// `None` means the block diverged before reaching the end.
+	fn block(&mut self, stmts: &[&Spanned<Expr>]) -> Result<Option<(Value, Typ)>, Diagnostic> {
+		let mut last = (self.b.ins().iconst(self.int, 0), Typ::Int);
+		for &stmt in stmts {
+			match &stmt.0 {
+				Expr::Bind {
+					mutable,
+					name,
+					value,
+				} => {
+					let (val, typ) = self.expr(value)?;
+					// `:=` always declares a fresh binding, shadowing any earlier one
+					let cl = self.b.func.dfg.value_type(val);
+					let var = self.b.declare_var(cl);
+					self.b.def_var(var, val);
+					self.vars.insert(
+						name.clone(),
+						Local {
+							var,
+							typ,
+							mutable: *mutable,
+						},
+					);
+				}
+
+				Expr::Assign { name, value } => {
+					let (val, typ) = self.expr(value)?;
+					let local = self.vars.get(name).cloned().ok_or_else(|| {
+						Diagnostic::new(
+							format!("cannot assign to undefined variable `{name}`"),
+							stmt.1.into_range(),
+						)
+						.with_label("not found in scope")
+						.with_note(format!("declare it first with `{name} := ...`"))
+					})?;
+					if !local.mutable {
+						return Err(Diagnostic::new(
+							format!("cannot assign to immutable `{name}`"),
+							stmt.1.into_range(),
+						)
+						.with_label("declared without `mut`")
+						.with_note(format!("use `mut {name} := ...` to allow assignment")));
+					}
+					// a binding keeps the type it was declared with
+					if typ != local.typ {
+						return Err(Diagnostic::new(
+							format!(
+								"cannot assign {typ:?} to `{name}`, which is {:?}",
+								local.typ
+							),
+							value.1.into_range(),
+						)
+						.with_label("type mismatch"));
+					}
+					self.b.def_var(local.var, val);
+				}
+
+				Expr::Return(value) => {
+					let (val, typ) = match value {
+						Some(e) => self.expr(e)?,
+						// a bare `return` yields the zero value of the return type
+						None => {
+							let typ = self.ret.as_ref().map_or(Typ::Int, |(t, _)| t.clone());
+							(self.zero(&typ), typ)
+						}
+					};
+					self.emit_return(val, typ, stmt.1)?;
+					return Ok(None);
+				}
+
+				// an `if` statement may diverge (every branch returns)
+				Expr::If { cond, then, els } => {
+					match self.conditional(cond, then, els.as_deref(), stmt.1)? {
+						Some((v, t)) => last = (v, t),
+						None => return Ok(None),
+					}
+				}
+
+				_ => last = self.expr(stmt)?,
+			}
+		}
+		Ok(Some(last))
+	}
+
+	// Emit a return of `val`.
+	// The first return fixes the fn's type, and later returns must agree.
+	fn emit_return(&mut self, val: Value, typ: Typ, span: Span) -> Result<(), Diagnostic> {
+		if let Some((declared, _)) = &self.ret
+			&& &typ != declared
+		{
+			return Err(Diagnostic::new(
+				format!("expected {declared:?} return value, got {typ:?}"),
+				span.into_range(),
+			)
+			.with_label("wrong return type"));
+		}
+		// the cranelift signature takes its return type from the first return
+		if self.b.func.signature.returns.is_empty() {
+			self.b
+				.func
+				.signature
+				.returns
+				.push(AbiParam::new(cl_type(&typ, self.int)));
+		}
+		self.b.ins().return_(&[val]);
+		// an undeclared fn infers its return type from this first return
+		if self.ret.is_none() {
+			self.ret = Some((typ, span));
+		}
+		Ok(())
+	}
+
+	// An `if`/`else`, lowered to branch&merge, yielding the value of the chosen branch.
+	// A branch may diverge, in which case it doesn't reach the merge.
+	// If every branch diverges, the whole `if` diverges (`None`).
+	fn conditional(
+		&mut self,
+		cond: &Spanned<Expr>,
+		then: &[Spanned<Expr>],
+		els: Option<&[Spanned<Expr>]>,
+		span: Span,
+	) -> Result<Option<(Value, Typ)>, Diagnostic> {
+		let (cv, ct) = self.expr(cond)?;
+		if ct != Typ::Bool {
+			return Err(Diagnostic::new(
+				format!("`if` condition must be Bool, got {ct:?}"),
+				cond.1.into_range(),
+			)
+			.with_label("not a Bool"));
+		}
+
+		let then_block = self.b.create_block();
+		let else_block = self.b.create_block();
+		self.b.ins().brif(cv, then_block, &[], else_block, &[]);
+		self.b.seal_block(then_block);
+		self.b.seal_block(else_block);
+
+		// the result var and merge block are created once a branch falls through
+		// a branch that diverges contributes neither
+		let mut result: Option<Variable> = None;
+		let mut result_typ: Option<Typ> = None;
+		let mut merge: Option<Block> = None;
+
+		// branch-local bindings must not leak into the enclosing scope
+		let saved = self.vars.clone();
+
+		// then branch
+		self.b.switch_to_block(then_block);
+		let then_refs: Vec<&Spanned<Expr>> = then.iter().collect();
+		let then_flow = self.block(&then_refs)?;
+		self.vars = saved.clone();
+		if let Some((v, t)) = then_flow {
+			let var = self.b.declare_var(cl_type(&t, self.int));
+			self.b.def_var(var, v);
+			let m = self.b.create_block();
+			self.b.ins().jump(m, &[]);
+			result = Some(var);
+			result_typ = Some(t);
+			merge = Some(m);
+		}
+
+		// else branch
+		self.b.switch_to_block(else_block);
+		let else_flow = match els {
+			Some(els) => {
+				let refs: Vec<&Spanned<Expr>> = els.iter().collect();
+				self.block(&refs)?
+			}
+			// no `else` yields the zero value of the if expression's type
+			None => {
+				let t = result_typ.clone().unwrap_or(Typ::Int);
+				let z = self.zero(&t);
+				Some((z, t))
+			}
+		};
+		self.vars = saved;
+		if let Some((v, t)) = else_flow {
+			match &result_typ {
+				Some(rt) if rt != &t => {
+					return Err(Diagnostic::new(
+						format!("`if` branches have mismatched types: {rt:?} and {t:?}"),
+						span.into_range(),
+					)
+					.with_label("both branches must yield the same type"));
+				}
+				Some(_) => self.b.def_var(result.unwrap(), v),
+				None => {
+					let var = self.b.declare_var(cl_type(&t, self.int));
+					self.b.def_var(var, v);
+					result = Some(var);
+					result_typ = Some(t);
+				}
+			}
+			let m = merge.unwrap_or_else(|| self.b.create_block());
+			self.b.ins().jump(m, &[]);
+			merge = Some(m);
+		}
+
+		match merge {
+			Some(m) => {
+				self.b.switch_to_block(m);
+				self.b.seal_block(m);
+				let typ = result_typ.unwrap();
+				Ok(Some((self.b.use_var(result.unwrap()), typ)))
+			}
+			// both branches diverged, and control never reaches a merge
+			None => Ok(None),
+		}
+	}
+
 	fn expr(&mut self, expr: &Spanned<Expr>) -> Result<(Value, Typ), Diagnostic> {
 		match &expr.0 {
 			Expr::Int(n) => Ok((self.b.ins().iconst(self.int, *n as i64), Typ::Int)),
@@ -565,6 +700,18 @@ impl<'a> Translator<'a> {
 				Ok((v, field_typ))
 			}
 
+			// an `if` nested inside an expression must yield a value on every branch
+			Expr::If { cond, then, els } => {
+				match self.conditional(cond, then, els.as_deref(), expr.1)? {
+					Some((v, t)) => Ok((v, t)),
+					None => Err(Diagnostic::new(
+						"this `if` never produces a value",
+						expr.1.into_range(),
+					)
+					.with_label("every branch returns, but a value is needed here")),
+				}
+			}
+
 			Expr::Bind { .. } => unreachable!("bind in expression position"),
 			Expr::Assign { .. } => unreachable!("assign in expression position"),
 			Expr::Fn { .. } => unreachable!("fn definition in expression position"),
@@ -631,10 +778,11 @@ impl<'a> Translator<'a> {
 		};
 		if let (Op::Mod, true) = (op, float) {
 			// TODO: apparently cranelift has no float remainder
-			return Err(
-				Diagnostic::new("`%` is not yet supported on floats".to_string(), span.into_range())
-					.with_label("only integer operands"),
-			);
+			return Err(Diagnostic::new(
+				"`%` is not yet supported on floats".to_string(),
+				span.into_range(),
+			)
+			.with_label("only integer operands"));
 		}
 		let b = self.b.ins();
 		let out = match (op, float) {
@@ -703,7 +851,11 @@ impl<'a> Translator<'a> {
 		// `&&` evaluates the right side when the left is true, `||` when it's false
 		let rhs_block = self.b.create_block();
 		let merge = self.b.create_block();
-		let (then, els) = if and { (rhs_block, merge) } else { (merge, rhs_block) };
+		let (then, els) = if and {
+			(rhs_block, merge)
+		} else {
+			(merge, rhs_block)
+		};
 		self.b.ins().brif(lv, then, &[], els, &[]);
 
 		self.b.switch_to_block(rhs_block);

@@ -27,6 +27,12 @@ pub enum Token {
 	#[token("return")]
 	Return,
 
+	// control flow
+	#[token("if")]
+	If,
+	#[token("else")]
+	Else,
+
 	// identifiers
 	#[token("mut")]
 	Mut,
@@ -107,6 +113,8 @@ impl fmt::Display for Token {
 			Token::String(s) => write!(f, "\"{s}\""),
 			Token::Fn => write!(f, "fn"),
 			Token::Return => write!(f, "return"),
+			Token::If => write!(f, "if"),
+			Token::Else => write!(f, "else"),
 			Token::Mut => write!(f, "mut"),
 			Token::Ident(name) => write!(f, "{name}"),
 			Token::Bind => write!(f, ":="),

@@ -6,6 +6,7 @@ mod helpers;
 mod arithmetic;
 mod booleans;
 mod comparisons;
+mod control_flow;
 mod diagnostics;
 mod functions;
 mod literals;

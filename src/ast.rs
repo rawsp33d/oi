@@ -41,6 +41,13 @@ pub enum Expr {
 
 	Return(Option<Box<Spanned<Expr>>>),
 
+	// control flow
+	If {
+		cond: Box<Spanned<Expr>>,
+		then: Vec<Spanned<Expr>>,
+		els: Option<Vec<Spanned<Expr>>>,
+	},
+
 	// structures
 	Tuple(Vec<(Option<String>, Spanned<Expr>)>),
 	Field {

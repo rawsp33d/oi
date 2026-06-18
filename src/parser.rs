@@ -12,7 +12,60 @@ pub fn parser<'token, I>()
 where
 	I: ValueInput<'token, Token = Token, Span = SimpleSpan>,
 {
-	let expr = recursive(|expr| {
+	// `expr` and the statement/block parsers are mutually recursive
+	// `if` is an expression, but its branches are statement blocks.
+	// Declare `expr` up front so the statement parsers can reference it before it is defined.
+	let mut expr = Recursive::declare();
+
+	// bindings
+	let bind = just(Token::Mut)
+		.or_not()
+		.then(select! {
+			Token::Ident(name) => name,
+		})
+		.then_ignore(just(Token::Bind))
+		.then(expr.clone())
+		.map_with(|((mutable, name), value), ex| {
+			(
+				Expr::Bind {
+					mutable: mutable.is_some(),
+					name,
+					value: Box::new(value),
+				},
+				ex.span(),
+			)
+		});
+
+	// assignment
+	let assign = select! { Token::Ident(name) => name }
+		.then_ignore(just(Token::Assign))
+		.then(expr.clone())
+		.map_with(|(name, value), ex| {
+			(
+				Expr::Assign {
+					name,
+					value: Box::new(value),
+				},
+				ex.span(),
+			)
+		});
+
+	// return statements
+	let ret_stmt = just(Token::Return)
+		.ignore_then(expr.clone().or_not())
+		.map_with(|value, ex| (Expr::Return(value.map(Box::new)), ex.span()));
+
+	// statements
+	let stmt = ret_stmt.or(bind).or(assign).or(expr.clone());
+
+	// blocks
+	let block = stmt
+		.clone()
+		.repeated()
+		.collect::<Vec<_>>()
+		.delimited_by(just(Token::LBrace), just(Token::RBrace));
+
+	let definition = {
 		let literal = select! {
 			Token::Bool(b) => Expr::Bool(b),
 			Token::Int(n) => Expr::Int(n),
@@ -58,7 +111,28 @@ where
 			.delimited_by(just(Token::LParen), just(Token::RParen))
 			.map_with(|elems, ex| (Expr::Tuple(elems), ex.span()));
 
-		let atom = leaf.or(group).or(tuple).or(bad);
+		let if_expr = recursive(|if_expr| {
+			just(Token::If)
+				.ignore_then(expr.clone())
+				.then(block.clone())
+				.then(
+					just(Token::Else)
+						.ignore_then(if_expr.map(|e| vec![e]).or(block.clone()))
+						.or_not(),
+				)
+				.map_with(|((cond, then), els), ex| {
+					(
+						Expr::If {
+							cond: Box::new(cond),
+							then,
+							els,
+						},
+						ex.span(),
+					)
+				})
+		});
+
+		let atom = leaf.or(group).or(tuple).or(if_expr).or(bad);
 
 		let field = select! {
 			Token::Int(n) => n.to_string(),
@@ -128,48 +202,8 @@ where
 				(Expr::Or(Box::new(l), Box::new(r)), ex.span())
 			}),
 		))
-	});
-
-	// bindings
-	let bind = just(Token::Mut)
-		.or_not()
-		.then(select! {
-			Token::Ident(name) => name,
-		})
-		.then_ignore(just(Token::Bind))
-		.then(expr.clone())
-		.map_with(|((mutable, name), value), ex| {
-			(
-				Expr::Bind {
-					mutable: mutable.is_some(),
-					name,
-					value: Box::new(value),
-				},
-				ex.span(),
-			)
-		});
-
-	// assignment
-	let assign = select! { Token::Ident(name) => name }
-		.then_ignore(just(Token::Assign))
-		.then(expr.clone())
-		.map_with(|(name, value), ex| {
-			(
-				Expr::Assign {
-					name,
-					value: Box::new(value),
-				},
-				ex.span(),
-			)
-		});
-
-	// return statements
-	let ret_stmt = just(Token::Return)
-		.ignore_then(expr.clone().or_not())
-		.map_with(|value, ex| (Expr::Return(value.map(Box::new)), ex.span()));
-
-	// statements
-	let stmt = ret_stmt.or(bind).or(assign).or(expr);
+	};
+	expr.define(definition);
 
 	// param type is kept for the compiler to resolve
 	let param = select! { Token::Ident(name) => name }
@@ -195,12 +229,7 @@ where
 		.ignore_then(select! { Token::Ident(name) => name })
 		.then(params)
 		.then(ret)
-		.then(
-			stmt.clone()
-				.repeated()
-				.collect::<Vec<_>>()
-				.delimited_by(just(Token::LBrace), just(Token::RBrace)),
-		)
+		.then(block.clone())
 		.map_with(|(((name, params), ret), body), ex| {
 			(
 				Expr::Fn {
