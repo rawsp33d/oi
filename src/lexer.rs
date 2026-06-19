@@ -32,6 +32,8 @@ pub enum Token {
 	If,
 	#[token("else")]
 	Else,
+	#[token("loop")]
+	Loop,
 
 	// identifiers
 	#[token("mut")]
@@ -115,6 +117,7 @@ impl fmt::Display for Token {
 			Token::Return => write!(f, "return"),
 			Token::If => write!(f, "if"),
 			Token::Else => write!(f, "else"),
+			Token::Loop => write!(f, "loop"),
 			Token::Mut => write!(f, "mut"),
 			Token::Ident(name) => write!(f, "{name}"),
 			Token::Bind => write!(f, ":="),

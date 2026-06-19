@@ -132,13 +132,18 @@ where
 				})
 		});
 
-		let atom = leaf.or(group).or(tuple).or(if_expr).or(bad);
+		// loops
+		let loop_expr = just(Token::Loop)
+			.ignore_then(block.clone())
+			.map_with(|body, ex| (Expr::Loop { body }, ex.span()));
+
+		// atoms
+		let atom = leaf.or(group).or(tuple).or(if_expr).or(loop_expr).or(bad);
 
 		let field = select! {
 			Token::Int(n) => n.to_string(),
 			Token::Ident(name) => name,
 		};
-
 		atom.pratt((
 			// fields
 			postfix(8, just(Token::Dot).ignore_then(field), |lhs, field, ex| {

@@ -167,8 +167,9 @@ impl Compiler {
 
 		let callee = trans.module.declare_func_in_func(entry, trans.b.func);
 		let call = trans.b.ins().call(callee, &[]);
-		let val = trans.b.inst_results(call)[0];
-		trans.emit_print(val, &typ, true);
+		if let Some(val) = trans.b.inst_results(call).first().copied() {
+			trans.emit_print(val, &typ, true);
+		}
 		trans.b.ins().return_(&[]);
 		trans.b.finalize();
 
@@ -405,6 +406,11 @@ impl<'a> Translator<'a> {
 					}
 				}
 
+				Expr::Loop { body } => match self.loop_expr(body)? {
+					Some((v, t)) => last = (v, t),
+					None => return Ok(None),
+				},
+
 				_ => last = self.expr(stmt)?,
 			}
 		}
@@ -535,6 +541,26 @@ impl<'a> Translator<'a> {
 			// both branches diverged, and control never reaches a merge
 			None => Ok(None),
 		}
+	}
+
+	fn loop_expr(&mut self, body: &[Spanned<Expr>]) -> Result<Option<(Value, Typ)>, Diagnostic> {
+		let top = self.b.create_block();
+		self.b.ins().jump(top, &[]);
+		self.b.switch_to_block(top);
+
+		// bindings made inside the loop must not leak past it
+		let saved = self.vars.clone();
+		let refs: Vec<&Spanned<Expr>> = body.iter().collect();
+		let flow = self.block(&refs)?;
+		self.vars = saved;
+
+		// loop back to the top unless the body diverged
+		if flow.is_some() {
+			self.b.ins().jump(top, &[]);
+		}
+		self.b.seal_block(top);
+
+		Ok(None)
 	}
 
 	fn expr(&mut self, expr: &Spanned<Expr>) -> Result<(Value, Typ), Diagnostic> {
@@ -711,6 +737,15 @@ impl<'a> Translator<'a> {
 					.with_label("every branch returns, but a value is needed here")),
 				}
 			}
+
+			Expr::Loop { body } => match self.loop_expr(body)? {
+				Some(vt) => Ok(vt),
+				None => Err(Diagnostic::new(
+					"this `loop` never produces a value",
+					expr.1.into_range(),
+				)
+				.with_label("an infinite loop with no `break` yields nothing")),
+			},
 
 			Expr::Bind { .. } => unreachable!("bind in expression position"),
 			Expr::Assign { .. } => unreachable!("assign in expression position"),
