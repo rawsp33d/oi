@@ -43,3 +43,63 @@ fn loop_in_function() {
 	"};
 	check(src, "16");
 }
+
+// `break` exits the loop, and the statements after it run
+#[test]
+fn break_exits() {
+	let src = indoc! {"
+		mut i := 0
+		loop {
+			i = i + 1
+			if i == 3 { break }
+		}
+		i
+	"};
+	check(src, "3");
+}
+
+// `continue` skips the rest of the body: sum the evens in 1..=10, breaking past 10
+#[test]
+fn continue_skips() {
+	let src = indoc! {"
+		mut sum := 0
+		mut i := 0
+		loop {
+			i = i + 1
+			if i > 10 { break }
+			if i % 2 == 1 { continue }
+			sum = sum + i
+		}
+		sum
+	"};
+	check(src, "30");
+}
+
+// `break` leaves only the innermost loop
+#[test]
+fn break_targets_innermost() {
+	let src = indoc! {"
+		mut outer := 0
+		loop {
+			outer = outer + 1
+			mut inner := 0
+			loop {
+				inner = inner + 1
+				if inner == 2 { break }
+			}
+			if outer == 3 { break }
+		}
+		outer
+	"};
+	check(src, "3");
+}
+
+#[test]
+fn break_outside_loop() {
+	assert!(fail("break").contains("outside of a loop"));
+}
+
+#[test]
+fn continue_outside_loop() {
+	assert!(fail("continue").contains("outside of a loop"));
+}
