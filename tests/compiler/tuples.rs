@@ -50,8 +50,7 @@ fn field_by_name() {
 
 #[test]
 fn named_and_positional_agree() {
-	// `t.a` and `t.0` are the same slot
-	check("t := (a: 1, b: 2)\nt.a + t.0", "2");
+	check("t := (a: 1, b: 2); assert(t.a == t.0)", "true");
 }
 
 #[test]

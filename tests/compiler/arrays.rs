@@ -166,8 +166,11 @@ fn slice_variable_bounds() {
 #[test]
 fn slice_is_an_array() {
 	// the result is a normal array: indexable, with a `len`, and re-sliceable
-	check("a := [0, 2, 4, 6, 8]\na[1..][0]", "2");
-	check("a := [0, 2, 4, 6, 8]\na[1..3].len", "2");
+	check(indoc!{"
+		a := [0, 2, 4, 6, 8]
+		assert(a[1..][0] == 2)
+		assert(a[1..3].len == 2)
+	"}, "true");
 }
 
 #[test]
@@ -235,8 +238,12 @@ fn index_assign_strings() {
 
 #[test]
 fn index_assign_slice_sees_mutation() {
-	// b is a view into a's buffer; mutating a[1] is visible through b[0]
-	check("mut a := [1, 2, 3]\nb := a[1..]\na[1] = 99\nb[0]", "99");
+	check(indoc!{"
+		mut a := [1, 2, 3]
+		b := a[1..]
+		a[1] = 99
+		assert(b[0] == 99)
+	"}, "true");
 }
 
 #[test]
