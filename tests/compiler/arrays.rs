@@ -258,3 +258,58 @@ fn index_assign_type_mismatch_error() {
 fn index_assign_oob_error() {
 	assert!(fail("mut a := [1, 2]\na[5] = 9").contains("out of range"));
 }
+
+// append
+
+#[test]
+fn append_basic() {
+	check("mut a := [1, 2, 3]\na << 4\na", "[1, 2, 3, 4]");
+}
+
+#[test]
+fn append_updates_len() {
+	check("mut a := [1, 3, 5]\na << 7\na << 9\na.len", "5");
+}
+
+#[test]
+fn append_multiple() {
+	check("mut a := [0]\na << 1\na << 2\na << 3\na", "[0, 1, 2, 3]");
+}
+
+#[test]
+fn append_strings() {
+	check(r#"mut a := ["x"]; a << "y"; a << "z"; a"#, r#"["x", "y", "z"]"#);
+}
+
+#[test]
+fn append_grows_past_initial_cap() {
+	// initial cap == len == 2; force multiple doublings
+	check(
+		"mut a := [1, 2]\na << 3\na << 4\na << 5\na",
+		"[1, 2, 3, 4, 5]",
+	);
+}
+
+#[test]
+fn append_slice_copies_buffer() {
+	// appending to a slice forces a copy; the parent is unaffected
+	check(
+		"a := [1, 2, 3]\nmut b := a[1..]\nb << 99\nb",
+		"[2, 3, 99]",
+	);
+}
+
+#[test]
+fn append_immutable_error() {
+	assert!(fail("a := [1, 2]\na << 3").contains("immutable"));
+}
+
+#[test]
+fn append_non_array_error() {
+	assert!(fail("mut x := 5\nx << 1").contains("not an array"));
+}
+
+#[test]
+fn append_type_mismatch_error() {
+	assert!(fail(r#"mut a := [1, 2]; a << "hi""#).contains("type mismatch"));
+}
