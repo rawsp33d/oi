@@ -96,6 +96,8 @@
 - [ ] FFI
 - [ ] some sort of `todo`/`unimplemented` macros `rust`
 - [ ] a way to type a var without declaring it, like `var` in Go `go`
+- [ ] `loop match {...}` `revo`
+- [ ] `Contains` trait that lets any type be used with `in` operator
 ## consider
 - C++20 uses `operator|`, a naked `|` for pipelines
 	- back on the table now that `|x|` lambda fences are gone
@@ -110,6 +112,7 @@
 - `match{}/or` (in addition to the planned `match{else}`)
 	- or at least clean up the usage of one of them
 - `if` unwrapping `v`
+- using `not` or `!` in pipelines to achieve things like V's `val !in arr`
 # stdlib
 - `os`
 - `fs`

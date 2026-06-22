@@ -778,6 +778,10 @@ fn main() {
 
 	## loops
 	
+	# `loop {}`: infinite
+	# `loop <cond> {}`: while
+	# `loop <pattern> in <iter> {}`: for
+	
 	# forever
 	loop {
 	  print("are we there yet?")
@@ -799,6 +803,11 @@ fn main() {
 	loop x in [2 4 6 8] {
 	  print(x)
 	}
+	loop (x, y) in [(0, 0) (1, 2)] {
+	  print((y, x))
+	}
+	
+	# TODO: custom iterators
 	
 	## [almost?] everything is an expression
 	
@@ -1420,8 +1429,8 @@ fn main() {
 
 ## built-in top-level things (idk what to call them)
 
-# assert takes an expression
-assert foo.bar() == 5
+# assert! takes an expression
+assert! foo.bar() == 5
 
 ## stdlib
 
