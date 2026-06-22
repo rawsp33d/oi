@@ -46,6 +46,7 @@ impl Default for Compiler {
 		builder.symbol(runtime::ARRAY_RESERVE, runtime::array_reserve as *const u8);
 		builder.symbol(runtime::ARRAY_EXTEND, runtime::array_extend as *const u8);
 		builder.symbol(runtime::STR_EQ, runtime::str_eq as *const u8);
+		builder.symbol(runtime::STR_CONTAINS, runtime::str_contains as *const u8);
 
 		let module = JITModule::new(builder);
 		Self {
@@ -1068,15 +1069,33 @@ impl<'a> Translator<'a> {
 			},
 
 			Expr::In(lhs, rhs) => {
-				let (arr, arr_typ) = self.expr(rhs)?;
+				let (rhs_val, rhs_typ) = self.expr(rhs)?;
+
+				// substring check
+				if rhs_typ == Typ::Str {
+					let (lhs_val, lhs_typ) = self.expr(lhs)?;
+					if lhs_typ != Typ::Str {
+						return Err(Diagnostic::new(
+							format!("cannot search {lhs_typ:?} in Str"),
+							lhs.1.into_range(),
+						)
+						.with_label("type mismatch: value must be Str"));
+					}
+					let func = self.import_fn(runtime::STR_CONTAINS, &[self.int, self.int], Some(self.int));
+					let call = self.b.ins().call(func, &[rhs_val, lhs_val]);
+					return Ok((self.b.inst_results(call)[0], Typ::Bool));
+				}
+
+				let arr = rhs_val;
+				let arr_typ = rhs_typ;
 				let elem = match arr_typ {
 					Typ::Array(ref e) => (**e).clone(),
 					_ => {
 						return Err(Diagnostic::new(
-							format!("right side of `in` must be an array, got {arr_typ:?}"),
+							format!("right side of `in` must be an array or Str, got {arr_typ:?}"),
 							rhs.1.into_range(),
 						)
-						.with_label("not an array"));
+						.with_label("not an array or string"));
 					}
 				};
 				let (val, val_typ) = self.expr(lhs)?;

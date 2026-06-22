@@ -13,6 +13,7 @@ pub const PANIC_OOB: &str = "oi_panic_oob";
 pub const ARRAY_RESERVE: &str = "oi_array_reserve";
 pub const ARRAY_EXTEND: &str = "oi_array_extend";
 pub const STR_EQ: &str = "oi_str_eq";
+pub const STR_CONTAINS: &str = "oi_str_contains";
 
 // Type tag shared with the compiler.
 #[repr(i64)]
@@ -63,6 +64,12 @@ pub extern "C" fn write_sep(i: i64) {
 pub extern "C" fn panic_oob(index: i64, len: i64) {
 	eprintln!("index out of range: the length is {len} but the index is {index}");
 	std::process::abort();
+}
+
+pub extern "C" fn str_contains(collection: *const u8, value: *const u8) -> i64 {
+	let h = unsafe { CStr::from_ptr(collection as *const c_char) }.to_string_lossy();
+	let n = unsafe { CStr::from_ptr(value as *const c_char) }.to_string_lossy();
+	h.contains(n.as_ref()) as i64
 }
 
 // Compare two 0-terminated strings.
