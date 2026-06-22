@@ -98,6 +98,8 @@ pub enum Token {
 	RBracket,
 
 	// delimiters
+	#[token("..")]
+	DotDot,
 	#[token(".")]
 	Dot,
 	#[token(":")]
@@ -132,6 +134,7 @@ impl fmt::Display for Token {
 			Token::Ident(name) => write!(f, "{name}"),
 			Token::Bind => write!(f, ":="),
 			Token::Assign => write!(f, "="),
+			Token::DotDot => write!(f, ".."),
 			Token::Dot => write!(f, "."),
 			Token::Colon => write!(f, ":"),
 			Token::Plus => write!(f, "+"),

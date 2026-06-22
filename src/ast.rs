@@ -67,9 +67,17 @@ pub enum Expr {
 
 	// arrays
 	Array(Vec<Spanned<Expr>>),
+	// `collection[index]`
+	// TODO: handle negative indices
 	Index {
 		collection: Box<Spanned<Expr>>,
 		index: Box<Spanned<Expr>>,
+	},
+	// `collection[start?..end?]`
+	Slice {
+		collection: Box<Spanned<Expr>>,
+		start: Option<Box<Spanned<Expr>>>,
+		end: Option<Box<Spanned<Expr>>>,
 	},
 
 	// TODO: structs

@@ -8,6 +8,7 @@ pub const ALLOC: &str = "oi_alloc";
 pub const PRINT: &str = "oi_print";
 pub const WRITE: &str = "oi_write";
 pub const WRITE_SEP: &str = "oi_write_sep";
+pub const SLICE: &str = "oi_slice";
 pub const PANIC_OOB: &str = "oi_panic_oob";
 
 // Type tag shared with the compiler.
@@ -78,4 +79,22 @@ pub extern "C" fn alloc(size: i64) -> *mut u8 {
 	// TODO: address this without leaking
 	let size = size.max(1) as usize;
 	Box::leak(vec![0u8; size].into_boxed_slice()).as_mut_ptr()
+}
+
+// View the range `[start, end)` of an array.
+// The view shares the parent's element buffer.
+// Panics if out of range.
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn slice(header: *const i64, start: i64, end: i64) -> *const i64 {
+	let (data, len) = unsafe { (*header, *header.add(1)) };
+	if start < 0 || start > end || end > len {
+		eprintln!("slice range {start}..{end} out of bounds for array of length {len}");
+		std::process::abort();
+	}
+	let out = alloc(16) as *mut i64;
+	unsafe {
+		*out = data + start * 8;
+		*out.add(1) = end - start;
+	}
+	out
 }

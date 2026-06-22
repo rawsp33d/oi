@@ -7,6 +7,12 @@ use chumsky::{
 	prelude::*,
 };
 
+// The contents of a `[...]` subscript. A single index, or a range to slice.
+enum Subscript {
+	Index(Spanned<Expr>),
+	Slice(Option<Spanned<Expr>>, Option<Spanned<Expr>>),
+}
+
 pub fn parser<'token, I>()
 -> impl Parser<'token, I, Vec<Spanned<Expr>>, extra::Err<Rich<'token, Token>>>
 where
@@ -175,6 +181,18 @@ where
 			Token::Int(n) => n.to_string(),
 			Token::Ident(name) => name,
 		};
+
+		// array subscripts
+		let range = expr
+			.clone()
+			.or_not()
+			.then_ignore(just(Token::DotDot))
+			.then(expr.clone().or_not())
+			.map(|(start, end)| Subscript::Slice(start, end));
+		let subscript = range
+			.or(expr.clone().map(Subscript::Index))
+			.delimited_by(just(Token::LBracket), just(Token::RBracket));
+
 		atom.pratt((
 			// fields
 			postfix(8, just(Token::Dot).ignore_then(field), |lhs, field, ex| {
@@ -186,21 +204,22 @@ where
 					ex.span(),
 				)
 			}),
-			// indexing
-			postfix(
-				8,
-				expr.clone()
-					.delimited_by(just(Token::LBracket), just(Token::RBracket)),
-				|lhs, index, ex| {
-					(
-						Expr::Index {
-							collection: Box::new(lhs),
-							index: Box::new(index),
-						},
-						ex.span(),
-					)
-				},
-			),
+			// indexing and slicing
+			postfix(8, subscript, |lhs, sub, ex| {
+				let collection = Box::new(lhs);
+				let e = match sub {
+					Subscript::Index(index) => Expr::Index {
+						collection,
+						index: Box::new(index),
+					},
+					Subscript::Slice(start, end) => Expr::Slice {
+						collection,
+						start: start.map(Box::new),
+						end: end.map(Box::new),
+					},
+				};
+				(e, ex.span())
+			}),
 			// unary
 			prefix(7, just(Token::Minus), |_, rhs, ex| {
 				(Expr::Negative(Box::new(rhs)), ex.span())

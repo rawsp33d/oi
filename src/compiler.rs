@@ -41,6 +41,7 @@ impl Default for Compiler {
 		builder.symbol(runtime::PRINT, runtime::print as *const u8);
 		builder.symbol(runtime::WRITE, runtime::write as *const u8);
 		builder.symbol(runtime::WRITE_SEP, runtime::write_sep as *const u8);
+		builder.symbol(runtime::SLICE, runtime::slice as *const u8);
 		builder.symbol(runtime::PANIC_OOB, runtime::panic_oob as *const u8);
 
 		let module = JITModule::new(builder);
@@ -783,8 +784,7 @@ impl<'a> Translator<'a> {
 				if let Typ::Array(elem) = &typ {
 					let elem = (**elem).clone();
 					if field == "len" {
-						let len = self.b.ins().load(self.int, MemFlags::new(), ptr, 0);
-						return Ok((len, Typ::Int));
+						return Ok((self.array_len(ptr), Typ::Int));
 					}
 					return match field.parse::<i64>() {
 						Ok(n) => {
@@ -868,38 +868,46 @@ impl<'a> Translator<'a> {
 				}
 				let elem = elem_typ.unwrap();
 
-				let ptr = self.call_alloc(elems.len() + 1);
-				let len = self.b.ins().iconst(self.int, elems.len() as i64);
-				self.b.ins().store(MemFlags::new(), len, ptr, 0);
+				// fill a fresh element buffer, then wrap it in a handle
+				let data = self.call_alloc(elems.len());
 				for (i, val) in vals.into_iter().enumerate() {
 					self.b
 						.ins()
-						.store(MemFlags::new(), val, ptr, ((i + 1) * 8) as i32);
+						.store(MemFlags::new(), val, data, (i * 8) as i32);
 				}
-				Ok((ptr, Typ::Array(Box::new(elem))))
+				let len = self.b.ins().iconst(self.int, elems.len() as i64);
+				let header = self.make_array(data, len);
+				Ok((header, Typ::Array(Box::new(elem))))
 			}
 
 			Expr::Index { collection, index } => {
-				let (ptr, typ) = self.expr(collection)?;
-				let elem = match &typ {
-					Typ::Array(elem) => (**elem).clone(),
-					_ => {
-						return Err(Diagnostic::new(
-							format!("cannot index {typ:?}"),
-							collection.1.into_range(),
-						)
-						.with_label("not an array"));
-					}
-				};
-				let (idx, it) = self.expr(index)?;
-				if it != Typ::Int {
-					return Err(Diagnostic::new(
-						format!("array index must be Int, got {it:?}"),
-						index.1.into_range(),
-					)
-					.with_label("not an Int"));
-				}
+				let (ptr, elem) = self.array_operand(collection, "index")?;
+				let idx = self.int_value(index, "array index")?;
 				Ok((self.load_index(ptr, &elem, idx), elem))
+			}
+
+			// a slice is a view of an array that shares the parent's elements and memory space
+			Expr::Slice {
+				collection,
+				start,
+				end,
+			} => {
+				let (ptr, elem) = self.array_operand(collection, "slice")?;
+				let start = match start {
+					Some(e) => self.int_value(e, "slice start")?,
+					None => self.b.ins().iconst(self.int, 0),
+				};
+				let end = match end {
+					Some(e) => self.int_value(e, "slice end")?,
+					None => self.array_len(ptr),
+				};
+				let func = self.import_fn(
+					runtime::SLICE,
+					&[self.int, self.int, self.int],
+					Some(self.int),
+				);
+				let call = self.b.ins().call(func, &[ptr, start, end]);
+				Ok((self.b.inst_results(call)[0], Typ::Array(Box::new(elem))))
 			}
 
 			// an `if` nested inside an expression must yield a value on every branch
@@ -1126,9 +1134,55 @@ impl<'a> Translator<'a> {
 		self.b.inst_results(call)[0]
 	}
 
-	// Bounds-check `idx` against the array's length header, then load that element.
-	fn load_index(&mut self, ptr: Value, elem: &Typ, idx: Value) -> Value {
-		let len = self.b.ins().load(self.int, MemFlags::new(), ptr, 0);
+	// An array value is a pointer to a 2-word handle: `{ data @ 0, len @ 8 }`.
+	// `data` points to a separate buffer of pointer-sized element slots, which a slice shares with its parent.
+	// Slicing copies only the handle, not the elements.
+	fn array_data(&mut self, header: Value) -> Value {
+		self.b.ins().load(self.int, MemFlags::new(), header, 0)
+	}
+	fn array_len(&mut self, header: Value) -> Value {
+		self.b.ins().load(self.int, MemFlags::new(), header, 8)
+	}
+	fn make_array(&mut self, data: Value, len: Value) -> Value {
+		let header = self.call_alloc(2);
+		self.b.ins().store(MemFlags::new(), data, header, 0);
+		self.b.ins().store(MemFlags::new(), len, header, 8);
+		header
+	}
+
+	// Evaluate an array operand, returning its pointer and element type.
+	// `what` names the operation for the error (ex: "index", "slice").
+	fn array_operand(
+		&mut self,
+		collection: &Spanned<Expr>,
+		what: &str,
+	) -> Result<(Value, Typ), Diagnostic> {
+		let (ptr, typ) = self.expr(collection)?;
+		match typ {
+			Typ::Array(elem) => Ok((ptr, *elem)),
+			_ => Err(
+				Diagnostic::new(format!("cannot {what} {typ:?}"), collection.1.into_range())
+					.with_label("not an array"),
+			),
+		}
+	}
+
+	// Evaluate an expression that must be an Int (an index or slice bound).
+	fn int_value(&mut self, e: &Spanned<Expr>, what: &str) -> Result<Value, Diagnostic> {
+		let (v, t) = self.expr(e)?;
+		if t != Typ::Int {
+			return Err(Diagnostic::new(
+				format!("{what} must be Int, got {t:?}"),
+				e.1.into_range(),
+			)
+			.with_label("not an Int"));
+		}
+		Ok(v)
+	}
+
+	// Bounds-check `idx` against the array's length, then load that element.
+	fn load_index(&mut self, header: Value, elem: &Typ, idx: Value) -> Value {
+		let len = self.array_len(header);
 		let oob = self
 			.b
 			.ins()
@@ -1145,11 +1199,11 @@ impl<'a> Translator<'a> {
 		self.b.ins().call(func, &[idx, len]);
 		self.b.ins().trap(TrapCode::HEAP_OUT_OF_BOUNDS);
 
-		// element `idx` lives at byte offset `(idx + 1) * 8`, past the length header
+		// element `idx` lives at byte offset `idx * 8` in the shared data buffer
 		self.b.switch_to_block(ok_block);
-		let slot = self.b.ins().iadd_imm(idx, 1);
-		let off = self.b.ins().imul_imm(slot, 8);
-		let addr = self.b.ins().iadd(ptr, off);
+		let data = self.array_data(header);
+		let off = self.b.ins().imul_imm(idx, 8);
+		let addr = self.b.ins().iadd(data, off);
 		self.b
 			.ins()
 			.load(cl_type(elem, self.int), MemFlags::new(), addr, 0)
@@ -1194,7 +1248,8 @@ impl<'a> Translator<'a> {
 		// an array's length is only known at runtime, so walk it with an emitted loop
 		if let Typ::Array(elem) = typ {
 			self.write_lit("[");
-			let len = self.b.ins().load(self.int, MemFlags::new(), val, 0);
+			let len = self.array_len(val);
+			let data = self.array_data(val);
 			let i = self.b.declare_var(self.int);
 			let zero = self.b.ins().iconst(self.int, 0);
 			self.b.def_var(i, zero);
@@ -1214,19 +1269,20 @@ impl<'a> Translator<'a> {
 			self.b.seal_block(exit);
 
 			// body
-			// a runtime helper writes the ", " before all but the first element, then element `i` is loaded from byte offset `(i + 1) * 8`, past the header
+			// a runtime helper writes the ", " before all but the first element,
+			// then element `i` is loaded from byte offset `i * 8` in the data buffer
 			self.b.switch_to_block(body);
 			let iv = self.b.use_var(i);
 			let sep = self.import_fn(runtime::WRITE_SEP, &[self.int], None);
 			self.b.ins().call(sep, &[iv]);
-			let next = self.b.ins().iadd_imm(iv, 1);
-			let off = self.b.ins().imul_imm(next, 8);
-			let addr = self.b.ins().iadd(val, off);
+			let off = self.b.ins().imul_imm(iv, 8);
+			let addr = self.b.ins().iadd(data, off);
 			let ev = self
 				.b
 				.ins()
 				.load(cl_type(elem, self.int), MemFlags::new(), addr, 0);
 			self.emit_print(ev, elem, false);
+			let next = self.b.ins().iadd_imm(iv, 1);
 			self.b.def_var(i, next);
 			self.b.ins().jump(header, &[]);
 			self.b.seal_block(header);
