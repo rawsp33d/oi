@@ -118,6 +118,9 @@ pub enum Expr {
 	And(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Or(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	Not(Box<Spanned<Expr>>),
+
+	// membership
+	In(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 }
 
 // A function parameter.

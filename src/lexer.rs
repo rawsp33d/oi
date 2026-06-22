@@ -38,6 +38,8 @@ pub enum Token {
 	Break,
 	#[token("continue")]
 	Continue,
+	#[token("in")]
+	In,
 
 	// identifiers
 	#[token("mut")]
@@ -132,6 +134,7 @@ impl fmt::Display for Token {
 			Token::Loop => write!(f, "loop"),
 			Token::Break => write!(f, "break"),
 			Token::Continue => write!(f, "continue"),
+			Token::In => write!(f, "in"),
 			Token::Mut => write!(f, "mut"),
 			Token::Ident(name) => write!(f, "{name}"),
 			Token::Bind => write!(f, ":="),

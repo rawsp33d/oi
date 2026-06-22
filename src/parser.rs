@@ -302,6 +302,10 @@ where
 			infix(left(3), just(Token::Ne), |l, _, r, ex| {
 				(Expr::Ne(Box::new(l), Box::new(r)), ex.span())
 			}),
+			// membership
+			infix(left(3), just(Token::In), |l, _, r, ex| {
+				(Expr::In(Box::new(l), Box::new(r)), ex.span())
+			}),
 			// logical
 			infix(left(2), just(Token::And), |l, _, r, ex| {
 				(Expr::And(Box::new(l), Box::new(r)), ex.span())
