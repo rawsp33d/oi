@@ -85,6 +85,11 @@ pub enum Expr {
 		index: Box<Spanned<Expr>>,
 		value: Box<Spanned<Expr>>,
 	},
+	// `name << value`
+	Append {
+		name: String,
+		value: Box<Spanned<Expr>>,
+	},
 
 	// TODO: structs
 	// TODO: enums

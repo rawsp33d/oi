@@ -10,6 +10,7 @@ pub const WRITE: &str = "oi_write";
 pub const WRITE_SEP: &str = "oi_write_sep";
 pub const SLICE: &str = "oi_slice";
 pub const PANIC_OOB: &str = "oi_panic_oob";
+pub const ARRAY_GROW: &str = "oi_array_grow";
 
 // Type tag shared with the compiler.
 #[repr(i64)]
@@ -91,10 +92,27 @@ pub extern "C" fn slice(header: *const i64, start: i64, end: i64, elem_size: i64
 		eprintln!("slice range {start}..{end} out of bounds for array of length {len}");
 		std::process::abort();
 	}
-	let out = alloc(16) as *mut i64;
+	let view_len = end - start;
+	let out = alloc(24) as *mut i64;
 	unsafe {
 		*out = data + start * elem_size;
-		*out.add(1) = end - start;
+		*out.add(1) = view_len;
+		*out.add(2) = view_len; // cap == len: slice can't grow in-place
 	}
 	out
+}
+
+// Grow an array's element buffer to at least cap+1 slots.
+// Doubles capacity (minimum 1). Updates handle's data pointer and cap in place.
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn array_grow(header: *mut i64, elem_size: i64) {
+	let (data, len, cap) = unsafe { (*header, *header.add(1), *header.add(2)) };
+	let new_cap = if cap == 0 { 1 } else { cap * 2 };
+	let new_data = alloc(new_cap * elem_size) as *mut u8;
+	let old_bytes = (len * elem_size) as usize;
+	unsafe {
+		std::ptr::copy_nonoverlapping(data as *const u8, new_data, old_bytes);
+		*header = new_data as i64;
+		*header.add(2) = new_cap;
+	}
 }

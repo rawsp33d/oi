@@ -43,6 +43,7 @@ impl Default for Compiler {
 		builder.symbol(runtime::WRITE_SEP, runtime::write_sep as *const u8);
 		builder.symbol(runtime::SLICE, runtime::slice as *const u8);
 		builder.symbol(runtime::PANIC_OOB, runtime::panic_oob as *const u8);
+		builder.symbol(runtime::ARRAY_GROW, runtime::array_grow as *const u8);
 
 		let module = JITModule::new(builder);
 		Self {
@@ -298,7 +299,6 @@ fn elem_size(typ: &Typ) -> i64 {
 	if *typ == Typ::Int { 4 } else { 8 }
 }
 
-
 // Resolve a declared type name to an Oi type.
 fn typ_from_name(name: &str, span: Span) -> Result<Typ, Diagnostic> {
 	Ok(match name {
@@ -449,6 +449,67 @@ impl<'a> Translator<'a> {
 						.with_label("type mismatch"));
 					}
 					self.store_index(ptr, &elem, idx, val);
+				}
+
+				Expr::Append { name, value } => {
+					let local = self.vars.get(name).cloned().ok_or_else(|| {
+						Diagnostic::new(
+							format!("cannot append to undefined variable `{name}`"),
+							stmt.1.into_range(),
+						)
+						.with_label("not found in scope")
+					})?;
+					if !local.mutable {
+						return Err(Diagnostic::new(
+							format!("cannot append to immutable `{name}`"),
+							stmt.1.into_range(),
+						)
+						.with_label("declared without `mut`")
+						.with_note(format!("use `mut {name} := ...` to allow append")));
+					}
+					let elem = match &local.typ {
+						Typ::Array(e) => (**e).clone(),
+						_ => {
+							return Err(Diagnostic::new(
+								format!("`{name}` is not an array"),
+								stmt.1.into_range(),
+							)
+							.with_label("not an array"));
+						}
+					};
+					let (val, vtyp) = self.expr(value)?;
+					if vtyp != elem {
+						return Err(Diagnostic::new(
+							format!("cannot append {vtyp:?} to {elem:?} array"),
+							value.1.into_range(),
+						)
+						.with_label("type mismatch"));
+					}
+					let ptr = self.b.use_var(local.var);
+					let len = self.array_len(ptr);
+					let cap = self.array_cap(ptr);
+
+					// grow if full
+					let full = self.b.ins().icmp(IntCC::Equal, len, cap);
+					let grow_block = self.b.create_block();
+					let ok_block = self.b.create_block();
+					self.b.ins().brif(full, grow_block, &[], ok_block, &[]);
+					self.b.seal_block(grow_block);
+
+					self.b.switch_to_block(grow_block);
+					let size = self.b.ins().iconst(self.int, elem_size(&elem));
+					let func = self.import_fn(runtime::ARRAY_GROW, &[self.int, self.int], None);
+					self.b.ins().call(func, &[ptr, size]);
+					self.b.ins().jump(ok_block, &[]);
+					self.b.seal_block(ok_block);
+
+					self.b.switch_to_block(ok_block);
+					let data = self.array_data(ptr);
+					let off = self.b.ins().imul_imm(len, elem_size(&elem));
+					let addr = self.b.ins().iadd(data, off);
+					self.b.ins().store(MemFlags::new(), val, addr, 0);
+					let new_len = self.b.ins().iadd_imm(len, 1);
+					self.b.ins().store(MemFlags::new(), new_len, ptr, 8);
 				}
 
 				Expr::Return(value) => {
@@ -1001,6 +1062,7 @@ impl<'a> Translator<'a> {
 			Expr::Break | Expr::Continue => {
 				unreachable!("break/continue in expression position")
 			}
+			Expr::Append { .. } => unreachable!("append in expression position"),
 		}
 	}
 
@@ -1212,10 +1274,14 @@ impl<'a> Translator<'a> {
 	fn array_len(&mut self, header: Value) -> Value {
 		self.b.ins().load(self.int, MemFlags::new(), header, 8)
 	}
+	fn array_cap(&mut self, header: Value) -> Value {
+		self.b.ins().load(self.int, MemFlags::new(), header, 16)
+	}
 	fn make_array(&mut self, data: Value, len: Value) -> Value {
-		let header = self.call_alloc(2);
+		let header = self.call_alloc(3);
 		self.b.ins().store(MemFlags::new(), data, header, 0);
 		self.b.ins().store(MemFlags::new(), len, header, 8);
+		self.b.ins().store(MemFlags::new(), len, header, 16);
 		header
 	}
 

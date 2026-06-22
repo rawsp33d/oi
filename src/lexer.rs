@@ -66,6 +66,8 @@ pub enum Token {
 	Eq,
 	#[token("!=")]
 	Ne,
+	#[token("<<")]
+	LtLt,
 	#[token("<")]
 	Lt,
 	#[token(">")]
@@ -144,6 +146,7 @@ impl fmt::Display for Token {
 			Token::Percent => write!(f, "%"),
 			Token::Eq => write!(f, "=="),
 			Token::Ne => write!(f, "!="),
+			Token::LtLt => write!(f, "<<"),
 			Token::Lt => write!(f, "<"),
 			Token::Gt => write!(f, ">"),
 			Token::Le => write!(f, "<="),

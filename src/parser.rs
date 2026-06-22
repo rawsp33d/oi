@@ -80,11 +80,26 @@ where
 			)
 		});
 
+	// array appendign
+	let append = select! { Token::Ident(name) => name }
+		.then_ignore(just(Token::LtLt))
+		.then(expr.clone())
+		.map_with(|(name, value), ex| {
+			(
+				Expr::Append {
+					name,
+					value: Box::new(value),
+				},
+				ex.span(),
+			)
+		});
+
 	// statements
 	let stmt = ret_stmt
 		.or(bind)
 		.or(assign)
 		.or(index_assign)
+		.or(append)
 		.or(expr.clone());
 
 	// blocks
