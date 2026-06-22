@@ -1758,7 +1758,11 @@ impl<'a> Translator<'a> {
 		let tag = self.b.ins().iconst(self.int, tag as i64);
 		let quote = self.b.ins().iconst(self.int, quote as i64);
 		let stderr_v = self.b.ins().iconst(self.int, stderr as i64);
-		let func = self.import_fn(runtime::WRITE, &[self.int, self.int, self.int, self.int], None);
+		let func = self.import_fn(
+			runtime::WRITE,
+			&[self.int, self.int, self.int, self.int],
+			None,
+		);
 		self.b.ins().call(func, &[tag, bits, quote, stderr_v]);
 	}
 

@@ -41,14 +41,20 @@ fn print_no_args() {
 
 #[test]
 fn write_no_newline() {
-	check(r#"write("hi")
-42"#, "hi42");
+	check(
+		r#"write("hi")
+42"#,
+		"hi42",
+	);
 }
 
 #[test]
 fn write_multiple() {
-	check(r#"write("a", "b")
-42"#, "a b42");
+	check(
+		r#"write("a", "b")
+42"#,
+		"a b42",
+	);
 }
 
 #[test]
@@ -58,16 +64,20 @@ fn write_no_args() {
 
 #[test]
 fn eprint_goes_to_stderr() {
-	let (stdout, stderr) = run_streams(r#"eprint("err")
-42"#);
+	let (stdout, stderr) = run_streams(
+		r#"eprint("err")
+42"#,
+	);
 	assert_eq!(stdout, "42");
 	assert_eq!(stderr, "err");
 }
 
 #[test]
 fn ewrite_goes_to_stderr() {
-	let (stdout, stderr) = run_streams(r#"ewrite("err")
-42"#);
+	let (stdout, stderr) = run_streams(
+		r#"ewrite("err")
+42"#,
+	);
 	assert_eq!(stdout, "42");
 	assert_eq!(stderr, "err");
 }
