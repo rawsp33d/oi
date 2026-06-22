@@ -105,7 +105,8 @@ pub extern "C" fn slice(header: *const i64, start: i64, end: i64, elem_size: i64
 
 // Ensure the array has capacity for at least `min_cap` elements.
 // Grows by doubling, at least to `min_cap`. Updates data and cap in place.
-fn reserve(header: *mut i64, min_cap: i64, elem_size: i64) {
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn array_reserve(header: *mut i64, min_cap: i64, elem_size: i64) {
 	let (data, len, cap) = unsafe { (*header, *header.add(1), *header.add(2)) };
 	if min_cap <= cap {
 		return;
@@ -120,20 +121,12 @@ fn reserve(header: *mut i64, min_cap: i64, elem_size: i64) {
 	}
 }
 
-// Ensure the array has room for one more element.
-// Called before single-element append.
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-pub extern "C" fn array_reserve(header: *mut i64, elem_size: i64) {
-	let len = unsafe { *header.add(1) };
-	reserve(header, len + 1, elem_size);
-}
-
 // Append all elements of `src` to `dst`, growing dst's buffer as needed.
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn array_extend(dst: *mut i64, src: *const i64, elem_size: i64) {
 	let (_, dst_len, _) = unsafe { (*dst, *dst.add(1), *dst.add(2)) };
 	let (src_data, src_len) = unsafe { (*src, *src.add(1)) };
-	reserve(dst, dst_len + src_len, elem_size);
+	array_reserve(dst, dst_len + src_len, elem_size);
 	let new_len = dst_len + src_len;
 	unsafe {
 		let dst_data = *dst as *mut u8;

@@ -493,8 +493,9 @@ impl<'a> Translator<'a> {
 						self.b.seal_block(grow_block);
 
 						self.b.switch_to_block(grow_block);
-						let func = self.import_fn(runtime::ARRAY_RESERVE, &[self.int, self.int], None);
-						self.b.ins().call(func, &[ptr, size]);
+						let min_cap = self.b.ins().iadd_imm(len, 1);
+						let func = self.import_fn(runtime::ARRAY_RESERVE, &[self.int, self.int, self.int], None);
+						self.b.ins().call(func, &[ptr, min_cap, size]);
 						self.b.ins().jump(ok_block, &[]);
 						self.b.seal_block(ok_block);
 
