@@ -1266,6 +1266,17 @@ impl<'a> Translator<'a> {
 		let raw = match (&lt, &rt) {
 			(Typ::Int, Typ::Int) | (Typ::Bool, Typ::Bool) => self.b.ins().icmp(icc, lv, rv),
 			(Typ::Float, Typ::Float) => self.b.ins().fcmp(fcc, lv, rv),
+			(Typ::Str, Typ::Str) if icc == IntCC::Equal || icc == IntCC::NotEqual => {
+				let eq = self.emit_eq(lv, rv, &Typ::Str);
+				// emit_eq returns 1 for equal, so we invert for Ne
+				if icc == IntCC::NotEqual {
+					self.b.ins().icmp_imm(IntCC::Equal, eq, 0)
+				} else {
+					// eq is already i64 from str_eq, but needs to be the raw bool width
+					// wrap it in an icmp so the uextend below works the same in every situation
+					self.b.ins().icmp_imm(IntCC::NotEqual, eq, 0)
+				}
+			}
 			_ => {
 				return Err(Diagnostic::new(
 					format!("cannot compare {lt:?} and {rt:?}"),
