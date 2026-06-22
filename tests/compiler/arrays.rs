@@ -348,3 +348,50 @@ fn extend_into_empty_ish() {
 fn extend_type_mismatch_error() {
 	assert!(fail(r#"mut a := [1, 2]; b := ["x"]; a << b"#).contains("type mismatch"));
 }
+
+// in operator
+
+#[test]
+fn in_found() {
+	check("even := [0, 2, 4, 6, 8]\n6 in even", "true");
+}
+
+#[test]
+fn in_not_found() {
+	check("even := [0, 2, 4, 6, 8]\n5 in even", "false");
+}
+
+#[test]
+fn in_first_element() {
+	check("a := [10, 20, 30]\n10 in a", "true");
+}
+
+#[test]
+fn in_last_element() {
+	check("a := [10, 20, 30]\n30 in a", "true");
+}
+
+#[test]
+fn in_strings() {
+	check(r#"a := ["w", "x", "y"]; "x" in a"#, "true");
+}
+
+#[test]
+fn in_strings_not_found() {
+	check(r#"a := ["w", "x", "y"]; "z" in a"#, "false");
+}
+
+#[test]
+fn in_after_append() {
+	check("mut a := [1, 2]\na << 3\n3 in a", "true");
+}
+
+#[test]
+fn in_non_array_error() {
+	assert!(fail("5 in 10").contains("not an array"));
+}
+
+#[test]
+fn in_type_mismatch_error() {
+	assert!(fail(r#"a := [1, 2]; "x" in a"#).contains("type mismatch"));
+}
