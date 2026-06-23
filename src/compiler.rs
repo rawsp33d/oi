@@ -292,7 +292,7 @@ impl Compiler {
 		trans.b.finalize();
 
 		// the return type, declared or inferred, is the value type the fn produces
-		Ok(trans.ret.map(|(t, _)| t).unwrap_or(Typ::Int))
+		Ok(trans.ret.map(|(t, _)| t).unwrap_or(Typ::Tuple(vec![])))
 	}
 }
 
@@ -346,6 +346,7 @@ fn typ_from_name(
 		"f64" | "float" => Typ::Float,
 		"bool" => Typ::Bool,
 		"string" | "str" => Typ::Str,
+		"()" => Typ::Tuple(vec![]),
 		_ => {
 			if let Some(fields) = structs.get(name) {
 				Typ::Struct(name.to_string(), fields.clone())
@@ -400,7 +401,7 @@ impl<'a> Translator<'a> {
 	// The block's value is its final expression.
 	// `None` means the block diverged before reaching the end.
 	fn block(&mut self, stmts: &[&Spanned<Expr>]) -> Result<Option<(Value, Typ)>, Diagnostic> {
-		let mut last = (self.b.ins().iconst(types::I32, 0), Typ::Int);
+		let mut last = (self.b.ins().iconst(self.int, 0), Typ::Tuple(vec![]));
 		for &stmt in stmts {
 			match &stmt.0 {
 				Expr::Bind {
@@ -595,7 +596,10 @@ impl<'a> Translator<'a> {
 						Some(e) => self.expr(e)?,
 						// a bare `return` yields the zero value of the return type
 						None => {
-							let typ = self.ret.as_ref().map_or(Typ::Int, |(t, _)| t.clone());
+							let typ = self
+								.ret
+								.as_ref()
+								.map_or(Typ::Tuple(vec![]), |(t, _)| t.clone());
 							(self.zero(&typ), typ)
 						}
 					};
@@ -737,6 +741,15 @@ impl<'a> Translator<'a> {
 			)
 			.with_label("wrong return type"));
 		}
+		// unit
+		// void return, no cranelift return slot
+		if matches!(typ, Typ::Tuple(ref f) if f.is_empty()) {
+			self.b.ins().return_(&[]);
+			if self.ret.is_none() {
+				self.ret = Some((typ, span));
+			}
+			return Ok(());
+		}
 		// structs live on the callee's stack, so copy to the heap before returning
 		let final_val = if let Typ::Struct(_, ref fields) = typ {
 			let fields = fields.clone();
@@ -826,7 +839,7 @@ impl<'a> Translator<'a> {
 			}
 			// no `else` yields the zero value of the if expression's type
 			None => {
-				let t = result_typ.clone().unwrap_or(Typ::Int);
+				let t = result_typ.clone().unwrap_or(Typ::Tuple(vec![]));
 				let z = self.zero(&t);
 				Some((z, t))
 			}
@@ -935,7 +948,9 @@ impl<'a> Translator<'a> {
 			self.vars = saved;
 			flow
 		} else {
-			let t = result.as_ref().map_or(Typ::Int, |(_, t)| t.clone());
+			let t = result
+				.as_ref()
+				.map_or(Typ::Tuple(vec![]), |(_, t)| t.clone());
 			Some((self.zero(&t), t))
 		};
 		if let Some(vt) = else_flow {
@@ -1369,11 +1384,20 @@ impl<'a> Translator<'a> {
 				}
 				let func = self.module.declare_func_in_func(sig.id, self.b.func);
 				let call = self.b.ins().call(func, &vals);
-				Ok((self.b.inst_results(call)[0], sig.ret))
+				let ret_val = if matches!(sig.ret, Typ::Tuple(ref f) if f.is_empty()) {
+					self.b.ins().iconst(self.int, 0)
+				} else {
+					self.b.inst_results(call)[0]
+				};
+				Ok((ret_val, sig.ret))
 			}
 
 			// a tuple is a heap block of pointer-sized slots, one per field
 			Expr::Tuple(elems) => {
+				// represent unit `()` as a dummy value
+				if elems.is_empty() {
+					return Ok((self.b.ins().iconst(self.int, 0), Typ::Tuple(vec![])));
+				}
 				let ptr = self.call_alloc(elems.len());
 				let mut fields = Vec::with_capacity(elems.len());
 				for (i, (name, value)) in elems.iter().enumerate() {
@@ -1813,6 +1837,7 @@ impl<'a> Translator<'a> {
 			Typ::Str => self.str_const(""),
 			Typ::Int => self.b.ins().iconst(types::I32, 0),
 			Typ::Bool => self.b.ins().iconst(self.int, 0),
+			Typ::Tuple(fields) if fields.is_empty() => self.b.ins().iconst(self.int, 0),
 			Typ::Struct(_, fields) => {
 				let fields = fields.clone();
 				let size = (fields.len() * 8) as u32;
@@ -1915,6 +1940,24 @@ impl<'a> Translator<'a> {
 	) -> Result<(Value, Typ), Diagnostic> {
 		let (lv, lt) = self.expr(l)?;
 		let (rv, rt) = self.expr(r)?;
+
+		// () == ()
+		if let (Typ::Tuple(lf), Typ::Tuple(rf)) = (&lt, &rt) {
+			if lf.is_empty() && rf.is_empty() {
+				let result = match icc {
+					IntCC::Equal => self.b.ins().iconst(self.int, 1),
+					IntCC::NotEqual => self.b.ins().iconst(self.int, 0),
+					_ => {
+						return Err(Diagnostic::new(
+							"unit type `()` only supports `==` and `!=`",
+							span.into_range(),
+						)
+						.with_label("unsupported comparison"));
+					}
+				};
+				return Ok((result, Typ::Bool));
+			}
+		}
 
 		let raw = match (&lt, &rt) {
 			(Typ::Int, Typ::Int) | (Typ::Bool, Typ::Bool) => self.b.ins().icmp(icc, lv, rv),

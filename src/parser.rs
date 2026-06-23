@@ -440,6 +440,9 @@ where
 
 	// optional return type
 	let ret = select! { Token::Ident(typ) => typ }
+		.or(just(Token::LParen)
+			.then(just(Token::RParen))
+			.to("()".to_string()))
 		.map_with(|typ, ex| (typ, ex.span()))
 		.or_not();
 
