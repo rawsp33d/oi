@@ -136,6 +136,15 @@ fn fn_return_type_annotation_tuple() {
 }
 
 #[test]
+fn fn_return_type_annotation_tuple_no_comma() {
+	let src = indoc! {"
+		fn pair() (int int) { (3, 4) }
+		pair()
+	"};
+	check(src, "(3, 4)");
+}
+
+#[test]
 fn fn_return_type_mismatch_tuple() {
 	let src = indoc! {"
 		fn bad() (int, int) { 42 }

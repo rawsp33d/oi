@@ -446,7 +446,7 @@ where
 			.to(TypeExpr::Tuple(vec![]));
 		let tuple = te
 			.clone()
-			.separated_by(just(Token::Comma))
+			.separated_by(just(Token::Comma).or_not())
 			.allow_trailing()
 			.at_least(1)
 			.collect::<Vec<_>>()
