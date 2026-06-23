@@ -94,9 +94,27 @@ where
 			)
 		});
 
+	// `name.field = value`
+	let field_assign = select! { Token::Ident(name) => name }
+		.then_ignore(just(Token::Dot))
+		.then(select! { Token::Ident(field) => field })
+		.then_ignore(just(Token::Assign))
+		.then(expr.clone())
+		.map_with(|((name, field), value), ex| {
+			(
+				Expr::FieldAssign {
+					name,
+					field,
+					value: Box::new(value),
+				},
+				ex.span(),
+			)
+		});
+
 	// statements
 	let stmt = ret_stmt
 		.or(bind)
+		.or(field_assign)
 		.or(assign)
 		.or(index_assign)
 		.or(append)
@@ -117,17 +135,39 @@ where
 			Token::String(s) => Expr::String(s),
 		};
 
-		// variable vs. call
+		// variable vs. call vs. struct literal
 		let args = expr
 			.clone()
 			.separated_by(just(Token::Comma))
 			.allow_trailing()
 			.collect::<Vec<_>>()
 			.delimited_by(just(Token::LParen), just(Token::RParen));
+
+		// `(name:)? expr`
+		// named or positional field entry
+		let struct_field_entry = select! { Token::Ident(name) => name }
+			.then_ignore(just(Token::Colon))
+			.or_not()
+			.then(expr.clone());
+		let struct_body = struct_field_entry
+			.separated_by(just(Token::Comma).or_not())
+			.allow_trailing()
+			.collect::<Vec<_>>()
+			.delimited_by(just(Token::LBrace), just(Token::RBrace));
+
+		enum VarSuffix {
+			Call(Vec<Spanned<Expr>>),
+			Lit(Vec<(Option<String>, Spanned<Expr>)>),
+		}
 		let var_or_call = select! { Token::Ident(name) => name }
-			.then(args.or_not())
-			.map(|(name, args)| match args {
-				Some(args) => Expr::Call { name, args },
+			.then(
+				args.map(VarSuffix::Call)
+					.or(struct_body.map(VarSuffix::Lit))
+					.or_not(),
+			)
+			.map(|(name, suffix)| match suffix {
+				Some(VarSuffix::Call(args)) => Expr::Call { name, args },
+				Some(VarSuffix::Lit(fields)) => Expr::StructLit { name, fields },
 				None => Expr::Ident(name),
 			});
 
@@ -421,5 +461,29 @@ where
 			)
 		});
 
-	func.or(stmt).repeated().collect().then_ignore(end())
+	// `struct Name { name type, ... }`
+	let struct_field = select! { Token::Ident(name) => name }
+		.then(select! { Token::Ident(typ) => typ })
+		.map_with(|(name, typ), ex| Param {
+			name,
+			typ,
+			span: ex.span(),
+		});
+	let struct_def = just(Token::Struct)
+		.ignore_then(select! { Token::Ident(name) => name })
+		.then(
+			struct_field
+				.separated_by(just(Token::Comma).or_not())
+				.allow_trailing()
+				.collect::<Vec<_>>()
+				.delimited_by(just(Token::LBrace), just(Token::RBrace)),
+		)
+		.map_with(|(name, fields), ex| (Expr::StructDef { name, fields }, ex.span()));
+
+	struct_def
+		.or(func)
+		.or(stmt)
+		.repeated()
+		.collect()
+		.then_ignore(end())
 }

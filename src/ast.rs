@@ -105,7 +105,24 @@ pub enum Expr {
 		else_body: Option<Vec<Spanned<Expr>>>,
 	},
 
-	// TODO: structs
+	// structs
+	// `struct Name {}`
+	StructDef {
+		name: String,
+		fields: Vec<Param>,
+	},
+	// `Name {}`
+	StructLit {
+		name: String,
+		fields: Vec<(Option<String>, Spanned<Expr>)>,
+	},
+	// `name.field = value`
+	FieldAssign {
+		name: String,
+		field: String,
+		value: Box<Spanned<Expr>>,
+	},
+
 	// TODO: enums
 
 	// operators

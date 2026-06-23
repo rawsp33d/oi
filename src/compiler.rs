@@ -8,6 +8,7 @@ use cranelift_module::{DataDescription, FuncId, Linkage, Module};
 use crate::ast::{Expr, ForIter, MatchArm, Param, Pattern, Span, Spanned};
 use crate::diagnostics::Diagnostic;
 use crate::runtime;
+use cranelift::codegen::ir::{StackSlotData, StackSlotKind};
 
 // A top-level named function awaiting compilation.
 type FnItem<'a> = (
@@ -63,12 +64,16 @@ impl Compiler {
 	pub fn compile(&mut self, program: &[Spanned<Expr>]) -> Result<*const u8, Diagnostic> {
 		let int = self.module.target_config().pointer_type();
 
-		// split the top level into fn defs and loose statements
+		// split the top level into struct defs, fn defs, and loose statements
+		let mut struct_items: Vec<(&str, &[Param])> = vec![];
 		let mut main_body: Option<&[Spanned<Expr>]> = None;
 		let mut others: Vec<FnItem> = vec![];
 		let mut loose: Vec<&Spanned<Expr>> = vec![];
 		for item in program {
 			match &item.0 {
+				Expr::StructDef { name, fields } => {
+					struct_items.push((name.as_str(), fields.as_slice()))
+				}
 				Expr::Fn { name, body, .. } if name == "main" => main_body = Some(body),
 				Expr::Fn {
 					name,
@@ -80,21 +85,41 @@ impl Compiler {
 			}
 		}
 
+		// resolve struct field types
+		let mut structs: HashMap<String, Vec<(String, Typ)>> = HashMap::new();
+		let no_structs = HashMap::new();
+		for (name, fields) in &struct_items {
+			let resolved = fields
+				.iter()
+				.map(|p| typ_from_name(&p.typ, p.span, &no_structs).map(|t| (p.name.clone(), t)))
+				.collect::<Result<Vec<_>, _>>()?;
+			structs.insert(name.to_string(), resolved);
+		}
+
 		// compile each named fn, recording its signature so the rest can call it
 		let mut funcs: HashMap<String, FnSig> = HashMap::new();
 		for &(name, params, ret, body) in &others {
 			// resolve declared param and return types up front
 			let params: Vec<(String, Typ)> = params
 				.iter()
-				.map(|p| Ok((p.name.clone(), typ_from_name(&p.typ, p.span)?)))
+				.map(|p| Ok((p.name.clone(), typ_from_name(&p.typ, p.span, &structs)?)))
 				.collect::<Result<_, Diagnostic>>()?;
 			let ret = ret
 				.as_ref()
-				.map(|(typ, span)| Ok::<_, Diagnostic>((typ_from_name(typ, *span)?, *span)))
+				.map(|(typ, span)| {
+					Ok::<_, Diagnostic>((typ_from_name(typ, *span, &structs)?, *span))
+				})
 				.transpose()?;
 			let stmts: Vec<&Spanned<Expr>> = body.iter().collect();
-			let (id, ret) =
-				self.compile_fn(int, &format!("oi_{name}"), &params, ret, &stmts, &funcs)?;
+			let (id, ret) = self.compile_fn(
+				int,
+				&format!("oi_{name}"),
+				&params,
+				ret,
+				&stmts,
+				&funcs,
+				&structs,
+			)?;
 			let param_typs = params.iter().map(|(_, t)| t.clone()).collect();
 			funcs.insert(
 				name.to_string(),
@@ -125,8 +150,9 @@ impl Compiler {
 			None => loose,
 		};
 		// the program prints whatever it returns
-		let (entry_id, typ) = self.compile_fn(int, "oi_main", &[], None, &entry, &funcs)?;
-		let id = self.compile_entry(int, entry_id, typ, &funcs);
+		let (entry_id, typ) =
+			self.compile_fn(int, "oi_main", &[], None, &entry, &funcs, &structs)?;
+		let id = self.compile_entry(int, entry_id, typ, &funcs, &structs);
 
 		self.module
 			.finalize_definitions()
@@ -143,8 +169,9 @@ impl Compiler {
 		ret: Option<(Typ, Span)>,
 		stmts: &[&Spanned<Expr>],
 		funcs: &HashMap<String, FnSig>,
+		structs: &HashMap<String, Vec<(String, Typ)>>,
 	) -> Result<(FuncId, Typ), Diagnostic> {
-		let typ = self.translate(int, params, ret, stmts, funcs)?;
+		let typ = self.translate(int, params, ret, stmts, funcs, structs)?;
 		let id = self.finish_fn(name);
 		Ok((id, typ))
 	}
@@ -156,6 +183,7 @@ impl Compiler {
 		entry: FuncId,
 		typ: Typ,
 		funcs: &HashMap<String, FnSig>,
+		structs: &HashMap<String, Vec<(String, Typ)>>,
 	) -> FuncId {
 		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
 		let block = b.create_block();
@@ -168,6 +196,7 @@ impl Compiler {
 			vars: HashMap::new(),
 			module: &mut self.module,
 			funcs,
+			structs,
 			string_idx: &mut self.string_idx,
 			ret: None,
 			loops: vec![],
@@ -205,6 +234,7 @@ impl Compiler {
 		ret: Option<(Typ, Span)>,
 		stmts: &[&Spanned<Expr>],
 		funcs: &HashMap<String, FnSig>,
+		structs: &HashMap<String, Vec<(String, Typ)>>,
 	) -> Result<Typ, Diagnostic> {
 		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
 		// declare the parameter types before the entry block claims them
@@ -228,6 +258,7 @@ impl Compiler {
 			vars: HashMap::new(),
 			module: &mut self.module,
 			funcs,
+			structs,
 			string_idx: &mut self.string_idx,
 			ret,
 			loops: vec![],
@@ -286,6 +317,7 @@ enum Typ {
 	Str,
 	Tuple(Vec<(Option<String>, Typ)>),
 	Array(Box<Typ>),
+	Struct(String, Vec<(String, Typ)>),
 }
 
 // The cranelift type backing an Oi type.
@@ -304,17 +336,25 @@ fn elem_size(typ: &Typ) -> i64 {
 }
 
 // Resolve a declared type name to an Oi type.
-fn typ_from_name(name: &str, span: Span) -> Result<Typ, Diagnostic> {
+fn typ_from_name(
+	name: &str,
+	span: Span,
+	structs: &HashMap<String, Vec<(String, Typ)>>,
+) -> Result<Typ, Diagnostic> {
 	Ok(match name {
 		"int" => Typ::Int,
 		"f64" | "float" => Typ::Float,
 		"bool" => Typ::Bool,
 		"string" | "str" => Typ::Str,
 		_ => {
-			return Err(
-				Diagnostic::new(format!("unknown type `{name}`"), span.into_range())
-					.with_label("not a known type"),
-			);
+			if let Some(fields) = structs.get(name) {
+				Typ::Struct(name.to_string(), fields.clone())
+			} else {
+				return Err(
+					Diagnostic::new(format!("unknown type `{name}`"), span.into_range())
+						.with_label("not a known type"),
+				);
+			}
 		}
 	})
 }
@@ -348,6 +388,7 @@ struct Translator<'a> {
 	vars: HashMap<String, Local>,
 	module: &'a mut JITModule,
 	funcs: &'a HashMap<String, FnSig>,
+	structs: &'a HashMap<String, Vec<(String, Typ)>>,
 	string_idx: &'a mut usize,
 	// the fn's return type (locked in by the first return, and later returns must agree)
 	ret: Option<(Typ, Span)>,
@@ -368,10 +409,17 @@ impl<'a> Translator<'a> {
 					value,
 				} => {
 					let (val, typ) = self.expr(value)?;
+					// structs need a fresh stack slot to get value semantics on copy
+					let (final_val, cl) = if let Typ::Struct(_, ref fields) = typ {
+						let dst = self.struct_copy(val, fields);
+						(dst, self.int)
+					} else {
+						let cl = self.b.func.dfg.value_type(val);
+						(val, cl)
+					};
 					// `:=` always declares a fresh binding, shadowing any earlier one
-					let cl = self.b.func.dfg.value_type(val);
 					let var = self.b.declare_var(cl);
-					self.b.def_var(var, val);
+					self.b.def_var(var, final_val);
 					self.vars.insert(
 						name.clone(),
 						Local {
@@ -411,7 +459,18 @@ impl<'a> Translator<'a> {
 						)
 						.with_label("type mismatch"));
 					}
-					self.b.def_var(local.var, val);
+					// copy structs field-by-field into the existing slot (same pointer)
+					if let Typ::Struct(_, ref fields) = typ {
+						let fields = fields.clone();
+						let dst = self.b.use_var(local.var);
+						for (i, (_, ftyp)) in fields.iter().enumerate() {
+							let cl = cl_type(ftyp, self.int);
+							let fv = self.b.ins().load(cl, MemFlags::new(), val, (i * 8) as i32);
+							self.b.ins().store(MemFlags::new(), fv, dst, (i * 8) as i32);
+						}
+					} else {
+						self.b.def_var(local.var, val);
+					}
 				}
 
 				Expr::IndexAssign { name, index, value } => {
@@ -571,6 +630,56 @@ impl<'a> Translator<'a> {
 				Expr::For { pat, iter, body } => last = self.for_loop(pat, iter, body, stmt.1)?,
 
 				// `break`/`continue` end the current block, so the rest of it is unreachable
+				Expr::FieldAssign { name, field, value } => {
+					let local = self.vars.get(name).cloned().ok_or_else(|| {
+						Diagnostic::new(
+							format!("cannot assign field of undefined variable `{name}`"),
+							stmt.1.into_range(),
+						)
+						.with_label("not found in scope")
+					})?;
+					if !local.mutable {
+						return Err(Diagnostic::new(
+							format!("cannot assign field of immutable `{name}`"),
+							stmt.1.into_range(),
+						)
+						.with_label("declared without `mut`")
+						.with_note(format!("use `mut {name} := ...` to allow field assignment")));
+					}
+					let fields = match &local.typ {
+						Typ::Struct(_, fields) => fields.clone(),
+						_ => {
+							return Err(Diagnostic::new(
+								format!("`{name}` is not a struct"),
+								stmt.1.into_range(),
+							)
+							.with_label("not a struct"));
+						}
+					};
+					let idx = fields.iter().position(|(n, _)| n == field).ok_or_else(|| {
+						Diagnostic::new(
+							format!("struct has no field `{field}`"),
+							stmt.1.into_range(),
+						)
+						.with_label("no such field")
+					})?;
+					let (val, vtyp) = self.expr(value)?;
+					if vtyp != fields[idx].1 {
+						return Err(Diagnostic::new(
+							format!(
+								"cannot assign {vtyp:?} to field `{field}` of type {:?}",
+								fields[idx].1
+							),
+							value.1.into_range(),
+						)
+						.with_label("type mismatch"));
+					}
+					let ptr = self.b.use_var(local.var);
+					self.b
+						.ins()
+						.store(MemFlags::new(), val, ptr, (idx * 8) as i32);
+				}
+
 				Expr::Break => {
 					let exit = match self.loops.last() {
 						Some(frame) => frame.exit,
@@ -628,6 +737,21 @@ impl<'a> Translator<'a> {
 			)
 			.with_label("wrong return type"));
 		}
+		// structs live on the callee's stack, so copy to the heap before returning
+		let final_val = if let Typ::Struct(_, ref fields) = typ {
+			let fields = fields.clone();
+			let heap = self.call_alloc(fields.len());
+			for (i, (_, ftyp)) in fields.iter().enumerate() {
+				let cl = cl_type(ftyp, self.int);
+				let fv = self.b.ins().load(cl, MemFlags::new(), val, (i * 8) as i32);
+				self.b
+					.ins()
+					.store(MemFlags::new(), fv, heap, (i * 8) as i32);
+			}
+			heap
+		} else {
+			val
+		};
 		// the cranelift signature takes its return type from the first return
 		if self.b.func.signature.returns.is_empty() {
 			self.b
@@ -636,7 +760,7 @@ impl<'a> Translator<'a> {
 				.returns
 				.push(AbiParam::new(cl_type(&typ, self.int)));
 		}
-		self.b.ins().return_(&[val]);
+		self.b.ins().return_(&[final_val]);
 		// an undeclared fn infers its return type from this first return
 		if self.ret.is_none() {
 			self.ret = Some((typ, span));
@@ -1286,6 +1410,13 @@ impl<'a> Translator<'a> {
 					};
 				}
 
+				// structs are just fully-named tuples at the codegen level
+				let typ = if let Typ::Struct(_, fields) = typ {
+					Typ::Tuple(fields.into_iter().map(|(n, t)| (Some(n), t)).collect())
+				} else {
+					typ
+				};
+
 				let fields = match &typ {
 					Typ::Tuple(fields) => fields,
 					_ => {
@@ -1545,10 +1676,98 @@ impl<'a> Translator<'a> {
 				Ok((self.b.use_var(found), Typ::Bool))
 			}
 
+			Expr::StructLit { name, fields } => {
+				let struct_fields = self.structs.get(name.as_str()).cloned().ok_or_else(|| {
+					Diagnostic::new(format!("unknown struct `{name}`"), expr.1.into_range())
+						.with_label("not defined")
+				})?;
+				let size = (struct_fields.len() * 8) as u32;
+				let slot = self.b.create_sized_stack_slot(StackSlotData::new(
+					StackSlotKind::ExplicitSlot,
+					size,
+					0,
+				));
+				let ptr = self.b.ins().stack_addr(self.int, slot, 0);
+
+				// zero-init so unspecified fields get their zero values
+				for (i, (_, ftyp)) in struct_fields.iter().enumerate() {
+					let z = self.zero(ftyp);
+					self.b.ins().store(MemFlags::new(), z, ptr, (i * 8) as i32);
+				}
+
+				if !fields.is_empty() {
+					let positional = fields[0].0.is_none();
+					if positional {
+						// fields given in declaration order
+						if fields.len() != struct_fields.len() {
+							return Err(Diagnostic::new(
+								format!(
+									"`{name}` has {} fields but {} values were provided",
+									struct_fields.len(),
+									fields.len()
+								),
+								expr.1.into_range(),
+							)
+							.with_label("wrong number of fields"));
+						}
+						for (i, (_, value)) in fields.iter().enumerate() {
+							let (val, vtyp) = self.expr(value)?;
+							let expected = &struct_fields[i].1;
+							if &vtyp != expected {
+								return Err(Diagnostic::new(
+									format!("expected {expected:?}, got {vtyp:?}"),
+									value.1.into_range(),
+								)
+								.with_label("type mismatch"));
+							}
+							self.b
+								.ins()
+								.store(MemFlags::new(), val, ptr, (i * 8) as i32);
+						}
+					} else {
+						// named fields
+						for (field_name, value) in fields {
+							let fname = field_name.as_deref().ok_or_else(|| {
+								Diagnostic::new(
+									"cannot mix named and positional fields",
+									value.1.into_range(),
+								)
+								.with_label("missing field name")
+							})?;
+							let idx = struct_fields
+								.iter()
+								.position(|(n, _)| n == fname)
+								.ok_or_else(|| {
+									Diagnostic::new(
+										format!("`{name}` has no field `{fname}`"),
+										value.1.into_range(),
+									)
+									.with_label("no such field")
+								})?;
+							let (val, vtyp) = self.expr(value)?;
+							let expected = &struct_fields[idx].1;
+							if &vtyp != expected {
+								return Err(Diagnostic::new(
+									format!("expected {expected:?}, got {vtyp:?}"),
+									value.1.into_range(),
+								)
+								.with_label("type mismatch"));
+							}
+							self.b
+								.ins()
+								.store(MemFlags::new(), val, ptr, (idx * 8) as i32);
+						}
+					}
+				}
+				Ok((ptr, Typ::Struct(name.clone(), struct_fields)))
+			}
+
 			Expr::Bind { .. } => unreachable!("bind in expression position"),
 			Expr::Assign { .. } => unreachable!("assign in expression position"),
 			Expr::IndexAssign { .. } => unreachable!("index assign in expression position"),
 			Expr::Fn { .. } => unreachable!("fn definition in expression position"),
+			Expr::StructDef { .. } => unreachable!("struct definition in expression position"),
+			Expr::FieldAssign { .. } => unreachable!("field assign in expression position"),
 			Expr::Return(..) => unreachable!("return in expression position"),
 			Expr::Break | Expr::Continue => {
 				unreachable!("break/continue in expression position")
@@ -1594,10 +1813,42 @@ impl<'a> Translator<'a> {
 			Typ::Str => self.str_const(""),
 			Typ::Int => self.b.ins().iconst(types::I32, 0),
 			Typ::Bool => self.b.ins().iconst(self.int, 0),
+			Typ::Struct(_, fields) => {
+				let fields = fields.clone();
+				let size = (fields.len() * 8) as u32;
+				let slot = self.b.create_sized_stack_slot(StackSlotData::new(
+					StackSlotKind::ExplicitSlot,
+					size,
+					0,
+				));
+				let ptr = self.b.ins().stack_addr(self.int, slot, 0);
+				for (i, (_, ftyp)) in fields.iter().enumerate() {
+					let z = self.zero(ftyp);
+					self.b.ins().store(MemFlags::new(), z, ptr, (i * 8) as i32);
+				}
+				ptr
+			}
 			// unreachable until composite return types exist, returns are scalar names for now
 			Typ::Tuple(_) => unreachable!("tuple return types aren't supported yet"),
 			Typ::Array(_) => unreachable!("array return types aren't supported yet"),
 		}
+	}
+
+	// Copy struct pointer `src` field-by-field into a fresh stack slot and return its address.
+	fn struct_copy(&mut self, src: Value, fields: &[(String, Typ)]) -> Value {
+		let size = (fields.len() * 8) as u32;
+		let slot = self.b.create_sized_stack_slot(StackSlotData::new(
+			StackSlotKind::ExplicitSlot,
+			size,
+			0,
+		));
+		let dst = self.b.ins().stack_addr(self.int, slot, 0);
+		for (i, (_, ftyp)) in fields.iter().enumerate() {
+			let cl = cl_type(ftyp, self.int);
+			let fv = self.b.ins().load(cl, MemFlags::new(), src, (i * 8) as i32);
+			self.b.ins().store(MemFlags::new(), fv, dst, (i * 8) as i32);
+		}
+		dst
 	}
 
 	// Add binary op instruction.
@@ -1969,13 +2220,31 @@ impl<'a> Translator<'a> {
 				self.write_lit("]", stderr);
 			}
 
+			Typ::Struct(sname, fields) => {
+				let sname = sname.clone();
+				let fields = fields.clone();
+				self.write_lit(&format!("{sname}{{"), stderr);
+				for (i, (fname, ftyp)) in fields.iter().enumerate() {
+					if i > 0 {
+						self.write_lit(", ", stderr);
+					}
+					self.write_lit(&format!("{fname}: "), stderr);
+					let cl = cl_type(ftyp, self.int);
+					let fv = self.b.ins().load(cl, MemFlags::new(), val, (i * 8) as i32);
+					self.emit_print(fv, ftyp, true, stderr);
+				}
+				self.write_lit("}", stderr);
+			}
+
 			_ => {
 				let tag = match typ {
 					Typ::Bool => runtime::Tag::Bool,
 					Typ::Int => runtime::Tag::Int,
 					Typ::Float => runtime::Tag::Float,
 					Typ::Str => runtime::Tag::Str,
-					Typ::Tuple(_) | Typ::Array(_) => unreachable!("handled above"),
+					Typ::Tuple(_) | Typ::Array(_) | Typ::Struct(..) => {
+						unreachable!("handled above")
+					}
 				};
 				// normalize to pointer-sized before passing to the runtime
 				let bits = match typ {

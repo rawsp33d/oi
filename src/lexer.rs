@@ -24,6 +24,8 @@ pub enum Token {
 	// keywords
 	#[token("fn")]
 	Fn,
+	#[token("struct")]
+	Struct,
 	#[token("return")]
 	Return,
 	#[token("match")]
@@ -130,6 +132,7 @@ impl fmt::Display for Token {
 			Token::Float(s) => write!(f, "{s}"),
 			Token::String(s) => write!(f, "\"{s}\""),
 			Token::Fn => write!(f, "fn"),
+			Token::Struct => write!(f, "struct"),
 			Token::Return => write!(f, "return"),
 			Token::Match => write!(f, "match"),
 			Token::If => write!(f, "if"),
