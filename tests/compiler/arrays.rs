@@ -453,3 +453,40 @@ fn in_non_array_error() {
 fn in_type_mismatch_error() {
 	assert!(fail(r#"a := [1, 2]; "x" in a"#).contains("type mismatch"));
 }
+
+#[test]
+fn fn_returns_array_annotation() {
+	let src = indoc! {"
+		fn nums() [int] { [1, 2, 3] }
+		nums()
+	"};
+	check(src, "[1, 2, 3]");
+}
+
+#[test]
+fn fn_returns_array_field() {
+	let src = indoc! {"
+		fn nums() [int] { [10, 20, 30] }
+		a := nums()
+		a[1]
+	"};
+	check(src, "20");
+}
+
+#[test]
+fn fn_return_type_mismatch_array() {
+	let src = indoc! {"
+		fn bad() [int] { 42 }
+		bad()
+	"};
+	assert!(fail(src).contains("wrong return type"));
+}
+
+#[test]
+fn if_no_else_array_zero() {
+	let src = indoc! {"
+		a := if false { [1, 2, 3] }
+		a.len
+	"};
+	check(src, "0");
+}
