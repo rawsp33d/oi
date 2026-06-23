@@ -113,7 +113,7 @@ where
 		let literal = select! {
 			Token::Bool(b) => Expr::Bool(b),
 			Token::Int(n) => Expr::Int(n),
-			Token::Float(x) => Expr::Float(x),
+			Token::Float(s) => Expr::Float(s.parse().unwrap()),
 			Token::String(s) => Expr::String(s),
 		};
 
@@ -272,9 +272,11 @@ where
 			.or(continue_expr)
 			.or(bad);
 
-		let field = select! {
-			Token::Int(n) => n.to_string(),
-			Token::Ident(name) => name,
+		let field_access = select! {
+			Token::Int(n) => vec![n.to_string()],
+			Token::Ident(name) => vec![name],
+			// split at `.` and fold left, like rustc does
+			Token::Float(s) => s.split('.').map(String::from).collect(),
 		};
 
 		// array subscripts
@@ -290,14 +292,12 @@ where
 
 		atom.pratt((
 			// fields
-			postfix(8, just(Token::Dot).ignore_then(field), |lhs, field, ex| {
-				(
-					Expr::Field {
-						tuple: Box::new(lhs),
-						field,
-					},
-					ex.span(),
-				)
+			postfix(8, just(Token::Dot).ignore_then(field_access), |lhs, parts, ex| {
+				let mut cur = lhs;
+				for field in parts {
+					cur = (Expr::Field { tuple: Box::new(cur), field }, ex.span());
+				}
+				cur
 			}),
 			// indexing and slicing
 			postfix(8, subscript, |lhs, sub, ex| {

@@ -16,8 +16,8 @@ pub enum Token {
 	Bool(bool),
 	#[regex(r"[0-9]+", |lex| lex.slice().parse().ok())]
 	Int(i32),
-	#[regex(r"[0-9]+\.[0-9]+", |lex| lex.slice().parse().ok())]
-	Float(f64),
+	#[regex(r"[0-9]+\.[0-9]+", |lex| Some(lex.slice().to_string()))]
+	Float(String),
 	#[regex(r#""[^"]*""#, |lex| { let s = lex.slice(); s[1..s.len() - 1].to_string() })]
 	String(String),
 
@@ -127,7 +127,7 @@ impl fmt::Display for Token {
 			Token::Comment => write!(f, "comment"),
 			Token::Bool(b) => write!(f, "{b}"),
 			Token::Int(n) => write!(f, "{n}"),
-			Token::Float(x) => write!(f, "{x}"),
+			Token::Float(s) => write!(f, "{s}"),
 			Token::String(s) => write!(f, "\"{s}\""),
 			Token::Fn => write!(f, "fn"),
 			Token::Return => write!(f, "return"),
