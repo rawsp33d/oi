@@ -1047,7 +1047,7 @@ impl<'a> Translator<'a> {
 			Some(exit) => {
 				self.b.switch_to_block(exit);
 				self.b.seal_block(exit);
-				Ok(Some((self.b.ins().iconst(types::I32, 0), Typ::Int)))
+				Ok(Some((self.b.ins().iconst(self.int, 0), Typ::Tuple(vec![]))))
 			}
 			// an infinite loop with no `break` never falls through
 			None => Ok(None),
@@ -1143,7 +1143,7 @@ impl<'a> Translator<'a> {
 		self.b.seal_block(header);
 
 		self.b.switch_to_block(exit);
-		Ok((self.b.ins().iconst(types::I32, 0), Typ::Int))
+		Ok((self.b.ins().iconst(self.int, 0), Typ::Tuple(vec![])))
 	}
 
 	fn bind_pattern(
@@ -1304,7 +1304,7 @@ impl<'a> Translator<'a> {
 				if newline {
 					self.write_lit("\n", stderr);
 				}
-				Ok((self.b.ins().iconst(types::I32, 0), Typ::Int))
+				Ok((self.b.ins().iconst(self.int, 0), Typ::Tuple(vec![])))
 			}
 
 			// TODO: migrate to `assert!` macro once we, you know, have macros

@@ -203,7 +203,7 @@ fn for_range_excludes_end() {
 	let src = indoc! {"
 		loop i in 0..3 { print(i) }
 	"};
-	check(src, "0\n1\n2\n0");
+	check(src, "0\n1\n2");
 }
 
 // an empty range runs the body zero times

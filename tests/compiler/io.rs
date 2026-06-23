@@ -2,27 +2,27 @@ use crate::helpers::*;
 
 #[test]
 fn print_string() {
-	check(r#"print("hello")"#, "hello\n0");
+	check(r#"print("hello")"#, "hello");
 }
 
 #[test]
 fn print_int() {
-	check("print(42)", "42\n0");
+	check("print(42)", "42");
 }
 
 #[test]
 fn print_bool() {
-	check("print(true)", "true\n0");
+	check("print(true)", "true");
 }
 
 #[test]
 fn print_multiple() {
-	check(r#"print("a", "b", "c")"#, "a b c\n0");
+	check(r#"print("a", "b", "c")"#, "a b c");
 }
 
 #[test]
 fn print_mixed_types() {
-	check(r#"print("n =", 7)"#, "n = 7\n0");
+	check(r#"print("n =", 7)"#, "n = 7");
 }
 
 #[test]
