@@ -24,6 +24,7 @@ type FnItem<'a> = (
 #[derive(Clone, PartialEq, Debug)]
 pub(crate) enum Typ {
 	Int(u16),
+	UInt(u16),
 	Float(u16),
 	Bool,
 	Str,
@@ -54,6 +55,7 @@ impl fmt::Display for Typ {
 		match self {
 			Typ::Int(32) => write!(f, "int"),
 			Typ::Int(w) => write!(f, "i{w}"),
+			Typ::UInt(w) => write!(f, "u{w}"),
 			Typ::Float(64) => write!(f, "float"),
 			Typ::Float(w) => write!(f, "f{w}"),
 			Typ::Bool => write!(f, "bool"),
@@ -74,10 +76,10 @@ impl PartialEq for FieldDef {
 
 pub(crate) fn cl_type(typ: &Typ, int: types::Type) -> types::Type {
 	match typ {
-		Typ::Int(w) => match w {
+		Typ::Int(w) | Typ::UInt(w) => match w {
 			32 => types::I32,
 			64 => types::I64,
-			w => panic!("unsupported int width i{w}"),
+			w => panic!("unsupported int width {w}"),
 		},
 		Typ::Float(w) => match w {
 			32 => types::F32,
@@ -90,7 +92,7 @@ pub(crate) fn cl_type(typ: &Typ, int: types::Type) -> types::Type {
 
 pub(crate) fn elem_size(typ: &Typ) -> i64 {
 	match typ {
-		Typ::Int(w) => (*w as i64) / 8,
+		Typ::Int(w) | Typ::UInt(w) => (*w as i64) / 8,
 		_ => 8,
 	}
 }
@@ -121,6 +123,8 @@ pub(crate) fn typ_from_name(
 	Ok(match name {
 		"i32" | "int" => Typ::Int(32),
 		"i64" => Typ::Int(64),
+		"u32" => Typ::UInt(32),
+		"u64" => Typ::UInt(64),
 		"f64" | "float" => Typ::Float(64),
 		"bool" => Typ::Bool,
 		"string" | "str" => Typ::Str,

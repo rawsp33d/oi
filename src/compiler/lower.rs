@@ -1002,6 +1002,57 @@ impl<'a> Translator<'a> {
 				Ok((out, Typ::Int(target)))
 			}
 
+			Expr::Call { name, args } if matches!(name.as_str(), "u32" | "u64") => {
+				let target: u16 = if name == "u64" { 64 } else { 32 };
+				if args.len() != 1 {
+					return Err(Diagnostic::new(
+						format!("`{name}` cast takes exactly 1 argument"),
+						expr.1.into_range(),
+					)
+					.with_label("wrong number of arguments"));
+				}
+				let (val, typ) = self.expr(&args[0])?;
+				let target_cl = cl_type(&Typ::UInt(target), self.int);
+				let out = match &typ {
+					Typ::UInt(w) if *w == target => val,
+					Typ::UInt(w) if *w < target => self.b.ins().uextend(target_cl, val),
+					Typ::UInt(_) => {
+						// clamp unsigned to [0, target_max] then ireduce
+						let max_v = self.b.ins().iconst(types::I64, uint_max(target));
+						let gt = self.b.ins().icmp(IntCC::UnsignedGreaterThan, val, max_v);
+						let v = self.b.ins().select(gt, max_v, val);
+						self.b.ins().ireduce(target_cl, v)
+					}
+					Typ::Int(w) => {
+						// signed to unsigned: sign-extend to i64, clamp to [0, target_max]
+						let v = if *w < 64 {
+							self.b.ins().sextend(types::I64, val)
+						} else {
+							val
+						};
+						let zero = self.b.ins().iconst(types::I64, 0);
+						let max_v = self.b.ins().iconst(types::I64, uint_max(target));
+						let lt = self.b.ins().icmp(IntCC::SignedLessThan, v, zero);
+						let v = self.b.ins().select(lt, zero, v);
+						let gt = self.b.ins().icmp(IntCC::UnsignedGreaterThan, v, max_v);
+						let v = self.b.ins().select(gt, max_v, v);
+						if target == 64 {
+							v
+						} else {
+							self.b.ins().ireduce(target_cl, v)
+						}
+					}
+					_ => {
+						return Err(Diagnostic::new(
+							format!("cannot cast {typ:?} to u{target}"),
+							args[0].1.into_range(),
+						)
+						.with_label("not an integer"));
+					}
+				};
+				Ok((out, Typ::UInt(target)))
+			}
+
 			Expr::Call { name, args } if matches!(name.as_str(), "f32" | "f64") => {
 				let target: u16 = if name == "f64" { 64 } else { 32 };
 				if args.len() != 1 {
@@ -1510,6 +1561,7 @@ impl<'a> Translator<'a> {
 			Typ::Float(w) => panic!("unsupported float width f{w}"),
 			Typ::Str => self.str_const(""),
 			Typ::Int(w) => self.b.ins().iconst(cl_type(&Typ::Int(*w), self.int), 0),
+			Typ::UInt(w) => self.b.ins().iconst(cl_type(&Typ::UInt(*w), self.int), 0),
 			Typ::Bool => self.b.ins().iconst(self.int, 0),
 			Typ::Tuple(fields) if fields.is_empty() => self.b.ins().iconst(self.int, 0),
 			Typ::Struct(_, fields) => {
@@ -1574,10 +1626,17 @@ impl<'a> Translator<'a> {
 			return Ok((self.call_concat(lv, rv), Typ::Str));
 		}
 
+		#[derive(Clone, Copy)]
+		enum NumKind {
+			Int,
+			UInt,
+			Float,
+		}
 		// NOTE: might go with V-style int/float promotion eventually
-		let float = match (&lt, &rt) {
-			(Typ::Int(lw), Typ::Int(rw)) if lw == rw => false,
-			(Typ::Float(lw), Typ::Float(rw)) if lw == rw => true,
+		let kind = match (&lt, &rt) {
+			(Typ::Int(lw), Typ::Int(rw)) if lw == rw => NumKind::Int,
+			(Typ::UInt(lw), Typ::UInt(rw)) if lw == rw => NumKind::UInt,
+			(Typ::Float(lw), Typ::Float(rw)) if lw == rw => NumKind::Float,
 			_ => {
 				return Err(Diagnostic::new(
 					format!("cannot {op:?} {lt:?} and {rt:?}"),
@@ -1586,7 +1645,7 @@ impl<'a> Translator<'a> {
 				.with_label("operands have mismatched types"));
 			}
 		};
-		if let (Op::Mod, true) = (op, float) {
+		if let (Op::Mod, NumKind::Float) = (op, kind) {
 			// TODO: cranelift has no float remainder
 			return Err(Diagnostic::new(
 				"`%` is not yet supported on floats".to_string(),
@@ -1595,17 +1654,19 @@ impl<'a> Translator<'a> {
 			.with_label("only integer operands"));
 		}
 		let b = self.b.ins();
-		let out = match (op, float) {
-			(Op::Add, true) => b.fadd(lv, rv),
-			(Op::Add, false) => b.iadd(lv, rv),
-			(Op::Sub, true) => b.fsub(lv, rv),
-			(Op::Sub, false) => b.isub(lv, rv),
-			(Op::Mul, true) => b.fmul(lv, rv),
-			(Op::Mul, false) => b.imul(lv, rv),
-			(Op::Div, true) => b.fdiv(lv, rv),
-			(Op::Div, false) => b.sdiv(lv, rv),
-			(Op::Mod, false) => b.srem(lv, rv),
-			(Op::Mod, true) => unreachable!("float `%` rejected above"),
+		let out = match (op, kind) {
+			(Op::Add, NumKind::Float) => b.fadd(lv, rv),
+			(Op::Add, _) => b.iadd(lv, rv),
+			(Op::Sub, NumKind::Float) => b.fsub(lv, rv),
+			(Op::Sub, _) => b.isub(lv, rv),
+			(Op::Mul, NumKind::Float) => b.fmul(lv, rv),
+			(Op::Mul, _) => b.imul(lv, rv),
+			(Op::Div, NumKind::Float) => b.fdiv(lv, rv),
+			(Op::Div, NumKind::UInt) => b.udiv(lv, rv),
+			(Op::Div, NumKind::Int) => b.sdiv(lv, rv),
+			(Op::Mod, NumKind::Float) => unreachable!("float `%` rejected above"),
+			(Op::Mod, NumKind::UInt) => b.urem(lv, rv),
+			(Op::Mod, NumKind::Int) => b.srem(lv, rv),
 		};
 		Ok((out, lt))
 	}
@@ -1639,8 +1700,15 @@ impl<'a> Translator<'a> {
 			}
 		}
 
+		let icc = if matches!((&lt, &rt), (Typ::UInt(_), Typ::UInt(_))) {
+			unsigned_cc(icc)
+		} else {
+			icc
+		};
 		let raw = match (&lt, &rt) {
-			(Typ::Int(_), Typ::Int(_)) | (Typ::Bool, Typ::Bool) => self.b.ins().icmp(icc, lv, rv),
+			(Typ::Int(_), Typ::Int(_)) | (Typ::UInt(_), Typ::UInt(_)) | (Typ::Bool, Typ::Bool) => {
+				self.b.ins().icmp(icc, lv, rv)
+			}
 			(Typ::Float(_), Typ::Float(_)) => self.b.ins().fcmp(fcc, lv, rv),
 			(Typ::Str, Typ::Str) if icc == IntCC::Equal || icc == IntCC::NotEqual => {
 				let eq = self.emit_eq(lv, rv, &Typ::Str);
@@ -1929,6 +1997,7 @@ impl<'a> Translator<'a> {
 				let tag = match typ {
 					Typ::Bool => runtime::Tag::Bool,
 					Typ::Int(_) => runtime::Tag::Int,
+					Typ::UInt(_) => runtime::Tag::UInt,
 					Typ::Float(_) => runtime::Tag::Float,
 					Typ::Str => runtime::Tag::Str,
 					Typ::Tuple(_) | Typ::Array(_) | Typ::Struct(..) => {
@@ -1944,10 +2013,29 @@ impl<'a> Translator<'a> {
 					}
 					Typ::Float(w) => panic!("unsupported float width f{w}"),
 					Typ::Int(w) if *w < 64 => (self.b.ins().sextend(self.int, val), 0),
+					Typ::UInt(w) if *w < 64 => (self.b.ins().uextend(self.int, val), 0),
 					_ => (val, 0),
 				};
 				self.emit_frag(tag, bits, float_width, quote, stderr);
 			}
 		}
+	}
+}
+
+fn uint_max(width: u16) -> i64 {
+	match width {
+		32 => u32::MAX as i64,
+		64 => u64::MAX as i64,
+		w => panic!("unsupported uint width u{w}"),
+	}
+}
+
+fn unsigned_cc(icc: IntCC) -> IntCC {
+	match icc {
+		IntCC::SignedLessThan => IntCC::UnsignedLessThan,
+		IntCC::SignedLessThanOrEqual => IntCC::UnsignedLessThanOrEqual,
+		IntCC::SignedGreaterThan => IntCC::UnsignedGreaterThan,
+		IntCC::SignedGreaterThanOrEqual => IntCC::UnsignedGreaterThanOrEqual,
+		other => other,
 	}
 }

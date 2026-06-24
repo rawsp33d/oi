@@ -21,6 +21,7 @@ pub const ASSERT_FAIL: &str = "oi_assert_fail";
 pub enum Tag {
 	Bool,
 	Int,
+	UInt,
 	Float,
 	Str,
 	Raw,
@@ -31,6 +32,7 @@ fn render(tag: Tag, bits: i64, width: i64, quote: bool) -> String {
 	match tag {
 		Tag::Bool => (bits == 1).to_string(),
 		Tag::Int => bits.to_string(),
+		Tag::UInt => (bits as u64).to_string(),
 		Tag::Float => match width {
 			32 => format!("{:?}", f32::from_bits(bits as u32)),
 			_ => format!("{:?}", f64::from_bits(bits as u64)),
