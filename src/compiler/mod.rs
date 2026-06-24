@@ -49,6 +49,22 @@ pub(crate) struct FieldDef {
 	pub default: Option<Spanned<Expr>>,
 }
 
+impl fmt::Display for Typ {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Typ::Int(32) => write!(f, "int"),
+			Typ::Int(w) => write!(f, "i{w}"),
+			Typ::Float => write!(f, "float"),
+			Typ::Bool => write!(f, "bool"),
+			Typ::Str => write!(f, "str"),
+			Typ::Tuple(fields) if fields.is_empty() => write!(f, "()"),
+			Typ::Tuple(_) => write!(f, "tuple"),
+			Typ::Array(e) => write!(f, "[{e}]"),
+			Typ::Struct(name, _) => write!(f, "{name}"),
+		}
+	}
+}
+
 impl PartialEq for FieldDef {
 	fn eq(&self, other: &Self) -> bool {
 		self.name == other.name && self.typ == other.typ

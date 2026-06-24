@@ -356,7 +356,7 @@ impl<'a> Translator<'a> {
 			&& &typ != declared
 		{
 			return Err(Diagnostic::new(
-				format!("expected {declared:?} return value, got {typ:?}"),
+				format!("expected {declared} return value, got {typ}"),
 				span.into_range(),
 			)
 			.with_label("wrong return type"));
@@ -1004,7 +1004,7 @@ impl<'a> Translator<'a> {
 					let (val, typ) = self.expr(arg)?;
 					if &typ != expected {
 						return Err(Diagnostic::new(
-							format!("expected {expected:?} argument, got {typ:?}"),
+							format!("expected {expected} argument, got {typ}"),
 							arg.1.into_range(),
 						)
 						.with_label("wrong argument type"));
@@ -1559,7 +1559,7 @@ impl<'a> Translator<'a> {
 			(Op::Mod, false) => b.srem(lv, rv),
 			(Op::Mod, true) => unreachable!("float `%` rejected above"),
 		};
-		Ok((out, if float { Typ::Float } else { Typ::Int }))
+		Ok((out, if float { Typ::Float } else { lt }))
 	}
 
 	fn cmp(
