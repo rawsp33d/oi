@@ -95,3 +95,15 @@ fn uint_cmp() {
 	check("u64(100) <= u64(100)", "true");
 	check("u64(100) >= u64(50)", "true");
 }
+
+#[test]
+fn f16_not_yet_supported() {
+	assert!(fail("f16(1.0)").contains("f16 casts are not yet supported"));
+	assert!(fail("f16(123)").contains("f16 casts are not yet supported"));
+}
+
+#[test]
+fn f128_not_yet_supported() {
+	assert!(fail("f128(1.0)").contains("f128 casts are not yet supported"));
+	assert!(fail("f128(123)").contains("f128 casts are not yet supported"));
+}

@@ -82,8 +82,10 @@ pub(crate) fn cl_type(typ: &Typ, int: types::Type) -> types::Type {
 			w => panic!("unsupported int width {w}"),
 		},
 		Typ::Float(w) => match w {
+			16 => types::F16,
 			32 => types::F32,
 			64 => types::F64,
+			128 => types::F128,
 			w => panic!("unsupported float width f{w}"),
 		},
 		_ => int,
@@ -92,7 +94,7 @@ pub(crate) fn cl_type(typ: &Typ, int: types::Type) -> types::Type {
 
 pub(crate) fn elem_size(typ: &Typ) -> i64 {
 	match typ {
-		Typ::Int(w) | Typ::UInt(w) => (*w as i64) / 8,
+		Typ::Int(w) | Typ::UInt(w) | Typ::Float(w) => (*w as i64) / 8,
 		_ => 8,
 	}
 }
@@ -125,7 +127,9 @@ pub(crate) fn typ_from_name(
 		"i64" => Typ::Int(64),
 		"u32" => Typ::UInt(32),
 		"u64" => Typ::UInt(64),
+		"f16" => Typ::Float(16),
 		"f64" | "float" => Typ::Float(64),
+		"f128" => Typ::Float(128),
 		"bool" => Typ::Bool,
 		"string" | "str" => Typ::Str,
 		"()" => Typ::Tuple(vec![]),

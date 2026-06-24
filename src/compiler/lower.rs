@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use cranelift::codegen;
+use cranelift::codegen::ir::immediates::{Ieee16, Ieee128};
 use cranelift::codegen::ir::{StackSlotData, StackSlotKind};
 use cranelift::prelude::*;
 use cranelift_jit::JITModule;
@@ -1053,14 +1054,28 @@ impl<'a> Translator<'a> {
 				Ok((out, Typ::UInt(target)))
 			}
 
-			Expr::Call { name, args } if matches!(name.as_str(), "f32" | "f64") => {
-				let target: u16 = if name == "f64" { 64 } else { 32 };
+			Expr::Call { name, args }
+				if matches!(name.as_str(), "f16" | "f32" | "f64" | "f128") =>
+			{
+				let target: u16 = match name.as_str() {
+					"f16" => 16,
+					"f32" => 32,
+					"f128" => 128,
+					_ => 64,
+				};
 				if args.len() != 1 {
 					return Err(Diagnostic::new(
 						format!("`{name}` cast takes exactly 1 argument"),
 						expr.1.into_range(),
 					)
 					.with_label("wrong number of arguments"));
+				}
+				if target == 16 || target == 128 {
+					return Err(Diagnostic::new(
+						format!("f{target} casts are not yet supported by the JIT backend"),
+						expr.1.into_range(),
+					)
+					.with_label("not yet implemented"));
 				}
 				let (val, typ) = self.expr(&args[0])?;
 				let target_cl = cl_type(&Typ::Float(target), self.int);
@@ -1556,8 +1571,18 @@ impl<'a> Translator<'a> {
 
 	fn zero(&mut self, typ: &Typ) -> Value {
 		match typ {
+			Typ::Float(16) => self.b.ins().f16const(Ieee16::with_bits(0)),
 			Typ::Float(32) => self.b.ins().f32const(0.0),
 			Typ::Float(64) => self.b.ins().f64const(0.0),
+			Typ::Float(128) => {
+				let c = self
+					.b
+					.func
+					.dfg
+					.constants
+					.insert(Ieee128::with_bits(0).into());
+				self.b.ins().f128const(c)
+			}
 			Typ::Float(w) => panic!("unsupported float width f{w}"),
 			Typ::Str => self.str_const(""),
 			Typ::Int(w) => self.b.ins().iconst(cl_type(&Typ::Int(*w), self.int), 0),
@@ -2006,10 +2031,17 @@ impl<'a> Translator<'a> {
 				};
 				// normalize to pointer-sized before passing to the runtime
 				let (bits, float_width) = match typ {
-					Typ::Float(64) => (self.b.ins().bitcast(self.int, MemFlags::new(), val), 64),
+					Typ::Float(16) => {
+						let i16v = self.b.ins().bitcast(types::I16, MemFlags::new(), val);
+						(self.b.ins().uextend(self.int, i16v), 16)
+					}
 					Typ::Float(32) => {
 						let i32v = self.b.ins().bitcast(types::I32, MemFlags::new(), val);
 						(self.b.ins().uextend(self.int, i32v), 32)
+					}
+					Typ::Float(64) => (self.b.ins().bitcast(self.int, MemFlags::new(), val), 64),
+					Typ::Float(128) => {
+						panic!("f128 printing not yet supported by the JIT backend")
 					}
 					Typ::Float(w) => panic!("unsupported float width f{w}"),
 					Typ::Int(w) if *w < 64 => (self.b.ins().sextend(self.int, val), 0),
