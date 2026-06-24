@@ -994,17 +994,29 @@ impl<'a> Translator<'a> {
 					// int -> isize: sign-extend
 					(Typ::Int(_), true) => {
 						let src_cl = cl_type(&typ, self.int);
-						if src_cl == self.int { val } else { self.b.ins().sextend(self.int, val) }
+						if src_cl == self.int {
+							val
+						} else {
+							self.b.ins().sextend(self.int, val)
+						}
 					}
 					// uint -> usize: zero-extend
 					(Typ::UInt(_), false) => {
 						let src_cl = cl_type(&typ, self.int);
-						if src_cl == self.int { val } else { self.b.ins().uextend(self.int, val) }
+						if src_cl == self.int {
+							val
+						} else {
+							self.b.ins().uextend(self.int, val)
+						}
 					}
 					// int -> usize: sign-extend then clamp negative to 0
 					(Typ::Int(_), false) => {
 						let src_cl = cl_type(&typ, self.int);
-						let v = if src_cl == self.int { val } else { self.b.ins().sextend(self.int, val) };
+						let v = if src_cl == self.int {
+							val
+						} else {
+							self.b.ins().sextend(self.int, val)
+						};
 						let zero = self.b.ins().iconst(self.int, 0);
 						let lt = self.b.ins().icmp(IntCC::SignedLessThan, v, zero);
 						self.b.ins().select(lt, zero, v)
@@ -1012,7 +1024,11 @@ impl<'a> Translator<'a> {
 					// uint -> isize: zero-extend then saturate at isize::MAX
 					(Typ::UInt(_), true) => {
 						let src_cl = cl_type(&typ, self.int);
-						let v = if src_cl == self.int { val } else { self.b.ins().uextend(self.int, val) };
+						let v = if src_cl == self.int {
+							val
+						} else {
+							self.b.ins().uextend(self.int, val)
+						};
 						let max_v = self.b.ins().iconst(self.int, i64::MAX);
 						let gt = self.b.ins().icmp(IntCC::UnsignedGreaterThan, v, max_v);
 						self.b.ins().select(gt, max_v, v)
@@ -1852,7 +1868,10 @@ impl<'a> Translator<'a> {
 			}
 		}
 
-		let icc = if matches!((&lt, &rt), (Typ::UInt(_), Typ::UInt(_)) | (Typ::USize, Typ::USize)) {
+		let icc = if matches!(
+			(&lt, &rt),
+			(Typ::UInt(_), Typ::UInt(_)) | (Typ::USize, Typ::USize)
+		) {
 			unsigned_cc(icc)
 		} else {
 			icc

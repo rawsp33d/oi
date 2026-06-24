@@ -171,6 +171,41 @@ fn arb_width_arithmetic() {
 }
 
 #[test]
+fn isize_cast() {
+	check("isize(0)", "0");
+	check("isize(100)", "100");
+	check("isize(-1)", "-1");
+	check("isize(i32(50))", "50");
+	check("isize(u64(42))", "42");
+}
+
+#[test]
+fn usize_cast() {
+	check("usize(0)", "0");
+	check("usize(100)", "100");
+	check("usize(-1)", "0");
+	check("usize(u32(255))", "255");
+	check("usize(i32(10))", "10");
+}
+
+#[test]
+fn isize_arithmetic() {
+	check("isize(10) + isize(20)", "30");
+	check("isize(100) - isize(1)", "99");
+	check("isize(6) * isize(7)", "42");
+	check("isize(10) == isize(10)", "true");
+	check("isize(5) < isize(10)", "true");
+}
+
+#[test]
+fn usize_arithmetic() {
+	check("usize(10) + usize(20)", "30");
+	check("usize(100) / usize(4)", "25");
+	check("usize(10) == usize(10)", "true");
+	check("usize(5) < usize(10)", "true");
+}
+
+#[test]
 fn f16_not_yet_supported() {
 	assert!(fail("f16(1.0)").contains("f16 casts are not yet supported"));
 	assert!(fail("f16(123)").contains("f16 casts are not yet supported"));
