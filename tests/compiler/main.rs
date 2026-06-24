@@ -7,6 +7,7 @@ mod arithmetic;
 mod arrays;
 mod assertions;
 mod booleans;
+mod comments;
 mod comparisons;
 mod control_flow;
 mod diagnostics;

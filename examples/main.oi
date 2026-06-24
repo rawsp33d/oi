@@ -1,3 +1,6 @@
+## Main entrypoint.
+##
+## Called by Oi if present.
 fn main() {
 	## primatives
 
