@@ -178,3 +178,35 @@ fn struct_positional_field_access() {
 	"};
 	check(src, "true");
 }
+
+#[test]
+fn default_field_value() {
+	// empty literal uses the default
+	check(
+		"struct User { age int, name string, swag int = 5 }
+		u := User{}
+		u.swag",
+		"5",
+	);
+	// partial named literal: unlisted field falls back to default
+	check(
+		"struct User { age int, swag int = 5 }
+		u := User{ age: 30 }
+		u.swag",
+		"5",
+	);
+	// explicit value overrides the default
+	check(
+		"struct User { age int, swag int = 5 }
+		u := User{ swag: 99 }
+		u.swag",
+		"99",
+	);
+	// non-defaulted fields still zero-init
+	check(
+		"struct User { age int, swag int = 5 }
+		u := User{}
+		u.age",
+		"0",
+	);
+}
