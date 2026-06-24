@@ -818,7 +818,13 @@ impl<'a> Translator<'a> {
 
 	pub fn expr(&mut self, expr: &Spanned<Expr>) -> Result<(Value, Typ), Diagnostic> {
 		match &expr.0 {
-			Expr::Int(n) => Ok((self.b.ins().iconst(types::I32, *n as i64), Typ::Int(32))),
+			Expr::Int(n) => {
+				if (i32::MIN as i64..=i32::MAX as i64).contains(n) {
+					Ok((self.b.ins().iconst(types::I32, *n), Typ::Int(32)))
+				} else {
+					Ok((self.b.ins().iconst(types::I64, *n), Typ::Int(64)))
+				}
+			}
 			Expr::Bool(v) => Ok((self.b.ins().iconst(self.int, *v as i64), Typ::Bool)),
 			Expr::Float(x) => Ok((self.b.ins().f64const(*x), Typ::Float(64))),
 			Expr::String(s) => Ok((self.str_const(s), Typ::Str)),

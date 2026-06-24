@@ -15,10 +15,10 @@ pub enum Token {
 	#[regex(r"(true|false)", |lex| lex.slice().parse().ok())]
 	Bool(bool),
 	#[regex(r"[0-9][0-9_]*", |lex| lex.slice().replace('_', "").parse().ok())]
-	#[regex(r"0[xX][0-9a-fA-F][0-9a-fA-F_]*", |lex| i32::from_str_radix(&lex.slice()[2..].replace('_', ""), 16).ok())]
-	#[regex(r"0[bB][01][01_]*", |lex| i32::from_str_radix(&lex.slice()[2..].replace('_', ""), 2).ok())]
-	#[regex(r"0[oO][0-7][0-7_]*", |lex| i32::from_str_radix(&lex.slice()[2..].replace('_', ""), 8).ok())]
-	Int(i32),
+	#[regex(r"0[xX][0-9a-fA-F][0-9a-fA-F_]*", |lex| i64::from_str_radix(&lex.slice()[2..].replace('_', ""), 16).ok())]
+	#[regex(r"0[bB][01][01_]*", |lex| i64::from_str_radix(&lex.slice()[2..].replace('_', ""), 2).ok())]
+	#[regex(r"0[oO][0-7][0-7_]*", |lex| i64::from_str_radix(&lex.slice()[2..].replace('_', ""), 8).ok())]
+	Int(i64),
 	#[regex(r"[0-9][0-9_]*\.[0-9][0-9_]*", |lex| Some(lex.slice().replace('_', "")))]
 	Float(String),
 	#[regex(r#""[^"]*""#, |lex| { let s = lex.slice(); s[1..s.len() - 1].to_string() })]

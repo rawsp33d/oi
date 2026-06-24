@@ -9,7 +9,7 @@ pub type Spanned<T> = (T, Span);
 pub enum Expr {
 	// literals
 	Bool(bool),
-	Int(i32),
+	Int(i64),
 	Float(f64),
 	String(String),
 	Ident(String),
