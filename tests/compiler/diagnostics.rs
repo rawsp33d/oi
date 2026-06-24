@@ -25,7 +25,7 @@ fn wrong_arg_type() {
 		fn double(x int) { x + x }
 		double("nope")
 	"#};
-	assert!(fail(src).contains("expected Int argument"));
+	assert!(fail(src).contains("expected int argument"));
 }
 
 #[test]
@@ -34,7 +34,7 @@ fn wrong_return_type() {
 		fn bad() int { "nope" }
 		bad()
 	"#};
-	assert!(fail(src).contains("expected Int return value"));
+	assert!(fail(src).contains("expected int return value"));
 }
 
 #[test]
@@ -52,7 +52,7 @@ fn return_keyword_wrong_type() {
 		fn bad() int { return 2.0 }
 		bad()
 	"};
-	assert!(fail(src).contains("expected Int return value"));
+	assert!(fail(src).contains("expected int return value"));
 }
 
 #[test]
