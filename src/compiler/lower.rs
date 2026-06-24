@@ -1844,7 +1844,9 @@ impl<'a> Translator<'a> {
 			&[self.int, self.int, self.int, self.int, self.int],
 			None,
 		);
-		self.b.ins().call(func, &[tag, bits, width, quote, stderr_v]);
+		self.b
+			.ins()
+			.call(func, &[tag, bits, width, quote, stderr_v]);
 	}
 
 	pub fn emit_print(&mut self, val: Value, typ: &Typ, quote: bool, stderr: bool) {
