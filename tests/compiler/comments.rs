@@ -120,3 +120,25 @@ fn block_comment_brace_inside() {
 fn block_comment_inline() {
 	check("1 + #{ skip this }# 1", "2");
 }
+
+#[test]
+fn block_comment_nested() {
+	check("#{ outer #{ inner }# still outer }# 1 + 1", "2");
+}
+
+#[test]
+fn block_comment_nested_deep() {
+	let src = indoc! {"
+		#{
+			level one
+			#{
+				level two
+				#{ level three }#
+				back to two
+			}#
+			back to one
+		}#
+		5
+	"};
+	check(src, "5");
+}
