@@ -960,6 +960,29 @@ impl<'a> Translator<'a> {
 				Ok((cond, Typ::Bool))
 			}
 
+			Expr::Call { name, args } if matches!(name.as_str(), "i32" | "i64") => {
+				let target: u16 = if name == "i64" { 64 } else { 32 };
+				if args.len() != 1 {
+					return Err(Diagnostic::new(
+						format!("`{name}` cast takes exactly 1 argument"),
+						expr.1.into_range(),
+					)
+					.with_label("wrong number of arguments"));
+				}
+				let (val, typ) = self.expr(&args[0])?;
+				let out = match &typ {
+					Typ::Int(w) if *w == target => val,
+					Typ::Int(w) if *w < target => self.b.ins().sextend(cl_type(&Typ::Int(target), self.int), val),
+					Typ::Int(_) => self.b.ins().ireduce(cl_type(&Typ::Int(target), self.int), val),
+					_ => return Err(Diagnostic::new(
+						format!("cannot cast {typ:?} to i{target}"),
+						args[0].1.into_range(),
+					)
+					.with_label("not an integer")),
+				};
+				Ok((out, Typ::Int(target)))
+			}
+
 			Expr::Call { name, args } => {
 				let sig = self.funcs.get(name).cloned().ok_or_else(|| {
 					Diagnostic::new(format!("undefined function `{name}`"), expr.1.into_range())
