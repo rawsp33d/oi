@@ -14,9 +14,9 @@ pub enum Token {
 	// literals
 	#[regex(r"(true|false)", |lex| lex.slice().parse().ok())]
 	Bool(bool),
-	#[regex(r"[0-9]+", |lex| lex.slice().parse().ok())]
+	#[regex(r"[0-9][0-9_]*", |lex| lex.slice().replace('_', "").parse().ok())]
 	Int(i32),
-	#[regex(r"[0-9]+\.[0-9]+", |lex| Some(lex.slice().to_string()))]
+	#[regex(r"[0-9][0-9_]*\.[0-9][0-9_]*", |lex| Some(lex.slice().replace('_', "")))]
 	Float(String),
 	#[regex(r#""[^"]*""#, |lex| { let s = lex.slice(); s[1..s.len() - 1].to_string() })]
 	String(String),

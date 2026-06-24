@@ -15,6 +15,7 @@ mod io;
 mod literals;
 mod loops;
 mod match_;
+mod numbers;
 mod statements;
 mod strings;
 mod structs;
