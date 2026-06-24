@@ -278,13 +278,16 @@ impl<'a> Translator<'a> {
 							.with_label("not a struct"));
 						}
 					};
-					let idx = fields.iter().position(|f| &f.name == field).ok_or_else(|| {
-						Diagnostic::new(
-							format!("struct has no field `{field}`"),
-							stmt.1.into_range(),
-						)
-						.with_label("no such field")
-					})?;
+					let idx = fields
+						.iter()
+						.position(|f| &f.name == field)
+						.ok_or_else(|| {
+							Diagnostic::new(
+								format!("struct has no field `{field}`"),
+								stmt.1.into_range(),
+							)
+							.with_label("no such field")
+						})?;
 					let (val, vtyp) = self.expr(value)?;
 					if vtyp != fields[idx].typ {
 						return Err(Diagnostic::new(
@@ -1310,7 +1313,8 @@ impl<'a> Translator<'a> {
 						if &vtyp != &f.typ {
 							return Err(Diagnostic::new(
 								format!(
-									"default value type mismatch: expected {:?}, got {vtyp:?}", f.typ
+									"default value type mismatch: expected {:?}, got {vtyp:?}",
+									f.typ
 								),
 								default_expr.1.into_range(),
 							)
