@@ -113,6 +113,7 @@
 	- or at least clean up the usage of one of them
 - `if` unwrapping `v`
 - using `not` or `!` in pipelines to achieve things like V's `val !in arr`
+- `noop` macro
 # stdlib
 - `os`
 - `fs`

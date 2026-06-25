@@ -7,7 +7,7 @@
 # (can be stacked)
 
 #{ Block comments
-	#{ (can be nested) }
+	#{ (can be nested) }#
 }#
 
 ## Doc comments.
