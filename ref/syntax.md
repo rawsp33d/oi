@@ -739,8 +739,6 @@ fn main() {
 	
 	# type aliases
 	type Score = int
-	
-	# type aliases are defined as tuples
 	type Speed = (Point, int)
 	
 	# function signatures can be aliased
@@ -766,9 +764,6 @@ fn main() {
 	u := User{}
 	assert!(u.age == 0)
 	assert!(u.name == "")
-	
-	# unpack returns
-	a, b := foo()
 	
 	## control flow
 	

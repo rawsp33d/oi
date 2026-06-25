@@ -115,6 +115,8 @@
 - `if` unwrapping `v`
 - using `not` or `!` in pipelines to achieve things like V's `val !in arr`
 - `noop` macro
+- maybe named tuple args aren't a good thing
+	- just making structs more lightweight to use might be better, idk
 # stdlib
 - `os`
 - `fs`
