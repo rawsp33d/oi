@@ -57,7 +57,7 @@ pub enum Expr {
 	// `loop <pat> in <iter> {}`
 	For {
 		pat: Pattern,
-		iter: ForIter,
+		iter: Box<Spanned<Expr>>,
 		body: Vec<Spanned<Expr>>,
 	},
 
@@ -130,6 +130,12 @@ pub enum Expr {
 		typ: TypeExpr,
 	},
 
+	// `start..end`, `start..`, `..end`
+	Range {
+		start: Option<Box<Spanned<Expr>>>,
+		end: Option<Box<Spanned<Expr>>>,
+	},
+
 	// TODO: enums
 
 	// operators
@@ -187,15 +193,6 @@ pub struct MatchArm {
 pub enum Pattern {
 	Name(String),
 	Tuple(Vec<String>),
-}
-
-// What a for loop walks.
-#[derive(Debug, Clone)]
-pub enum ForIter {
-	// in `[start, end)`
-	Range(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
-	// an iterable value (an array, for now)
-	Iter(Box<Spanned<Expr>>),
 }
 
 // A function parameter or struct field declaration.

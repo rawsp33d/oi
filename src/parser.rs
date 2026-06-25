@@ -1,4 +1,4 @@
-use crate::ast::{Expr, ForIter, MatchArm, Param, Pattern, Spanned, TypeExpr};
+use crate::ast::{Expr, MatchArm, Param, Pattern, Spanned, TypeExpr};
 use crate::lexer::Token;
 
 use chumsky::{
@@ -263,17 +263,10 @@ where
 				.map(Pattern::Tuple);
 			tuple.or(name.map(Pattern::Name))
 		};
-		let for_iter = expr
-			.clone()
-			.then(just(Token::DotDot).ignore_then(expr.clone()).or_not())
-			.map(|(start, end)| match end {
-				Some(end) => ForIter::Range(Box::new(start), Box::new(end)),
-				None => ForIter::Iter(Box::new(start)),
-			});
 		let for_expr = just(Token::Loop)
 			.ignore_then(pattern)
 			.then_ignore(just(Token::In))
-			.then(for_iter)
+			.then(expr.clone().map(Box::new))
 			.then(block.clone())
 			.map_with(|((pat, iter), body), ex| (Expr::For { pat, iter, body }, ex.span()));
 		let break_expr = just(Token::Break).map_with(|_, ex| (Expr::Break, ex.span()));
@@ -329,14 +322,24 @@ where
 		};
 
 		// array subscripts
-		let range = expr
+		let no_start_range = just(Token::DotDot)
+			.ignore_then(expr.clone().or_not())
+			.map(|end| Subscript::Slice(None, end));
+		let with_start = expr
 			.clone()
-			.or_not()
-			.then_ignore(just(Token::DotDot))
-			.then(expr.clone().or_not())
-			.map(|(start, end)| Subscript::Slice(start, end));
-		let subscript = range
-			.or(expr.clone().map(Subscript::Index))
+			.then(just(Token::DotDot).ignore_then(expr.clone().or_not()).or_not())
+			.map(|(e, extra)| match (e.0.clone(), extra) {
+				// `start..end`
+				(Expr::Range { start, end }, None) => {
+					Subscript::Slice(start.map(|s| *s), end.map(|e| *e))
+				}
+				// `start..`
+				(_, Some(end)) => Subscript::Slice(Some(e), end),
+				// numeric index
+				(_, None) => Subscript::Index(e),
+			});
+		let subscript = no_start_range
+			.or(with_start)
 			.delimited_by(just(Token::LBracket), just(Token::RBracket));
 
 		atom.pratt((
@@ -428,6 +431,16 @@ where
 			}),
 			infix(left(1), just(Token::Or), |l, _, r, ex| {
 				(Expr::Or(Box::new(l), Box::new(r)), ex.span())
+			}),
+			// ranges
+			infix(left(0), just(Token::DotDot), |l, _, r, ex| {
+				(
+					Expr::Range {
+						start: Some(Box::new(l)),
+						end: Some(Box::new(r)),
+					},
+					ex.span(),
+				)
 			}),
 		))
 	};

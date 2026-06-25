@@ -7,8 +7,8 @@ use cranelift::prelude::*;
 use cranelift_jit::JITModule;
 use cranelift_module::{DataDescription, Linkage, Module};
 
-use super::{FieldDef, FnSig, Local, LoopFrame, Op, Typ, cl_type, elem_size};
-use crate::ast::{Expr, ForIter, MatchArm, Pattern, Span, Spanned};
+use super::{FieldDef, FnSig, Local, LoopFrame, Op, Typ, cl_int_for_width, cl_type, elem_size};
+use crate::ast::{Expr, MatchArm, Pattern, Span, Spanned};
 use crate::diagnostics::Diagnostic;
 use crate::runtime;
 
@@ -670,34 +670,35 @@ impl<'a> Translator<'a> {
 	fn for_loop(
 		&mut self,
 		pat: &Pattern,
-		iter: &ForIter,
+		iter: &Spanned<Expr>,
 		body: &[Spanned<Expr>],
 		span: Span,
 	) -> Result<(Value, Typ), Diagnostic> {
+		let (val, typ) = self.expr(iter)?;
 		// counter var, upper bound, and (data ptr, elem type) for array iteration
-		let (counter, limit, arr_src): (_, _, Option<(Value, Typ)>) = match iter {
-			ForIter::Range(s, e) => {
-				let start = self.int_value(s, "range start")?;
-				let end = self.int_value(e, "range end")?;
-				let v = self.b.declare_var(types::I32);
+		let (counter, limit, arr_src): (_, _, Option<(Value, Typ)>) = match typ {
+			Typ::Range => {
+				let cl = cl_int_for_width(32);
+				let start = self.b.ins().load(cl, MemFlags::new(), val, 0);
+				let end = self.b.ins().load(cl, MemFlags::new(), val, 8);
+				let v = self.b.declare_var(cl);
 				self.b.def_var(v, start);
 				(v, end, None)
 			}
-			ForIter::Iter(e) => {
-				let (arr, typ) = self.expr(e)?;
-				let Typ::Array(elem) = typ else {
-					return Err(Diagnostic::new(
-						format!("cannot iterate over {typ:?}"),
-						e.1.into_range(),
-					)
-					.with_label("not iterable"));
-				};
+			Typ::Array(elem) => {
 				let zero = self.b.ins().iconst(self.int, 0);
-				let len = self.array_len(arr);
-				let data = self.array_data(arr);
+				let len = self.array_len(val);
+				let data = self.array_data(val);
 				let v = self.b.declare_var(self.int);
 				self.b.def_var(v, zero);
 				(v, len, Some((data, *elem)))
+			}
+			_ => {
+				return Err(Diagnostic::new(
+					format!("cannot iterate over {typ}"),
+					iter.1.into_range(),
+				)
+				.with_label("not iterable"));
 			}
 		};
 
@@ -1656,6 +1657,24 @@ impl<'a> Translator<'a> {
 				Ok((ptr, Typ::Struct(name.clone(), struct_fields)))
 			}
 
+			Expr::Range { start, end } => {
+				let start_val = match start {
+					Some(s) => self.int_value(s, "range start")?,
+					None => self.b.ins().iconst(cl_int_for_width(32), 0),
+				};
+				let end_val = match end {
+					Some(e) => self.int_value(e, "range end")?,
+					None => self.b.ins().iconst(cl_int_for_width(32), 0),
+				};
+				let ptr = self.call_alloc(2);
+				let cl = self.b.func.dfg.value_type(start_val);
+				let s_ext = if cl == self.int { start_val } else { self.b.ins().sextend(self.int, start_val) };
+				let e_ext = if cl == self.int { end_val } else { self.b.ins().sextend(self.int, end_val) };
+				self.b.ins().store(MemFlags::new(), s_ext, ptr, 0);
+				self.b.ins().store(MemFlags::new(), e_ext, ptr, 8);
+				Ok((ptr, Typ::Range))
+			}
+
 			Expr::Bind { .. } => unreachable!("bind in expression position"),
 			Expr::Assign { .. } => unreachable!("assign in expression position"),
 			Expr::IndexAssign { .. } => unreachable!("index assign in expression position"),
@@ -1793,6 +1812,13 @@ impl<'a> Translator<'a> {
 			Typ::Array(_) => {
 				let zero = self.b.ins().iconst(self.int, 0);
 				self.make_array(zero, zero)
+			}
+			Typ::Range => {
+				let ptr = self.call_alloc(2);
+				let z = self.b.ins().iconst(self.int, 0);
+				self.b.ins().store(MemFlags::new(), z, ptr, 0);
+				self.b.ins().store(MemFlags::new(), z, ptr, 8);
+				ptr
 			}
 		}
 	}
@@ -2217,6 +2243,15 @@ impl<'a> Translator<'a> {
 				self.emit_frag(runtime::Tag::Raw, val, 0, false, stderr);
 			}
 
+			Typ::Range => {
+				let cl = cl_int_for_width(32);
+				let start = self.b.ins().load(cl, MemFlags::new(), val, 0);
+				let end = self.b.ins().load(cl, MemFlags::new(), val, 8);
+				self.emit_print(start, &Typ::Int(32), false, stderr);
+				self.write_lit("..", stderr);
+				self.emit_print(end, &Typ::Int(32), false, stderr);
+			}
+
 			_ => {
 				let tag = match typ {
 					Typ::Bool => runtime::Tag::Bool,
@@ -2224,7 +2259,7 @@ impl<'a> Translator<'a> {
 					Typ::UInt(_) | Typ::USize => runtime::Tag::UInt,
 					Typ::Float(_) => runtime::Tag::Float,
 					Typ::Str => runtime::Tag::Str,
-					Typ::Atom | Typ::Tuple(_) | Typ::Array(_) | Typ::Struct(..) => {
+					Typ::Atom | Typ::Tuple(_) | Typ::Array(_) | Typ::Struct(..) | Typ::Range => {
 						unreachable!("handled above")
 					}
 				};

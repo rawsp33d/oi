@@ -34,6 +34,7 @@ pub(crate) enum Typ {
 	Tuple(Vec<(Option<String>, Typ)>),
 	Array(Box<Typ>),
 	Struct(String, Vec<FieldDef>),
+	Range,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -70,6 +71,7 @@ impl fmt::Display for Typ {
 			Typ::Tuple(_) => write!(f, "tuple"),
 			Typ::Array(e) => write!(f, "[{e}]"),
 			Typ::Struct(name, _) => write!(f, "{name}"),
+			Typ::Range => write!(f, "range"),
 		}
 	}
 }
@@ -151,6 +153,7 @@ pub(crate) fn typ_from_name(
 		"float" => return Ok(Typ::Float(64)),
 		"bool" => return Ok(Typ::Bool),
 		"string" | "str" => return Ok(Typ::Str),
+		"range" => return Ok(Typ::Range),
 		"()" => return Ok(Typ::Tuple(vec![])),
 		_ => {}
 	}
@@ -161,7 +164,7 @@ pub(crate) fn typ_from_name(
 					format!("integer width {w} out of range"),
 					span.into_range(),
 				)
-				.with_label("width must be 1–64"));
+				.with_label("width must be 1-64"));
 			}
 			return Ok(Typ::Int(w));
 		}
@@ -173,7 +176,7 @@ pub(crate) fn typ_from_name(
 					format!("unsigned integer width {w} out of range"),
 					span.into_range(),
 				)
-				.with_label("width must be 1–64"));
+				.with_label("width must be 1-64"));
 			}
 			return Ok(Typ::UInt(w));
 		}
