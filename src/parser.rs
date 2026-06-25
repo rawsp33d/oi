@@ -141,6 +141,7 @@ where
 			Token::Int(n) => Expr::Int(n),
 			Token::Float(s) => Expr::Float(s.parse().unwrap()),
 			Token::String(s) => Expr::String(s),
+			Token::Atom(name) => Expr::Atom(name),
 		};
 
 		// variable vs. call vs. struct literal

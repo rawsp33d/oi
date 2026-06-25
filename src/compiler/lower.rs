@@ -20,6 +20,7 @@ pub(super) struct Translator<'a> {
 	pub funcs: &'a HashMap<String, FnSig>,
 	pub structs: &'a HashMap<String, Vec<FieldDef>>,
 	pub string_idx: &'a mut usize,
+	pub atoms: &'a mut HashMap<String, ()>,
 	pub ret: Option<(Typ, Span)>,
 	pub loops: Vec<LoopFrame>,
 }
@@ -831,6 +832,7 @@ impl<'a> Translator<'a> {
 			Expr::Bool(v) => Ok((self.b.ins().iconst(self.int, *v as i64), Typ::Bool)),
 			Expr::Float(x) => Ok((self.b.ins().f64const(*x), Typ::Float(64))),
 			Expr::String(s) => Ok((self.str_const(s), Typ::Str)),
+			Expr::Atom(name) => Ok((self.atom_const(name), Typ::Atom)),
 
 			Expr::Ident(name) => {
 				let local = self.vars.get(name).cloned().ok_or_else(|| {
@@ -1667,6 +1669,29 @@ impl<'a> Translator<'a> {
 		self.b.ins().symbol_value(self.int, gv)
 	}
 
+	// Intern an atom name to a pointer-sized symbol.
+	fn atom_const(&mut self, name: &str) -> Value {
+		let sym = format!("__atom_{name}");
+		if !self.atoms.contains_key(name) {
+			let id = self
+				.module
+				.declare_data(&sym, Linkage::Local, false, false)
+				.unwrap();
+			let mut bytes = format!(":{name}").into_bytes();
+			bytes.push(0);
+			let mut desc = DataDescription::new();
+			desc.define(bytes.into_boxed_slice());
+			self.module.define_data(id, &desc).unwrap();
+			self.atoms.insert(name.to_string(), ());
+		}
+		let id = self
+			.module
+			.declare_data(&sym, Linkage::Local, false, false)
+			.unwrap();
+		let gv = self.module.declare_data_in_func(id, self.b.func);
+		self.b.ins().symbol_value(self.int, gv)
+	}
+
 	fn emit_eq(&mut self, a: Value, b: Value, typ: &Typ) -> Value {
 		match typ {
 			Typ::Float(_) => self.b.ins().fcmp(FloatCC::Equal, a, b),
@@ -1719,6 +1744,7 @@ impl<'a> Translator<'a> {
 			}
 			Typ::Float(w) => panic!("unsupported float width f{w}"),
 			Typ::Str => self.str_const(""),
+			Typ::Atom => self.atom_const(""),
 			Typ::Int(w) => self.b.ins().iconst(cl_type(&Typ::Int(*w), self.int), 0),
 			Typ::UInt(w) => self.b.ins().iconst(cl_type(&Typ::UInt(*w), self.int), 0),
 			Typ::Bool | Typ::ISize | Typ::USize => self.b.ins().iconst(self.int, 0),
@@ -1884,7 +1910,8 @@ impl<'a> Translator<'a> {
 			| (Typ::UInt(_), Typ::UInt(_))
 			| (Typ::ISize, Typ::ISize)
 			| (Typ::USize, Typ::USize)
-			| (Typ::Bool, Typ::Bool) => self.b.ins().icmp(icc, lv, rv),
+			| (Typ::Bool, Typ::Bool)
+			| (Typ::Atom, Typ::Atom) => self.b.ins().icmp(icc, lv, rv),
 			(Typ::Float(_), Typ::Float(_)) => self.b.ins().fcmp(fcc, lv, rv),
 			(Typ::Str, Typ::Str) if icc == IntCC::Equal || icc == IntCC::NotEqual => {
 				let eq = self.emit_eq(lv, rv, &Typ::Str);
@@ -2169,6 +2196,10 @@ impl<'a> Translator<'a> {
 				self.write_lit("}", stderr);
 			}
 
+			Typ::Atom => {
+				self.emit_frag(runtime::Tag::Raw, val, 0, false, stderr);
+			}
+
 			_ => {
 				let tag = match typ {
 					Typ::Bool => runtime::Tag::Bool,
@@ -2176,7 +2207,7 @@ impl<'a> Translator<'a> {
 					Typ::UInt(_) | Typ::USize => runtime::Tag::UInt,
 					Typ::Float(_) => runtime::Tag::Float,
 					Typ::Str => runtime::Tag::Str,
-					Typ::Tuple(_) | Typ::Array(_) | Typ::Struct(..) => {
+					Typ::Atom | Typ::Tuple(_) | Typ::Array(_) | Typ::Struct(..) => {
 						unreachable!("handled above")
 					}
 				};

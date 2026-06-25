@@ -47,6 +47,8 @@ pub enum Token {
 	Float(String),
 	#[regex(r#""[^"]*""#, |lex| { let s = lex.slice(); s[1..s.len() - 1].to_string() })]
 	String(String),
+	#[regex(r":[A-Za-z0-9_]+", |lex| lex.slice()[1..].to_string())]
+	Atom(String),
 
 	// keywords
 	#[token("fn")]
@@ -181,6 +183,7 @@ impl fmt::Display for Token {
 			Token::Ident(name) => write!(f, "{name}"),
 			Token::Bind => write!(f, ":="),
 			Token::Assign => write!(f, "="),
+			Token::Atom(name) => write!(f, ":{name}"),
 			Token::DotDot => write!(f, ".."),
 			Token::Dot => write!(f, "."),
 			Token::Colon => write!(f, ":"),

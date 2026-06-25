@@ -30,6 +30,7 @@ pub(crate) enum Typ {
 	Float(u16),
 	Bool,
 	Str,
+	Atom,
 	Tuple(Vec<(Option<String>, Typ)>),
 	Array(Box<Typ>),
 	Struct(String, Vec<FieldDef>),
@@ -64,6 +65,7 @@ impl fmt::Display for Typ {
 			Typ::Float(w) => write!(f, "f{w}"),
 			Typ::Bool => write!(f, "bool"),
 			Typ::Str => write!(f, "str"),
+			Typ::Atom => write!(f, "atom"),
 			Typ::Tuple(fields) if fields.is_empty() => write!(f, "()"),
 			Typ::Tuple(_) => write!(f, "tuple"),
 			Typ::Array(e) => write!(f, "[{e}]"),
@@ -216,6 +218,7 @@ pub struct Compiler {
 	ctx: codegen::Context,
 	module: JITModule,
 	string_idx: usize,
+	atoms: HashMap<String, ()>,
 }
 
 impl Default for Compiler {
@@ -246,6 +249,7 @@ impl Default for Compiler {
 			ctx: module.make_context(),
 			module,
 			string_idx: 0,
+			atoms: HashMap::new(),
 		}
 	}
 }
@@ -385,6 +389,7 @@ impl Compiler {
 			funcs,
 			structs,
 			string_idx: &mut self.string_idx,
+			atoms: &mut self.atoms,
 			ret: None,
 			loops: vec![],
 		};
@@ -445,6 +450,7 @@ impl Compiler {
 			funcs,
 			structs,
 			string_idx: &mut self.string_idx,
+			atoms: &mut self.atoms,
 			ret,
 			loops: vec![],
 		};

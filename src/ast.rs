@@ -12,6 +12,7 @@ pub enum Expr {
 	Int(i64),
 	Float(f64),
 	String(String),
+	Atom(String),
 	Ident(String),
 
 	// `[mods] name := value`: declares a new binding
