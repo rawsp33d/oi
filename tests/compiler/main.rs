@@ -22,5 +22,6 @@ mod statements;
 mod strings;
 mod structs;
 mod tuples;
+mod types;
 mod unit;
 mod vars;
