@@ -292,7 +292,13 @@ impl Compiler {
 				Expr::TypeAlias { name, typ } => alias_items.push((name.as_str(), typ)),
 				Expr::Impl { typ, methods } => {
 					for m in methods {
-						if let Expr::Fn { name, params, ret, body } = &m.0 {
+						if let Expr::Fn {
+							name,
+							params,
+							ret,
+							body,
+						} = &m.0
+						{
 							others.push((format!("{typ}.{name}"), params, ret, body));
 						}
 					}

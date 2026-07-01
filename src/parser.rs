@@ -414,29 +414,33 @@ where
 
 		atom.pratt((
 			// field/tuple/method access
-			postfix(8, just(Token::Dot).ignore_then(access), |lhs, acc, ex| match acc {
-				Access::Fields(parts) => {
-					let mut cur = lhs;
-					for field in parts {
-						cur = (
-							Expr::Field {
-								tuple: Box::new(cur),
-								field,
-							},
-							ex.span(),
-						);
+			postfix(
+				8,
+				just(Token::Dot).ignore_then(access),
+				|lhs, acc, ex| match acc {
+					Access::Fields(parts) => {
+						let mut cur = lhs;
+						for field in parts {
+							cur = (
+								Expr::Field {
+									tuple: Box::new(cur),
+									field,
+								},
+								ex.span(),
+							);
+						}
+						cur
 					}
-					cur
-				}
-				Access::Method(method, args) => (
-					Expr::MethodCall {
-						recv: Box::new(lhs),
-						method,
-						args,
-					},
-					ex.span(),
-				),
-			}),
+					Access::Method(method, args) => (
+						Expr::MethodCall {
+							recv: Box::new(lhs),
+							method,
+							args,
+						},
+						ex.span(),
+					),
+				},
+			),
 			// indexing and slicing
 			postfix(8, subscript, |lhs, sub, ex| {
 				let collection = Box::new(lhs);
