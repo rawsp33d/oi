@@ -343,12 +343,13 @@ impl Compiler {
 			if let Some(t) = self_type {
 				aliases.insert("Self".into(), TypeExpr::Name(t.into()));
 			}
-			let params: Vec<(String, Typ)> = params
+			let params: Vec<(String, Typ, bool)> = params
 				.iter()
 				.map(|p| {
 					Ok((
 						p.name.clone(),
 						typ_from_name(&p.typ, p.span, &structs, &aliases)?,
+						p.mutable,
 					))
 				})
 				.collect::<Result<_, Diagnostic>>()?;
@@ -362,7 +363,7 @@ impl Compiler {
 			let sym = format!("oi_{}", key.replace('.', "__"));
 			let ret = self.translate(int, &params, ret, &stmts, &funcs, &structs, self_type)?;
 			let id = self.finish_fn(&sym);
-			let param_typs = params.iter().map(|(_, t)| t.clone()).collect();
+			let param_typs = params.iter().map(|(_, t, _)| t.clone()).collect();
 			funcs.insert(
 				key.clone(),
 				FnSig {
@@ -454,7 +455,7 @@ impl Compiler {
 	fn translate(
 		&mut self,
 		int: types::Type,
-		params: &[(String, Typ)],
+		params: &[(String, Typ, bool)],
 		ret: Option<(Typ, Span)>,
 		stmts: &[&Spanned<Expr>],
 		funcs: &HashMap<String, FnSig>,
@@ -463,7 +464,7 @@ impl Compiler {
 	) -> Result<Typ, Diagnostic> {
 		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
 		// declare param types before the entry block claims them
-		for (_, typ) in params {
+		for (_, typ, _) in params {
 			b.func
 				.signature
 				.params
@@ -491,7 +492,7 @@ impl Compiler {
 		};
 
 		let param_vals: Vec<Value> = trans.b.block_params(block).to_vec();
-		for ((name, typ), val) in params.iter().zip(param_vals) {
+		for ((name, typ, mutable), val) in params.iter().zip(param_vals) {
 			let cl = trans.b.func.dfg.value_type(val);
 			let var = trans.b.declare_var(cl);
 			trans.b.def_var(var, val);
@@ -500,7 +501,7 @@ impl Compiler {
 				Local {
 					var,
 					typ: typ.clone(),
-					mutable: false,
+					mutable: *mutable,
 				},
 			);
 		}

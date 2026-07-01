@@ -219,4 +219,5 @@ pub struct Param {
 	pub typ: String,
 	pub span: Span,
 	pub default: Option<Spanned<Expr>>,
+	pub mutable: bool,
 }

@@ -102,6 +102,32 @@ fn self_outside_impl() {
 }
 
 #[test]
+fn mut_self_mutates_receiver() {
+	let src = indoc! {"
+		struct Counter { n int }
+		impl Counter {
+			fn bump(mut self) { self.n = self.n + 1 }
+			fn get(self) int { self.n }
+		}
+		mut c := Counter{0}
+		c.bump()
+		c.bump()
+		c.get()
+	"};
+	check(src, "2");
+}
+
+#[test]
+fn immutable_self_rejects_field_assign() {
+	let err = fail(indoc! {"
+		struct P { x int }
+		impl P { fn bad(self) { self.x = 9 } }
+		P{1}.bad()
+	"});
+	assert!(err.contains("without `mut`"), "{err}");
+}
+
+#[test]
 fn no_such_method() {
 	let err = fail(indoc! {"
 		struct P { x int }

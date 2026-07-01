@@ -528,13 +528,16 @@ where
 
 	// param type is kept for the compiler to resolve
 	// a bare `self` receiver gets the type `Self`
-	let param = select! { Token::Ident(name) => name }
+	let param = just(Token::Mut)
+		.or_not()
+		.then(select! { Token::Ident(name) => name })
 		.then(select! { Token::Ident(typ) => typ }.or_not())
-		.map_with(|(name, typ), ex| Param {
+		.map_with(|((mutable, name), typ), ex| Param {
 			typ: typ.unwrap_or_else(|| "Self".into()),
 			name,
 			span: ex.span(),
 			default: None,
+			mutable: mutable.is_some(),
 		});
 	let params = param
 		.separated_by(just(Token::Comma))
@@ -572,6 +575,7 @@ where
 			typ,
 			span: ex.span(),
 			default,
+			mutable: false,
 		});
 	let struct_def = just(Token::Struct)
 		.ignore_then(select! { Token::Ident(name) => name })
