@@ -1615,8 +1615,11 @@ impl<'a> Translator<'a> {
 				// `Self {}` inside a method resolves to the impl's type
 				let name = match name.as_str() {
 					"Self" => self.self_type.clone().ok_or_else(|| {
-						Diagnostic::new("`Self` is only valid in an impl block", expr.1.into_range())
-							.with_label("no enclosing impl")
+						Diagnostic::new(
+							"`Self` is only valid in an impl block",
+							expr.1.into_range(),
+						)
+						.with_label("no enclosing impl")
 					})?,
 					_ => name.clone(),
 				};
