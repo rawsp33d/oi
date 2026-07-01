@@ -2,6 +2,7 @@ mod aliases;
 mod arrays;
 mod atoms;
 mod booleans;
+mod enums;
 mod literals;
 mod numbers;
 mod strings;
