@@ -11,6 +11,7 @@ mod control;
 mod diagnostics;
 mod functions;
 mod io;
+mod methods;
 mod statements;
 mod types;
 mod unit;
