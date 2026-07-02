@@ -231,3 +231,24 @@ fn atom_unknown_variant() {
 	let err = fail("enum Color { red green blue }\nc Color := :purple");
 	assert!(err.contains("no variant `purple`"), "got: {err}");
 }
+
+#[test]
+fn cast_to_int() {
+	check("enum Color { red green blue }\nint(Color.blue)", "2");
+}
+
+#[test]
+fn cast_to_int_explicit_disc() {
+	check(
+		"enum Status { ok = 200, err = 500 }\nint(Status.err)",
+		"500",
+	);
+}
+
+#[test]
+fn compare_via_int() {
+	check(
+		"enum Color { red green blue }\nint(Color.green) == 1",
+		"true",
+	);
+}
