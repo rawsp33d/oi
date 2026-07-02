@@ -1,4 +1,4 @@
-use crate::ast::{Expr, MatchArm, Param, Pattern, Spanned, TypeExpr};
+use crate::ast::{EnumVariant, Expr, MatchArm, Param, Pattern, Spanned, TypeExpr};
 use crate::lexer::Token;
 
 use chumsky::{
@@ -70,7 +70,7 @@ where
 	let bind = just(Token::Mut)
 		.or_not()
 		.then(select! { Token::Ident(name) => name })
-		.then(annot.or_not())
+		.then(annot.clone().or_not())
 		.then(just(Token::Bind).ignore_then(expr.clone()).or_not())
 		.try_map(|(((mutable, name), typ), value), span| {
 			if value.is_none() && (typ.is_none() || mutable.is_none()) {
@@ -595,13 +595,23 @@ where
 		.map_with(|(name, fields), ex| (Expr::StructDef { name, fields }, ex.span()));
 
 	// `enum Name {}`
-	let variant = select! { Token::Ident(v) => v }.then(
-		just(Token::Assign)
-			.ignore_then(just(Token::Minus).or_not())
-			.then(select! { Token::Int(n) => n })
-			.map(|(neg, n)| if neg.is_some() { -n } else { n })
-			.or_not(),
-	);
+	let disc = just(Token::Assign)
+		.ignore_then(just(Token::Minus).or_not())
+		.then(select! { Token::Int(n) => n })
+		.map(|(neg, n)| if neg.is_some() { -n } else { n });
+	let payload = annot
+		.separated_by(just(Token::Comma))
+		.allow_trailing()
+		.collect::<Vec<_>>()
+		.delimited_by(just(Token::LParen), just(Token::RParen));
+	let variant = select! { Token::Ident(v) => v }
+		.then(payload.or_not())
+		.then(disc.or_not())
+		.map(|((name, payload), disc)| EnumVariant {
+			name,
+			disc,
+			payload: payload.unwrap_or_default(),
+		});
 	let enum_def = just(Token::Enum)
 		.ignore_then(select! { Token::Ident(name) => name })
 		.then(
@@ -614,8 +624,8 @@ where
 		.try_map_with(|(name, variants), ex| {
 			let mut next = 0;
 			let mut seen = Vec::new();
-			for (_, val) in &variants {
-				let d = val.unwrap_or(next);
+			for v in &variants {
+				let d = v.disc.unwrap_or(next);
 				if seen.contains(&d) {
 					let msg = format!("discriminant value `{d}` assigned more than once");
 					return Err(Rich::custom(ex.span(), msg));

@@ -154,7 +154,7 @@ pub enum Expr {
 	// `enum Name {}`
 	EnumDef {
 		name: String,
-		variants: Vec<(String, Option<i64>)>,
+		variants: Vec<EnumVariant>,
 	},
 	// `.variant`
 	EnumShorthand(String),
@@ -208,6 +208,14 @@ pub enum TypeExpr {
 pub struct MatchArm {
 	pub patterns: Vec<Spanned<Expr>>,
 	pub body: Vec<Spanned<Expr>>,
+}
+
+// Enum variant.
+#[derive(Debug, Clone)]
+pub struct EnumVariant {
+	pub name: String,
+	pub disc: Option<i64>,
+	pub payload: Vec<Spanned<TypeExpr>>,
 }
 
 // A `loop` binding pattern (name or destruction).

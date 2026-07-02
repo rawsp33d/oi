@@ -6,7 +6,7 @@ use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module};
 
-use crate::ast::{Expr, Param, Span, Spanned, TypeExpr};
+use crate::ast::{EnumVariant, Expr, Param, Span, Spanned, TypeExpr};
 use crate::diagnostics::Diagnostic;
 use crate::runtime;
 
@@ -20,7 +20,7 @@ type FnItem<'a> = (
 	&'a [Spanned<Expr>],
 );
 
-type EnumItem<'a> = (&'a str, &'a [(String, Option<i64>)]);
+type EnumItem<'a> = (&'a str, &'a [EnumVariant]);
 
 // TODO: PartialEq compares tuple field names, but comparisons should ignore them
 #[derive(Clone, PartialEq, Debug)]
@@ -121,14 +121,14 @@ pub(crate) fn elem_size(typ: &Typ) -> i64 {
 }
 
 // Assign each variant its discriminant.
-fn assign_discs(variants: &[(String, Option<i64>)]) -> Vec<(String, i64)> {
+fn assign_discs(variants: &[EnumVariant]) -> Vec<(String, i64)> {
 	let mut next = 0;
 	variants
 		.iter()
-		.map(|(name, val)| {
-			let d = val.unwrap_or(next);
+		.map(|v| {
+			let d = v.disc.unwrap_or(next);
 			next = d + 1;
-			(name.clone(), d)
+			(v.name.clone(), d)
 		})
 		.collect()
 }
@@ -346,6 +346,15 @@ impl Compiler {
 			.map(|(name, te)| (name.to_string(), (*te).clone()))
 			.collect();
 
+		for (name, variants) in &enum_items {
+			if let Some(v) = variants.iter().find(|v| !v.payload.is_empty()) {
+				return Err(Diagnostic::new(
+					format!("enum payloads aren't implemented yet (`{name}.{}`)", v.name),
+					v.payload[0].1.into_range(),
+				)
+				.with_label("payloads are parsed but not yet lowered"));
+			}
+		}
 		let enums: HashMap<String, Vec<(String, i64)>> = enum_items
 			.iter()
 			.map(|(name, variants)| (name.to_string(), assign_discs(variants)))
