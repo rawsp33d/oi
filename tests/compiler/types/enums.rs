@@ -167,3 +167,26 @@ fn shorthand_without_context_errors() {
 	let err = fail("enum Color { red green blue }\n.red");
 	assert!(err.contains("cannot infer the enum type"), "got: {err}");
 }
+
+#[test]
+fn duplicate_disc_rejected() {
+	let err = fail("enum E { a = 2, b, c = 2 }");
+	assert!(err.contains("discriminant value `2`"), "got: {err}");
+}
+
+#[test]
+fn auto_increment_from_explicit() {
+	let err = fail("enum E { a = 5, b, c = 6 }");
+	assert!(err.contains("discriminant value `6`"), "got: {err}");
+}
+
+#[test]
+fn negative_disc() {
+	let err = fail("enum E { a = -2, b, c = -1 }");
+	assert!(err.contains("discriminant value `-1`"), "got: {err}");
+}
+
+#[test]
+fn explicit_disc_default_is_first() {
+	check("enum E { a = 5, b c }\nmut x E\nx", "a");
+}
