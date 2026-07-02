@@ -20,6 +20,8 @@ type FnItem<'a> = (
 	&'a [Spanned<Expr>],
 );
 
+type EnumItem<'a> = (&'a str, &'a [(String, Option<i64>)]);
+
 // TODO: PartialEq compares tuple field names, but comparisons should ignore them
 #[derive(Clone, PartialEq, Debug)]
 pub(crate) enum Typ {
@@ -118,11 +120,24 @@ pub(crate) fn elem_size(typ: &Typ) -> i64 {
 	}
 }
 
+// Assign each variant its discriminant.
+fn assign_discs(variants: &[(String, Option<i64>)]) -> Vec<(String, i64)> {
+	let mut next = 0;
+	variants
+		.iter()
+		.map(|(name, val)| {
+			let d = val.unwrap_or(next);
+			next = d + 1;
+			(name.clone(), d)
+		})
+		.collect()
+}
+
 pub(crate) fn resolve_type(
 	te: &TypeExpr,
 	span: Span,
 	structs: &HashMap<String, Vec<FieldDef>>,
-	enums: &HashMap<String, Vec<String>>,
+	enums: &HashMap<String, Vec<(String, i64)>>,
 	aliases: &HashMap<String, TypeExpr>,
 ) -> Result<Typ, Diagnostic> {
 	match te {
@@ -153,7 +168,7 @@ pub(crate) fn typ_from_name(
 	name: &str,
 	span: Span,
 	structs: &HashMap<String, Vec<FieldDef>>,
-	enums: &HashMap<String, Vec<String>>,
+	enums: &HashMap<String, Vec<(String, i64)>>,
 	aliases: &HashMap<String, TypeExpr>,
 ) -> Result<Typ, Diagnostic> {
 	match name {
@@ -287,7 +302,7 @@ impl Compiler {
 		let int = self.module.target_config().pointer_type();
 
 		let mut struct_items: Vec<(&str, &[Param])> = vec![];
-		let mut enum_items: Vec<(&str, &[String])> = vec![];
+		let mut enum_items: Vec<EnumItem> = vec![];
 		let mut alias_items: Vec<(&str, &TypeExpr)> = vec![];
 		let mut main_body: Option<&[Spanned<Expr>]> = None;
 		let mut others: Vec<FnItem> = vec![];
@@ -331,9 +346,9 @@ impl Compiler {
 			.map(|(name, te)| (name.to_string(), (*te).clone()))
 			.collect();
 
-		let enums: HashMap<String, Vec<String>> = enum_items
+		let enums: HashMap<String, Vec<(String, i64)>> = enum_items
 			.iter()
-			.map(|(name, variants)| (name.to_string(), variants.to_vec()))
+			.map(|(name, variants)| (name.to_string(), assign_discs(variants)))
 			.collect();
 
 		let mut structs: HashMap<String, Vec<FieldDef>> = HashMap::new();
@@ -429,7 +444,7 @@ impl Compiler {
 		typ: Typ,
 		funcs: &HashMap<String, FnSig>,
 		structs: &HashMap<String, Vec<FieldDef>>,
-		enums: &HashMap<String, Vec<String>>,
+		enums: &HashMap<String, Vec<(String, i64)>>,
 	) -> FuncId {
 		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
 		let block = b.create_block();
@@ -483,7 +498,7 @@ impl Compiler {
 		stmts: &[&Spanned<Expr>],
 		funcs: &HashMap<String, FnSig>,
 		structs: &HashMap<String, Vec<FieldDef>>,
-		enums: &HashMap<String, Vec<String>>,
+		enums: &HashMap<String, Vec<(String, i64)>>,
 		self_type: Option<&str>,
 	) -> Result<Typ, Diagnostic> {
 		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);

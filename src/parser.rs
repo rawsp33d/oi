@@ -595,10 +595,17 @@ where
 		.map_with(|(name, fields), ex| (Expr::StructDef { name, fields }, ex.span()));
 
 	// `enum Name {}`
+	let variant = select! { Token::Ident(v) => v }.then(
+		just(Token::Assign)
+			.ignore_then(just(Token::Minus).or_not())
+			.then(select! { Token::Int(n) => n })
+			.map(|(neg, n)| if neg.is_some() { -n } else { n })
+			.or_not(),
+	);
 	let enum_def = just(Token::Enum)
 		.ignore_then(select! { Token::Ident(name) => name })
 		.then(
-			select! { Token::Ident(v) => v }
+			variant
 				.separated_by(just(Token::Comma).or_not())
 				.allow_trailing()
 				.collect::<Vec<_>>()

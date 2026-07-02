@@ -21,7 +21,7 @@ pub(super) struct Translator<'a> {
 	pub module: &'a mut JITModule,
 	pub funcs: &'a HashMap<String, FnSig>,
 	pub structs: &'a HashMap<String, Vec<FieldDef>>,
-	pub enums: &'a HashMap<String, Vec<String>>,
+	pub enums: &'a HashMap<String, Vec<(String, i64)>>,
 	pub string_idx: &'a mut usize,
 	pub atoms: &'a mut HashMap<String, ()>,
 	pub ret: Option<(Typ, Span)>,
@@ -1880,7 +1880,14 @@ impl<'a> Translator<'a> {
 			Typ::UInt(w) => self.b.ins().iconst(cl_type(&Typ::UInt(*w), self.int), 0),
 			Typ::Bool | Typ::ISize | Typ::USize => self.b.ins().iconst(self.int, 0),
 			// default to first variant
-			Typ::Enum(_) => self.b.ins().iconst(self.int, 0),
+			Typ::Enum(name) => {
+				let disc = self
+					.enums
+					.get(name)
+					.and_then(|vs| vs.first())
+					.map_or(0, |(_, d)| *d);
+				self.b.ins().iconst(self.int, disc)
+			}
 			Typ::Tuple(fields) if fields.is_empty() => self.b.ins().iconst(self.int, 0),
 			Typ::Struct(_, fields) => {
 				let fields = fields.clone();
@@ -1996,8 +2003,7 @@ impl<'a> Translator<'a> {
 	fn variant_disc(&self, typ: &str, variant: &str, span: Span) -> Result<i64, Diagnostic> {
 		self.enums
 			.get(typ)
-			.and_then(|vs| vs.iter().position(|v| v == variant))
-			.map(|d| d as i64)
+			.and_then(|vs| vs.iter().find(|(v, _)| v == variant).map(|(_, d)| *d))
 			.ok_or_else(|| {
 				Diagnostic::new(
 					format!("enum `{typ}` has no variant `{variant}`"),
@@ -2536,9 +2542,9 @@ impl<'a> Translator<'a> {
 			Typ::Enum(name) => {
 				let variants = self.enums.get(name).cloned().unwrap_or_default();
 				let mut ptr = self.str_const("");
-				for (i, variant) in variants.iter().enumerate() {
+				for (variant, disc) in &variants {
 					let s = self.str_const(variant);
-					let disc = self.b.ins().iconst(self.int, i as i64);
+					let disc = self.b.ins().iconst(self.int, *disc);
 					let hit = self.b.ins().icmp(IntCC::Equal, val, disc);
 					ptr = self.b.ins().select(hit, s, ptr);
 				}

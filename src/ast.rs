@@ -154,7 +154,7 @@ pub enum Expr {
 	// `enum Name {}`
 	EnumDef {
 		name: String,
-		variants: Vec<String>,
+		variants: Vec<(String, Option<i64>)>,
 	},
 	// `.variant`
 	EnumShorthand(String),
