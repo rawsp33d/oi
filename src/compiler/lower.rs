@@ -573,6 +573,9 @@ impl<'a> Translator<'a> {
 				let eq = if matches!(&pat.0, Expr::Ident(w) if w == "_") {
 					// `_` wildcard
 					self.b.ins().iconst(types::I8, 1)
+				} else if let Expr::Range { start, end } = &pat.0 {
+					let sv = self.b.use_var(sv_var);
+					self.range_pattern(sv, &st, start.as_deref(), end.as_deref(), pat.1)?
 				} else if let Typ::Enum(enum_name) = &st {
 					let (disc, b) = self.enum_pattern(pat, enum_name)?;
 					if arm.patterns.len() == 1 {
@@ -2114,6 +2117,29 @@ impl<'a> Translator<'a> {
 			})
 			.collect::<Result<_, _>>()?;
 		Ok((v.disc, binds))
+	}
+
+	fn range_pattern(
+		&mut self,
+		sv: Value,
+		st: &Typ,
+		start: Option<&Spanned<Expr>>,
+		end: Option<&Spanned<Expr>>,
+		span: Span,
+	) -> Result<Value, Diagnostic> {
+		let Typ::Int(_) = st else {
+			let msg = format!("range patterns need an integer subject, got {st}");
+			return Err(Diagnostic::new(msg, span.into_range()).with_label("not an integer"));
+		};
+		let mut cond = self.b.ins().iconst(types::I8, 1);
+		for (bound, cc) in [(start, IntCC::SignedGreaterThanOrEqual), (end, IntCC::SignedLessThan)] {
+			if let Some(e) = bound {
+				let (bv, _) = self.check_expr(e, st)?;
+				let c = self.b.ins().icmp(cc, sv, bv);
+				cond = self.b.ins().band(cond, c);
+			}
+		}
+		Ok(cond)
 	}
 
 	// Make and check enum variant.

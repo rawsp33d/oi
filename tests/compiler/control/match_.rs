@@ -138,6 +138,24 @@ fn match_wildcard() {
 	);
 }
 
+#[test]
+fn match_range() {
+	let src = indoc! {r#"
+		age := 18
+		match age {
+			0..18 { "minor" }
+			18..65 { "adult" }
+			_ { "senior" }
+		}
+	"#};
+	check(src, "adult");
+}
+
+#[test]
+fn match_range_needs_int_subject() {
+	assert!(fail(r#"match "s" { 0..5 { 1 } _ { 2 } }"#).contains("integer subject"));
+}
+
 // arms must yield the same type
 #[test]
 fn match_mismatched_arm_types() {
