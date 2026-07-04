@@ -232,7 +232,11 @@ where
 		// enum shorthand
 		let enum_shorthand = just(Token::Dot)
 			.ignore_then(select! { Token::Ident(v) => v })
-			.map_with(|v, ex| (Expr::EnumShorthand(v), ex.span()));
+			.then(args.clone().or_not())
+			.map_with(|(variant, args), ex| {
+				let args = args.unwrap_or_default();
+				(Expr::EnumShorthand { variant, args }, ex.span())
+			});
 
 		// a lexer error token
 		let bad = select! { Token::Error(text) => text }.try_map(|text, span| {

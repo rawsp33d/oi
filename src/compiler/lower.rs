@@ -567,17 +567,30 @@ impl<'a> Translator<'a> {
 			self.b.switch_to_block(arm_entries[i]);
 			self.b.seal_block(arm_entries[i]);
 
+			// bindings
+			let mut binds = vec![];
 			for (j, pat) in arm.patterns.iter().enumerate() {
-				let sv = self.b.use_var(sv_var);
-				let (pv, pt) = self.check_expr(pat, &st)?;
-				if pt != st {
-					return Err(Diagnostic::new(
-						format!("match pattern ({pt:?}) does not match subject ({st:?})"),
-						pat.1.into_range(),
-					)
-					.with_label("type mismatch"));
-				}
-				let eq = self.emit_eq(sv, pv, &st);
+				let eq = if let Typ::Enum(enum_name) = &st {
+					let (disc, b) = self.enum_pattern(pat, enum_name)?;
+					if arm.patterns.len() == 1 {
+						binds = b;
+					}
+					let sv = self.b.use_var(sv_var);
+					let tag = self.enum_tag(enum_name, sv);
+					let disc = self.b.ins().iconst(self.int, disc);
+					self.b.ins().icmp(IntCC::Equal, tag, disc)
+				} else {
+					let sv = self.b.use_var(sv_var);
+					let (pv, pt) = self.check_expr(pat, &st)?;
+					if pt != st {
+						return Err(Diagnostic::new(
+							format!("match pattern ({pt:?}) does not match subject ({st:?})"),
+							pat.1.into_range(),
+						)
+						.with_label("type mismatch"));
+					}
+					self.emit_eq(sv, pv, &st)
+				};
 				if j + 1 < arm.patterns.len() {
 					let next = self.b.create_block();
 					self.b.ins().brif(eq, arm_body, &[], next, &[]);
@@ -591,6 +604,22 @@ impl<'a> Translator<'a> {
 			self.b.seal_block(arm_body);
 			self.b.switch_to_block(arm_body);
 			let saved = self.vars.clone();
+			for (i, (name, typ)) in binds.iter().enumerate() {
+				let cl = cl_type(typ, self.int);
+				let ptr = self.b.use_var(sv_var);
+				let fv = self
+					.b
+					.ins()
+					.load(cl, MemFlags::new(), ptr, ((i + 1) * 8) as i32);
+				let var = self.b.declare_var(cl);
+				self.b.def_var(var, fv);
+				let local = Local {
+					var,
+					typ: typ.clone(),
+					mutable: false,
+				};
+				self.vars.insert(name.clone(), local);
+			}
 			let flow = self.block(&arm.body.iter().collect::<Vec<_>>())?;
 			self.vars = saved;
 			if let Some(vt) = flow {
@@ -877,12 +906,12 @@ impl<'a> Translator<'a> {
 			Expr::String(s) => Ok((self.str_const(s), Typ::Str)),
 			Expr::Atom(name) => Ok((self.atom_const(name), Typ::Atom)),
 
-			Expr::EnumShorthand(name) => Err(Diagnostic::new(
-				format!("cannot infer the enum type of `.{name}` here"),
+			Expr::EnumShorthand { variant, .. } => Err(Diagnostic::new(
+				format!("cannot infer the enum type of `.{variant}` here"),
 				expr.1.into_range(),
 			)
 			.with_label("no enum type is expected in this position")
-			.with_note(format!("qualify it, e.g. `Color.{name}`"))),
+			.with_note(format!("qualify it, e.g. `Color.{variant}`"))),
 
 			Expr::Ident(name) => {
 				let local = self.vars.get(name).cloned().ok_or_else(|| {
@@ -1153,8 +1182,8 @@ impl<'a> Translator<'a> {
 							self.b.ins().ireduce(target_cl, v)
 						}
 					}
-					Typ::Enum(ename) => {
-						let tag = self.enum_tag(ename, val);
+					Typ::Enum(enum_name) => {
+						let tag = self.enum_tag(enum_name, val);
 						if target_cl == types::I64 {
 							tag
 						} else {
@@ -1305,13 +1334,13 @@ impl<'a> Translator<'a> {
 					(name.clone(), None)
 				} else {
 					let (recv_val, recv_typ) = self.expr(recv)?;
-					if let Typ::Enum(ename) = &recv_typ {
+					if let Typ::Enum(enum_name) = &recv_typ {
 						if method == "str" && args.is_empty() {
-							let s = self.enum_name_str(ename, recv_val);
+							let s = self.enum_name_str(enum_name, recv_val);
 							return Ok((s, Typ::Str));
 						}
 						return Err(Diagnostic::new(
-							format!("enum `{ename}` has no method `{method}`"),
+							format!("enum `{enum_name}` has no method `{method}`"),
 							expr.1.into_range(),
 						)
 						.with_label("no such method"));
@@ -2016,8 +2045,11 @@ impl<'a> Translator<'a> {
 			(Expr::Float(x), Typ::Float(w)) => {
 				self.float_lit(if neg { -*x } else { *x }, *w, value.1)?
 			}
-			(Expr::EnumShorthand(name) | Expr::Atom(name), Typ::Enum(typ)) => {
+			(Expr::Atom(name), Typ::Enum(typ)) => {
 				self.construct_variant(typ, name, &[], value.1)?.0
+			}
+			(Expr::EnumShorthand { variant, args }, Typ::Enum(typ)) => {
+				self.construct_variant(typ, variant, args, value.1)?.0
 			}
 			_ => return Ok(None),
 		};
@@ -2049,6 +2081,36 @@ impl<'a> Translator<'a> {
 				.store(MemFlags::new(), *fv, ptr, ((i + 1) * 8) as i32);
 		}
 		ptr
+	}
+
+	// A match pattern's discriminant and payload binds.
+	fn enum_pattern(
+		&self,
+		pat: &Spanned<Expr>,
+		enum_name: &str,
+	) -> Result<(i64, Vec<(String, Typ)>), Diagnostic> {
+		let bad = |msg| Err(Diagnostic::new(msg, pat.1.into_range()).with_label("bad pattern"));
+		let (variant, args): (&str, &[Spanned<Expr>]) = match &pat.0 {
+			Expr::EnumShorthand { variant, args } => (variant, args),
+			Expr::Atom(v) => (v, &[]),
+			Expr::Field { tuple, field } if matches!(tuple.0, Expr::Ident(_)) => (field, &[]),
+			_ => return bad(format!("`{enum_name}` is matched by its variants")),
+		};
+		let Some(v) = self.enums[enum_name].iter().find(|v| v.name == variant) else {
+			return bad(format!("enum `{enum_name}` has no variant `{variant}`"));
+		};
+		let binds = args
+			.iter()
+			.zip(&v.payload)
+			.map(|(a, t)| match &a.0 {
+				Expr::Ident(n) => Ok((n.clone(), t.clone())),
+				_ => Err(
+					Diagnostic::new("payload patterns must bind names", a.1.into_range())
+						.with_label("not a name"),
+				),
+			})
+			.collect::<Result<_, _>>()?;
+		Ok((v.disc, binds))
 	}
 
 	// Make and check enum variant.
@@ -2100,7 +2162,7 @@ impl<'a> Translator<'a> {
 		value: &Spanned<Expr>,
 		target: &Typ,
 	) -> Result<(Value, Typ), Diagnostic> {
-		if matches!(value.0, Expr::EnumShorthand(_) | Expr::Atom(_))
+		if matches!(value.0, Expr::EnumShorthand { .. } | Expr::Atom(_))
 			&& let Some(v) = self.coerce_lit(value, target)?
 		{
 			return Ok((v, target.clone()));
@@ -2234,7 +2296,7 @@ impl<'a> Translator<'a> {
 		span: Span,
 	) -> Result<(Value, Typ), Diagnostic> {
 		// evaluate the typed/pinned side first so a `.variant` shorthand can borrow its enum type
-		let ((lv, lt), (rv, rt)) = if let Expr::EnumShorthand(_) = &l.0 {
+		let ((lv, lt), (rv, rt)) = if let Expr::EnumShorthand { .. } = &l.0 {
 			let (rv, rt) = self.expr(r)?;
 			(self.check_expr(l, &rt)?, (rv, rt))
 		} else {
