@@ -610,6 +610,14 @@ impl<'a> Translator<'a> {
 			self.b.seal_block(arm_body);
 			self.b.switch_to_block(arm_body);
 			let saved = self.vars.clone();
+			if let Some(name) = &arm.binding {
+				let local = Local {
+					var: sv_var,
+					typ: st.clone(),
+					mutable: false,
+				};
+				self.vars.insert(name.clone(), local);
+			}
 			for (i, (name, typ)) in binds.iter().enumerate() {
 				let cl = cl_type(typ, self.int);
 				let ptr = self.b.use_var(sv_var);
@@ -2132,7 +2140,10 @@ impl<'a> Translator<'a> {
 			return Err(Diagnostic::new(msg, span.into_range()).with_label("not an integer"));
 		};
 		let mut cond = self.b.ins().iconst(types::I8, 1);
-		for (bound, cc) in [(start, IntCC::SignedGreaterThanOrEqual), (end, IntCC::SignedLessThan)] {
+		for (bound, cc) in [
+			(start, IntCC::SignedGreaterThanOrEqual),
+			(end, IntCC::SignedLessThan),
+		] {
 			if let Some(e) = bound {
 				let (bv, _) = self.check_expr(e, st)?;
 				let c = self.b.ins().icmp(cc, sv, bv);

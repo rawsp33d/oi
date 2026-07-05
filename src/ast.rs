@@ -207,8 +207,10 @@ pub enum TypeExpr {
 #[derive(Debug, Clone)]
 // One arm of a `match` expression.
 // `patterns` are compared to the subject (OR'd together).
+// `binding @` names the subject value for the arm body.
 // `body` runs when any pattern matches.
 pub struct MatchArm {
+	pub binding: Option<String>,
 	pub patterns: Vec<Spanned<Expr>>,
 	pub body: Vec<Spanned<Expr>>,
 }

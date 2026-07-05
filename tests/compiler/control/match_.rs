@@ -152,6 +152,11 @@ fn match_range() {
 }
 
 #[test]
+fn match_binding() {
+	check(r#"match 15 { n @ 0..18 { n } _ { 0 } }"#, "15");
+}
+
+#[test]
 fn match_range_needs_int_subject() {
 	assert!(fail(r#"match "s" { 0..5 { 1 } _ { 2 } }"#).contains("integer subject"));
 }

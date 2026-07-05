@@ -342,14 +342,23 @@ where
 		let continue_expr = just(Token::Continue).map_with(|_, ex| (Expr::Continue, ex.span()));
 
 		// match expression
-		let match_arm = expr
-			.clone()
-			.separated_by(just(Token::Comma))
-			.allow_trailing()
-			.at_least(1)
-			.collect::<Vec<_>>()
+		let binding = select! { Token::Ident(n) => n }
+			.then_ignore(just(Token::At))
+			.or_not();
+		let match_arm = binding
+			.then(
+				expr.clone()
+					.separated_by(just(Token::Comma))
+					.allow_trailing()
+					.at_least(1)
+					.collect::<Vec<_>>(),
+			)
 			.then(block.clone())
-			.map(|(patterns, body)| MatchArm { patterns, body });
+			.map(|((binding, patterns), body)| MatchArm {
+				binding,
+				patterns,
+				body,
+			});
 		let match_expr = just(Token::Match)
 			.ignore_then(expr.clone())
 			.then(
