@@ -194,6 +194,29 @@ fn match_struct_unknown_field() {
 	assert!(fail(src).contains("no field `z`"));
 }
 
+#[test]
+fn match_array_destructure() {
+	let src = indoc! {r#"
+		a := [3, 4]
+		match a {
+			[x, y] { x + y }
+		}
+	"#};
+	check(src, "7");
+}
+
+#[test]
+fn match_array_length_guard() {
+	let src = indoc! {r#"
+		a := [1, 2, 3]
+		match a {
+			[x, y] { 0 }
+			_ { 99 }
+		}
+	"#};
+	check(src, "99");
+}
+
 // arms must yield the same type
 #[test]
 fn match_mismatched_arm_types() {

@@ -598,7 +598,7 @@ impl<'a> Translator<'a> {
 					}
 					if arm.patterns.len() == 1 {
 						let pairs = elems.iter().zip(fields).map(|((_, e), (_, t))| (e, t));
-						binds = field_binds(pairs, 0)?;
+						binds = field_binds(pairs, 0, 8)?;
 					}
 					self.b.ins().iconst(types::I8, 1)
 				} else if let (
@@ -613,6 +613,17 @@ impl<'a> Translator<'a> {
 						binds = struct_pattern(fdefs, pname, sname, fields, pat.1)?;
 					}
 					self.b.ins().iconst(types::I8, 1)
+				} else if let (Typ::Array(elem) | Typ::FixedArray(elem, _), Expr::Array(elems)) =
+					(&st, &pat.0)
+				{
+					if arm.patterns.len() == 1 {
+						let pairs = elems.iter().map(|e| (e, elem.as_ref()));
+						binds = field_binds(pairs, 0, elem_size(elem) as i32)?;
+					}
+					let sv = self.b.use_var(sv_var);
+					let (_, len) = self.array_parts(sv, &st);
+					let count = self.b.ins().iconst(self.int, elems.len() as i64);
+					self.b.ins().icmp(IntCC::Equal, len, count)
 				} else {
 					let sv = self.b.use_var(sv_var);
 					let (pv, pt) = self.check_expr(pat, &st)?;
@@ -646,10 +657,14 @@ impl<'a> Translator<'a> {
 				};
 				self.vars.insert(name.clone(), local);
 			}
+			let sv = self.b.use_var(sv_var);
+			let base = match &st {
+				Typ::Array(_) | Typ::FixedArray(..) => self.array_parts(sv, &st).0,
+				_ => sv,
+			};
 			for (name, typ, off) in &binds {
 				let cl = cl_type(typ, self.int);
-				let ptr = self.b.use_var(sv_var);
-				let fv = self.b.ins().load(cl, MemFlags::new(), ptr, *off);
+				let fv = self.b.ins().load(cl, MemFlags::new(), base, *off);
 				let var = self.b.declare_var(cl);
 				self.b.def_var(var, fv);
 				let local = Local {
@@ -2138,7 +2153,7 @@ impl<'a> Translator<'a> {
 		let Some(v) = self.enums[enum_name].iter().find(|v| v.name == variant) else {
 			return bad(format!("enum `{enum_name}` has no variant `{variant}`"));
 		};
-		let binds = field_binds(args.iter().zip(&v.payload), 8)?;
+		let binds = field_binds(args.iter().zip(&v.payload), 8, 8)?;
 		Ok((v.disc, binds))
 	}
 
@@ -2821,14 +2836,16 @@ impl<'a> Translator<'a> {
 type Bind = (String, Typ, i32);
 
 // Create `Bind`s from idents.
+// `base` is the first offset, `stride` the step between fields.
 fn field_binds<'a>(
 	elems: impl Iterator<Item = (&'a Spanned<Expr>, &'a Typ)>,
 	base: i32,
+	stride: i32,
 ) -> Result<Vec<Bind>, Diagnostic> {
 	elems
 		.enumerate()
 		.map(|(i, (e, t))| match &e.0 {
-			Expr::Ident(n) => Ok((n.clone(), t.clone(), base + i as i32 * 8)),
+			Expr::Ident(n) => Ok((n.clone(), t.clone(), base + i as i32 * stride)),
 			_ => Err(
 				Diagnostic::new("patterns must bind names", e.1.into_range())
 					.with_label("not a name"),
