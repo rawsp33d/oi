@@ -161,6 +161,16 @@ fn match_range_needs_int_subject() {
 	assert!(fail(r#"match "s" { 0..5 { 1 } _ { 2 } }"#).contains("integer subject"));
 }
 
+#[test]
+fn match_tuple_destructure() {
+	check("p := (3, 4)\nmatch p { (x, y) { x + y } }", "7");
+}
+
+#[test]
+fn match_tuple_arity_mismatch() {
+	assert!(fail("match (1, 2) { (a, b, c) { a } }").contains("tuple pattern has 3"));
+}
+
 // arms must yield the same type
 #[test]
 fn match_mismatched_arm_types() {
