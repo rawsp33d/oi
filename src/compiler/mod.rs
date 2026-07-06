@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 use cranelift::codegen;
@@ -289,7 +289,7 @@ pub struct Compiler {
 	ctx: codegen::Context,
 	module: JITModule,
 	string_idx: usize,
-	atoms: HashMap<String, ()>,
+	atoms: HashSet<String>,
 }
 
 impl Default for Compiler {
@@ -320,7 +320,7 @@ impl Default for Compiler {
 			ctx: module.make_context(),
 			module,
 			string_idx: 0,
-			atoms: HashMap::new(),
+			atoms: HashSet::new(),
 		}
 	}
 }

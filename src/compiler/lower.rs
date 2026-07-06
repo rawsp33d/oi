@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 
 use cranelift::codegen;
@@ -25,7 +25,7 @@ pub(super) struct Translator<'a> {
 	pub structs: &'a HashMap<String, Vec<FieldDef>>,
 	pub enums: &'a HashMap<String, Vec<VariantInfo>>,
 	pub string_idx: &'a mut usize,
-	pub atoms: &'a mut HashMap<String, ()>,
+	pub atoms: &'a mut HashSet<String>,
 	pub ret: Option<(Typ, Span)>,
 	pub loops: Vec<LoopFrame>,
 	pub self_type: Option<String>,
@@ -1941,7 +1941,7 @@ impl<'a> Translator<'a> {
 	// Intern an atom name to a pointer-sized symbol.
 	fn atom_const(&mut self, name: &str) -> Value {
 		let sym = format!("__atom_{name}");
-		if !self.atoms.contains_key(name) {
+		if self.atoms.insert(name.to_string()) {
 			let id = self
 				.module
 				.declare_data(&sym, Linkage::Local, false, false)
@@ -1951,7 +1951,6 @@ impl<'a> Translator<'a> {
 			let mut desc = DataDescription::new();
 			desc.define(bytes.into_boxed_slice());
 			self.module.define_data(id, &desc).unwrap();
-			self.atoms.insert(name.to_string(), ());
 		}
 		let id = self
 			.module
