@@ -35,9 +35,9 @@ pub(super) struct Translator<'a> {
 // A statement that writes through an existing, mutable binding.
 #[derive(Clone, Copy)]
 enum Mutation {
-	Assign, // `x = v`
+	Assign,      // `x = v`
 	IndexAssign, // `x[i] = v`
-	Append, // `x << v`
+	Append,      // `x << v`
 	FieldAssign, // `x.f = v`
 }
 
