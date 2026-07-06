@@ -2411,21 +2411,22 @@ impl<'a> Translator<'a> {
 		};
 
 		// () == ()
-		if let (Typ::Tuple(lf), Typ::Tuple(rf)) = (&lt, &rt) {
-			if lf.is_empty() && rf.is_empty() {
-				let result = match icc {
-					IntCC::Equal => self.b.ins().iconst(self.int, 1),
-					IntCC::NotEqual => self.b.ins().iconst(self.int, 0),
-					_ => {
-						return Err(Diagnostic::new(
-							"unit type `()` only supports `==` and `!=`",
-							span.into_range(),
-						)
-						.with_label("unsupported comparison"));
-					}
-				};
-				return Ok((result, Typ::Bool));
-			}
+		if let (Typ::Tuple(lf), Typ::Tuple(rf)) = (&lt, &rt)
+			&& lf.is_empty()
+			&& rf.is_empty()
+		{
+			let result = match icc {
+				IntCC::Equal => self.b.ins().iconst(self.int, 1),
+				IntCC::NotEqual => self.b.ins().iconst(self.int, 0),
+				_ => {
+					return Err(Diagnostic::new(
+						"unit type `()` only supports `==` and `!=`",
+						span.into_range(),
+					)
+					.with_label("unsupported comparison"));
+				}
+			};
+			return Ok((result, Typ::Bool));
 		}
 
 		let icc = if matches!(
