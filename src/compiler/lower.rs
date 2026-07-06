@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ops::Range;
 
 use cranelift::codegen;
 use cranelift::codegen::ir::immediates::{Ieee16, Ieee128};
@@ -31,6 +32,39 @@ pub(super) struct Translator<'a> {
 }
 
 impl<'a> Translator<'a> {
+	// Look up a mutable local.
+	fn mutable_local(
+		&self,
+		name: &str,
+		span: Range<usize>,
+		verb: &str,
+		immutable_verb: &str,
+		allow: &str,
+		suggest_declare: bool,
+	) -> Result<Local, Diagnostic> {
+		let local = self.vars.get(name).cloned().ok_or_else(|| {
+			let d = Diagnostic::new(
+				format!("cannot {verb} undefined variable `{name}`"),
+				span.clone(),
+			)
+			.with_label("not found in scope");
+			if suggest_declare {
+				d.with_note(format!("declare it first with `{name} := ...`"))
+			} else {
+				d
+			}
+		})?;
+		if !local.mutable {
+			return Err(Diagnostic::new(
+				format!("cannot {immutable_verb} immutable `{name}`"),
+				span,
+			)
+			.with_label("declared without `mut`")
+			.with_note(format!("use `mut {name} := ...` to allow {allow}")));
+		}
+		Ok(local)
+	}
+
 	// Evaluate a block of statements, returning the final value.
 	// Returns None if the block diverged (every path returned/broke).
 	pub fn block(&mut self, stmts: &[&Spanned<Expr>]) -> Result<Option<(Value, Typ)>, Diagnostic> {
@@ -87,22 +121,14 @@ impl<'a> Translator<'a> {
 				}
 
 				Expr::Assign { name, value } => {
-					let local = self.vars.get(name).cloned().ok_or_else(|| {
-						Diagnostic::new(
-							format!("cannot assign to undefined variable `{name}`"),
-							stmt.1.into_range(),
-						)
-						.with_label("not found in scope")
-						.with_note(format!("declare it first with `{name} := ...`"))
-					})?;
-					if !local.mutable {
-						return Err(Diagnostic::new(
-							format!("cannot assign to immutable `{name}`"),
-							stmt.1.into_range(),
-						)
-						.with_label("declared without `mut`")
-						.with_note(format!("use `mut {name} := ...` to allow assignment")));
-					}
+					let local = self.mutable_local(
+						name,
+						stmt.1.into_range(),
+						"assign to",
+						"assign to",
+						"assignment",
+						true,
+					)?;
 					let (val, typ) = self.check_expr(value, &local.typ)?;
 					if typ != local.typ {
 						return Err(Diagnostic::new(
@@ -128,22 +154,14 @@ impl<'a> Translator<'a> {
 				}
 
 				Expr::IndexAssign { name, index, value } => {
-					let local = self.vars.get(name).cloned().ok_or_else(|| {
-						Diagnostic::new(
-							format!("cannot assign to undefined variable `{name}`"),
-							stmt.1.into_range(),
-						)
-						.with_label("not found in scope")
-						.with_note(format!("declare it first with `{name} := ...`"))
-					})?;
-					if !local.mutable {
-						return Err(Diagnostic::new(
-							format!("cannot assign to element of immutable `{name}`"),
-							stmt.1.into_range(),
-						)
-						.with_label("declared without `mut`")
-						.with_note(format!("use `mut {name} := ...` to allow assignment")));
-					}
+					let local = self.mutable_local(
+						name,
+						stmt.1.into_range(),
+						"assign to",
+						"assign to element of",
+						"assignment",
+						true,
+					)?;
 					let elem = match &local.typ {
 						Typ::Array(e) | Typ::FixedArray(e, _) => (**e).clone(),
 						_ => {
@@ -170,21 +188,14 @@ impl<'a> Translator<'a> {
 				}
 
 				Expr::Append { name, value } => {
-					let local = self.vars.get(name).cloned().ok_or_else(|| {
-						Diagnostic::new(
-							format!("cannot append to undefined variable `{name}`"),
-							stmt.1.into_range(),
-						)
-						.with_label("not found in scope")
-					})?;
-					if !local.mutable {
-						return Err(Diagnostic::new(
-							format!("cannot append to immutable `{name}`"),
-							stmt.1.into_range(),
-						)
-						.with_label("declared without `mut`")
-						.with_note(format!("use `mut {name} := ...` to allow append")));
-					}
+					let local = self.mutable_local(
+						name,
+						stmt.1.into_range(),
+						"append to",
+						"append to",
+						"append",
+						false,
+					)?;
 					let elem = match &local.typ {
 						Typ::Array(e) => (**e).clone(),
 						_ => {
@@ -284,21 +295,14 @@ impl<'a> Translator<'a> {
 				Expr::For { pat, iter, body } => last = self.for_loop(pat, iter, body, stmt.1)?,
 
 				Expr::FieldAssign { name, field, value } => {
-					let local = self.vars.get(name).cloned().ok_or_else(|| {
-						Diagnostic::new(
-							format!("cannot assign field of undefined variable `{name}`"),
-							stmt.1.into_range(),
-						)
-						.with_label("not found in scope")
-					})?;
-					if !local.mutable {
-						return Err(Diagnostic::new(
-							format!("cannot assign field of immutable `{name}`"),
-							stmt.1.into_range(),
-						)
-						.with_label("declared without `mut`")
-						.with_note(format!("use `mut {name} := ...` to allow field assignment")));
-					}
+					let local = self.mutable_local(
+						name,
+						stmt.1.into_range(),
+						"assign field of",
+						"assign field of",
+						"field assignment",
+						false,
+					)?;
 					let fields = match &local.typ {
 						Typ::Struct(_, fields) => fields.clone(),
 						_ => {
