@@ -353,10 +353,8 @@ impl Compiler {
 			}
 		}
 
-		let aliases: HashMap<String, TypeExpr> = alias_items
-			.iter()
-			.map(|(name, te)| (name.to_string(), (*te).clone()))
-			.collect();
+		let aliases: HashMap<String, TypeExpr> =
+			alias_items.iter().map(|(name, te)| (name.to_string(), (*te).clone())).collect();
 
 		let enums: HashMap<String, Vec<VariantInfo>> = enum_items
 			.iter()

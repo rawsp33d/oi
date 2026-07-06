@@ -382,11 +382,7 @@ impl<'a> Translator<'a> {
 		};
 		// the cranelift signature takes its return type from the first return
 		if self.b.func.signature.returns.is_empty() {
-			self.b
-				.func
-				.signature
-				.returns
-				.push(AbiParam::new(cl_type(&typ, self.int)));
+			self.b.func.signature.returns.push(AbiParam::new(cl_type(&typ, self.int)));
 		}
 		self.b.ins().return_(&[final_val]);
 		if self.ret.is_none() {
@@ -865,10 +861,7 @@ impl<'a> Translator<'a> {
 					.with_label("wrong number of fields"));
 				}
 				for (i, (name, (_, ftyp))) in names.iter().zip(fields).enumerate() {
-					let fv = self
-						.b
-						.ins()
-						.load(cl_type(ftyp, self.int), MemFlags::new(), val, (i * 8) as i32);
+					let fv = self.b.ins().load(cl_type(ftyp, self.int), MemFlags::new(), val, (i * 8) as i32);
 					let var = self.b.declare_var(cl_type(ftyp, self.int));
 					self.b.def_var(var, fv);
 					self.vars.insert(

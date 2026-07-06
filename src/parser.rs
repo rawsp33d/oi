@@ -31,9 +31,7 @@ where
 	// type annotations
 	let type_expr = recursive(|te| {
 		let name = select! { Token::Ident(t) => TypeExpr::Name(t) };
-		let unit = just(Token::LParen)
-			.then(just(Token::RParen))
-			.to(TypeExpr::Tuple(vec![]));
+		let unit = just(Token::LParen).then(just(Token::RParen)).to(TypeExpr::Tuple(vec![]));
 		let tuple = te
 			.clone()
 			.separated_by(just(Token::Comma).or_not())
@@ -590,14 +588,15 @@ where
 		.allow_trailing()
 		.collect::<Vec<_>>()
 		.delimited_by(just(Token::LParen), just(Token::RParen));
-	let variant = select! { Token::Ident(v) => v }
-		.then(payload.or_not())
-		.then(disc.or_not())
-		.map(|((name, payload), disc)| EnumVariant {
-			name,
-			disc,
-			payload: payload.unwrap_or_default(),
-		});
+	let variant =
+		select! { Token::Ident(v) => v }
+			.then(payload.or_not())
+			.then(disc.or_not())
+			.map(|((name, payload), disc)| EnumVariant {
+				name,
+				disc,
+				payload: payload.unwrap_or_default(),
+			});
 	let enum_def = just(Token::Enum)
 		.ignore_then(select! { Token::Ident(name) => name })
 		.then(
