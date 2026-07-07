@@ -20,6 +20,7 @@ mod array;
 mod builtin;
 mod call;
 mod control;
+mod core;
 mod expr;
 mod helpers;
 mod op;
