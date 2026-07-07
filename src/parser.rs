@@ -533,9 +533,13 @@ where
 	// NOTE: a trailing comma forces a tuple even for one param
 	let params = param
 		.separated_by(just(Token::Comma))
-		.allow_trailing()
 		.collect::<Vec<_>>()
-		.delimited_by(just(Token::LParen), just(Token::RParen));
+		.then(just(Token::Comma).or_not())
+		.delimited_by(just(Token::LParen), just(Token::RParen))
+		.map(|(params, trailing)| {
+			let tuple = params.len() != 1 || trailing.is_some();
+			(params, tuple)
+		});
 
 	// optional return type annotation
 	let ret = type_expr.clone().map_with(|t, ex| (t, ex.span())).or_not();
@@ -546,11 +550,12 @@ where
 		.then(params)
 		.then(ret)
 		.then(block.clone())
-		.map_with(|(((name, params), ret), body), ex| {
+		.map_with(|(((name, (params, tuple)), ret), body), ex| {
 			(
 				Expr::Fn {
 					name,
 					params,
+					params_tuple: tuple,
 					ret,
 					body,
 				},

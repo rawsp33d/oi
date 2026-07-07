@@ -16,6 +16,7 @@ use lower::Translator;
 type FnItem<'a> = (
 	String,
 	&'a [Param],
+	bool,
 	&'a Option<Spanned<TypeExpr>>,
 	&'a [Spanned<Expr>],
 );
@@ -350,11 +351,12 @@ impl Compiler {
 						if let Expr::Fn {
 							name,
 							params,
+							params_tuple,
 							ret,
 							body,
 						} = &m.0
 						{
-							others.push((format!("{typ}.{name}"), params, ret, body));
+							others.push((format!("{typ}.{name}"), params, *params_tuple, ret, body));
 						}
 					}
 				}
@@ -362,9 +364,10 @@ impl Compiler {
 				Expr::Fn {
 					name,
 					params,
+					params_tuple,
 					ret,
 					body,
-				} => others.push((name.clone(), params, ret, body)),
+				} => others.push((name.clone(), params, *params_tuple, ret, body)),
 				Expr::Doc(_) => {}
 				_ => loose_refs.push(item),
 			}
@@ -401,7 +404,7 @@ impl Compiler {
 		}
 
 		let mut funcs: HashMap<String, FnSig> = HashMap::new();
-		for (key, params, ret, body) in &others {
+		for (key, params, params_tuple, ret, body) in &others {
 			let self_type = key.rsplit_once('.').map(|(t, _)| t);
 			let mut aliases = aliases.clone();
 			if let Some(t) = self_type {
@@ -421,7 +424,7 @@ impl Compiler {
 				.map(|(te, span)| Ok::<_, Diagnostic>((types.resolve(te, *span)?, *span)))
 				.transpose()?;
 			let sym = format!("oi_{}", key.replace('.', "__"));
-			let ret = self.translate(&params, ret, body, &funcs, types, self_type)?;
+			let ret = self.translate(&params, *params_tuple, ret, body, &funcs, types, self_type)?;
 			let id = self.finish_fn(&sym);
 			let param_typs = params.iter().map(|(_, t, _)| t.clone()).collect();
 			funcs.insert(
@@ -459,7 +462,7 @@ impl Compiler {
 			enums: &enums,
 			aliases: &aliases,
 		};
-		let typ = self.translate(&[], None, entry, &funcs, types, None)?;
+		let typ = self.translate(&[], true, None, entry, &funcs, types, None)?;
 		let entry_id = self.finish_fn("oi_main");
 		let id = self.compile_entry(entry_id, typ, &funcs, types);
 
@@ -479,6 +482,7 @@ impl Compiler {
 			b,
 			vars: HashMap::new(),
 			params: vec![],
+			params_tuple: true,
 			module: &mut self.module,
 			funcs,
 			structs: types.structs,
@@ -513,9 +517,11 @@ impl Compiler {
 		id
 	}
 
+	#[allow(clippy::too_many_arguments)]
 	fn translate(
 		&mut self,
 		params: &[(String, Typ, bool)],
+		params_tuple: bool,
 		ret: Option<(Typ, Span)>,
 		stmts: &[Spanned<Expr>],
 		funcs: &HashMap<String, FnSig>,
@@ -540,6 +546,7 @@ impl Compiler {
 			b,
 			vars: HashMap::new(),
 			params: vec![],
+			params_tuple,
 			module: &mut self.module,
 			funcs,
 			structs: types.structs,

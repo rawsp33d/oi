@@ -36,6 +36,7 @@ pub enum Expr {
 	Fn {
 		name: String,
 		params: Vec<Param>,
+		params_tuple: bool,
 		ret: Option<Spanned<TypeExpr>>,
 		body: Vec<Spanned<Expr>>,
 	},
