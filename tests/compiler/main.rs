@@ -9,6 +9,7 @@ mod comments;
 mod comparisons;
 mod control;
 mod diagnostics;
+mod dollar;
 mod functions;
 mod io;
 mod methods;
