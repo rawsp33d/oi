@@ -268,13 +268,16 @@ fn payload_eq() {
 #[test]
 fn payload_eq_string_field() {
 	check("enum Msg { quit say(str) }\nMsg.say(\"hi\") == Msg.say(\"hi\")", "true");
-	check("enum Msg { quit say(str) }\nMsg.say(\"hi\") == Msg.say(\"bye\")", "false");
+	check(
+		"enum Msg { quit say(str) }\nMsg.say(\"hi\") == Msg.say(\"bye\")",
+		"false",
+	);
 }
 
 #[test]
 fn payload_ordering_rejected() {
 	let err = fail("enum Opt { none some(int) }\nOpt.some(1) < Opt.some(2)");
-	assert!(err.contains("only `==`/`!=`"), "got: {err}");
+	assert!(err.contains("only `==`&`!=`"), "got: {err}");
 }
 
 #[test]
