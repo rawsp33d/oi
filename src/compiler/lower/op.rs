@@ -13,6 +13,49 @@ impl<'a> Translator<'a> {
 		}
 	}
 
+	// Compare two boxed enums.
+	// Checks that tags match, and for variants that every field matches
+	pub(super) fn emit_enum_eq(&mut self, a: Value, b: Value, name: &str) -> Value {
+		let variants = self.enums[name].clone();
+		let ta = self.enum_tag(name, a);
+		let tb = self.enum_tag(name, b);
+		let tags_eq = self.b.ins().icmp(IntCC::Equal, ta, tb);
+		let eq = self.b.declare_var(types::I8);
+		self.b.def_var(eq, tags_eq);
+		let merge = self.b.create_block();
+		for v in variants.iter().filter(|v| !v.payload.is_empty()) {
+			let disc = self.b.ins().iconst(self.int, v.disc);
+			let same = self.b.ins().icmp(IntCC::Equal, ta, disc);
+			let hit = self.b.ins().band(tags_eq, same);
+			let (body, next) = (self.b.create_block(), self.b.create_block());
+			self.b.ins().brif(hit, body, &[], next, &[]);
+			self.b.seal_block(body);
+			self.b.seal_block(next);
+			self.b.switch_to_block(body);
+			for (i, ft) in v.payload.iter().enumerate() {
+				let fa = self
+					.b
+					.ins()
+					.load(cl_type(ft, self.int), MemFlags::new(), a, ((i + 1) * 8) as i32);
+				let fb = self
+					.b
+					.ins()
+					.load(cl_type(ft, self.int), MemFlags::new(), b, ((i + 1) * 8) as i32);
+				let fe = self.emit_eq(fa, fb, ft);
+				let fe = self.b.ins().icmp_imm(IntCC::NotEqual, fe, 0);
+				let prev = self.b.use_var(eq);
+				let acc = self.b.ins().band(prev, fe);
+				self.b.def_var(eq, acc);
+			}
+			self.b.ins().jump(merge, &[]);
+			self.b.switch_to_block(next);
+		}
+		self.b.ins().jump(merge, &[]);
+		self.b.switch_to_block(merge);
+		self.b.seal_block(merge);
+		self.b.use_var(eq)
+	}
+
 	// Sign-extend the low `w` bits of `val` within its Cranelift container.
 	// A no-op for standard widths (8, 16, 32, 64).
 	pub(super) fn reduce_int(&mut self, val: Value, w: u16) -> Value {
@@ -152,14 +195,22 @@ impl<'a> Translator<'a> {
 			| (Typ::Bool, Typ::Bool)
 			| (Typ::Atom, Typ::Atom) => self.b.ins().icmp(icc, lv, rv),
 			(Typ::Enum(a), Typ::Enum(b)) if a == b => {
-				if enum_boxed(self.enums.get(a).map(Vec::as_slice).unwrap_or(&[])) {
+				if !enum_boxed(self.enums.get(a).map(Vec::as_slice).unwrap_or(&[])) {
+					self.b.ins().icmp(icc, lv, rv)
+				} else if let IntCC::Equal | IntCC::NotEqual = icc {
+					let eq = self.emit_enum_eq(lv, rv, a);
+					if icc == IntCC::Equal {
+						eq
+					} else {
+						self.b.ins().icmp_imm(IntCC::Equal, eq, 0)
+					}
+				} else {
 					return Err(Diagnostic::new(
-						format!("`{a}` has payloads, so `==` isn't supported yet"),
+						format!("only `==`&`!=` are supported because `{a}` has payloads"),
 						span.into_range(),
 					)
-					.with_label("match on the variant instead"));
+					.with_label("ordering needs a plain enum"));
 				}
-				self.b.ins().icmp(icc, lv, rv)
 			}
 			(Typ::Float(_), Typ::Float(_)) => self.b.ins().fcmp(fcc, lv, rv),
 			(Typ::Str, Typ::Str) if icc == IntCC::Equal || icc == IntCC::NotEqual => {
