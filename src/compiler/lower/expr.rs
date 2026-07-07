@@ -30,6 +30,8 @@ impl<'a> Translator<'a> {
 				Ok((self.b.use_var(local.var), local.typ))
 			}
 
+			Expr::Dollar => Ok(self.dollar()),
+
 			Expr::Negative(e) => {
 				let (v, typ) = self.expr(e)?;
 				let out = match typ {

@@ -34,6 +34,7 @@ pub(super) struct Translator<'a> {
 	pub int: types::Type,
 	pub b: FunctionBuilder<'a>,
 	pub vars: HashMap<String, Local>,
+	pub params: Vec<Local>,
 	pub module: &'a mut JITModule,
 	pub funcs: &'a HashMap<String, FnSig>,
 	pub structs: &'a HashMap<String, Vec<FieldDef>>,

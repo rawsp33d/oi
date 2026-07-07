@@ -13,7 +13,12 @@ use crate::runtime;
 mod lower;
 use lower::Translator;
 
-type FnItem<'a> = (String, &'a [Param], &'a Option<Spanned<TypeExpr>>, &'a [Spanned<Expr>]);
+type FnItem<'a> = (
+	String,
+	&'a [Param],
+	&'a Option<Spanned<TypeExpr>>,
+	&'a [Spanned<Expr>],
+);
 
 type EnumItem<'a> = (&'a str, &'a [EnumVariant]);
 
@@ -473,6 +478,7 @@ impl Compiler {
 			int,
 			b,
 			vars: HashMap::new(),
+			params: vec![],
 			module: &mut self.module,
 			funcs,
 			structs: types.structs,
@@ -533,6 +539,7 @@ impl Compiler {
 			int,
 			b,
 			vars: HashMap::new(),
+			params: vec![],
 			module: &mut self.module,
 			funcs,
 			structs: types.structs,
@@ -550,14 +557,13 @@ impl Compiler {
 			let cl = trans.b.func.dfg.value_type(val);
 			let var = trans.b.declare_var(cl);
 			trans.b.def_var(var, val);
-			trans.vars.insert(
-				name.clone(),
-				Local {
-					var,
-					typ: typ.clone(),
-					mutable: *mutable,
-				},
-			);
+			let local = Local {
+				var,
+				typ: typ.clone(),
+				mutable: *mutable,
+			};
+			trans.vars.insert(name.clone(), local.clone());
+			trans.params.push(local);
 		}
 
 		if let Some((val, typ)) = trans.block(stmts)? {

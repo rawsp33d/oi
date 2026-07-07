@@ -38,4 +38,27 @@ impl<'a> Translator<'a> {
 		}
 		Ok(local)
 	}
+
+	// `$` implicit input
+	// TODO: migrate to its own submodule. idk what to call it yet so putting it here. `sigils`?
+	pub(super) fn dollar(&mut self) -> (Value, Typ) {
+		let locals = self.params.clone();
+		match locals.as_slice() {
+			[] => (self.b.ins().iconst(self.int, 0), Typ::Tuple(vec![])),
+			[local] => (self.b.use_var(local.var), local.typ.clone()),
+			_ => {
+				let ptr = self.call_alloc(locals.len());
+				let fields = locals
+					.iter()
+					.enumerate()
+					.map(|(i, local)| {
+						let val = self.b.use_var(local.var);
+						self.b.ins().store(MemFlags::new(), val, ptr, (i * 8) as i32);
+						(None, local.typ.clone())
+					})
+					.collect();
+				(ptr, Typ::Tuple(fields))
+			}
+		}
+	}
 }

@@ -179,6 +179,7 @@ where
 			Token::Float(s) => Expr::Float(s.parse().unwrap()),
 			Token::String(s) => Expr::String(s),
 			Token::Atom(name) => Expr::Atom(name),
+			Token::Dollar => Expr::Dollar,
 		};
 
 		// variable vs. call vs. struct literal
@@ -517,7 +518,7 @@ where
 	expr.define(definition);
 
 	// param type is kept for the compiler to resolve
-	// a bare `self` receiver gets the type `Self`
+	// NOTE: a bare `self` receiver gets the type `Self`
 	let param = just(Token::Mut)
 		.or_not()
 		.then(select! { Token::Ident(name) => name })
@@ -529,6 +530,7 @@ where
 			default: None,
 			mutable: mutable.is_some(),
 		});
+	// NOTE: a trailing comma forces a tuple even for one param
 	let params = param
 		.separated_by(just(Token::Comma))
 		.allow_trailing()
