@@ -8,6 +8,7 @@ pub fn run() -> Result<(), Reported> {
 		DefaultPromptSegment::Basic("oi".to_string()),
 		DefaultPromptSegment::Empty,
 	);
+	let mut session = String::new();
 
 	loop {
 		match rl.read_line(&prompt) {
@@ -15,7 +16,10 @@ pub fn run() -> Result<(), Reported> {
 				if line.trim().is_empty() {
 					continue;
 				}
-				let _ = run_source("<repl>", &line, false);
+				let candidate = format!("{session}{line}\n");
+				if run_source("<repl>", &candidate, false).is_ok() {
+					session = candidate;
+				}
 			}
 			Ok(Signal::CtrlC) => continue,
 			Ok(Signal::CtrlD) => break,
