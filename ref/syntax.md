@@ -1145,7 +1145,7 @@ fn main() {
 	}
 	
 	# specified values
-	enum Status: int {
+	enum Status {
 		ok = 200
 		not_found = 404
 		server_error = 500

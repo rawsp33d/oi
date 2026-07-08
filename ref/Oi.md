@@ -85,6 +85,7 @@
 - [ ] bit flags syntax
 - [ ] channels
 - [ ] units and unit conversion
+- [ ] enum methods `rust`
 - [ ] primitive data type for paths
 - [ ] `unsafe`
 - [ ] `@noinit` `v`
@@ -117,6 +118,7 @@
 - `if` unwrapping `v`
 - using `not` or `!` in pipelines to achieve things like V's `val !in arr`
 - `noop` macro
+- int/float suffixes `let y: i32 = 13i32; let f: f64 = 1.3f64;` `rust`
 - maybe named tuple args aren't a good thing
 	- just making structs more lightweight to use might be better, idk
 - reconciling `type` for type aliases with var declarations (can maybe share syntax)
