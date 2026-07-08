@@ -15,6 +15,22 @@ pub fn run() -> Result<(), Reported> {
 			Ok(Signal::Success(line)) => {
 				match line.trim() {
 					s if s.is_empty() => continue,
+					"/h" | "/help" => {
+						// TODO: print version too
+						indoc::eprintdoc! {"
+							The Oi REPL.
+
+							Runs code you input as if it were running a script.
+							The context persists, but it's just by concatenating all your input together,
+							so if you run into any issues `/clear` it away.
+
+							Commands:
+								/h, /help: help
+								/q, /quit: quit
+								/c, /clear: clear session context
+						"};
+						continue;
+					}
 					"/q" | "/quit" => {
 						println!("goodbye");
 						break;
