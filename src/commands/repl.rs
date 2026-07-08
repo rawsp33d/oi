@@ -32,10 +32,11 @@ pub fn run() -> Result<(), Reported> {
 						continue;
 					}
 					":q" | ":quit" => {
-						println!("goodbye");
+						eprintln!("goodbye");
 						break;
 					}
 					":c" | ":clear" => {
+						eprintln!("session cleared");
 						session.clear();
 						continue;
 					}
