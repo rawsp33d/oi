@@ -14,7 +14,7 @@ pub fn run() -> Result<(), Reported> {
 		match rl.read_line(&prompt) {
 			Ok(Signal::Success(line)) => {
 				match line.trim() {
-					s if s.is_empty() => continue,
+					"" => continue,
 					":h" | ":help" => {
 						// TODO: print version too
 						indoc::eprintdoc! {"
