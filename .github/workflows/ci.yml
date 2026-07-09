@@ -7,7 +7,13 @@ on:
       - "**.rs"
       - "**.oi"
       - "Cargo.toml"
+      - "Cargo.lock"
   pull_request:
+    paths:
+      - "**.rs"
+      - "**.oi"
+      - "Cargo.toml"
+      - "Cargo.lock"
   workflow_dispatch:
 
 env:
