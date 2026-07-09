@@ -225,8 +225,9 @@ impl<'a> Translator<'a> {
 					false,
 					target_cl,
 				),
-				Typ::Enum(enum_name) => {
-					let tag = self.enum_tag(enum_name, val);
+				Typ::Enum(_) | Typ::Option(_) => {
+					let variants = self.variants_of(&typ);
+					let tag = self.enum_tag(&variants, val);
 					if target_cl == types::I64 {
 						tag
 					} else {

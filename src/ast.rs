@@ -28,6 +28,12 @@ pub enum Expr {
 	// `[]T{}` or `[N]T{}`
 	ArrayInit(Spanned<TypeExpr>),
 
+	// `?T(value)` or `?T(none)`
+	OptionInit {
+		inner: Spanned<TypeExpr>,
+		arg: Box<Spanned<Expr>>,
+	},
+
 	// `name = value`: assigns to an existing mutable binding
 	Assign {
 		name: String,
@@ -205,6 +211,7 @@ pub enum TypeExpr {
 	Array(Box<TypeExpr>),
 	FixedArray(Box<TypeExpr>, usize),
 	Fn(Vec<TypeExpr>, Box<TypeExpr>),
+	Option(Box<TypeExpr>),
 }
 
 #[derive(Debug, Clone)]

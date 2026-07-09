@@ -154,7 +154,7 @@ impl<'a> Translator<'a> {
 						binds = b;
 					}
 					let sv = self.b.use_var(sv_var);
-					let tag = self.enum_tag(enum_name, sv);
+					let tag = self.enum_tag(self.enum_variants(enum_name), sv);
 					let disc = self.b.ins().iconst(self.int, disc);
 					self.b.ins().icmp(IntCC::Equal, tag, disc)
 				} else if let (Typ::Tuple(fields), Expr::Tuple(elems)) = (&st, &pat.0) {

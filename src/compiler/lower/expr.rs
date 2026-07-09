@@ -28,6 +28,24 @@ impl<'a> Translator<'a> {
 					.with_note("qualify it (ex: `?int(none)`)"),
 			),
 
+			Expr::OptionInit { inner: (te, span), arg } => {
+				let inner_typ = self.types().resolve(te, *span)?;
+				let variants = option_variants(&inner_typ);
+				if matches!(arg.0, Expr::None) {
+					let val = self.make_enum(&variants, 0, &[]);
+					return Ok((val, Typ::Option(Box::new(inner_typ))));
+				}
+				let (fv, at) = self.check_expr(arg, &inner_typ)?;
+				if at != inner_typ {
+					return Err(
+						Diagnostic::new(format!("expected {inner_typ}, got {at}"), arg.1.into_range())
+							.with_label("type mismatch"),
+					);
+				}
+				let val = self.make_enum(&variants, 1, &[fv]);
+				Ok((val, Typ::Option(Box::new(inner_typ))))
+			}
+
 			Expr::Ident(name) => {
 				let local = self.vars.get(name).cloned().ok_or_else(|| {
 					Diagnostic::new(format!("undefined variable `{name}`"), expr.1.into_range())
@@ -114,7 +132,7 @@ impl<'a> Translator<'a> {
 					let (recv_val, recv_typ) = self.expr(recv)?;
 					if let Typ::Enum(enum_name) = &recv_typ {
 						if method == "str" && args.is_empty() {
-							let s = self.enum_name_str(enum_name, recv_val);
+							let s = self.enum_name_str(self.enum_variants(enum_name), recv_val);
 							return Ok((s, Typ::Str));
 						}
 						return Err(Diagnostic::new(

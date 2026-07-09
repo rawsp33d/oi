@@ -57,9 +57,13 @@ where
 					.collect::<Vec<_>>()
 					.delimited_by(just(Token::LParen), just(Token::RParen)),
 			)
-			.then(te)
+			.then(te.clone())
 			.map(|(params, ret)| TypeExpr::Fn(params, Box::new(ret)));
-		unit.or(fn_type).or(name).or(tuple).or(array)
+		// `?T`: some/none
+		let option = just(Token::Question)
+			.ignore_then(te.clone())
+			.map(|t| TypeExpr::Option(Box::new(t)));
+		unit.or(fn_type).or(option).or(name).or(tuple).or(array)
 	});
 
 	// bindings
@@ -261,6 +265,19 @@ where
 				(Expr::ArrayInit((te, ex.span())), ex.span())
 			});
 
+		let option_init = just(Token::Question)
+			.ignore_then(type_expr.clone())
+			.then(expr.clone().delimited_by(just(Token::LParen), just(Token::RParen)))
+			.map_with(|(elem, arg), ex| {
+				(
+					Expr::OptionInit {
+						inner: (elem, ex.span()),
+						arg: Box::new(arg),
+					},
+					ex.span(),
+				)
+			});
+
 		// array literal
 		let array = expr
 			.clone()
@@ -370,6 +387,7 @@ where
 			.or(group)
 			.or(tuple)
 			.or(array_init)
+			.or(option_init)
 			.or(array)
 			.or(if_expr)
 			.or(match_expr)

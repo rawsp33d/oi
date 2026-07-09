@@ -39,6 +39,7 @@ pub(crate) enum Typ {
 	FixedArray(Box<Typ>, usize),
 	Struct(String, Vec<FieldDef>),
 	Enum(String),
+	Option(Box<Typ>),
 	Range,
 }
 
@@ -90,6 +91,7 @@ impl fmt::Display for Typ {
 			Typ::FixedArray(e, n) => write!(f, "[{n}]{e}"),
 			Typ::Struct(name, _) => write!(f, "{name}"),
 			Typ::Enum(name) => write!(f, "{name}"),
+			Typ::Option(inner) => write!(f, "?{inner}"),
 			Typ::Range => write!(f, "range"),
 		}
 	}
@@ -151,6 +153,21 @@ pub(crate) fn enum_slots(variants: &[VariantInfo]) -> usize {
 	1 + variants.iter().map(|v| v.payload.len()).max().unwrap_or(0)
 }
 
+pub(crate) fn option_variants(inner: &Typ) -> Vec<VariantInfo> {
+	vec![
+		VariantInfo {
+			name: "none".to_string(),
+			disc: 0,
+			payload: vec![],
+		},
+		VariantInfo {
+			name: "some".to_string(),
+			disc: 1,
+			payload: vec![inner.clone()],
+		},
+	]
+}
+
 // Assign discriminants and resolve payload types.
 // TODO: only primitive payloads work right now
 fn build_variants(variants: &[EnumVariant]) -> Result<Vec<VariantInfo>, Diagnostic> {
@@ -202,6 +219,7 @@ impl TypeCtx<'_> {
 			}
 			TypeExpr::Array(elem) => Ok(Typ::Array(Box::new(self.resolve(elem, span)?))),
 			TypeExpr::FixedArray(elem, n) => Ok(Typ::FixedArray(Box::new(self.resolve(elem, span)?), *n)),
+			TypeExpr::Option(inner) => Ok(Typ::Option(Box::new(self.resolve(inner, span)?))),
 			TypeExpr::Fn(_, _) => Err(Diagnostic::new(
 				"function types are not yet supported in codegen",
 				span.into_range(),

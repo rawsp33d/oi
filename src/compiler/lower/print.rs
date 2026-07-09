@@ -20,11 +20,10 @@ impl<'a> Translator<'a> {
 	}
 
 	// Enum `Display`.
-	pub(super) fn enum_name_str(&mut self, name: &str, val: Value) -> Value {
-		let tag = self.enum_tag(name, val);
-		let variants = self.enums.get(name).cloned().unwrap_or_default();
+	pub(super) fn enum_name_str(&mut self, variants: &[VariantInfo], val: Value) -> Value {
+		let tag = self.enum_tag(variants, val);
 		let mut ptr = self.str_const("");
-		for v in &variants {
+		for v in variants {
 			let s = self.str_const(&v.name);
 			let disc = self.b.ins().iconst(self.int, v.disc);
 			let hit = self.b.ins().icmp(IntCC::Equal, tag, disc);
@@ -109,8 +108,9 @@ impl<'a> Translator<'a> {
 				self.emit_frag(runtime::Tag::Raw, val, 0, false, stderr);
 			}
 
-			Typ::Enum(name) => {
-				let ptr = self.enum_name_str(name, val);
+			Typ::Enum(_) | Typ::Option(_) => {
+				let variants = self.variants_of(typ);
+				let ptr = self.enum_name_str(&variants, val);
 				self.emit_frag(runtime::Tag::Raw, ptr, 0, false, stderr);
 			}
 
@@ -136,6 +136,7 @@ impl<'a> Translator<'a> {
 					| Typ::FixedArray(..)
 					| Typ::Struct(..)
 					| Typ::Enum(_)
+					| Typ::Option(_)
 					| Typ::Range => {
 						unreachable!("handled above")
 					}

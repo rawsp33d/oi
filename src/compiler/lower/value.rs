@@ -46,9 +46,10 @@ impl<'a> Translator<'a> {
 			Typ::UInt(w) => self.b.ins().iconst(cl_type(&Typ::UInt(*w), self.int), 0),
 			Typ::Bool | Typ::ISize | Typ::USize => self.b.ins().iconst(self.int, 0),
 			// default to first variant
-			Typ::Enum(name) => {
-				let disc = self.enums.get(name).and_then(|vs| vs.first()).map_or(0, |v| v.disc);
-				self.make_enum(name, disc, &[])
+			Typ::Enum(_) | Typ::Option(_) => {
+				let variants = self.variants_of(typ);
+				let disc = variants.first().map_or(0, |v| v.disc);
+				self.make_enum(&variants, disc, &[])
 			}
 			Typ::Tuple(fields) if fields.is_empty() => self.b.ins().iconst(self.int, 0),
 			Typ::Struct(_, fields) => {
@@ -141,14 +142,29 @@ impl<'a> Translator<'a> {
 			(Expr::EnumShorthand { variant, args }, Typ::Enum(typ)) => {
 				self.construct_variant(typ, variant, args, value.1)?.0
 			}
+			(Expr::None, Typ::Option(inner)) => self.make_enum(&option_variants(inner), 0, &[]),
 			_ => return Ok(None),
 		};
 		Ok(Some(v))
 	}
 
+	// The variant table of a named enum.
+	pub(super) fn enum_variants(&self, name: &str) -> &'a [VariantInfo] {
+		self.enums.get(name).map(Vec::as_slice).unwrap_or(&[])
+	}
+
+	// Variant table for any type that carries variants.
+	pub(super) fn variants_of(&self, typ: &Typ) -> Vec<VariantInfo> {
+		match typ {
+			Typ::Enum(name) => self.enum_variants(name).to_vec(),
+			Typ::Option(inner) => option_variants(inner),
+			_ => Vec::new(),
+		}
+	}
+
 	// The tag of an enum value.
-	pub(super) fn enum_tag(&mut self, name: &str, val: Value) -> Value {
-		if enum_boxed(self.enums.get(name).map(Vec::as_slice).unwrap_or(&[])) {
+	pub(super) fn enum_tag(&mut self, variants: &[VariantInfo], val: Value) -> Value {
+		if enum_boxed(variants) {
 			self.b.ins().load(self.int, MemFlags::new(), val, 0)
 		} else {
 			val
@@ -157,8 +173,8 @@ impl<'a> Translator<'a> {
 
 	// Build a variant value.
 	// A bare discriminant for fieldless enums, and a heap where that's not possible.
-	pub(super) fn make_enum(&mut self, name: &str, disc: i64, fields: &[Value]) -> Value {
-		let slots = enum_slots(self.enums.get(name).map(Vec::as_slice).unwrap_or(&[]));
+	pub(super) fn make_enum(&mut self, variants: &[VariantInfo], disc: i64, fields: &[Value]) -> Value {
+		let slots = enum_slots(variants);
 		if slots == 1 {
 			return self.b.ins().iconst(self.int, disc);
 		}
@@ -244,13 +260,14 @@ impl<'a> Translator<'a> {
 			}
 			fields.push(fv);
 		}
-		let val = self.make_enum(name, disc, &fields);
+		let val = self.make_enum(self.enum_variants(name), disc, &fields);
 		Ok((val, Typ::Enum(name.to_string())))
 	}
 
-	// Evaluate `value` against an expected type, resolving `.variant` shorthands and atoms via coercion.
+	// Evaluate `value` against an expected type.
+	// Resolves variant shorthands, atoms, and `none` via coercion.
 	pub(super) fn check_expr(&mut self, value: &Spanned<Expr>, target: &Typ) -> Result<(Value, Typ), Diagnostic> {
-		if matches!(value.0, Expr::EnumShorthand { .. } | Expr::Atom(_))
+		if matches!(value.0, Expr::EnumShorthand { .. } | Expr::Atom(_) | Expr::None)
 			&& let Some(v) = self.coerce_lit(value, target)?
 		{
 			return Ok((v, target.clone()));

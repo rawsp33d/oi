@@ -15,10 +15,9 @@ impl<'a> Translator<'a> {
 
 	// Compare two boxed enums.
 	// Checks that tags match, and for variants that every field matches
-	pub(super) fn emit_enum_eq(&mut self, a: Value, b: Value, name: &str) -> Value {
-		let variants = self.enums[name].clone();
-		let ta = self.enum_tag(name, a);
-		let tb = self.enum_tag(name, b);
+	pub(super) fn emit_enum_eq(&mut self, a: Value, b: Value, variants: &[VariantInfo]) -> Value {
+		let ta = self.enum_tag(variants, a);
+		let tb = self.enum_tag(variants, b);
 		let tags_eq = self.b.ins().icmp(IntCC::Equal, ta, tb);
 		let eq = self.b.declare_var(types::I8);
 		self.b.def_var(eq, tags_eq);
@@ -194,11 +193,12 @@ impl<'a> Translator<'a> {
 			| (Typ::USize, Typ::USize)
 			| (Typ::Bool, Typ::Bool)
 			| (Typ::Atom, Typ::Atom) => self.b.ins().icmp(icc, lv, rv),
-			(Typ::Enum(a), Typ::Enum(b)) if a == b => {
-				if !enum_boxed(self.enums.get(a).map(Vec::as_slice).unwrap_or(&[])) {
+			(l, r) if l == r && matches!(l, Typ::Enum(_) | Typ::Option(_)) => {
+				let variants = self.variants_of(l);
+				if !enum_boxed(&variants) {
 					self.b.ins().icmp(icc, lv, rv)
 				} else if let IntCC::Equal | IntCC::NotEqual = icc {
-					let eq = self.emit_enum_eq(lv, rv, a);
+					let eq = self.emit_enum_eq(lv, rv, &variants);
 					if icc == IntCC::Equal {
 						eq
 					} else {
@@ -206,10 +206,10 @@ impl<'a> Translator<'a> {
 					}
 				} else {
 					return Err(Diagnostic::new(
-						format!("only `==`&`!=` are supported because `{a}` has payloads"),
+						format!("only `==`&`!=` are supported because `{l}` has payloads"),
 						span.into_range(),
 					)
-					.with_label("ordering needs a plain enum"));
+					.with_label("ordering needs a plain value"));
 				}
 			}
 			(Typ::Float(_), Typ::Float(_)) => self.b.ins().fcmp(fcc, lv, rv),
