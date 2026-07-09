@@ -15,6 +15,7 @@ pub enum Expr {
 	Atom(String),
 	Ident(String),
 	Dollar,
+	None,
 
 	// `[mods] name [type] := value`: declares a new binding
 	Bind {

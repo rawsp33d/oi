@@ -22,6 +22,12 @@ impl<'a> Translator<'a> {
 			.with_label("no enum type is expected in this position")
 			.with_note(format!("qualify it, e.g. `Color.{variant}`"))),
 
+			Expr::None => Err(
+				Diagnostic::new("cannot infer the type of `none` here", expr.1.into_range())
+					.with_label("no `?T` type is expected in this position")
+					.with_note("qualify it (ex: `?int(none)`)"),
+			),
+
 			Expr::Ident(name) => {
 				let local = self.vars.get(name).cloned().ok_or_else(|| {
 					Diagnostic::new(format!("undefined variable `{name}`"), expr.1.into_range())

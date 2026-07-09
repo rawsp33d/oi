@@ -180,6 +180,7 @@ where
 			Token::String(s) => Expr::String(s),
 			Token::Atom(name) => Expr::Atom(name),
 			Token::Dollar => Expr::Dollar,
+			Token::None => Expr::None,
 		};
 
 		// variable vs. call vs. struct literal
