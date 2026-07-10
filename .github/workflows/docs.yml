@@ -43,8 +43,9 @@ jobs:
 
       - name: fix:docs
         run: |
-          mkdir -p ./www/public/
-          mv ./target/doc/ ./www/public/docs/
+          mkdir -p ./www/static/
+          rm -rf ./www/static/docs
+          mv ./target/doc/ ./www/static/docs/
 
       - uses: getzola/github-pages@v1
         id: docs
