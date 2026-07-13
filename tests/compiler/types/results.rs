@@ -1,0 +1,109 @@
+use crate::helpers::*;
+use indoc::indoc;
+
+#[test]
+fn construct_ok() {
+	check("!int(42)", "ok");
+}
+
+#[test]
+fn construct_err() {
+	check(r#"!int(error("oops"))"#, "err");
+}
+
+#[test]
+fn zero_value_is_ok() {
+	check("mut r !int\nr", "ok");
+}
+
+#[test]
+fn int_cast_gives_tag() {
+	check("int(!int(42))", "0");
+	check(r#"int(!int(error("oops")))"#, "1");
+}
+
+#[test]
+fn eq_same_ok() {
+	check("!int(42) == !int(42)", "true");
+}
+
+#[test]
+fn eq_different_ok() {
+	check("!int(42) == !int(7)", "false");
+}
+
+#[test]
+fn eq_ok_vs_err() {
+	check(r#"!int(42) == !int(error("oops"))"#, "false");
+	check(r#"!int(42) != !int(error("oops"))"#, "true");
+}
+
+#[test]
+fn field_type_mismatch() {
+	let err = fail("!int(3.0)");
+	assert!(err.contains("expected int or Error, got float"), "got: {err}");
+}
+
+#[test]
+fn ordering_rejected() {
+	let err = fail("!int(1) < !int(2)");
+	assert!(err.contains("only `==`&`!=`"), "got: {err}");
+}
+
+#[test]
+fn match_binds_ok() {
+	check(
+		indoc! {r#"
+			r := !int(42)
+			match r {
+				.ok(n) { n }
+				.err(e) { -1 }
+			}
+		"#},
+		"42",
+	);
+}
+
+#[test]
+fn match_err_arm() {
+	check(
+		indoc! {r#"
+			r := !int(error("oops"))
+			match r {
+				.ok(n) { n }
+				.err(e) { -1 }
+			}
+		"#},
+		"-1",
+	);
+}
+
+#[test]
+fn match_non_exhaustive_errors() {
+	let err = fail("r := !int(42)\nmatch r {\n\t.ok(n) { n }\n}");
+	assert!(err.contains("non-exhaustive match, missing: err"), "got: {err}");
+}
+
+#[test]
+fn struct_field_type() {
+	check(
+		"struct Box { val !int }
+		b := Box{ val: !int(42) }
+		b.val",
+		"ok",
+	);
+}
+
+#[test]
+fn fn_param_type() {
+	let src = indoc! {"
+		fn unwrap_or(r !int, fallback int) int {
+			match r {
+				.ok(n) { n }
+				.err(e) { fallback }
+			}
+		}
+		unwrap_or(!int(42), 0)
+	"};
+	check(src, "42");
+}
