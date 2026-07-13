@@ -2,11 +2,6 @@
 title = "Home"
 +++
 
-# Oi
+# Overview
 
-wat
-
-## principles
-- general purpose system language
-- high emphasis on ergonomics
-- (almost) everything is an expression
+Oi is a general purpose system language with a high emphasis on ergonomics.
