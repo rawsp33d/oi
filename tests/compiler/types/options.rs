@@ -89,3 +89,27 @@ fn match_non_exhaustive_errors() {
 	let err = fail("o := ?int(42)\nmatch o {\n\t.some(n) { n }\n}");
 	assert!(err.contains("non-exhaustive match, missing: none"), "got: {err}");
 }
+
+#[test]
+fn struct_field_type() {
+	check(
+		"struct Box { val ?int }
+		b := Box{ val: ?int(42) }
+		b.val",
+		"some",
+	);
+}
+
+#[test]
+fn fn_param_type() {
+	let src = indoc! {"
+		fn unwrap_or(o ?int, fallback int) int {
+			match o {
+				.some(n) { n }
+				.none { fallback }
+			}
+		}
+		unwrap_or(?int(42), 0)
+	"};
+	check(src, "42");
+}

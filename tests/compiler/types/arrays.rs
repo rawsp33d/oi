@@ -1,8 +1,20 @@
 use crate::helpers::*;
+use indoc::indoc;
 
 #[test]
 fn array_literal() {
 	check("[1, 2, 3]", "[1, 2, 3]");
+}
+
+#[test]
+fn fn_param_type() {
+	let src = indoc! {"
+		fn first(xs []int) int {
+			xs.0
+		}
+		first([9, 8, 7])
+	"};
+	check(src, "9");
 }
 
 #[test]
