@@ -409,6 +409,22 @@ fn from_str_no_match() {
 }
 
 #[test]
+fn from_atom_match() {
+	check(
+		"enum Color { red green blue }\nColor.from(:blue) or { Color.red }",
+		"blue",
+	);
+}
+
+#[test]
+fn from_atom_no_match() {
+	check(
+		"enum Color { red green blue }\nColor.from(:purple) or { print($)\nColor.red }",
+		"no matching variant\nred",
+	);
+}
+
+#[test]
 fn from_payload_zero_fills() {
 	check(
 		"enum Shape { point triangle(f64, f64, f64) }\nShape.from(1) or { Shape.point }",
@@ -419,5 +435,5 @@ fn from_payload_zero_fills() {
 #[test]
 fn from_wrong_type() {
 	let err = fail("enum Color { red green blue }\nColor.from(true)");
-	assert!(err.contains("needs an int or str"), "got: {err}");
+	assert!(err.contains("needs an int, str, or atom"), "got: {err}");
 }
