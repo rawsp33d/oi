@@ -40,7 +40,7 @@ where
 			.collect::<Vec<_>>()
 			.delimited_by(just(Token::LParen), just(Token::RParen))
 			.map(TypeExpr::Tuple);
-		// `[]T` dynamic, `[N]T` fixed
+		// arrays
 		let array = just(Token::LBracket)
 			.ignore_then(select! { Token::Int(n) => n }.or_not())
 			.then_ignore(just(Token::RBracket))
@@ -59,11 +59,11 @@ where
 			)
 			.then(te.clone())
 			.map(|(params, ret)| TypeExpr::Fn(params, Box::new(ret)));
-		// `?T`: some/none
+		// options
 		let option = just(Token::Question)
 			.ignore_then(te.clone())
 			.map(|t| TypeExpr::Option(Box::new(t)));
-		// `!T`: ok/error
+		// results
 		let result = just(Token::Not).ignore_then(te.clone()).map(|t| TypeExpr::Result(Box::new(t)));
 		unit.or(fn_type).or(option).or(result).or(name).or(tuple).or(array)
 	});
@@ -107,7 +107,7 @@ where
 		.ignore_then(expr.clone().or_not())
 		.map_with(|value, ex| (Expr::Return(value.map(Box::new)), ex.span()));
 
-	// `name[index] = value`
+	// index assignment
 	let index_assign = select! { Token::Ident(name) => name }
 		.then(expr.clone().delimited_by(just(Token::LBracket), just(Token::RBracket)))
 		.then_ignore(just(Token::Assign))
@@ -137,7 +137,7 @@ where
 			)
 		});
 
-	// `name.field = value`
+	// field assignment
 	let field_assign = select! { Token::Ident(name) => name }
 		.then_ignore(just(Token::Dot))
 		.then(select! { Token::Ident(field) => field })
@@ -197,7 +197,6 @@ where
 			.collect::<Vec<_>>()
 			.delimited_by(just(Token::LParen), just(Token::RParen));
 
-		// `(name:)? expr`
 		// named or positional field entry
 		let struct_field_entry = select! { Token::Ident(name) => name }
 			.then_ignore(just(Token::Colon))
@@ -325,9 +324,6 @@ where
 		});
 
 		// loops
-		// `loop {}`: infinite loop
-		// `loop <condition> {}`: while loop
-		// `loop <pattern> in <iter> {}`: for loop
 		let loop_expr = just(Token::Loop)
 			.ignore_then(expr.clone().or_not())
 			.then(block.clone())
@@ -434,9 +430,9 @@ where
 			.clone()
 			.then(just(Token::DotDot).ignore_then(expr.clone().or_not()).or_not())
 			.map(|(e, extra)| match (e.0.clone(), extra) {
-				// `start..end`
+				// closed range
 				(Expr::Range { start, end }, None) => Subscript::Slice(start.map(|s| *s), end.map(|e| *e)),
-				// `start..`
+				// open range
 				(_, Some(end)) => Subscript::Slice(Some(e), end),
 				// numeric index
 				(_, None) => Subscript::Index(e),
@@ -584,7 +580,7 @@ where
 	// optional return type annotation
 	let ret = type_expr.clone().map_with(|t, ex| (t, ex.span())).or_not();
 
-	// `fn name(params) ret? { ... }`
+	// fn defs
 	let func = just(Token::Fn)
 		.ignore_then(select! { Token::Ident(name) => name })
 		.then(params)
@@ -603,7 +599,7 @@ where
 			)
 		});
 
-	// `struct Name { name type [= default], ... }`
+	// struct defs
 	let struct_field = select! { Token::Ident(name) => name }
 		.then(type_expr.clone())
 		.then(just(Token::Assign).ignore_then(expr.clone()).or_not())
@@ -625,7 +621,7 @@ where
 		)
 		.map_with(|(name, fields), ex| (Expr::StructDef { name, fields }, ex.span()));
 
-	// `enum Name {}`
+	// enum defs
 	let disc = just(Token::Assign)
 		.ignore_then(just(Token::Minus).or_not())
 		.then(select! { Token::Int(n) => n })
@@ -668,6 +664,7 @@ where
 			Ok((Expr::EnumDef { name, variants }, ex.span()))
 		});
 
+	// type alieses
 	let type_alias = just(Token::Type)
 		.ignore_then(select! { Token::Ident(name) => name })
 		.then_ignore(just(Token::Assign))
