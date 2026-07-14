@@ -46,6 +46,7 @@ pub(super) struct Translator<'a> {
 	pub ret: Option<(Typ, Span)>,
 	pub loops: Vec<LoopFrame>,
 	pub self_type: Option<String>,
+	pub is_main: bool,
 }
 
 // A statement that writes through an existing, mutable binding.

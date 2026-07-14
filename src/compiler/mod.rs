@@ -463,7 +463,7 @@ impl Compiler {
 				.map(|(te, span)| Ok::<_, Diagnostic>((types.resolve(te, *span)?, *span)))
 				.transpose()?;
 			let sym = format!("oi_{}", key.replace('.', "__"));
-			let ret = self.translate(&params, *params_tuple, ret, body, &funcs, types, self_type)?;
+			let ret = self.translate(&params, *params_tuple, ret, body, &funcs, types, self_type, false)?;
 			let id = self.finish_fn(&sym);
 			let param_typs = params.iter().map(|(_, t, _)| t.clone()).collect();
 			funcs.insert(
@@ -501,7 +501,7 @@ impl Compiler {
 			enums: &enums,
 			aliases: &aliases,
 		};
-		let typ = self.translate(&[], true, None, entry, &funcs, types, None)?;
+		let typ = self.translate(&[], true, None, entry, &funcs, types, None, true)?;
 		let entry_id = self.finish_fn("oi_main");
 		let id = self.compile_entry(entry_id, typ, &funcs, types);
 
@@ -532,6 +532,7 @@ impl Compiler {
 			ret: None,
 			loops: vec![],
 			self_type: None,
+			is_main: false,
 		};
 
 		let callee = trans.module.declare_func_in_func(entry, trans.b.func);
@@ -566,6 +567,7 @@ impl Compiler {
 		funcs: &HashMap<String, FnSig>,
 		types: TypeCtx,
 		self_type: Option<&str>,
+		is_main: bool,
 	) -> Result<Typ, Diagnostic> {
 		let int = self.module.target_config().pointer_type();
 		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
@@ -596,6 +598,7 @@ impl Compiler {
 			ret,
 			loops: vec![],
 			self_type: self_type.map(str::to_owned),
+			is_main,
 		};
 
 		let param_vals: Vec<Value> = trans.b.block_params(block).to_vec();
