@@ -30,6 +30,17 @@ fn first_variant_is_default() {
 }
 
 #[test]
+fn empty_literal_is_default() {
+	check("enum Color { red green blue }\nColor{}", "red");
+}
+
+#[test]
+fn empty_literal_rejects_fields() {
+	let err = fail("enum Color { red green blue }\nColor{ red }");
+	assert!(err.contains("only supports"), "got: {err}");
+}
+
+#[test]
 fn eq_same() {
 	check("enum Color { red green blue }\nColor.red == Color.red", "true");
 }
@@ -185,6 +196,11 @@ fn payloadless_variant_of_boxed_enum() {
 #[test]
 fn payload_enum_default_is_first() {
 	check("enum Opt { nope some(int) }\nmut o Opt\no", "nope");
+}
+
+#[test]
+fn payload_empty_literal_is_default() {
+	check("enum Opt { nope some(int) }\nOpt{}", "nope");
 }
 
 #[test]

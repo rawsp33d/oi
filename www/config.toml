@@ -26,8 +26,10 @@ keywords = ""
 
 menu_links = [
 	{ name = "/", url = "/" },
+	{ name = "/features", url = "/features" },
 	{ name = "/about", url = "/about" },
 	{ name = "/docs", url = "/docs/oi" },
+	{ name = "source", url = "https://github.com/rawsp33d/oi" },
 ]
 
 theme_color = "#333"

@@ -474,6 +474,17 @@ impl<'a> Translator<'a> {
 					})?,
 					_ => name.clone(),
 				};
+				if self.enums.contains_key(name.as_str()) {
+					if !fields.is_empty() {
+						return Err(Diagnostic::new(
+							format!("enum `{name}` only supports `{name}{{}}` with no fields"),
+							expr.1.into_range(),
+						)
+						.with_label("not a struct"));
+					}
+					let typ = Typ::Enum(name.clone());
+					return Ok((self.zero(&typ), typ));
+				}
 				let struct_fields = self.structs.get(name.as_str()).cloned().ok_or_else(|| {
 					Diagnostic::new(format!("unknown struct `{name}`"), expr.1.into_range()).with_label("not defined")
 				})?;
