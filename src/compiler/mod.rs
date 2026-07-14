@@ -359,6 +359,7 @@ impl Default for Compiler {
 		builder.symbol(runtime::STR_EQ, runtime::str_eq as *const u8);
 		builder.symbol(runtime::STR_CONTAINS, runtime::str_contains as *const u8);
 		builder.symbol(runtime::ASSERT_FAIL, runtime::assert_fail as *const u8);
+		builder.symbol(runtime::PANIC, runtime::panic as *const u8);
 
 		let module = JITModule::new(builder);
 		Self {
