@@ -15,6 +15,7 @@ impl<'a> Translator<'a> {
 	) -> Result<Option<(Value, Typ)>, Diagnostic> {
 		let mut last = (self.b.ins().iconst(self.int, 0), Typ::Tuple(vec![]));
 		for (i, stmt) in stmts.iter().enumerate() {
+			let stmt_target = if i + 1 == stmts.len() { tail } else { None };
 			match &stmt.0 {
 				Expr::Bind {
 					mutable,
@@ -176,16 +177,18 @@ impl<'a> Translator<'a> {
 					return Ok(None);
 				}
 
-				Expr::If { cond, then, els } => match self.conditional(cond, then, els.as_deref(), stmt.1)? {
-					Some((v, t)) => last = (v, t),
-					None => return Ok(None),
-				},
+				Expr::If { cond, then, els } => {
+					match self.conditional(cond, then, els.as_deref(), stmt_target, stmt.1)? {
+						Some((v, t)) => last = (v, t),
+						None => return Ok(None),
+					}
+				}
 
 				Expr::Match {
 					subject,
 					arms,
 					else_body,
-				} => match self.match_expr(subject, arms, else_body.as_deref(), stmt.1)? {
+				} => match self.match_expr(subject, arms, else_body.as_deref(), stmt_target, stmt.1)? {
 					Some((v, t)) => last = (v, t),
 					None => return Ok(None),
 				},
@@ -261,9 +264,9 @@ impl<'a> Translator<'a> {
 				Expr::Doc(_) => {}
 
 				_ => {
-					last = match tail {
-						Some(t) if i + 1 == stmts.len() => self.check_expr(stmt, t)?,
-						_ => self.expr(stmt)?,
+					last = match stmt_target {
+						Some(t) => self.check_expr(stmt, t)?,
+						None => self.expr(stmt)?,
 					}
 				}
 			}

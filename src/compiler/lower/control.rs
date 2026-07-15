@@ -9,6 +9,7 @@ impl<'a> Translator<'a> {
 		cond: &Spanned<Expr>,
 		then: &[Spanned<Expr>],
 		els: Option<&[Spanned<Expr>]>,
+		target: Option<&Typ>,
 		span: Span,
 	) -> Result<Option<(Value, Typ)>, Diagnostic> {
 		let (cv, ct) = self.expr(cond)?;
@@ -34,7 +35,7 @@ impl<'a> Translator<'a> {
 		let saved = self.vars.clone();
 
 		self.b.switch_to_block(then_block);
-		let then_flow = self.block(then)?;
+		let then_flow = self.block_tail(then, target)?;
 		self.vars = saved.clone();
 		if let Some((v, t)) = then_flow {
 			let var = self.b.declare_var(cl_type(&t, self.int));
@@ -48,9 +49,9 @@ impl<'a> Translator<'a> {
 
 		self.b.switch_to_block(else_block);
 		let else_flow = match els {
-			Some(els) => self.block(els)?,
+			Some(els) => self.block_tail(els, target)?,
 			None => {
-				let t = result_typ.clone().unwrap_or(Typ::Tuple(vec![]));
+				let t = result_typ.clone().or_else(|| target.cloned()).unwrap_or(Typ::Tuple(vec![]));
 				let z = self.zero(&t);
 				Some((z, t))
 			}
@@ -96,6 +97,7 @@ impl<'a> Translator<'a> {
 		subject: &Spanned<Expr>,
 		arms: &[MatchArm],
 		else_body: Option<&[Spanned<Expr>]>,
+		target: Option<&Typ>,
 		span: Span,
 	) -> Result<Option<(Value, Typ)>, Diagnostic> {
 		let (sv, st) = self.expr(subject)?;
@@ -237,7 +239,7 @@ impl<'a> Translator<'a> {
 				};
 				self.vars.insert(name.clone(), local);
 			}
-			let flow = self.block(&arm.body)?;
+			let flow = self.block_tail(&arm.body, target)?;
 			self.vars = saved;
 			if let Some(vt) = flow {
 				self.contribute("match", vt, &mut result, merge, span)?;
@@ -248,11 +250,14 @@ impl<'a> Translator<'a> {
 		self.b.seal_block(else_blk);
 		let else_flow = if let Some(els) = else_body {
 			let saved = self.vars.clone();
-			let flow = self.block(els)?;
+			let flow = self.block_tail(els, target)?;
 			self.vars = saved;
 			flow
 		} else {
-			let t = result.as_ref().map_or(Typ::Tuple(vec![]), |(_, t)| t.clone());
+			let t = match &result {
+				Some((_, t)) => t.clone(),
+				None => target.cloned().unwrap_or(Typ::Tuple(vec![])),
+			};
 			Some((self.zero(&t), t))
 		};
 		if let Some(vt) = else_flow {

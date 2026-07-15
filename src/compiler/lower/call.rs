@@ -46,8 +46,8 @@ impl<'a> Translator<'a> {
 			vals.push(recv);
 		}
 		for arg in args {
-			let (val, typ) = self.expr(arg)?;
 			let want = expected.next().unwrap();
+			let (val, typ) = self.check_expr(arg, want)?;
 			if &typ != want {
 				return Err(
 					Diagnostic::new(format!("expected {want} argument, got {typ}"), arg.1.into_range())

@@ -437,3 +437,58 @@ fn from_wrong_type() {
 	let err = fail("enum Color { red green blue }\nColor.from(true)");
 	assert!(err.contains("needs an int, str, or atom"), "got: {err}");
 }
+
+#[test]
+fn shorthand_coerces_in_fn_arg() {
+	check(
+		indoc! {"
+			enum Color { red green blue }
+			fn name(c Color) { c.str() }
+			name(.blue)
+		"},
+		"blue",
+	);
+}
+
+#[test]
+fn atom_coerces_in_fn_arg() {
+	check(
+		indoc! {"
+			enum Color { red green blue }
+			fn name(c Color) { c.str() }
+			name(:blue)
+		"},
+		"blue",
+	);
+}
+
+#[test]
+fn shorthand_coerces_in_if_tail_return() {
+	check(
+		indoc! {"
+			enum Color { red green blue }
+			fn fav(pick bool) Color {
+				if pick { .blue } else { .red }
+			}
+			fav(true)
+		"},
+		"blue",
+	);
+}
+
+#[test]
+fn shorthand_coerces_in_match_tail_return() {
+	check(
+		indoc! {r#"
+			enum Color { red green blue }
+			fn fav(n int) Color {
+				match n {
+					1 { .red }
+					else { .blue }
+				}
+			}
+			fav(9)
+		"#},
+		"blue",
+	);
+}

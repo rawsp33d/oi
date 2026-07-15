@@ -287,7 +287,29 @@ impl<'a> Translator<'a> {
 		{
 			return Ok((v, target.clone()));
 		}
-		self.expr(value)
+		match &value.0 {
+			Expr::If { cond, then, els } => {
+				match self.conditional(cond, then, els.as_deref(), Some(target), value.1)? {
+					Some(vt) => Ok(vt),
+					None => Err(
+						Diagnostic::new("this `if` never produces a value", value.1.into_range())
+							.with_label("every branch returns, but a value is needed here"),
+					),
+				}
+			}
+			Expr::Match {
+				subject,
+				arms,
+				else_body,
+			} => match self.match_expr(subject, arms, else_body.as_deref(), Some(target), value.1)? {
+				Some(vt) => Ok(vt),
+				None => Err(
+					Diagnostic::new("this `match` never produces a value", value.1.into_range())
+						.with_label("every arm returns, but a value is needed here"),
+				),
+			},
+			_ => self.expr(value),
+		}
 	}
 
 	pub(super) fn float_lit(&mut self, x: f64, w: u16, span: Span) -> Result<Value, Diagnostic> {
