@@ -424,6 +424,7 @@ impl Compiler {
 							params_tuple,
 							ret,
 							body,
+							..
 						} = &m.0
 						{
 							others.push((format!("{typ}.{name}"), params, *params_tuple, ret, body));
@@ -437,6 +438,7 @@ impl Compiler {
 					params_tuple,
 					ret,
 					body,
+					..
 				} => others.push((name.clone(), params, *params_tuple, ret, body)),
 				Expr::Doc(_) => {}
 				_ => loose_refs.push(item),

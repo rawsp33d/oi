@@ -48,6 +48,7 @@ pub enum Expr {
 
 	Fn {
 		name: String,
+		type_params: Vec<String>,
 		params: Vec<Param>,
 		params_tuple: bool,
 		ret: Option<Spanned<TypeExpr>>,

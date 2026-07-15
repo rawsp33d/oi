@@ -602,16 +602,26 @@ where
 	// optional return type annotation
 	let ret = type_expr.clone().map_with(|t, ex| (t, ex.span())).or_not();
 
+	// generics
+	let type_params = select! { Token::Ident(name) => name }
+		.separated_by(just(Token::Comma))
+		.collect::<Vec<_>>()
+		.delimited_by(just(Token::LBracket), just(Token::RBracket))
+		.or_not()
+		.map(Option::unwrap_or_default);
+
 	// fn defs
 	let func = just(Token::Fn)
 		.ignore_then(select! { Token::Ident(name) => name })
+		.then(type_params)
 		.then(params)
 		.then(ret)
 		.then(block.clone())
-		.map_with(|(((name, (params, tuple)), ret), body), ex| {
+		.map_with(|((((name, type_params), (params, tuple)), ret), body), ex| {
 			(
 				Expr::Fn {
 					name,
+					type_params,
 					params,
 					params_tuple: tuple,
 					ret,
