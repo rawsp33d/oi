@@ -54,3 +54,64 @@ fn not_callable() {
 	"};
 	assert!(fail(src).contains("not callable"));
 }
+
+#[test]
+fn capture_read_only() {
+	let src = indoc! {"
+		factor := 3
+		triple := fn [factor] (x int) int { x * factor }
+		triple(4)
+	"};
+	check(src, "12");
+}
+
+#[test]
+fn capture_multiple() {
+	let src = indoc! {"
+		a := 10
+		b := 32
+		add := fn [a, b] () int { a + b }
+		add()
+	"};
+	check(src, "42");
+}
+
+#[test]
+fn capture_move() {
+	let src = indoc! {"
+		factor := 3
+		triple := fn [move factor] (x int) int { x * factor }
+		triple(4)
+	"};
+	check(src, "12");
+}
+
+#[test]
+fn capture_undefined() {
+	let src = indoc! {"
+		f := fn [missing] () int { 0 }
+		f()
+	"};
+	assert!(fail(src).contains("undefined variable"));
+}
+
+#[test]
+fn capture_mut_not_yet_implemented() {
+	let src = indoc! {"
+		x := 3
+		f := fn [mut x] () int { x }
+		f()
+	"};
+	assert!(fail(src).contains("not yet implemented"));
+}
+
+#[test]
+fn capturing_closure_rejected_as_plain_fn_param() {
+	let src = indoc! {"
+		fn apply(f fn(int) int, x int) int { f(x) }
+		factor := 2
+		scale := fn [factor] (n int) int { n * factor }
+		apply(scale, 21)
+	"};
+	assert!(fail(src).contains("wrong argument type"));
+}
