@@ -123,14 +123,18 @@ impl<'a> Translator<'a> {
 
 			Expr::Call { name, args } => {
 				if let Some(local) = self.vars.get(name).cloned() {
-					let Typ::Fn(params, ret) = local.typ.clone() else {
-						return Err(
-							Diagnostic::new(format!("`{name}` is not callable"), expr.1.into_range())
-								.with_label(format!("this is {}, not a function", local.typ)),
-						);
-					};
 					let callee = self.b.use_var(local.var);
-					return self.call_value(name, callee, &params, &ret, args, expr.1);
+					return match local.typ.clone() {
+						Typ::Fn(params, ret) => self.call_value(name, callee, None, &params, &ret, args, expr.1),
+						Typ::Closure(params, ret) => {
+							let addr = self.b.ins().load(self.int, MemFlags::new(), callee, 0);
+							self.call_value(name, addr, Some(callee), &params, &ret, args, expr.1)
+						}
+						typ => Err(
+							Diagnostic::new(format!("`{name}` is not callable"), expr.1.into_range())
+								.with_label(format!("this is {typ}, not a function")),
+						),
+					};
 				}
 				match self.builtin_call(name, args, expr.1)? {
 					Some(result) => Ok(result),
@@ -620,6 +624,7 @@ impl<'a> Translator<'a> {
 			}
 
 			Expr::AnonFn {
+				captures,
 				params,
 				params_tuple,
 				ret,
@@ -632,7 +637,7 @@ impl<'a> Translator<'a> {
 					)
 					.with_label("add a return type, e.g. `fn [] () int { ... }`"));
 				};
-				self.declare_anon_fn(params, *params_tuple, ret, body, expr.1)
+				self.declare_anon_fn(captures, params, *params_tuple, ret, body, expr.1)
 			}
 
 			Expr::Bind { .. } => unreachable!("bind in expression position"),

@@ -55,8 +55,9 @@ pub enum Expr {
 		body: Vec<Spanned<Expr>>,
 	},
 
-	// `fn []? (params)? ret? { body }`
+	// `fn [captures]? (params)? ret? { body }`
 	AnonFn {
+		captures: Vec<Capture>,
 		params: Vec<Param>,
 		params_tuple: bool,
 		ret: Option<Spanned<TypeExpr>>,
@@ -266,6 +267,14 @@ pub struct EnumVariant {
 pub enum Pattern {
 	Name(String),
 	Tuple(Vec<String>),
+}
+
+// Capture list entry of an anon fn.
+#[derive(Debug, Clone)]
+pub enum Capture {
+	ReadOnly(String),
+	Mut(String),
+	Move(String),
 }
 
 // A function parameter or struct field declaration.

@@ -71,12 +71,13 @@ impl<'a> Translator<'a> {
 		(ret_val, sig.ret.clone())
 	}
 
-	// Call through a `Typ::Fn` value.
-	// ex: a variable holding an anon fn
+	// Call through a value as a function.
+	#[allow(clippy::too_many_arguments)]
 	pub(super) fn call_value(
 		&mut self,
 		name: &str,
 		callee: Value,
+		env: Option<Value>,
 		params: &[Typ],
 		ret: &Typ,
 		args: &[Spanned<Expr>],
@@ -89,7 +90,7 @@ impl<'a> Translator<'a> {
 			)
 			.with_label("wrong number of arguments"));
 		}
-		let mut vals = Vec::with_capacity(args.len());
+		let mut vals = Vec::with_capacity(args.len() + 1);
 		for (arg, want) in args.iter().zip(params) {
 			let (val, typ) = self.check_expr(arg, want)?;
 			if &typ != want {
@@ -102,6 +103,10 @@ impl<'a> Translator<'a> {
 		}
 		let mut sig = self.module.make_signature();
 		sig.params.extend(params.iter().map(|t| AbiParam::new(cl_type(t, self.int))));
+		if let Some(env) = env {
+			sig.params.push(AbiParam::new(self.int));
+			vals.push(env);
+		}
 		let is_unit = matches!(ret, Typ::Tuple(f) if f.is_empty());
 		if !is_unit {
 			sig.returns.push(AbiParam::new(cl_type(ret, self.int)));

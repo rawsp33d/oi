@@ -1,4 +1,4 @@
-use crate::ast::{EnumVariant, Expr, MatchArm, Param, Pattern, Spanned, TypeExpr};
+use crate::ast::{Capture, EnumVariant, Expr, MatchArm, Param, Pattern, Spanned, TypeExpr};
 use crate::lexer::Token;
 
 use chumsky::{
@@ -431,16 +431,27 @@ where
 			});
 
 		// anonymous functions
+		let capture = select! { Token::Ident(name) => name };
+		let capture = just(Token::Move)
+			.ignore_then(capture)
+			.map(Capture::Move)
+			.or(just(Token::Mut).ignore_then(capture).map(Capture::Mut))
+			.or(capture.map(Capture::ReadOnly));
+		let captures = capture
+			.separated_by(just(Token::Comma))
+			.allow_trailing()
+			.collect::<Vec<_>>()
+			.delimited_by(just(Token::LBracket), just(Token::RBracket));
 		let anon_fn = just(Token::Fn)
-			.ignore_then(just(Token::LBracket))
-			.ignore_then(just(Token::RBracket))
-			.ignore_then(params.clone().or_not())
+			.ignore_then(captures)
+			.then(params.clone().or_not())
 			.then(ret.clone())
 			.then(block.clone())
-			.map_with(|((params, ret), body), ex| {
+			.map_with(|(((captures, params), ret), body), ex| {
 				let (params, tuple) = params.unwrap_or((vec![], true));
 				(
 					Expr::AnonFn {
+						captures,
 						params,
 						params_tuple: tuple,
 						ret,

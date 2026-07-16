@@ -83,6 +83,8 @@ pub enum Token {
 	// identifiers
 	#[token("mut")]
 	Mut,
+	#[token("move")]
+	Move,
 	#[token("none")]
 	None,
 	#[token("or")]
@@ -201,6 +203,7 @@ impl fmt::Display for Token {
 			Token::Continue => write!(f, "continue"),
 			Token::In => write!(f, "in"),
 			Token::Mut => write!(f, "mut"),
+			Token::Move => write!(f, "move"),
 			Token::None => write!(f, "none"),
 			Token::Or => write!(f, "or"),
 			Token::Ident(name) => write!(f, "{name}"),

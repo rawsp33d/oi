@@ -45,6 +45,7 @@ pub(crate) enum Typ {
 	Error,
 	Range,
 	Fn(Vec<Typ>, Box<Typ>),
+	Closure(Vec<Typ>, Box<Typ>),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -106,7 +107,7 @@ impl fmt::Display for Typ {
 			}
 			Typ::Error => write!(f, "Error"),
 			Typ::Range => write!(f, "range"),
-			Typ::Fn(params, ret) => {
+			Typ::Fn(params, ret) | Typ::Closure(params, ret) => {
 				write!(f, "fn(")?;
 				for (i, p) in params.iter().enumerate() {
 					if i > 0 {
@@ -371,6 +372,7 @@ pub(crate) struct GenericFnDef {
 	pub ret: Option<Spanned<TypeExpr>>,
 	pub body: Vec<Spanned<Expr>>,
 	pub type_params: Vec<String>,
+	pub captures: Vec<(String, Typ)>,
 }
 
 // A monomorphized instance whose sig is declared but body not yet compiled.
@@ -482,6 +484,7 @@ impl Compiler {
 							ret: ret.clone(),
 							body: body.clone(),
 							type_params: type_params.clone(),
+							captures: vec![],
 						},
 					);
 				}
@@ -589,7 +592,7 @@ impl Compiler {
 				.map(|(te, span)| Ok::<_, Diagnostic>((types.resolve(te, *span)?, *span)))
 				.transpose()?;
 			let sym = format!("oi_{}", key.replace('.', "__"));
-			let ret = self.translate(&params, *params_tuple, ret, body, &funcs, types, self_type, false)?;
+			let ret = self.translate(&params, *params_tuple, ret, body, &funcs, types, self_type, false, &[])?;
 			let id = self.finish_fn(&sym);
 			let param_typs = params.iter().map(|(_, t, _)| t.clone()).collect();
 			funcs.insert(
@@ -628,7 +631,7 @@ impl Compiler {
 			aliases: &aliases,
 			type_params: &no_type_params,
 		};
-		let typ = self.translate(&[], true, None, entry, &funcs, types, None, true)?;
+		let typ = self.translate(&[], true, None, entry, &funcs, types, None, true, &[])?;
 		let entry_id = self.finish_fn("oi_main");
 
 		// drain generic instances queued by calls we've seen
@@ -649,7 +652,17 @@ impl Compiler {
 				.as_ref()
 				.map(|(te, span)| Ok::<_, Diagnostic>((types.resolve(te, *span)?, *span)))
 				.transpose()?;
-			self.translate(&params, def.params_tuple, ret, &def.body, &funcs, types, None, false)?;
+			self.translate(
+				&params,
+				def.params_tuple,
+				ret,
+				&def.body,
+				&funcs,
+				types,
+				None,
+				false,
+				&def.captures,
+			)?;
 			self.finish_fn(&sym);
 		}
 
@@ -722,12 +735,16 @@ impl Compiler {
 		types: TypeCtx,
 		self_type: Option<&str>,
 		is_main: bool,
+		captures: &[(String, Typ)],
 	) -> Result<Typ, Diagnostic> {
 		let int = self.module.target_config().pointer_type();
 		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
 		// declare param types before the entry block claims them
 		for (_, typ, _) in params {
 			b.func.signature.params.push(AbiParam::new(cl_type(typ, int)));
+		}
+		if !captures.is_empty() {
+			b.func.signature.params.push(AbiParam::new(int));
 		}
 		let block = b.create_block();
 		b.append_block_params_for_function_params(block);
@@ -760,7 +777,7 @@ impl Compiler {
 		};
 
 		let param_vals: Vec<Value> = trans.b.block_params(block).to_vec();
-		for ((name, typ, mutable), val) in params.iter().zip(param_vals) {
+		for ((name, typ, mutable), &val) in params.iter().zip(param_vals.iter()) {
 			let cl = trans.b.func.dfg.value_type(val);
 			let var = trans.b.declare_var(cl);
 			trans.b.def_var(var, val);
@@ -773,6 +790,24 @@ impl Compiler {
 			trans.params.push(local);
 		}
 		trans.bind_dollar(params_tuple);
+
+		if !captures.is_empty() {
+			let env = param_vals[params.len()];
+			for (i, (name, typ)) in captures.iter().enumerate() {
+				let cl = cl_type(typ, trans.int);
+				let val = trans.b.ins().load(cl, MemFlags::new(), env, ((i + 1) * 8) as i32);
+				let var = trans.b.declare_var(cl);
+				trans.b.def_var(var, val);
+				trans.vars.insert(
+					name.clone(),
+					Local {
+						var,
+						typ: typ.clone(),
+						mutable: false,
+					},
+				);
+			}
+		}
 
 		let tail_target = trans.ret.as_ref().map(|(t, _)| t.clone());
 		if let Some((val, typ)) = trans.block_tail(stmts, tail_target.as_ref())? {

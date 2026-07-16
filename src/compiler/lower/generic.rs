@@ -111,6 +111,9 @@ impl<'a> Translator<'a> {
 		let mut sig = self.module.make_signature();
 		sig.params
 			.extend(params.iter().map(|(_, t, _)| AbiParam::new(cl_type(t, self.int))));
+		if !def.captures.is_empty() {
+			sig.params.push(AbiParam::new(self.int));
+		}
 		if !matches!(ret, Typ::Tuple(ref f) if f.is_empty()) {
 			sig.returns.push(AbiParam::new(cl_type(&ret, self.int)));
 		}
