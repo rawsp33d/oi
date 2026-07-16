@@ -77,7 +77,10 @@ fn collect(expr: &Expr, out: &mut HashSet<String>) {
 	if let Ident(name) = expr {
 		out.insert(name.clone());
 	}
-	if let AnonFn { captures: Some(list), .. } = expr {
+	if let AnonFn {
+		captures: Some(list), ..
+	} = expr
+	{
 		for c in list {
 			let (Capture::ReadOnly(n) | Capture::Mut(n) | Capture::Move(n)) = c;
 			out.insert(n.clone());
@@ -126,7 +129,11 @@ fn collect(expr: &Expr, out: &mut HashSet<String>) {
 			start.iter().for_each(|s| child(s));
 			end.iter().for_each(|e| child(e));
 		}
-		Match { subject, arms, else_body } => {
+		Match {
+			subject,
+			arms,
+			else_body,
+		} => {
 			child(subject);
 			for arm in arms {
 				arm.patterns.iter().for_each(&mut child);
@@ -139,7 +146,20 @@ fn collect(expr: &Expr, out: &mut HashSet<String>) {
 			body.iter().for_each(&mut child);
 		}
 		AnonFn { body, .. } => body.iter().for_each(&mut child),
-		Add(a, b) | Sub(a, b) | Mul(a, b) | Div(a, b) | Mod(a, b) | Eq(a, b) | Ne(a, b) | Lt(a, b) | Gt(a, b) | Le(a, b) | Ge(a, b) | And(a, b) | Or(a, b) | In(a, b) => {
+		Add(a, b)
+		| Sub(a, b)
+		| Mul(a, b)
+		| Div(a, b)
+		| Mod(a, b)
+		| Eq(a, b)
+		| Ne(a, b)
+		| Lt(a, b)
+		| Gt(a, b)
+		| Le(a, b)
+		| Ge(a, b)
+		| And(a, b)
+		| Or(a, b)
+		| In(a, b) => {
 			child(a);
 			child(b);
 		}
