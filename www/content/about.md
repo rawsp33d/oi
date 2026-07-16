@@ -24,6 +24,46 @@ The language tries to get the gtfo out of your way.
 Pipelines, expressions, blocks, traits, generics.
 Rather than introducing a one-off syntax for every feature, Oi tries to make small concepts combine nicely together.
 
+```oi
+
+# type composability
+type Absurd = (Map[int, ?[]string], []?string, i69)
+
+# ranges + loops
+range := 2..4
+loop i in range {
+	print(i)
+}
+
+# leading literals + trailing functions
+test "charlotte's web" {
+	assert(charlotte.write() == "some pig")
+}
+retry 3 {
+	fetch(url)!
+}
+timeout 5 {
+	slow_call()!
+}
+
+# $ + trailing functions
+db.transaction {
+	$.insert(user)!
+	$.insert(order)!
+}
+
+# $ + pipelines
+"clojure-like threading" |> wrap("[", $, "]")
+
+# pipelines + trailing functions
+result := "spying on pipes"
+	|> {
+		log.info("stuff and things: {$}")
+		$
+	}
+assert(result == "spying on pipes")
+```
+
 ### sane defaults
 
 - immutable by default
@@ -79,7 +119,7 @@ At some point I started designing what has become Oi.
 - random new languages that pop up on [/r/programminglanguages](https://www.reddit.com/r/ProgrammingLanguages/), like [revo](https://github.com/if-not-nil/revo)
 - to a lesser extent: Nim, Zig, Clojure, Janet, Lua, Odin, Julia, Elixir, Haskell, GDScript
 
-## non-goals
+## goals & non-goals
 
 Oi isn't trying to be:
 - the smallest

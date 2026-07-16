@@ -107,3 +107,23 @@ test "division" {
 	assert(div(8, 2) == 4, "should be the same")
 }
 ```
+
+## comfy tooling
+
+CLI commands you're used to.
+
+```bash
+oi
+oi repl
+oi run .
+oi exec "2 + 5"
+
+# not yet implemented:
+oi fmt
+oi init
+oi test
+oi doc
+oi build
+oi watch
+oi lsp
+```
