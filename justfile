@@ -1,5 +1,6 @@
+# various useful checks
 [parallel]
-main: fmt test lint
+check: fmt test lint
 
 # build
 [group("cargo")]
@@ -40,15 +41,16 @@ fix:
 
 # compile and run an Oi script
 [group("oi")]
-exec:
-	cargo run -- exec
+exec *args:
+	cargo run --quiet -- exec "{{args}}"
 
 # compile and run an Oi file
 [group("oi")]
-run:
-	cargo run -- run
+run *args:
+	# TODO: borked
+	cargo run --quiet -- run "{{args}}"
 
 # start an interactive Oi REPL
 [group("oi")]
 repl:
-	cargo run -- repl
+	cargo run --quiet -- repl
