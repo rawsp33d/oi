@@ -12,7 +12,7 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
-	/// Compile and run an Oi program.
+	/// Compile and run an Oi file.
 	Run {
 		/// Path to the .oi source file.
 		#[arg(default_value = "main.oi")]
