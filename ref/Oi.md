@@ -77,6 +77,8 @@ tags: []
 	- `oi repl`
 	- `oi lsp`
 # TODO
+- immediate
+	- [ ] backport these obsidian notes into the Oi repo
 - [ ] pipeline examples with `!` postfix collide with macros
 - [ ] revisit needing `print`, `assert`, et al to be macros
 	- V allows this without macros: `error('User ${id} not found')`
