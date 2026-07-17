@@ -42,13 +42,54 @@ fn multiple_keys() {
 #[test]
 fn int_keys() {
 	check(
-		indoc! {"
+		indoc! {r#"
 			mut m Map[int, string]
-			m[1] = \"a\"
-			m[2] = \"b\"
+			m[1] = "a"
+			m[2] = "b"
 			m[1]
-		"},
+		"#},
 		"a",
+	);
+}
+
+#[test]
+fn float_keys() {
+	check(
+		indoc! {"
+			mut m Map[float, int]
+			m[1.2] = 6
+			m[2.1] = 9
+			m[2.1]
+		"},
+		"9",
+	);
+}
+
+#[test]
+fn bool_keys() {
+	check(
+		indoc! {"
+			mut m Map[bool, int]
+			m[true] = 6
+			m[false] = 9
+			m[false]
+		"},
+		"9",
+	);
+}
+
+#[test]
+fn tuple_keys_fail_for_now() {
+	// TODO: actually implement complex keys and fix test
+	assert!(
+		fail(indoc! {"
+			type Point = (int, int)
+			mut m Map[Point, int]
+			m[(1, 2)] = 6
+			m[(2, 1)] = 9
+			m[(2, 1)]
+		"})
+		.contains("tuple cannot be used as a map key")
 	);
 }
 
@@ -56,9 +97,9 @@ fn int_keys() {
 fn missing_key_panics() {
 	assert!(
 		fail(indoc! {r#"
-		mut m Map[string, int]
-		m["missing"]
-	"#})
+			mut m Map[string, int]
+			m["missing"]
+		"#})
 		.contains("key not found")
 	);
 }
@@ -67,9 +108,9 @@ fn missing_key_panics() {
 fn wrong_key_type() {
 	assert!(
 		fail(indoc! {r#"
-		mut m Map[string, int]
-		m[1]
-	"#})
+			mut m Map[string, int]
+			m[1]
+		"#})
 		.contains("expected str key")
 	);
 }
@@ -78,9 +119,9 @@ fn wrong_key_type() {
 fn wrong_value_type() {
 	assert!(
 		fail(indoc! {r#"
-		mut m Map[string, int]
-		m["a"] = "b"
-	"#})
+			mut m Map[string, int]
+			m["a"] = "b"
+		"#})
 		.contains("type mismatch")
 	);
 }
