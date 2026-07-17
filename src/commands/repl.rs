@@ -10,6 +10,9 @@ pub fn run() -> Result<(), Reported> {
 		DefaultPromptSegment::Empty,
 	);
 
+	// TODO: add version and whatever else REPLs usually have in the greeting
+	eprintln!("Oi! Type :help for help.");
+
 	loop {
 		match rl.read_line(&prompt) {
 			Ok(Signal::Success(line)) => {
