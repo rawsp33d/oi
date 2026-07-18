@@ -31,7 +31,7 @@ doc:
 # generate and serve static website
 [group("docs")]
 serve:
-	zola --root www serve --base-url localhost
+	zola --root www serve --interface 0.0.0.0
 
 # fix fixable things
 [group("cargo")]
