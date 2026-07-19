@@ -26,6 +26,10 @@ keywords = "oi, language, programming-language, compiler"
 
 search_path = "$BASE_URL/search/"
 
+inline_icons = true
+icon_path = "themes/zap/static/icons/"
+icons = [ "home", "chat", "search", "light", "asleep", "rss" ]
+
 menu_links = [
 	{ name = "/", url = "$BASE_URL/" },
 	{ name = "/features", url = "$BASE_URL/features" },
