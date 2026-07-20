@@ -1,4 +1,5 @@
 # [[Oi|../]]
+> NOTE: I wrote this file in Obsidian. It craps out and looks like poo in Neovim because of comments with markdown.
 
 ```rust
 ## comments
@@ -90,7 +91,6 @@ fn two_tuple(x int, y int) {
 ## - 
 ## Nim's `result` is great, but I don't like that it's magic.
 ## So I opted to make you opt-in by naming it explicitly.
-## It's less ergonomic this way and I might just go back to implicitly initialized `result` or `$out` var like I had originally.
 
 # building on what Go does, a bare `return` updates the bound values
 fn two() result int {
