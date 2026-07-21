@@ -329,28 +329,23 @@ impl<'a> Translator<'a> {
 	// Unwraps `?T`/`!T`.
 	// Returns `none`/error from the enclosing fn on the sad path.
 	// Panics when called in `main`.
-	pub(super) fn propagate(
-		&mut self,
-		value: &Spanned<Expr>,
-		is_result: bool,
-		span: Span,
-	) -> Result<(Value, Typ), Diagnostic> {
-		let (op, shape) = if is_result { ("!", "!T") } else { ("?", "?T") };
+	pub(super) fn propagate(&mut self, value: &Spanned<Expr>, span: Span) -> Result<(Value, Typ), Diagnostic> {
 		let (val, typ) = self.expr(value)?;
-		let inner = match &typ {
-			Typ::Option(inner) if !is_result => (**inner).clone(),
-			Typ::Result(inner) if is_result => (**inner).clone(),
+		let (is_result, inner) = match &typ {
+			Typ::Option(inner) => (false, (**inner).clone()),
+			Typ::Result(inner) => (true, (**inner).clone()),
 			_ => {
-				let msg = format!("`{op}` needs a `{shape}` value, got {typ}");
-				return Err(Diagnostic::new(msg, value.1.into_range()).with_label(format!("not a `{shape}` value")));
+				let msg = format!("`?` needs a `?T` or `!T` value, got {typ}");
+				return Err(Diagnostic::new(msg, value.1.into_range()).with_label("not a `?T` or `!T` value"));
 			}
 		};
+		let shape = if is_result { "!T" } else { "?T" };
 		let panic_in_main = self.ret.is_none() && self.is_main;
 		let target = match &self.ret {
 			Some((Typ::Option(t), _)) if !is_result => (**t).clone(),
 			Some((Typ::Result(t), _)) if is_result => (**t).clone(),
 			Some((other, _)) => {
-				let msg = format!("`{op}` needs an enclosing fn returning `{shape}`, found {other}");
+				let msg = format!("`?` needs an enclosing fn returning `{shape}`, found {other}");
 				return Err(Diagnostic::new(msg, span.into_range()).with_label(format!("not a `{shape}` fn")));
 			}
 			None => inner.clone(),

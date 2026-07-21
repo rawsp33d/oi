@@ -40,7 +40,7 @@ fn bang_unwraps_ok() {
 			return error("missing")
 		}
 		fn double(path string) !int {
-			v := load(path)!
+			v := load(path)?
 			v * 2
 		}
 		double("ok") or { -1 }
@@ -56,7 +56,7 @@ fn bang_propagates_error() {
 			return error("missing")
 		}
 		fn double(path string) !int {
-			v := load(path)!
+			v := load(path)?
 			v * 2
 		}
 		double("nope") or {
@@ -86,7 +86,7 @@ fn question_infers_enclosing_return_type() {
 #[test]
 fn requires_option_or_result() {
 	let err = fail("fn f() int { 42? }\nf()");
-	assert!(err.contains("`?` needs a `?T` value"), "got: {err}");
+	assert!(err.contains("`?` needs a `?T` or `!T` value"), "got: {err}");
 }
 
 #[test]
@@ -109,7 +109,7 @@ fn result_panics_in_main() {
 			if path == "ok" { return 42 }
 			return error("missing")
 		}
-		load("nope")!
+		load("nope")?
 	"#};
 	let err = fail(src);
 	assert!(err.contains("panic: missing"), "got: {err}");
@@ -129,4 +129,20 @@ fn requires_matching_enclosing_return() {
 	"};
 	let err = fail(src);
 	assert!(err.contains("needs an enclosing fn returning `?T`"), "got: {err}");
+}
+
+#[test]
+fn requires_matching_enclosing_return_result() {
+	let src = indoc! {r#"
+		fn load(path string) !int {
+			if path == "ok" { return 42 }
+			return error("missing")
+		}
+		fn display(path string) ?int {
+			load(path)?
+		}
+		display("ok")
+	"#};
+	let err = fail(src);
+	assert!(err.contains("needs an enclosing fn returning `!T`"), "got: {err}");
 }

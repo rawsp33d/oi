@@ -100,7 +100,7 @@ fn collect(expr: &Expr, out: &mut HashSet<String>) {
 			child(recv);
 			args.iter().for_each(&mut child);
 		}
-		Return(Some(v)) | Negative(v) | Not(v) | PropagateNone(v) | PropagateErr(v) => child(v),
+		Return(Some(v)) | Negative(v) | Not(v) | Propagate(v) => child(v),
 		If { cond, then, els } => {
 			child(cond);
 			then.iter().for_each(&mut child);

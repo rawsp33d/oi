@@ -29,8 +29,7 @@ fn pipe_step((e, span): Spanned<Expr>) -> Spanned<Expr> {
 			},
 			span,
 		),
-		Expr::PropagateNone(inner) => (Expr::PropagateNone(Box::new(pipe_step(*inner))), span),
-		Expr::PropagateErr(inner) => (Expr::PropagateErr(Box::new(pipe_step(*inner))), span),
+		Expr::Propagate(inner) => (Expr::Propagate(Box::new(pipe_step(*inner))), span),
 		e => (e, span),
 	}
 }
@@ -593,12 +592,9 @@ where
 				};
 				(e, ex.span())
 			}),
-			// propagators
+			// propagator
 			postfix(9, just(Token::Question), |lhs, _, ex| {
-				(Expr::PropagateNone(Box::new(lhs)), ex.span())
-			}),
-			postfix(9, just(Token::Not), |lhs, _, ex| {
-				(Expr::PropagateErr(Box::new(lhs)), ex.span())
+				(Expr::Propagate(Box::new(lhs)), ex.span())
 			}),
 			// unary
 			prefix(8, just(Token::Minus), |_, rhs, ex| {

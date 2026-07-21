@@ -161,10 +161,8 @@ pub enum Expr {
 		body: Vec<Spanned<Expr>>,
 	},
 
-	// `value?`
-	PropagateNone(Box<Spanned<Expr>>),
-	// `value!`
-	PropagateErr(Box<Spanned<Expr>>),
+	// `value?`, unwraps `?T`/`!T`
+	Propagate(Box<Spanned<Expr>>),
 
 	// structs
 	// `struct Name {}`

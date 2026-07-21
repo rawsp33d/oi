@@ -78,7 +78,7 @@ fn bang_step_unwraps_ok() {
 			return error("missing")
 		}
 		fn double(path string) !int {
-			v := path |> load!
+			v := path |> load?
 			v * 2
 		}
 		double("ok") or { -1 }
@@ -94,7 +94,7 @@ fn bang_step_propagates_error() {
 			return error("missing")
 		}
 		fn double(path string) !int {
-			v := path |> load!
+			v := path |> load?
 			v * 2
 		}
 		double("nope") or {
