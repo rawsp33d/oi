@@ -127,9 +127,9 @@ fn add(x int, y int) int { x + y }
 @pure
 fn clamp(value f64, low f64, high f64) f64 {
 	match true {
-		value < low { low }
-		value > high { high }
-		else { value }
+		value < low => low
+		value > high => high
+		else => value
 	}
 }
 
@@ -200,6 +200,14 @@ normal := Point{
 }
 short := Point{3, 2}
 
+# the type name can be dropped when it's known from context (typed decl, call arg, return, field value)
+p Point := { x: 2, y: 1 }
+
+# `{x, y}` is sugar for `{x: x, y: y}` (punning)
+x := 2
+y := 1
+q := Point{x, y}
+
 # struct update
 
 struct User {
@@ -234,9 +242,11 @@ impl User {
 }
 user := User{}
 user.with_options(bar: true, foo: 4)
+# same record literal as `Options{ bar: true, foo: 4 }`, just braceless, coerced against the last param's struct type
 
 # annotating with `@params` lets a trailing struct be omitted
 # otherwise you need to specify at least one field or the compiler will error
+# (@params means the empty record `{}` is allowed too)
 @params
 struct Settings {
 	idk int
@@ -708,7 +718,9 @@ fn main() {
 	three.2 = "moe"
 	
 	# maps
-	
+
+	# ident keys are string sugar
+	# with no expected type this infers Map[string, int]
 	num_map := {
 		one: 1
 		two: 2
@@ -717,6 +729,13 @@ fn main() {
 	mut typed_map Map[string, int]
 	typed_map["three"] = 4
 	typed_map.delete["three"]
+
+	# literals as keys
+	by_id := { 1: "one", 2: "two" }
+	by_status := { :ok: 200, :not_found: 404 }
+
+	# `{}` resolves against the expected type
+	empty Map[string, int] := {}
 	
 	# array slices are array subsets of another array
 	# proper array
@@ -923,12 +942,14 @@ fn main() {
 	
 	## matching
 	
+	# arms are `pattern => expr` or `pattern => { block }`
+	
 	# else for catch-all
 	os := "linux"
 	match os {
-		"darwin" { print("I used to hate macOS but now I realize it's at least better than Windows.") }
-		"linux" { print("I use Artix Linux btw") }
-		else { print(os) }
+		"darwin" => print("I used to hate macOS but now I realize it's at least better than Windows.")
+		"linux" => print("I use Artix Linux btw")
+		else => print(os)
 	}
 
 	# can be used as an if-else chain
@@ -937,8 +958,8 @@ fn main() {
 	# comma can be used to test multiple values
 	fn is_red_or_blue(c Color) bool {
 		return match c {
-			.red, .blue { true }
-			.green { false }
+			.red, .blue => true
+			.green => false
 		}
 	}
 
@@ -1000,10 +1021,10 @@ fn main() {
 	# match
 	(i, foo, bar, u, me) := (0, true, true, 2, [0 2 4])
 	n := match true {
-		i < 3 { "love ya" }
-		foo == bar { "soul mates" }
-		u in me { "🥵" }
-		else { "no dice" }
+		i < 3 => "love ya"
+		foo == bar => "soul mates"
+		u in me => "🥵"
+		else => "no dice"
 	}
 
 	## `Option` and `Result` types
@@ -1256,7 +1277,13 @@ fn main() {
 	
 	# blocks are eager and run in place
 	# they can fully read and mutate the enclosing scope
-	
+	{ x }
+	# if you want a map with shorthand keys, add a trailing comma
+	{ x, }  # `{ x: x }`
+
+	# in conditionals a top-level `{` always opens the body, so a record or `Name{}` literal there needs parens
+	if p == (Point{}) { ... }
+
 	## anonymous functions
 	
 	#{
