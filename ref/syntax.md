@@ -1543,46 +1543,68 @@ fn main() {
 		if a > b { a } else { b }
 	}
 	fn max(comp T type, a T, b T) T where T: Ord { ... }
+
+	## annotations
 	
-	# macros
+	# an annotation is a struct value attached with @
+	# they don't do anything on their own but may be read back through reflection
+	# @pure/@params/@required are builtin annotations, defined in the prelude and consumed by the compiler
+
+	struct awesome {}
+	@awesome
+	fn kickflip() {}
+	
+	struct deprecated { reason string }
+	@deprecated("use speak()")
+	fn yell() string { ... }
+	# TODO: the comp and reflection stuff not fleshed out yet
+	comp for note in typeinfo(yell).annotations { ... }
+	
+	## macros
+	
+	# a macro is a comptime fn over ASTs, defined with `fn name!`
 	# macro calls end in a !
 	
-	# macro functions run at comptime and operate on ASTs
-	macro derive_debug!(input Ast) Ast {
-		# input is the parsed struct
-		# build and return an `impl Debug for ...` block
-		let fields = input.struct_fields()
+	# TODO: quote/$ below are a placeholder, I don't have this part fleshed out yet
+	fn derive!(input Ast, traits Ast) Ast {
+		# input is the parsed struct, traits is the list passed to @derive!()
+		name := input.type_name()
+		fields := input.struct_fields()
 		quote {
-			impl Debug for $(input.name) {
-				fn debug(self) string {
-					# ... build using $fields
+			$(traits.map(fn (t) {
+				match t.name() {
+					"Eq" => quote {
+						impl Eq for $name {
+							fn eq(self, other Self) bool {
+								$(fields.map(fn (f) { quote { self.$f == other.$f } }).join(" && "))
+							}
+						}
+					}
+					"Debug" => quote {
+						impl Debug for $name {
+							fn debug(self) string {
+								# ... build using $fields
+							}
+						}
+					}
 				}
-			}
-		}
-	}
-	macro derive_eq!(input Ast) Ast {
-		let name = input.type_name()
-		let fields = input.struct_fields()
-		quote {
-			impl Eq for $name {
-				fn eq(self, other Self) bool {
-					$(fields.map(fn (f) { quote { self.$f == other.$f } }).join(" && "))
-				}
-			}
+			}))
 		}
 	}
 	
-	# can be used for decorators
-	
-	# equivalent to `@derive(Equal)` with a common default handler
-	@derive_eq!
+	# `@name!` runs a macro on the following expression
+	@derive!(Eq, Debug)
 	struct Point { x int, y int }
-	# equivalent to `@derive(Debug)` with a common defuault handler
-	@derive_debug!
-	struct User { name string, age int }
+
+	# inline calls
+	dbg!(count_letters("hi, mom!"))
 	
-	# and for inline calls
-	vec!(1, 2, 3)
+	# paren-less statement form. the argument runs to end of statement, parenthesize to compose
+	assert! foo.bar() == 5
+
+	# ! suspends normal parsing, so a body can hold non-Oi tokens
+	# TODO: do macro args arrive as parsed Ast or raw tokens by default?
+	sql! { SELECT * FROM users WHERE id = {id} }
 
 	# reflection in `comp`
 	fn debug_print[T](value T) {
@@ -1599,21 +1621,23 @@ fn main() {
 	}
 }
 
-## built-in top-level things (idk what to call them)
+## prelude
 
-# assert! takes an expression
-assert! foo.bar() == 5
-
-## stdlib
-
-# this is stdlib print
 fn print[T: Display](value T)
 
-# I'm honestly not yet sure which of these should be macros vs functions
+# these are plain fns, interpolation happens in the lexer
 print(value) # stdout, with newline
 write(value) # stdout, no newline
 eprint(value) # stderr, with newline
 ewrite(value) # stderr, no newline
-macro dbg!(expr) # debug-print, value passthru
-macro assert!(expr)
+
+# these need source text or the AST, so they are macros
+fn dbg!(expr)
+fn assert!(expr, msg string?)
+fn panic!(msg string?)
+fn todo!()
+fn unimplemented!()
+fn unreachable!(msg string?)
+
+## stdlib
 ```
