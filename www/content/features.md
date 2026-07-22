@@ -112,7 +112,7 @@ fn divmod(a int, b int) out (int, int) {
 
 ## first-class testing
 
-Tests are a part of the language, not an afterthought.
+Tests are built into the language.
 
 ```oi
 test "division" {

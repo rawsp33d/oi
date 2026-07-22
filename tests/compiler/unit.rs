@@ -16,13 +16,11 @@ fn unit_inequality() {
 	check("() != ()", "false");
 }
 
-// Binding unit and then naming it yields unit and prints nothing
 #[test]
 fn unit_in_binding() {
 	check("x := ()\nx", "");
 }
 
-// Empty fn returns unit; calling it at top level produces no output
 #[test]
 fn empty_fn_returns_unit() {
 	let src = indoc! {"
@@ -32,7 +30,6 @@ fn empty_fn_returns_unit() {
 	check(src, "");
 }
 
-// Body ending in `()` also returns unit
 #[test]
 fn fn_explicit_unit_return() {
 	let src = indoc! {"
@@ -75,7 +72,6 @@ fn fn_explicit_unit_ret_annotation() {
 	check(src, "");
 }
 
-// All these unit-returning forms are equal to each other and to the literal `()`
 #[test]
 fn unit_fns_compare_equal() {
 	let src = indoc! {"
@@ -103,7 +99,6 @@ fn empty_main_prints_nothing() {
 	check(src, "");
 }
 
-// Unit is a printable value when passed to `print`
 #[test]
 fn print_unit() {
 	let src = indoc! {"
@@ -113,7 +108,6 @@ fn print_unit() {
 	check(src, "()\n42");
 }
 
-// Unit in a tuple renders as `()`
 #[test]
 fn unit_in_tuple() {
 	check("((), ())", "((), ())");
