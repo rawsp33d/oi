@@ -127,6 +127,12 @@ where
 		let option_long = just(Token::Ident("Option".to_string()))
 			.ignore_then(bracket(te.clone()))
 			.map(|t| TypeExpr::Option(Box::new(t)));
+		// generic struct instantiation
+		let generic_instance = ident()
+			.then(bracket(
+				te.clone().separated_by(just(Token::Comma)).at_least(1).collect::<Vec<_>>(),
+			))
+			.map(|(name, args)| TypeExpr::Generic(name, args));
 
 		unit.or(fn_type)
 			.or(option)
@@ -135,6 +141,7 @@ where
 			.or(map_type)
 			.or(result_long)
 			.or(option_long)
+			.or(generic_instance)
 			.or(name)
 			.or(tuple)
 			.or(array)
@@ -678,7 +685,7 @@ where
 	// fn defs
 	let func = just(Token::Fn)
 		.ignore_then(ident())
-		.then(type_params)
+		.then(type_params.clone())
 		.then(params)
 		.then(ret)
 		.then(block.clone())
@@ -709,8 +716,18 @@ where
 		});
 	let struct_def = just(Token::Struct)
 		.ignore_then(ident())
+		.then(type_params)
 		.then(brace(loose_list(struct_field)))
-		.map_with(|(name, fields), ex| (Expr::StructDef { name, fields }, ex.span()));
+		.map_with(|((name, type_params), fields), ex| {
+			(
+				Expr::StructDef {
+					name,
+					type_params,
+					fields,
+				},
+				ex.span(),
+			)
+		});
 
 	// enum defs
 	let disc = just(Token::Assign)

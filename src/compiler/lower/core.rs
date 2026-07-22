@@ -3,7 +3,13 @@ use super::*;
 impl<'a> Translator<'a> {
 	// The named types in scope, bundled for resolving type annotations.
 	pub(super) fn types(&self) -> TypeCtx<'a> {
-		TypeCtx::new(self.structs, self.enums, self.aliases, self.type_params)
+		TypeCtx::new(
+			self.structs,
+			self.enums,
+			self.aliases,
+			self.type_params,
+			self.generic_structs,
+		)
 	}
 
 	// Look up the binding that a mutation targets.

@@ -223,6 +223,9 @@ pub(crate) struct TypeCtx<'a> {
 	pub enums: &'a HashMap<String, Vec<VariantInfo>>,
 	pub aliases: &'a HashMap<String, TypeExpr>,
 	pub type_params: &'a HashMap<String, Typ>,
+	pub generic_structs: &'a HashMap<String, GenericStructDef>,
+	// keep track of generic instantiations to catch recursion
+	depth: usize,
 }
 
 impl<'a> TypeCtx<'a> {
@@ -231,12 +234,15 @@ impl<'a> TypeCtx<'a> {
 		enums: &'a HashMap<String, Vec<VariantInfo>>,
 		aliases: &'a HashMap<String, TypeExpr>,
 		type_params: &'a HashMap<String, Typ>,
+		generic_structs: &'a HashMap<String, GenericStructDef>,
 	) -> Self {
 		TypeCtx {
 			structs,
 			enums,
 			aliases,
 			type_params,
+			generic_structs,
+			depth: 0,
 		}
 	}
 }
@@ -260,6 +266,9 @@ fn int_width(
 	}
 	Some(Ok(ctor(w)))
 }
+
+// nested generic instantiations allowed before calling it recursive
+const MAX_GENERIC_DEPTH: usize = 64;
 
 impl TypeCtx<'_> {
 	// Resolve a type expression to a concrete `Typ`.
@@ -305,7 +314,70 @@ impl TypeCtx<'_> {
 				Box::new(self.resolve(k, span)?),
 				Box::new(self.resolve(v, span)?),
 			)),
+			TypeExpr::Generic(name, args) => {
+				let def = self.generic_def(name, span)?;
+				if args.len() != def.type_params.len() {
+					return Err(Diagnostic::new(
+						format!(
+							"`{name}` expects {} type argument(s), got {}",
+							def.type_params.len(),
+							args.len()
+						),
+						span.into_range(),
+					)
+					.with_label("wrong number of type arguments"));
+				}
+				let mut subst = HashMap::new();
+				for (param, arg) in def.type_params.iter().zip(args) {
+					subst.insert(param.name.clone(), self.resolve(arg, span)?);
+				}
+				self.instantiate(name, def, &subst, span)
+			}
 		}
+	}
+
+	fn generic_def(&self, name: &str, span: Span) -> Result<&GenericStructDef, Diagnostic> {
+		self.generic_structs.get(name).ok_or_else(|| {
+			let msg = match self.structs.contains_key(name) {
+				true => format!("`{name}` is not generic"),
+				false => format!("unknown type `{name}`"),
+			};
+			Diagnostic::new(msg, span.into_range()).with_label("no type arguments expected here")
+		})
+	}
+
+	// Substitute `subst` into a generic struct's fields, yielding an ordinary `Typ::Struct`.
+	pub fn instantiate(
+		&self,
+		name: &str,
+		def: &GenericStructDef,
+		subst: &HashMap<String, Typ>,
+		span: Span,
+	) -> Result<Typ, Diagnostic> {
+		if self.depth > MAX_GENERIC_DEPTH {
+			return Err(
+				Diagnostic::new(format!("`{name}` recurses without end"), span.into_range())
+					.with_label("would require infinitely nested fields"),
+			);
+		}
+		let inner = TypeCtx {
+			type_params: subst,
+			depth: self.depth + 1,
+			..*self
+		};
+		let fields = def
+			.fields
+			.iter()
+			.map(|f| {
+				Ok(FieldDef {
+					name: f.name.clone(),
+					typ: inner.resolve(&f.typ, f.span)?,
+					default: f.default.clone(),
+				})
+			})
+			.collect::<Result<Vec<_>, _>>()?;
+		let args: Vec<_> = def.type_params.iter().map(|p| subst[&p.name].to_string()).collect();
+		Ok(Typ::Struct(format!("{name}[{}]", args.join(", ")), fields))
 	}
 
 	// Resolve a named type.
@@ -353,6 +425,13 @@ impl TypeCtx<'_> {
 		if self.enums.contains_key(name) {
 			return Ok(Typ::Enum(name.to_string()));
 		}
+		if self.generic_structs.contains_key(name) {
+			return Err(Diagnostic::new(
+				format!("generic struct `{name}` needs type arguments"),
+				span.into_range(),
+			)
+			.with_label(format!("try `{name}[...]`")));
+		}
 		Err(Diagnostic::new(format!("unknown type `{name}`"), span.into_range()).with_label("not a known type"))
 	}
 
@@ -399,6 +478,13 @@ pub(crate) struct GenericFnDef {
 
 // A monomorphized instance whose sig is declared but body not yet compiled.
 pub(crate) type Pending = (String, GenericFnDef, HashMap<String, Typ>);
+
+// A generic struct definition.
+#[derive(Clone)]
+pub(crate) struct GenericStructDef {
+	pub type_params: Vec<TypeParam>,
+	pub fields: Vec<Param>,
+}
 
 #[derive(Clone)]
 pub(crate) struct Local {
@@ -480,6 +566,7 @@ impl Default for Compiler {
 impl Compiler {
 	pub fn compile(&mut self, program: &[Spanned<Expr>]) -> Result<*const u8, Diagnostic> {
 		let mut struct_items: Vec<(&str, &[Param])> = vec![];
+		let mut generic_structs: HashMap<String, GenericStructDef> = HashMap::new();
 		let mut enum_items: Vec<EnumItem> = vec![];
 		let mut alias_items: Vec<(&str, &TypeExpr)> = vec![];
 		let mut main_body: Option<&[Spanned<Expr>]> = None;
@@ -487,7 +574,20 @@ impl Compiler {
 		let mut loose_refs: Vec<&Spanned<Expr>> = vec![];
 		for item in program {
 			match &item.0 {
-				Expr::StructDef { name, fields } => struct_items.push((name.as_str(), fields.as_slice())),
+				Expr::StructDef {
+					name,
+					type_params,
+					fields,
+				} if !type_params.is_empty() => {
+					generic_structs.insert(
+						name.clone(),
+						GenericStructDef {
+							type_params: type_params.clone(),
+							fields: fields.clone(),
+						},
+					);
+				}
+				Expr::StructDef { name, fields, .. } => struct_items.push((name.as_str(), fields.as_slice())),
 				Expr::EnumDef { name, variants } => enum_items.push((name.as_str(), variants.as_slice())),
 				Expr::TypeAlias { name, typ } => alias_items.push((name.as_str(), typ)),
 				Expr::Impl { typ, methods } => {
@@ -561,7 +661,7 @@ impl Compiler {
 		// TODO: struct fields can't reference other structs yet, so resolve against none
 		let no_structs: HashMap<String, Vec<FieldDef>> = HashMap::new();
 		let no_type_params: HashMap<String, Typ> = HashMap::new();
-		let field_types = TypeCtx::new(&no_structs, &enum_names, &aliases, &no_type_params);
+		let field_types = TypeCtx::new(&no_structs, &enum_names, &aliases, &no_type_params, &generic_structs);
 		let structs: HashMap<String, Vec<FieldDef>> = struct_items
 			.iter()
 			.map(|(name, fields)| {
@@ -579,7 +679,7 @@ impl Compiler {
 			})
 			.collect::<Result<_, Diagnostic>>()?;
 
-		let variant_types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params);
+		let variant_types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generic_structs);
 		let enums: HashMap<String, Vec<VariantInfo>> = enum_items
 			.iter()
 			.map(|(name, variants)| Ok((name.to_string(), build_variants(variants, variant_types)?)))
@@ -594,7 +694,7 @@ impl Compiler {
 			if let Some(t) = item.key.rsplit_once('.').map(|(t, _)| t) {
 				aliases.insert("Self".into(), TypeExpr::Name(t.into()));
 			}
-			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params);
+			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generic_structs);
 			let param_typs: Vec<Typ> = item
 				.params
 				.iter()
@@ -627,7 +727,7 @@ impl Compiler {
 			if let Some(t) = self_type {
 				aliases.insert("Self".into(), TypeExpr::Name(t.into()));
 			}
-			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params);
+			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generic_structs);
 			let (params, ret) = types.resolve_params_ret(item.params, item.ret)?;
 			let sym = format!("oi_{}", item.key.replace('.', "__"));
 			let ret = self.translate(
@@ -673,13 +773,13 @@ impl Compiler {
 			}
 		};
 
-		let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params);
+		let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generic_structs);
 		let typ = self.translate(&[], true, None, entry, &funcs, types, None, true, &[])?;
 		let entry_id = self.finish_fn("oi_main");
 
 		// drain generic instances queued by calls we've seen
 		while let Some((sym, def, subst)) = self.pending.pop() {
-			let types = TypeCtx::new(&structs, &enums, &aliases, &subst);
+			let types = TypeCtx::new(&structs, &enums, &aliases, &subst, &generic_structs);
 			let (params, ret) = types.resolve_params_ret(&def.params, &def.ret)?;
 			self.translate(
 				&params,
@@ -720,6 +820,7 @@ impl Compiler {
 			enums: types.enums,
 			aliases: types.aliases,
 			type_params: types.type_params,
+			generic_structs: types.generic_structs,
 			generics: &self.generics,
 			mono: &mut self.mono,
 			pending: &mut self.pending,
@@ -794,6 +895,7 @@ impl Compiler {
 			enums: types.enums,
 			aliases: types.aliases,
 			type_params: types.type_params,
+			generic_structs: types.generic_structs,
 			generics: &self.generics,
 			mono: &mut self.mono,
 			pending: &mut self.pending,

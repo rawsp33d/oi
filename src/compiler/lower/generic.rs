@@ -2,7 +2,7 @@ use super::*;
 use crate::ast::TypeParam;
 
 // Extend `subst` by matching a declared type against a concrete arg type.
-fn unify(
+pub(super) fn unify(
 	declared: &TypeExpr,
 	concrete: &Typ,
 	params: &[TypeParam],
@@ -112,7 +112,7 @@ impl<'a> Translator<'a> {
 			.with_label("called here"));
 		};
 
-		let types = TypeCtx::new(self.structs, self.enums, self.aliases, &subst);
+		let types = TypeCtx::new(self.structs, self.enums, self.aliases, &subst, self.generic_structs);
 		let params = types.resolve_params(&def.params)?;
 		let ret = types.resolve(ret_te, *ret_span)?;
 

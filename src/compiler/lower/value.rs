@@ -1,3 +1,4 @@
+use super::generic::unify;
 use super::*;
 
 impl<'a> Translator<'a> {
@@ -353,31 +354,17 @@ impl<'a> Translator<'a> {
 			let typ = Typ::Enum(name.clone());
 			return Ok((self.zero(&typ), typ));
 		}
-		let struct_fields = self.structs.get(name.as_str()).cloned().ok_or_else(|| {
-			Diagnostic::new(format!("unknown struct `{name}`"), span.into_range()).with_label("not defined")
-		})?;
-		let size = (struct_fields.len() * 8) as u32;
-		let slot = self
-			.b
-			.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, size, 0));
-		let ptr = self.b.ins().stack_addr(self.int, slot, 0);
-
-		for (i, f) in struct_fields.iter().enumerate() {
-			let init = if let Some(default_expr) = &f.default {
-				let (val, vtyp) = self.expr(default_expr)?;
-				if vtyp != f.typ {
-					return Err(Diagnostic::new(
-						format!("default value type mismatch: expected {}, got {vtyp}", f.typ),
-						default_expr.1.into_range(),
-					)
-					.with_label("type mismatch"));
+		let struct_fields = match self.structs.get(name.as_str()) {
+			Some(fields) => fields.clone(),
+			None => match self.generic_structs.get(name.as_str()).cloned() {
+				Some(def) => return self.generic_struct_lit(&name, def, fields, span),
+				None => {
+					return Err(Diagnostic::new(format!("unknown struct `{name}`"), span.into_range())
+						.with_label("not defined"));
 				}
-				val
-			} else {
-				self.zero(&f.typ)
-			};
-			self.b.ins().store(MemFlags::new(), init, ptr, (i * 8) as i32);
-		}
+			},
+		};
+		let ptr = self.struct_slot(&struct_fields)?;
 
 		if !fields.is_empty() {
 			let positional = fields[0].0.is_none();
@@ -427,6 +414,98 @@ impl<'a> Translator<'a> {
 			}
 		}
 		Ok((ptr, Typ::Struct(name.clone(), struct_fields)))
+	}
+
+	// Allocate a struct on the stack, initializing each field to its default.
+	fn struct_slot(&mut self, struct_fields: &[FieldDef]) -> Result<Value, Diagnostic> {
+		let size = (struct_fields.len() * 8) as u32;
+		let slot = self
+			.b
+			.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, size, 0));
+		let ptr = self.b.ins().stack_addr(self.int, slot, 0);
+		for (i, f) in struct_fields.iter().enumerate() {
+			let init = if let Some(default_expr) = &f.default {
+				let (val, vtyp) = self.expr(default_expr)?;
+				if vtyp != f.typ {
+					return Err(Diagnostic::new(
+						format!("default value type mismatch: expected {}, got {vtyp}", f.typ),
+						default_expr.1.into_range(),
+					)
+					.with_label("type mismatch"));
+				}
+				val
+			} else {
+				self.zero(&f.typ)
+			};
+			self.b.ins().store(MemFlags::new(), init, ptr, (i * 8) as i32);
+		}
+		Ok(ptr)
+	}
+
+	// Struct literal for a generic struct.
+	fn generic_struct_lit(
+		&mut self,
+		name: &str,
+		def: GenericStructDef,
+		fields: &[(Option<String>, Spanned<Expr>)],
+		span: Span,
+	) -> Result<(Value, Typ), Diagnostic> {
+		let positional = fields.first().is_some_and(|(n, _)| n.is_none());
+		if positional && fields.len() != def.fields.len() {
+			return Err(Diagnostic::new(
+				format!(
+					"`{name}` has {} fields but {} values were provided",
+					def.fields.len(),
+					fields.len()
+				),
+				span.into_range(),
+			)
+			.with_label("wrong number of fields"));
+		}
+		let mut subst = HashMap::new();
+		let mut provided = Vec::with_capacity(fields.len());
+		for (i, (field_name, value)) in fields.iter().enumerate() {
+			let idx = match field_name {
+				None if positional => i,
+				None => {
+					return Err(
+						Diagnostic::new("cannot mix named and positional fields", value.1.into_range())
+							.with_label("missing field name"),
+					);
+				}
+				Some(fname) => def.fields.iter().position(|f| &f.name == fname).ok_or_else(|| {
+					Diagnostic::new(format!("`{name}` has no field `{fname}`"), value.1.into_range())
+						.with_label("no such field")
+				})?,
+			};
+			let (val, vtyp) = self.expr(value)?;
+			unify(&def.fields[idx].typ, &vtyp, &def.type_params, &mut subst)
+				.map_err(|msg| Diagnostic::new(msg, value.1.into_range()).with_label("type mismatch"))?;
+			provided.push((idx, val, vtyp, value.1));
+		}
+		if let Some(missing) = def.type_params.iter().find(|p| !subst.contains_key(&p.name)) {
+			return Err(Diagnostic::new(
+				format!("cannot infer type parameter `{}`", missing.name),
+				span.into_range(),
+			)
+			.with_label("not determined by any field"));
+		}
+		let typ = self.types().instantiate(name, &def, &subst, span)?;
+		let Typ::Struct(_, struct_fields) = &typ else {
+			unreachable!()
+		};
+		let ptr = self.struct_slot(struct_fields)?;
+		for (idx, val, vtyp, vspan) in provided {
+			let expected = &struct_fields[idx].typ;
+			if &vtyp != expected {
+				return Err(
+					Diagnostic::new(format!("expected {expected}, got {vtyp}"), vspan.into_range())
+						.with_label("type mismatch"),
+				);
+			}
+			self.b.ins().store(MemFlags::new(), val, ptr, (idx * 8) as i32);
+		}
+		Ok((ptr, typ))
 	}
 
 	pub(super) fn struct_copy(&mut self, src: Value, fields: &[FieldDef]) -> Value {

@@ -9,8 +9,8 @@ use cranelift_jit::JITModule;
 use cranelift_module::{DataDescription, Linkage, Module};
 
 use super::{
-	FieldDef, FnSig, GenericFnDef, Local, LoopFrame, Pending, Typ, TypeCtx, VariantInfo, atom_sum_variants,
-	cl_int_for_width, cl_type, elem_size, enum_boxed, enum_slots, option_variants, result_variants,
+	FieldDef, FnSig, GenericFnDef, GenericStructDef, Local, LoopFrame, Pending, Typ, TypeCtx, VariantInfo,
+	atom_sum_variants, cl_int_for_width, cl_type, elem_size, enum_boxed, enum_slots, option_variants, result_variants,
 };
 use crate::ast::{BinOp, Expr, MatchArm, Pattern, Span, Spanned, TypeExpr};
 use crate::diagnostics::Diagnostic;
@@ -44,6 +44,7 @@ pub(super) struct Translator<'a> {
 	pub enums: &'a HashMap<String, Vec<VariantInfo>>,
 	pub aliases: &'a HashMap<String, TypeExpr>,
 	pub type_params: &'a HashMap<String, Typ>,
+	pub generic_structs: &'a HashMap<String, GenericStructDef>,
 	pub generics: &'a HashMap<String, GenericFnDef>,
 	pub mono: &'a mut HashMap<String, FnSig>,
 	pub pending: &'a mut Vec<Pending>,

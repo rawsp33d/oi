@@ -168,6 +168,7 @@ pub enum Expr {
 	// `struct Name {}`
 	StructDef {
 		name: String,
+		type_params: Vec<TypeParam>,
 		fields: Vec<Param>,
 	},
 	// `Name {}`
@@ -274,6 +275,7 @@ pub enum TypeExpr {
 	Result(Box<TypeExpr>, Option<Box<TypeExpr>>),
 	AtomSum(Vec<String>),
 	Map(Box<TypeExpr>, Box<TypeExpr>),
+	Generic(String, Vec<TypeExpr>),
 }
 
 #[derive(Debug, Clone)]
