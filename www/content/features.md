@@ -16,8 +16,8 @@ status := if score > 100 {
 
 # match expressions
 value := match token {
-	.number(n) { n }
-	.ident(_) { 0 }
+	.number(n) => n,
+	.ident(_) => 0,
 }
 ```
 

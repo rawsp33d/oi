@@ -127,9 +127,9 @@ fn add(x int, y int) int { x + y }
 @pure
 fn clamp(value f64, low f64, high f64) f64 {
 	match true {
-		value < low => low
-		value > high => high
-		else => value
+		value < low => low,
+		value > high => high,
+		else => value,
 	}
 }
 
@@ -942,14 +942,14 @@ fn main() {
 	
 	## matching
 	
-	# arms are `pattern => expr` or `pattern => { block }`
+	# arms are `pattern => expr,` (last comma optional) or `pattern => { block }`
 	
 	# else for catch-all
 	os := "linux"
 	match os {
-		"darwin" => print("I used to hate macOS but now I realize it's at least better than Windows.")
-		"linux" => print("I use Artix Linux btw")
-		else => print(os)
+		"darwin" => print("I used to hate macOS but now I realize it's at least better than Windows."),
+		"linux" => print("I use Artix Linux btw"),
+		else => print(os),
 	}
 
 	# can be used as an if-else chain
@@ -958,16 +958,16 @@ fn main() {
 	# comma can be used to test multiple values
 	fn is_red_or_blue(c Color) bool {
 		return match c {
-			.red, .blue => true
-			.green => false
+			.red, .blue => true,
+			.green => false,
 		}
 	}
 
 	# TODO: not sure whether Oi should support `$` in match or use binding
 	match user {
-		u @ User { age: 0..18 } => "minor: {u.name}"
-		User { age: 0..18 } => "minor: {$.name}"
-		_ => "adult"
+		u @ User { age: 0..18 } => "minor: {u.name}",
+		User { age: 0..18 } => "minor: {$.name}",
+		_ => "adult",
 	}
 
 	## loops
@@ -1021,10 +1021,10 @@ fn main() {
 	# match
 	(i, foo, bar, u, me) := (0, true, true, 2, [0 2 4])
 	n := match true {
-		i < 3 => "love ya"
-		foo == bar => "soul mates"
-		u in me => "🥵"
-		else => "no dice"
+		i < 3 => "love ya",
+		foo == bar => "soul mates",
+		u in me => "🥵",
+		else => "no dice",
 	}
 
 	## `Option` and `Result` types
@@ -1157,10 +1157,10 @@ fn main() {
 	
 	# pattern matching (exhaustive)
 	area := match s {
-		.circle { radius } => PI * radius * radius
-		.rectangle { width, height } => width * height
-		.triangle(a, b, c) => heron(a, b, c)
-		.point => 0.0
+		.circle { radius } => PI * radius * radius,
+		.rectangle { width, height } => width * height,
+		.triangle(a, b, c) => heron(a, b, c),
+		.point => 0.0,
 	}
 	
 	# specified values
@@ -1607,8 +1607,8 @@ fn main() {
 	
 	# quotes are bidirectional
 	match expr {
-		`foo(%x, %y)` => swap_args(x, y)
-		_ => expr
+		`foo(%x, %y)` => swap_args(x, y),
+		_ => expr,
 	}
 	
 	fn derive!(input Ast, traits Ast) Ast {
@@ -1623,7 +1623,7 @@ fn main() {
 						fn eq(self, other Self) bool { %{checks.reduce(fn (a, b) { `%a && %b` })} }
 					}`
 				}
-				"Debug" => `impl Debug for %name { ... }`
+				"Debug" => `impl Debug for %name { ... }`,
 			}
 		})
 		`%{...impls}`
