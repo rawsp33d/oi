@@ -3,6 +3,7 @@ mod arrays;
 mod atoms;
 mod booleans;
 mod enums;
+mod generic_enums;
 mod generic_structs;
 mod generics;
 mod literals;
