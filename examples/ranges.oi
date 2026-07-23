@@ -1,0 +1,7 @@
+mut total := 0
+
+loop i in 1..10 {
+	total = total + i
+}
+
+assert(total == 45)

@@ -1,0 +1,8 @@
+struct Box[T] { v T }
+impl Box[T] {
+	fn get(self) T { self.v }
+}
+
+b := Box{ v: 21 }
+assert(b.get() == 21)
+Box{ v: "hi" }.get()

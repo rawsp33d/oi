@@ -1,0 +1,17 @@
+enum Grade { A B C D F }
+
+fn grade(score int) Grade {
+	if score >= 90 {
+		.A
+	} else if score >= 80 {
+		.B
+	} else if score >= 70 {
+		.C
+	} else if score >= 60 {
+		.C
+	} else {
+		.F
+	}
+}
+
+grade(89)

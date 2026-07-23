@@ -55,3 +55,32 @@ loop id in [1, 7, 3, 7] {
 total
 # => 84
 ```
+
+```oi
+enum Status {
+	offline
+	online
+	away
+}
+
+struct User {
+	name string
+	status Status
+}
+
+fn badge(u User) {
+	match u.status {
+		.online => "🟢 {u.name}",
+		.away => "🟡 {u.name}",
+		.offline => "⚫ {u.name}",
+	}
+}
+
+user := User{
+	name: "ur_mom_lolol"
+	status: .online
+}
+
+badge(user) |> print
+# => "🟢 {u.name}"
+```

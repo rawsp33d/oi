@@ -1,0 +1,44 @@
+enum Status {
+	offline
+	online
+	away
+}
+
+struct User {
+	name string
+	status Status
+}
+
+fn badge(u User) {
+	match u.status {
+		.online => "🟢 {u.name}",
+		.away => "🟡 {u.name}",
+		.offline => "⚫ {u.name}",
+	}
+}
+
+impl User {
+	fn create(name string) Self {
+		# TODO: this should let you create without all fields, zeroing the rest
+		return User{ name, status: .offline }
+	}
+
+	fn greet(self) {
+		match self.status {
+			.online => "Welcome back, {self.name}!",
+			.away => "See you soon, {self.name}.",
+			.offline => "Goodbye, {self.name}.",
+		}
+	}
+}
+
+mut user := User.create(
+	"ur_mom_lolol"
+)
+# TODO: this should work...
+# user.status = .online
+user.status = Status.online
+
+# NOTE: string interpolation doesn't work yet
+badge(user) |> print
+user.greet()

@@ -1,0 +1,11 @@
+fn find(id int) ?int {
+	if id == 7 { return 42 }
+	return none
+}
+
+mut total := 0
+loop id in [1, 7, 3, 7] {
+	total = total + (find(id) or { 0 })
+}
+
+total
