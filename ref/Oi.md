@@ -15,7 +15,7 @@ tags: []
 - trailing functions `oi`
 - named returns `oi go`
 - destructured named returns `fn divmod(a int, b int) (q int, r int) { (a / b, a % b) }` `oi go`
-- trailing struct literals `v`
+- trailing records `v`
 - bare `return` `v go`
 - strongly & statically typed `rust v go zig`
 - everything is an expression `rust julia revo`

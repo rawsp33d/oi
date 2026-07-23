@@ -15,7 +15,7 @@ Its features [try to] encourage uninterrupted thought:
 - implicit returns
 - leading literals
 - trailing functions
-- trailing struct literals
+- trailing records
 - pipelines
 - named returns
 - zero values

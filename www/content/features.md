@@ -56,7 +56,7 @@ sleep 1_000
 log.group :process
 ```
 
-## trailing struct literals
+## trailing records
 
 
 ## trailing functions

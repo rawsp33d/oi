@@ -229,7 +229,7 @@ mut user := User{
 }
 user = register(user)
 
-# trailing struct literals
+# trailing records
 
 struct Options {
 	foo int
@@ -244,7 +244,7 @@ user := User{}
 user.with_options(bar: true, foo: 4)
 # same record literal as `Options{ bar: true, foo: 4 }`, just braceless, coerced against the last param's struct type
 
-# annotating with `@params` lets a trailing struct be omitted
+# annotating with `@params` lets a trailing record be omitted
 # otherwise you need to specify at least one field or the compiler will error
 # (@params means the empty record `{}` is allowed too)
 @params
