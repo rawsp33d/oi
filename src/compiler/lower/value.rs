@@ -312,6 +312,12 @@ impl<'a> Translator<'a> {
 						.with_label("every arm returns, but a value is needed here"),
 				),
 			},
+			Expr::StructLit { name, fields }
+				if name == "Map" && fields.is_empty() && matches!(target, Typ::Map(..)) =>
+			{
+				Ok((self.call_map_new(), target.clone()))
+			}
+			Expr::StructLit { name, fields } => self.struct_lit(name, fields, value.1, Some(target)),
 			Expr::Record(entries) => match target {
 				Typ::Map(..) => self.record_lit(entries, value.1, Some(target)),
 				Typ::Struct(name, _) => {
@@ -325,7 +331,7 @@ impl<'a> Translator<'a> {
 							),
 						})
 						.collect::<Result<Vec<_>, _>>()?;
-					self.struct_lit(name, &fields, value.1)
+					self.struct_lit(name, &fields, value.1, None)
 				}
 				_ => self.expr(value),
 			},
@@ -400,6 +406,7 @@ impl<'a> Translator<'a> {
 		name: &str,
 		fields: &[(Option<String>, Spanned<Expr>)],
 		span: Span,
+		target: Option<&Typ>,
 	) -> Result<TypedVal, Diagnostic> {
 		// `Self {}` inside a method resolves to the impl's type
 		let name = match name {
@@ -423,7 +430,7 @@ impl<'a> Translator<'a> {
 		let struct_fields = match self.structs.get(name.as_str()) {
 			Some(fields) => fields.clone(),
 			None => match self.generics.structs.get(name.as_str()).cloned() {
-				Some(def) => return self.generic_struct_lit(&name, def, fields, span),
+				Some(def) => return self.generic_struct_lit(&name, def, fields, span, target),
 				None => {
 					return Err(Diagnostic::new(format!("unknown struct `{name}`"), span.into_range())
 						.with_label("not defined"));
@@ -515,6 +522,7 @@ impl<'a> Translator<'a> {
 		def: GenericStructDef,
 		fields: &[(Option<String>, Spanned<Expr>)],
 		span: Span,
+		target: Option<&Typ>,
 	) -> Result<TypedVal, Diagnostic> {
 		let positional = fields.first().is_some_and(|(n, _)| n.is_none());
 		if positional && fields.len() != def.fields.len() {
@@ -548,6 +556,12 @@ impl<'a> Translator<'a> {
 			unify(&def.fields[idx].typ, &vtyp, &def.type_params, &mut subst, self.generics)
 				.map_err(|msg| Diagnostic::new(msg, value.1.into_range()).with_label("type mismatch"))?;
 			provided.push((idx, val, vtyp, value.1));
+		}
+		// params the field values didn't pin can come from the expected type
+		if let Some(Typ::Struct(_, tfields)) = target {
+			for (df, tf) in def.fields.iter().zip(tfields) {
+				unify(&df.typ, &tf.typ, &def.type_params, &mut subst, self.generics).ok();
+			}
 		}
 		if let Some(missing) = def.type_params.iter().find(|p| !subst.contains_key(&p.name)) {
 			return Err(Diagnostic::new(

@@ -49,6 +49,30 @@ fn cannot_infer_error() {
 }
 
 #[test]
+fn empty_lit_infers_from_annotation() {
+	check(
+		indoc! {"
+			struct Box[T] { v T }
+			b Box[int] := Box{}
+			b.v
+		"},
+		"0",
+	);
+}
+
+#[test]
+fn partial_lit_infers_from_annotation() {
+	check(
+		indoc! {r#"
+			struct Pair[A, B] { a A, b B }
+			p Pair[int, string] := Pair{ a: 7 }
+			p.a
+		"#},
+		"7",
+	);
+}
+
+#[test]
 fn bare_name_needs_type_arguments() {
 	let err = fail(indoc! {"
 		struct Pair[T] { a T, b T }

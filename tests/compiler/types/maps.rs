@@ -26,6 +26,18 @@ fn init_expr_declare_and_set_get() {
 }
 
 #[test]
+fn bare_map_lit_from_annotation() {
+	check(
+		indoc! {r#"
+			mut m Map[string, int] := Map{}
+			m["one"] = 1
+			m["one"]
+		"#},
+		"1",
+	);
+}
+
+#[test]
 fn overwrite_key() {
 	check(
 		indoc! {r#"
