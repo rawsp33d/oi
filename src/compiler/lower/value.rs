@@ -312,7 +312,23 @@ impl<'a> Translator<'a> {
 						.with_label("every arm returns, but a value is needed here"),
 				),
 			},
-			Expr::Record(entries) if matches!(target, Typ::Map(..)) => self.record_lit(entries, value.1, Some(target)),
+			Expr::Record(entries) => match target {
+				Typ::Map(..) => self.record_lit(entries, value.1, Some(target)),
+				Typ::Struct(name, _) => {
+					let fields = entries
+						.iter()
+						.map(|(k, v)| match &k.0 {
+							Expr::Ident(n) => Ok((Some(n.clone()), v.clone())),
+							_ => Err(
+								Diagnostic::new(format!("`{name}` fields are named by idents"), k.1.into_range())
+									.with_label("not a field name"),
+							),
+						})
+						.collect::<Result<Vec<_>, _>>()?;
+					self.struct_lit(name, &fields, value.1)
+				}
+				_ => self.expr(value),
+			},
 			_ => self.expr(value),
 		}
 	}

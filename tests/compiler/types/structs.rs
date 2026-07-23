@@ -180,6 +180,72 @@ fn struct_positional_field_access() {
 }
 
 #[test]
+fn record_coerces_to_struct() {
+	check(
+		"struct Point { x int, y int }
+		p Point := { x: 2, y: 1 }
+		p.x + p.y",
+		"3",
+	);
+	check(
+		"struct Point { x int, y int }
+		x := 5
+		y := 7
+		p Point := { x, y }
+		p.y",
+		"7",
+	);
+}
+
+#[test]
+fn record_as_call_arg() {
+	let src = indoc! {"
+		struct Point { x int, y int }
+		fn sum(p Point) int { p.x + p.y }
+		sum({ x: 3, y: 4 })
+	"};
+	check(src, "7");
+}
+
+#[test]
+fn record_in_return_position() {
+	let src = indoc! {"
+		struct Point { x int, y int }
+		fn make() Point { { x: 1, y: 2 } }
+		make()
+	"};
+	check(src, "Point{x: 1, y: 2}");
+}
+
+#[test]
+fn empty_record_defaults_struct() {
+	check(
+		"struct User { age int, swag int = 5 }
+		u User := {}
+		u.swag",
+		"5",
+	);
+}
+
+#[test]
+fn record_unknown_field_error() {
+	let err = fail(
+		"struct Point { x int, y int }
+		p Point := { z: 1 }",
+	);
+	assert!(err.contains("no field `z`"), "{err}");
+}
+
+#[test]
+fn record_non_ident_key_error() {
+	let err = fail(
+		r#"struct Point { x int, y int }
+		p Point := { "x": 1 }"#,
+	);
+	assert!(err.contains("named by idents"), "{err}");
+}
+
+#[test]
 fn default_field_value() {
 	// empty literal uses the default
 	check(
@@ -188,7 +254,7 @@ fn default_field_value() {
 		u.swag",
 		"5",
 	);
-	// partial named literal: unlisted field falls back to default
+	// partial named literal
 	check(
 		"struct User { age int, swag int = 5 }
 		u := User{ age: 30 }
