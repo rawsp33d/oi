@@ -411,6 +411,30 @@ where
 		// array literal
 		let array = bracket(loose_list(expr.clone())).map_with(|elems, ex| (Expr::Array(elems), ex.span()));
 
+		// record literal
+		let record = {
+			let key = select! {
+				Token::Ident(name) => Expr::Ident(name),
+				Token::Int(n) => Expr::Int(n),
+				Token::String(s) => Expr::String(s),
+				Token::Atom(a) => Expr::Atom(a),
+			};
+			let keyed = key
+				.map_with(|k, ex| (k, ex.span()))
+				.then(just(Token::Colon).ignore_then(expr.clone()));
+			let pun = ident().map_with(|n, ex| ((Expr::Ident(n.clone()), ex.span()), (Expr::Ident(n), ex.span())));
+			let first = keyed.clone().or(pun.clone().then_ignore(just(Token::Comma).rewind()));
+			let entries = first
+				.then_ignore(just(Token::Comma).or_not())
+				.then(loose_list(keyed.or(pun)))
+				.map(|(first, mut rest)| {
+					rest.insert(0, first);
+					rest
+				});
+			brace(entries.or_not().map(Option::unwrap_or_default))
+				.map_with(|entries, ex| (Expr::Record(entries), ex.span()))
+		};
+
 		let if_expr = recursive(|if_expr| {
 			just(Token::If)
 				.ignore_then(expr.clone())
@@ -434,8 +458,12 @@ where
 
 		// loops
 		let loop_expr = just(Token::Loop)
-			.ignore_then(expr.clone().or_not())
-			.then(block.clone())
+			.ignore_then(
+				block
+					.clone()
+					.map(|body| (None, body))
+					.or(expr.clone().map(Some).then(block.clone())),
+			)
 			.map_with(|(cond, body), ex| {
 				(
 					Expr::Loop {
@@ -545,6 +573,7 @@ where
 			.or(option_init)
 			.or(result_init)
 			.or(array)
+			.or(record)
 			.or(if_expr)
 			.or(match_expr)
 			.or(for_expr)

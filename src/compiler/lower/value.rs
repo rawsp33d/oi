@@ -312,6 +312,7 @@ impl<'a> Translator<'a> {
 						.with_label("every arm returns, but a value is needed here"),
 				),
 			},
+			Expr::Record(entries) if matches!(target, Typ::Map(..)) => self.record_lit(entries, value.1, Some(target)),
 			_ => self.expr(value),
 		}
 	}
@@ -326,6 +327,54 @@ impl<'a> Translator<'a> {
 			)
 			.with_label("not yet implemented")),
 		}
+	}
+
+	// Record literal, lowered to a map.
+	pub(super) fn record_lit(
+		&mut self,
+		entries: &[(Spanned<Expr>, Spanned<Expr>)],
+		span: Span,
+		target: Option<&Typ>,
+	) -> Result<TypedVal, Diagnostic> {
+		let (key_typ, mut val_typ) = match (target, entries.first()) {
+			(Some(Typ::Map(k, v)), _) => ((**k).clone(), Some((**v).clone())),
+			(_, Some((key, _))) => {
+				let kt = match &key.0 {
+					Expr::Ident(_) | Expr::String(_) => Typ::Str,
+					Expr::Int(n) if i32::try_from(*n).is_ok() => Typ::Int(32),
+					Expr::Int(_) => Typ::Int(64),
+					Expr::Atom(_) => Typ::Atom,
+					_ => unreachable!(),
+				};
+				(kt, None)
+			}
+			_ => {
+				return Err(Diagnostic::new("cannot infer the type of `{}` here", span.into_range())
+					.with_label("no map type is expected in this position"));
+			}
+		};
+		let map = self.call_map_new();
+		for (key, value) in entries {
+			let (tag, key_bits) = match &key.0 {
+				Expr::Ident(n) => self.map_key(&(Expr::String(n.clone()), key.1), &key_typ)?,
+				_ => self.map_key(key, &key_typ)?,
+			};
+			let (val, vt) = match &val_typ {
+				Some(t) => self.check_expr(value, t)?,
+				None => self.expr(value)?,
+			};
+			let want = val_typ.get_or_insert(vt.clone());
+			if &vt != want {
+				return Err(
+					Diagnostic::new(format!("expected {want}, got {vt}"), value.1.into_range())
+						.with_label("type mismatch"),
+				);
+			}
+			let bits = self.map_bits(val);
+			self.call_map_set(map, tag, key_bits, bits);
+		}
+		let val_typ = val_typ.expect("target or first entry set it");
+		Ok((map, Typ::Map(Box::new(key_typ), Box::new(val_typ))))
 	}
 
 	// Struct literal.

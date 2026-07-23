@@ -422,6 +422,8 @@ impl<'a> Translator<'a> {
 
 			Expr::StructLit { name, fields } => self.struct_lit(name, fields, expr.1),
 
+			Expr::Record(entries) => self.record_lit(entries, expr.1, None),
+
 			Expr::Range { start, end } => {
 				let start_val = match start {
 					Some(s) => self.int_value(s, "range start")?,

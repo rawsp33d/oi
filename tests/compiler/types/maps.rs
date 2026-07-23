@@ -139,6 +139,98 @@ fn wrong_value_type() {
 }
 
 #[test]
+fn record_literal_infers() {
+	check(
+		indoc! {r#"
+			m := { one: 1, two: 2 }
+			m["one"] + m["two"]
+		"#},
+		"3",
+	);
+}
+
+#[test]
+fn record_literal_multiline() {
+	check(
+		indoc! {r#"
+			m := {
+				one: 1
+				two: 2
+			}
+			m["two"]
+		"#},
+		"2",
+	);
+}
+
+#[test]
+fn record_int_keys() {
+	check(
+		indoc! {r#"
+			m := { 1: "one", 2: "two" }
+			m[1]
+		"#},
+		"one",
+	);
+}
+
+#[test]
+fn record_atom_keys() {
+	check(
+		indoc! {"
+			m := { :ok: 200, :not_found: 404 }
+			m[:ok]
+		"},
+		"200",
+	);
+}
+
+#[test]
+fn record_typed_target() {
+	check(
+		indoc! {r#"
+			m Map[string, f64] := { a: 1.5 }
+			m["a"]
+		"#},
+		"1.5",
+	);
+}
+
+#[test]
+fn record_empty_against_target() {
+	check(
+		indoc! {r#"
+			mut m Map[string, int] := {}
+			m["a"] = 3
+			m["a"]
+		"#},
+		"3",
+	);
+}
+
+#[test]
+fn record_pun() {
+	check(
+		indoc! {r#"
+			x := 5
+			m := {x,}
+			m["x"]
+		"#},
+		"5",
+	);
+}
+
+#[test]
+fn record_mixed_value_types_fail() {
+	assert!(fail(r#"m := { a: 1, b: "two" }"#).contains("expected int, got str"));
+}
+
+#[test]
+fn record_empty_needs_target() {
+	assert!(fail("m := {}").contains("cannot infer"));
+}
+
+#[test]
 fn delete_key() {
 	check(
 		indoc! {r#"

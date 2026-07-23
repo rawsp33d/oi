@@ -175,6 +175,8 @@ pub enum Expr {
 		name: String,
 		fields: Vec<(Option<String>, Spanned<Expr>)>,
 	},
+	// `{ k: v }`
+	Record(Vec<(Spanned<Expr>, Spanned<Expr>)>),
 	// `name.field = value`
 	FieldAssign {
 		name: String,

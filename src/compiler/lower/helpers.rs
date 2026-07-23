@@ -61,6 +61,7 @@ pub(super) fn map_key_tag(typ: &Typ) -> Option<runtime::Tag> {
 		Typ::UInt(_) | Typ::USize => Some(runtime::Tag::UInt),
 		Typ::Float(_) => Some(runtime::Tag::Float),
 		Typ::Str | Typ::Error => Some(runtime::Tag::Str),
+		Typ::Atom => Some(runtime::Tag::Str),
 		_ => None,
 	}
 }
