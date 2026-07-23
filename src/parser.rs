@@ -423,7 +423,7 @@ where
 				.map_with(|k, ex| (k, ex.span()))
 				.then(just(Token::Colon).ignore_then(expr.clone()));
 			let pun = ident().map_with(|n, ex| ((Expr::Ident(n.clone()), ex.span()), (Expr::Ident(n), ex.span())));
-			let first = keyed.clone().or(pun.clone().then_ignore(just(Token::Comma).rewind()));
+			let first = keyed.clone().or(pun.then_ignore(just(Token::Comma).rewind()));
 			let entries = first
 				.then_ignore(just(Token::Comma).or_not())
 				.then(loose_list(keyed.or(pun)))
