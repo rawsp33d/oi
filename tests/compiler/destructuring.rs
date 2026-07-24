@@ -65,6 +65,11 @@ fn fail_non_tuple() {
 }
 
 #[test]
+fn fail_mut_without_commas() {
+	fail("(mut a mut b) := (1, 2)");
+}
+
+#[test]
 fn fail_mut_in_assign() {
 	fail("(mut a, mut b) := (1, 2)\n(mut a, b) = (3, 4)");
 }

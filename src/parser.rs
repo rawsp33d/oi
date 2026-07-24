@@ -302,8 +302,10 @@ where
 		});
 
 	// tuple destructuring
-	let name = just(Token::Mut).or_not().map(|m| m.is_some()).then(ident());
-	let destructure = paren(loose_list(name))
+	let modded = list(just(Token::Mut).or_not().map(|m| m.is_some()).then(ident()));
+	let plain = loose_list(ident().map(|n| (false, n)));
+	let destructure = paren(modded)
+		.or(paren(plain))
 		.then(just(Token::Bind).to(true).or(just(Token::Assign).to(false)))
 		.then(expr.clone())
 		.try_map(|((names, bind), value), span| {
