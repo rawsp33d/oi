@@ -47,7 +47,7 @@ pub enum Token {
 	#[regex(r"[0-9][0-9_]*\.[0-9][0-9_]*([eE][+\-]?[0-9]+)?", |lex| Some(lex.slice().replace('_', "")))]
 	#[regex(r"[0-9][0-9_]*[eE][+\-]?[0-9]+", |lex| Some(lex.slice().replace('_', "")))]
 	Float(String),
-	#[regex(r#""[^"]*""#, |lex| { let s = lex.slice(); s[1..s.len() - 1].to_string() })]
+	#[regex(r#""([^"\\]|\\.)*""#, |lex| { let s = lex.slice(); s[1..s.len() - 1].to_string() })]
 	String(String),
 	#[regex(r":[A-Za-z0-9_]+", |lex| lex.slice()[1..].to_string())]
 	Atom(String),
@@ -284,6 +284,14 @@ fn expand_string(s: &str, span: SimpleSpan, src: &str) -> Vec<(Token, SimpleSpan
 				lit.push(c);
 				it.next();
 			}
+			'\\' => lit.push(match it.next().map(|(_, e)| e) {
+				Some('n') => '\n',
+				Some('t') => '\t',
+				Some('r') => '\r',
+				Some('0') => '\0',
+				Some(e @ ('\\' | '"')) => e,
+				_ => return bad(),
+			}),
 			'}' => return bad(),
 			'{' => {
 				let mut depth = 1;

@@ -50,3 +50,14 @@ fn string_in_empty_value() {
 fn string_in_type_mismatch_error() {
 	assert!(fail(r#"42 in "foo""#).contains("type mismatch"));
 }
+
+#[test]
+fn escapes() {
+	check(r#"print("a\nb\tc")"#, "a\nb\tc");
+	check(r#"print("q: \" back: \\")"#, r#"q: " back: \"#);
+}
+
+#[test]
+fn unknown_escape_fails() {
+	fail(r#"print("\z")"#);
+}
