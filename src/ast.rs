@@ -299,6 +299,7 @@ pub struct EnumVariant {
 	pub name: String,
 	pub disc: Option<i64>,
 	pub payload: Vec<Spanned<TypeExpr>>,
+	pub names: Vec<String>,
 }
 
 // A `loop` binding pattern (name or destruction).

@@ -378,10 +378,32 @@ where
 		// leaf atoms pair themselves with their span
 		let leaf = literal.or(struct_lit).or(var_or_call).map_with(|e, ex| (e, ex.span()));
 
+		// record entries
+		let key = select! {
+			Token::Ident(name) => Expr::Ident(name),
+			Token::Int(n) => Expr::Int(n),
+			Token::String(s) => Expr::String(s),
+			Token::Atom(a) => Expr::Atom(a),
+		};
+		let keyed = key
+			.map_with(|k, ex| (k, ex.span()))
+			.then(just(Token::Colon).ignore_then(expr.clone()));
+		let pun = ident().map_with(|n, ex| ((Expr::Ident(n.clone()), ex.span()), (Expr::Ident(n), ex.span())));
+		let record_entries = keyed
+			.clone()
+			.or(pun.then_ignore(just(Token::Comma).rewind()))
+			.then_ignore(just(Token::Comma).or_not())
+			.then(loose_list(keyed.clone().or(pun)))
+			.map(|(first, mut rest)| {
+				rest.insert(0, first);
+				rest
+			});
+		let record_arg = brace(record_entries.clone()).map_with(|es, ex| vec![(Expr::Record(es), ex.span())]);
+
 		// enum shorthand
 		let enum_shorthand = just(Token::Dot)
 			.ignore_then(select! { Token::Ident(v) => v, Token::None => "none".to_string() })
-			.then(args.clone().or_not())
+			.then(args.clone().or(record_arg.clone()).or_not())
 			.map_with(|(variant, args), ex| {
 				let args = args.unwrap_or_default();
 				(Expr::EnumShorthand { variant, args }, ex.span())
@@ -434,28 +456,8 @@ where
 		let array = bracket(loose_list(expr.clone())).map_with(|elems, ex| (Expr::Array(elems), ex.span()));
 
 		// record literal
-		let record = {
-			let key = select! {
-				Token::Ident(name) => Expr::Ident(name),
-				Token::Int(n) => Expr::Int(n),
-				Token::String(s) => Expr::String(s),
-				Token::Atom(a) => Expr::Atom(a),
-			};
-			let keyed = key
-				.map_with(|k, ex| (k, ex.span()))
-				.then(just(Token::Colon).ignore_then(expr.clone()));
-			let pun = ident().map_with(|n, ex| ((Expr::Ident(n.clone()), ex.span()), (Expr::Ident(n), ex.span())));
-			let first = keyed.clone().or(pun.then_ignore(just(Token::Comma).rewind()));
-			let entries = first
-				.then_ignore(just(Token::Comma).or_not())
-				.then(loose_list(keyed.or(pun)))
-				.map(|(first, mut rest)| {
-					rest.insert(0, first);
-					rest
-				});
-			brace(entries.or_not().map(Option::unwrap_or_default))
-				.map_with(|entries, ex| (Expr::Record(entries), ex.span()))
-		};
+		let record = brace(record_entries.clone().or_not().map(Option::unwrap_or_default))
+			.map_with(|entries, ex| (Expr::Record(entries), ex.span()));
 
 		let if_expr = recursive(|if_expr| {
 			just(Token::If)
@@ -610,10 +612,12 @@ where
 			select! { Token::Int(n) => Access::Fields(vec![n.to_string()]) },
 			// NOTE: chained tuple access like `x.0.1` lexes `0.1` as a float, hence the split
 			select! { Token::Float(s) => Access::Fields(s.split('.').map(String::from).collect()) },
-			ident().then(args.clone().or_not()).map(|(name, call)| match call {
-				Some(args) => Access::Method(name, args),
-				None => Access::Fields(vec![name]),
-			}),
+			ident()
+				.then(args.clone().or(record_arg.clone()).or_not())
+				.map(|(name, call)| match call {
+					Some(args) => Access::Method(name, args),
+					None => Access::Fields(vec![name]),
+				}),
 		));
 
 		// array subscripts
@@ -797,14 +801,24 @@ where
 		.ignore_then(just(Token::Minus).or_not())
 		.then(select! { Token::Int(n) => n })
 		.map(|(neg, n)| if neg.is_some() { -n } else { n });
+	let fields = brace(loose_list(ident().then(annot.clone())));
 	let payload = paren(annot.separated_by(just(Token::Comma)).allow_trailing().collect::<Vec<_>>());
 	let variant = ident()
-		.then(payload.or_not())
+		.then(
+			payload
+				.map(|p| (vec![], p))
+				.or(fields.map(|fs| fs.into_iter().unzip()))
+				.or_not(),
+		)
 		.then(disc.or_not())
-		.map(|((name, payload), disc)| EnumVariant {
-			name,
-			disc,
-			payload: payload.unwrap_or_default(),
+		.map(|((name, body), disc)| {
+			let (names, payload) = body.unwrap_or_default();
+			EnumVariant {
+				name,
+				disc,
+				payload,
+				names,
+			}
 		});
 	let enum_def = just(Token::Enum)
 		.ignore_then(ident())
