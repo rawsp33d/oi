@@ -12,4 +12,5 @@ mod results;
 mod strings;
 mod structs;
 mod sum_types;
+mod tuple_structs;
 mod tuples;

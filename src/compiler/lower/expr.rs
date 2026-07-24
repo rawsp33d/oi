@@ -251,10 +251,10 @@ impl<'a> Translator<'a> {
 				}
 
 				// structs are just fully-named tuples at the codegen level
-				let typ = if let Typ::Struct(_, fields) = typ {
-					Typ::Tuple(fields.into_iter().map(|f| (Some(f.name), f.typ)).collect())
-				} else {
-					typ
+				let typ = match typ {
+					Typ::Struct(_, fields) => Typ::Tuple(fields.into_iter().map(|f| (Some(f.name), f.typ)).collect()),
+					Typ::TupleStruct(_, fields) => Typ::Tuple(fields),
+					other => other,
 				};
 
 				let fields = match &typ {

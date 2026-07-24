@@ -823,6 +823,26 @@ where
 			)
 		});
 
+	// tuple struct defs
+	let ts_field = ident()
+		.then_ignore(just(Token::Colon))
+		.then(type_expr.clone())
+		.map(|(n, t)| (Some(n), t))
+		.or(type_expr.clone().map(|t| (None, t)));
+	let tuple_struct_def = just(Token::Struct)
+		.ignore_then(ident())
+		.then(paren(
+			ts_field
+				.separated_by(just(Token::Comma))
+				.allow_trailing()
+				.at_least(1)
+				.collect::<Vec<_>>(),
+		))
+		.map_with(|(name, fields), ex| {
+			let typ = TypeExpr::TupleStruct(name.clone(), fields);
+			(Expr::TypeAlias { name, typ }, ex.span())
+		});
+
 	// enum defs
 	let disc = just(Token::Assign)
 		.ignore_then(just(Token::Minus).or_not())
@@ -895,7 +915,8 @@ where
 			)
 		});
 
-	struct_def
+	tuple_struct_def
+		.or(struct_def)
 		.or(enum_def)
 		.or(type_alias)
 		.or(func)

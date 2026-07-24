@@ -70,6 +70,7 @@ impl<'a> Translator<'a> {
 				}
 				ptr
 			}
+			Typ::TupleStruct(_, fields) => self.zero(&Typ::Tuple(fields.clone())),
 			Typ::Tuple(fields) => {
 				let fields = fields.clone();
 				let ptr = self.call_alloc(fields.len());

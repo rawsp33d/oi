@@ -278,6 +278,7 @@ pub enum TypeExpr {
 	Result(Box<TypeExpr>, Option<Box<TypeExpr>>),
 	AtomSum(Vec<String>),
 	Sum(Vec<TypeExpr>),
+	TupleStruct(String, Vec<(Option<String>, TypeExpr)>),
 	Map(Box<TypeExpr>, Box<TypeExpr>),
 	Generic(String, Vec<TypeExpr>),
 }

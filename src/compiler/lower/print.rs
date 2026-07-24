@@ -149,6 +149,13 @@ impl<'a> Translator<'a> {
 				self.write_lit("}", sink);
 			}
 
+			Typ::TupleStruct(name, fields) => {
+				let name = name.clone();
+				let body = Typ::Tuple(fields.clone());
+				self.write_lit(&name, sink);
+				self.emit_print(val, &body, quote, sink);
+			}
+
 			Typ::Atom => {
 				self.emit_frag(runtime::Tag::Raw, val, 0, false, sink);
 			}
@@ -188,6 +195,7 @@ impl<'a> Translator<'a> {
 					| Typ::Array(_)
 					| Typ::FixedArray(..)
 					| Typ::Struct(..)
+					| Typ::TupleStruct(..)
 					| Typ::Enum(_)
 					| Typ::Option(_)
 					| Typ::Result(_)

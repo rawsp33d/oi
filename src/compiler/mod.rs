@@ -42,6 +42,7 @@ pub(crate) enum Typ {
 	Array(Box<Typ>),
 	FixedArray(Box<Typ>, usize),
 	Struct(String, Vec<FieldDef>),
+	TupleStruct(String, Vec<(Option<String>, Typ)>),
 	Enum(String),
 	Option(Box<Typ>),
 	Result(Box<Typ>),
@@ -97,6 +98,7 @@ impl fmt::Display for Typ {
 			Typ::Array(e) => write!(f, "[]{e}"),
 			Typ::FixedArray(e, n) => write!(f, "[{n}]{e}"),
 			Typ::Struct(name, _) => write!(f, "{name}"),
+			Typ::TupleStruct(name, _) => write!(f, "{name}"),
 			Typ::Enum(name) => write!(f, "{name}"),
 			Typ::Option(inner) => write!(f, "?{inner}"),
 			Typ::Result(inner) => write!(f, "!{inner}"),
@@ -362,6 +364,13 @@ impl TypeCtx<'_> {
 				Ok(Typ::AtomSum(names.clone()))
 			}
 			TypeExpr::Sum(ms) => self.resolve_sum(ms, span),
+			TypeExpr::TupleStruct(name, fields) => {
+				let fields = fields
+					.iter()
+					.map(|(n, te)| Ok((n.clone(), self.resolve(te, span)?)))
+					.collect::<Result<_, Diagnostic>>()?;
+				Ok(Typ::TupleStruct(name.clone(), fields))
+			}
 			TypeExpr::Fn(params, ret) => {
 				let params = params.iter().map(|p| self.resolve(p, span)).collect::<Result<_, _>>()?;
 				Ok(Typ::Fn(params, Box::new(self.resolve(ret, span)?)))
@@ -902,7 +911,6 @@ impl Compiler {
 				Ok((name.to_string(), resolved))
 			})
 			.collect::<Result<_, Diagnostic>>()?;
-
 		let variant_types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics);
 		let enums: HashMap<String, Vec<VariantInfo>> = enum_items
 			.iter()
