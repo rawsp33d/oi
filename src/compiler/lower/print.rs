@@ -159,7 +159,7 @@ impl<'a> Translator<'a> {
 				self.emit_frag(runtime::Tag::Raw, ptr, 0, false, sink);
 			}
 
-			Typ::Sum(_, variants) => {
+			Typ::Sum(variants) => {
 				let variants = variants.clone();
 				self.emit_sum(&variants, val, quote, sink);
 			}

@@ -46,7 +46,7 @@ pub(crate) enum Typ {
 	Option(Box<Typ>),
 	Result(Box<Typ>),
 	AtomSum(Vec<String>),
-	Sum(String, Vec<VariantInfo>),
+	Sum(Vec<VariantInfo>),
 	Error,
 	Range,
 	Fn(Vec<Typ>, Box<Typ>),
@@ -107,7 +107,17 @@ impl fmt::Display for Typ {
 					names.iter().map(|n| format!(":{n}")).collect::<Vec<_>>().join(" | ")
 				)
 			}
-			Typ::Sum(name, _) => write!(f, "{name}"),
+			Typ::Sum(variants) => {
+				write!(
+					f,
+					"{}",
+					variants
+						.iter()
+						.map(|v| if v.payload.is_empty() { format!(":{}", v.name) } else { v.name.clone() })
+						.collect::<Vec<_>>()
+						.join(" | ")
+				)
+			}
 			Typ::Error => write!(f, "Error"),
 			Typ::Range => write!(f, "range"),
 			Typ::Fn(params, ret) | Typ::Closure(params, ret) => {
@@ -494,7 +504,7 @@ impl TypeCtx<'_> {
 		}
 		if let Some(te) = self.aliases.get(name) {
 			if let TypeExpr::Sum(ms) = te {
-				return self.resolve_sum(name, ms, span);
+				return self.resolve_sum(ms, span);
 			}
 			return self.resolve(te, span);
 		}
@@ -514,23 +524,26 @@ impl TypeCtx<'_> {
 	}
 
 	// Resolve a sum type.
-	fn resolve_sum(&self, name: &str, members: &[TypeExpr], span: Span) -> Result<Typ, Diagnostic> {
+	fn resolve_sum(&self, members: &[TypeExpr], span: Span) -> Result<Typ, Diagnostic> {
 		let mut variants: Vec<VariantInfo> = Vec::with_capacity(members.len());
-		for (disc, m) in members.iter().enumerate() {
-			let v = match m {
-				TypeExpr::AtomSum(a) if a.len() == 1 => VariantInfo::new(a[0].clone(), disc as i64, vec![]),
-				_ => {
-					let t = self.resolve(m, span)?;
-					VariantInfo::new(t.to_string(), disc as i64, vec![t])
-				}
-			};
-			if variants.iter().any(|x| x.name == v.name) {
+		for m in members {
+			match m {
+				TypeExpr::AtomSum(a) if a.len() == 1 => variants.push(VariantInfo::new(a[0].clone(), 0, vec![])),
+				_ => match self.resolve(m, span)? {
+					Typ::Sum(inner) => variants.extend(inner),
+					t => variants.push(VariantInfo::new(t.to_string(), 0, vec![t])),
+				},
+			}
+		}
+		let mut seen = HashSet::new();
+		for (disc, v) in variants.iter_mut().enumerate() {
+			v.disc = disc as i64;
+			if !seen.insert(v.name.clone()) {
 				let msg = format!("duplicate member `{}` in sum type", v.name);
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("repeated member"));
 			}
-			variants.push(v);
 		}
-		Ok(Typ::Sum(name.to_string(), variants))
+		Ok(Typ::Sum(variants))
 	}
 
 	// Resolve a param list to `(name, type, mutable)` triples.

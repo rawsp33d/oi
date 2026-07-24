@@ -276,7 +276,7 @@ fn general_match() {
 }
 
 #[test]
-fn general_eq_and_nominal() {
+fn general_eq_is_structural() {
 	check(
 		indoc! {"
 			type Id = int | string
@@ -295,10 +295,23 @@ fn general_eq_and_nominal() {
 		"#},
 		"false",
 	);
-	// same members, different names don't compare
+	check(
+		indoc! {"
+			type A = int | string
+			type B = int | string
+			a A := 1
+			b B := 1
+			a == b
+		"},
+		"true",
+	);
+}
+
+#[test]
+fn member_order_matters_for_identity() {
 	fail(indoc! {"
 		type A = int | string
-		type B = int | string
+		type B = string | int
 		a A := 1
 		b B := 1
 		a == b
@@ -321,6 +334,47 @@ fn general_int_cast_gives_tag() {
 fn duplicate_type_member_errors() {
 	let err = fail(indoc! {"
 		type Bad = int | int
+		mut x Bad
+		x
+	"});
+	assert!(err.contains("duplicate member `int` in sum type"), "got: {err}");
+}
+
+#[test]
+fn nested_sum_alias_splices() {
+	check(
+		indoc! {r#"
+			type Num = int | f64
+			type Value = Num | string
+			x Value := 7
+			match x {
+				int => 1,
+				f64 => 2,
+				string => 3,
+			}
+		"#},
+		"1",
+	);
+	check(
+		indoc! {r#"
+			type Num = int | f64
+			type Value = Num | string
+			x Value := "hi"
+			match x {
+				int => 1,
+				f64 => 2,
+				string => 3,
+			}
+		"#},
+		"3",
+	);
+}
+
+#[test]
+fn splice_duplicate_member_errors() {
+	let err = fail(indoc! {"
+		type Num = int | f64
+		type Bad = Num | int
 		mut x Bad
 		x
 	"});

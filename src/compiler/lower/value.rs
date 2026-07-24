@@ -180,7 +180,7 @@ impl<'a> Translator<'a> {
 			Typ::Option(inner) => option_variants(inner),
 			Typ::Result(inner) => result_variants(inner),
 			Typ::AtomSum(names) => atom_sum_variants(names),
-			Typ::Sum(_, variants) => variants.clone(),
+			Typ::Sum(variants) => variants.clone(),
 			_ => Vec::new(),
 		}
 	}
@@ -213,7 +213,7 @@ impl<'a> Translator<'a> {
 	// A match pattern's discriminant and payload binds.
 	pub(super) fn enum_pattern(&self, pat: &Spanned<Expr>, typ: &Typ) -> Result<(i64, Vec<Bind>), Diagnostic> {
 		let bad = |msg| Err(Diagnostic::new(msg, pat.1.into_range()).with_label("bad pattern"));
-		if let (Typ::Sum(_, variants), Expr::Ident(v)) = (typ, &pat.0) {
+		if let (Typ::Sum(variants), Expr::Ident(v)) = (typ, &pat.0) {
 			let disp = self.sum_display(v, pat.1);
 			return match variants.iter().find(|x| x.name == disp) {
 				Some(x) => Ok((x.disc, vec![])),
@@ -260,7 +260,7 @@ impl<'a> Translator<'a> {
 	// An `n @ int` arm on a sum captures the unwrapped payload at offset 8.
 	pub(super) fn sum_capture(&self, arm: &MatchArm, st: &Typ) -> Option<Bind> {
 		let name = arm.binding.as_ref()?;
-		let Typ::Sum(_, variants) = st else { return None };
+		let Typ::Sum(variants) = st else { return None };
 		let [pat] = arm.patterns.as_slice() else { return None };
 		let Expr::Ident(v) = &pat.0 else { return None };
 		let disp = self.sum_display(v, pat.1);
@@ -406,7 +406,7 @@ impl<'a> Translator<'a> {
 			},
 			_ => {
 				let (val, vt) = self.expr(value)?;
-				if let Typ::Sum(_, variants) = target
+				if let Typ::Sum(variants) = target
 					&& let Some(v) = variants.iter().find(|v| v.payload == [vt.clone()])
 				{
 					return Ok((self.make_enum(variants, v.disc, &[val]), target.clone()));
