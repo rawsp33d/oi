@@ -525,9 +525,17 @@ where
 			.clone()
 			.then_ignore(just(Token::Comma).or_not())
 			.or(expr.clone().map(|e| vec![e]).then_ignore(arm_end));
+		let struct_pat = just(Token::Dot)
+			.ignore_then(select! { Token::Ident(v) => v })
+			.then(brace(loose_list(keyed.clone().or(pun))))
+			.map_with(|(variant, es), ex| {
+				let args = vec![(Expr::Record(es), ex.span())];
+				(Expr::EnumShorthand { variant, args }, ex.span())
+			});
 		let match_arm = binding
 			.then(
-				expr.clone()
+				struct_pat
+					.or(expr.clone())
 					.separated_by(just(Token::Comma))
 					.allow_trailing()
 					.at_least(1)
