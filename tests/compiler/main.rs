@@ -20,6 +20,7 @@ mod methods;
 mod pipelines;
 mod statements;
 mod str_method;
+mod trailing_fn;
 mod types;
 mod unit;
 mod vars;

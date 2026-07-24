@@ -783,18 +783,68 @@ where
 			}),
 		));
 
-		// or blocks
-		let or_tail = just(Token::Or).ignore_then(block.clone().or(core.clone().map(|e| vec![pipe_step(e)])));
-		core.then(or_tail.or_not()).map_with(|(value, body), ex| match body {
-			Some(body) => (
-				Expr::OrElse {
-					value: Box::new(value),
+		// trailing functions
+		let trailing = anon_fn.clone().or(block.clone().map_with(|body, ex| {
+			(
+				Expr::AnonFn {
+					captures: None,
+					params: vec![],
+					params_tuple: true,
+					ret: None,
 					body,
 				},
 				ex.span(),
-			),
-			None => value,
-		})
+			)
+		}));
+		let juxted = core
+			.clone()
+			.then(trailing.or_not())
+			.try_map(|((inner, s), trail), span| {
+				let Some(trail) = trail else { return Ok((inner, s)) };
+				let e = match inner {
+					Expr::Ident(name) => Expr::Call {
+						name,
+						type_args: vec![],
+						args: vec![trail],
+					},
+					Expr::Field { tuple, field } => Expr::MethodCall {
+						recv: tuple,
+						method: field,
+						args: vec![trail],
+					},
+					Expr::Call {
+						name,
+						type_args,
+						args: mut a,
+					} => {
+						a.push(trail);
+						Expr::Call {
+							name,
+							type_args,
+							args: a,
+						}
+					}
+					Expr::MethodCall {
+						recv,
+						method,
+						args: mut a,
+					} => {
+						a.push(trail);
+						Expr::MethodCall { recv, method, args: a }
+					}
+					_ => return Err(Rich::custom(span, "trailing arg needs a call or method callee")),
+				};
+				Ok((e, span))
+			})
+			.or(core.clone());
+
+		// or blocks
+		let or_tail = just(Token::Or).ignore_then(block.clone().or(core.clone().map(|e| vec![pipe_step(e)])));
+		header_expr.define(
+			core.then(or_tail.clone().or_not())
+				.map_with(|pair, ex| or_else(pair, ex.span())),
+		);
+		juxted.then(or_tail.or_not()).map_with(|pair, ex| or_else(pair, ex.span()))
 	};
 	expr.define(definition);
 
