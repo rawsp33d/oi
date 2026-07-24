@@ -490,6 +490,20 @@ impl TypeCtx<'_> {
 		Ok(Typ::Enum(display))
 	}
 
+	// Type names owned by the compiler.
+	pub fn builtin_type(name: &str) -> bool {
+		matches!(
+			name,
+			"int"
+				| "isize" | "usize"
+				| "float" | "bool"
+				| "string" | "str"
+				| "range" | "atom"
+				| "Map" | "Option"
+				| "Result" | "Error"
+		) || name.strip_prefix(['i', 'u', 'f']).is_some_and(|w| w.parse::<u16>().is_ok())
+	}
+
 	// Resolve a named type.
 	pub fn named(&self, name: &str, span: Span) -> Result<Typ, Diagnostic> {
 		if let Some(typ) = self.type_params.get(name) {
@@ -787,7 +801,13 @@ impl Compiler {
 					);
 				}
 				Expr::EnumDef { name, variants, .. } => enum_items.push((name.as_str(), variants.as_slice())),
-				Expr::TypeAlias { name, typ } => alias_items.push((name.as_str(), typ)),
+				Expr::TypeAlias { name, typ } => {
+					if matches!(typ, TypeExpr::TupleStruct(..)) && TypeCtx::builtin_type(name) {
+						let msg = format!("`{name}` is a builtin type");
+						return Err(Diagnostic::new(msg, item.1.into_range()).with_label("pick another struct name"));
+					}
+					alias_items.push((name.as_str(), typ));
+				}
 				Expr::Impl {
 					typ,
 					type_params,

@@ -19,6 +19,12 @@ impl<'a> Translator<'a> {
 		self.b.ins().call(func, &[tag, bits, width, quote, sink_v]);
 	}
 
+	// A named type's own `str` impl.
+	fn str_impl(&mut self, name: &str, val: Value) -> Option<Value> {
+		let sig = self.funcs.get(&format!("{name}.str")).cloned()?;
+		(sig.params.len() == 1 && sig.ret == Typ::Str).then(|| self.emit_call(&sig, &[val]).0)
+	}
+
 	// Universal `str` method.
 	pub(super) fn derived_str(&mut self, val: Value, typ: &Typ) -> Value {
 		let mark = self.import_fn(runtime::STR_MARK, &[], Some(self.int));
@@ -127,11 +133,7 @@ impl<'a> Translator<'a> {
 			}
 
 			Typ::Struct(sname, fields) => {
-				if let Some(sig) = self.funcs.get(&format!("{sname}.str")).cloned()
-					&& sig.params.len() == 1
-					&& sig.ret == Typ::Str
-				{
-					let (s, _) = self.emit_call(&sig, &[val]);
+				if let Some(s) = self.str_impl(sname, val) {
 					return self.emit_frag(runtime::Tag::Raw, s, 0, false, sink);
 				}
 				let sname = sname.clone();
@@ -150,6 +152,9 @@ impl<'a> Translator<'a> {
 			}
 
 			Typ::TupleStruct(name, fields) => {
+				if let Some(s) = self.str_impl(name, val) {
+					return self.emit_frag(runtime::Tag::Raw, s, 0, false, sink);
+				}
 				let name = name.clone();
 				let body = Typ::Tuple(fields.clone());
 				self.write_lit(&name, sink);

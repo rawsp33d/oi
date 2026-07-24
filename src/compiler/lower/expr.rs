@@ -123,6 +123,9 @@ impl<'a> Translator<'a> {
 						Some(sig) => self.call_sig(name, sig, None, args, expr.1),
 						None => match self.generic_fns.get(name).cloned() {
 							Some(def) => self.call_generic(name, &def, type_args, args, None, expr.1),
+							None if matches!(self.aliases.get(name.as_str()), Some(TypeExpr::TupleStruct(..))) => {
+								self.construct_tuple_struct(name, args, expr.1)
+							}
 							None => Err(
 								Diagnostic::new(format!("undefined function `{name}`"), expr.1.into_range())
 									.with_label("not defined"),
@@ -148,12 +151,14 @@ impl<'a> Translator<'a> {
 				// method call is static when `recv` names a struct
 				let (sname, recv) = if let Expr::Ident(name) = &recv.0
 					&& !self.vars.contains_key(name)
-					&& self.structs.contains_key(name)
+					&& (self.structs.contains_key(name)
+						|| matches!(self.aliases.get(name.as_str()), Some(TypeExpr::TupleStruct(..))))
 				{
 					(name.clone(), None)
 				} else {
 					let (recv_val, recv_typ) = self.expr(recv)?;
-					if method == "str" && args.is_empty() && !matches!(recv_typ, Typ::Struct(..)) {
+					if method == "str" && args.is_empty() && !matches!(recv_typ, Typ::Struct(..) | Typ::TupleStruct(..))
+					{
 						return Ok((self.derived_str(recv_val, &recv_typ), Typ::Str));
 					}
 					if let Typ::Enum(enum_name) = &recv_typ {
@@ -175,7 +180,7 @@ impl<'a> Translator<'a> {
 						);
 					}
 					match &recv_typ {
-						Typ::Struct(name, _) => (name.clone(), Some((recv_val, recv_typ))),
+						Typ::Struct(name, _) | Typ::TupleStruct(name, _) => (name.clone(), Some((recv_val, recv_typ))),
 						_ => {
 							return Err(
 								Diagnostic::new(format!("`{recv_typ}` has no methods"), recv.1.into_range())

@@ -102,3 +102,125 @@ fn wraps_anonymous_sum() {
 		"0",
 	);
 }
+
+#[test]
+fn construct_positional() {
+	check(
+		indoc! {"
+			struct Money(int)
+			Money(500).0
+		"},
+		"500",
+	);
+	check(
+		indoc! {"
+			struct Point(x: float, y: float)
+			Point(1.0, 2.0).y
+		"},
+		"2.0",
+	);
+}
+
+#[test]
+fn construct_named() {
+	check(
+		indoc! {"
+			struct Point(x: float, y: float)
+			p := Point(x: 1.0, y: 2.0)
+			p.0 == p.x
+		"},
+		"true",
+	);
+}
+
+#[test]
+fn construct_print() {
+	check(
+		indoc! {"
+			struct Point(x: float, y: float)
+			Point(1.0, 2.0)
+		"},
+		"Point(x: 1.0, y: 2.0)",
+	);
+}
+
+#[test]
+fn nominal_in_signatures() {
+	check(
+		indoc! {"
+			struct Money(int)
+			fn pay(m Money) int { m.0 }
+			pay(Money(500))
+		"},
+		"500",
+	);
+	fail(indoc! {"
+		struct Money(int)
+		fn pay(m Money) int { m.0 }
+		pay(500)
+	"});
+}
+
+#[test]
+fn methods_and_self() {
+	check(
+		indoc! {"
+			struct Money(int)
+			impl Money {
+				fn double(self) Self {
+					Money(self.0 * 2)
+				}
+			}
+			Money(5).double().0
+		"},
+		"10",
+	);
+}
+
+#[test]
+fn str_override() {
+	check(
+		indoc! {r#"
+			struct Money(int)
+			impl Money {
+				fn str(self) str {
+					"money!"
+				}
+			}
+			print(Money(5))
+			Money(5).str()
+		"#},
+		"money!\nmoney!",
+	);
+}
+
+#[test]
+fn construct_into_sum_member() {
+	check(
+		indoc! {r#"
+			struct UserId(int | string)
+			UserId("abc").0
+		"#},
+		"abc",
+	);
+}
+
+#[test]
+fn wrong_arity_and_type() {
+	fail(indoc! {"
+		struct Money(int)
+		Money(1, 2)
+	"});
+	fail(indoc! {r#"
+		struct Money(int)
+		Money("x")
+	"#});
+}
+
+#[test]
+fn builtin_name_errors_at_def() {
+	let err = fail("struct int(bool)");
+	assert!(err.contains("is a builtin type"), "got: {err}");
+	let err = fail("struct f32(float)");
+	assert!(err.contains("is a builtin type"), "got: {err}");
+}

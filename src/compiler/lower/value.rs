@@ -322,12 +322,7 @@ impl<'a> Translator<'a> {
 					Diagnostic::new(format!("`{name}.{variant}` has no field `{key}`"), k.1.into_range())
 						.with_label("no such field")
 				})?;
-				let (fv, at) = self.check_expr(val, &payload[idx])?;
-				if at != payload[idx] {
-					let msg = format!("expected {}, got {at}", payload[idx]);
-					return Err(Diagnostic::new(msg, val.1.into_range()).with_label("type mismatch"));
-				}
-				fields[idx] = fv;
+				fields[idx] = self.field_arg(val, &payload[idx])?;
 			}
 			let val = self.make_enum(&variants, disc, &fields);
 			return Ok((val, Typ::Enum(name.to_string())));
@@ -342,15 +337,64 @@ impl<'a> Translator<'a> {
 		}
 		let mut fields = Vec::with_capacity(args.len());
 		for (arg, ft) in args.iter().zip(&payload) {
-			let (fv, at) = self.check_expr(arg, ft)?;
-			if at != *ft {
-				let msg = format!("expected {ft}, got {at}");
-				return Err(Diagnostic::new(msg, arg.1.into_range()).with_label("type mismatch"));
-			}
-			fields.push(fv);
+			fields.push(self.field_arg(arg, ft)?);
 		}
 		let val = self.make_enum(&variants, disc, &fields);
 		Ok((val, Typ::Enum(name.to_string())))
+	}
+
+	// Tuple struct constructor.
+	pub(super) fn construct_tuple_struct(
+		&mut self,
+		name: &str,
+		args: &[Spanned<Expr>],
+		span: Span,
+	) -> Result<TypedVal, Diagnostic> {
+		let typ = self.types().resolve(&TypeExpr::Name(name.to_string()), span)?;
+		let Typ::TupleStruct(_, fields) = typ.clone() else {
+			unreachable!("caller checked the alias");
+		};
+		let mut slots: Vec<Option<&Spanned<Expr>>> = vec![None; fields.len()];
+		if let [(Expr::Record(entries), _)] = args
+			&& fields.iter().any(|(n, _)| n.is_some())
+		{
+			for (k, val) in entries {
+				let Expr::Ident(key) = &k.0 else {
+					return Err(
+						Diagnostic::new("field names must be idents", k.1.into_range()).with_label("not a field name")
+					);
+				};
+				let idx = fields.iter().position(|(n, _)| n.as_deref() == Some(key)).ok_or_else(|| {
+					Diagnostic::new(format!("`{name}` has no field `{key}`"), k.1.into_range())
+						.with_label("no such field")
+				})?;
+				slots[idx] = Some(val);
+			}
+		} else if args.len() == fields.len() {
+			slots = args.iter().map(Some).collect();
+		} else {
+			let msg = format!("`{name}` takes {} field(s), got {}", fields.len(), args.len());
+			return Err(Diagnostic::new(msg, span.into_range()).with_label("wrong number of fields"));
+		}
+		let ptr = self.call_alloc(fields.len());
+		for (i, ((_, ft), slot)) in fields.iter().zip(&slots).enumerate() {
+			let v = match *slot {
+				Some(arg) => self.field_arg(arg, ft)?,
+				None => self.zero(ft),
+			};
+			self.b.ins().store(MemFlags::new(), v, ptr, (i * 8) as i32);
+		}
+		Ok((ptr, typ))
+	}
+
+	// A constructor arg checked against its field type.
+	fn field_arg(&mut self, arg: &Spanned<Expr>, ft: &Typ) -> Result<Value, Diagnostic> {
+		let (fv, at) = self.check_expr(arg, ft)?;
+		if at != *ft {
+			let msg = format!("expected {ft}, got {at}");
+			return Err(Diagnostic::new(msg, arg.1.into_range()).with_label("type mismatch"));
+		}
+		Ok(fv)
 	}
 
 	// Evaluate `value` against an expected type.
