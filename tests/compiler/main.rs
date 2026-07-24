@@ -13,6 +13,7 @@ mod diagnostics;
 mod dollar;
 mod examples;
 mod functions;
+mod interpolation;
 mod io;
 mod methods;
 mod pipelines;

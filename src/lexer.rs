@@ -252,19 +252,80 @@ impl fmt::Display for Token {
 	}
 }
 
+// Makes a logos pass, transforming errors into tokens so lexing always succeeds.
+fn raw_lex(src: &str, base: usize) -> Vec<(Token, SimpleSpan)> {
+	Token::lexer(src)
+		.spanned()
+		.filter_map(|(tok, sp)| {
+			let span = (base + sp.start..base + sp.end).into();
+			match tok {
+				Ok(Token::BlockComment) => None,
+				Ok(tok) => Some((tok, span)),
+				Err(()) => Some((Token::Error(src[sp].to_string()), span)),
+			}
+		})
+		.collect()
+}
+
+// Expands vars in strings.
+fn expand_string(s: &str, span: SimpleSpan, src: &str) -> Vec<(Token, SimpleSpan)> {
+	let bad = || vec![(Token::Error(src[span.start..span.end].to_string()), span)];
+	let part = |toks: &mut Vec<(Token, SimpleSpan)>, t: Token| {
+		if toks.len() > 1 {
+			toks.push((Token::Plus, span));
+		}
+		toks.push((t, span));
+	};
+	let (mut toks, mut lit) = (vec![(Token::LParen, span)], String::new());
+	let mut it = s.char_indices();
+	while let Some((i, c)) = it.next() {
+		match c {
+			'{' | '}' if s[i + 1..].starts_with(c) => {
+				lit.push(c);
+				it.next();
+			}
+			'}' => return bad(),
+			'{' => {
+				let mut depth = 1;
+				let end = it.by_ref().find_map(|(j, c)| {
+					depth += (c == '{') as i32 - (c == '}') as i32;
+					(depth == 0).then_some(j)
+				});
+				let Some(end) = end.filter(|&end| end > i + 1) else {
+					return bad();
+				};
+				if !lit.is_empty() {
+					part(&mut toks, Token::String(std::mem::take(&mut lit)));
+				}
+				part(&mut toks, Token::LParen);
+				toks.extend(raw_lex(&s[i + 1..end], span.start + i + 2));
+				let tail = [
+					Token::RParen,
+					Token::Dot,
+					Token::Ident("str".into()),
+					Token::LParen,
+					Token::RParen,
+				];
+				toks.extend(tail.map(|t| (t, span)));
+			}
+			_ => lit.push(c),
+		}
+	}
+	if toks.len() == 1 {
+		return vec![(Token::String(lit), span)];
+	}
+	if !lit.is_empty() {
+		part(&mut toks, Token::String(lit));
+	}
+	toks.push((Token::RParen, span));
+	toks
+}
+
 // Lex `src`.
 // Converts errors into tokens so parsing stays recoverable.
 // Inserts `DocBreak` between consecutive `Doc` tokens separated by at least one newline.
 pub fn lex(src: &str) -> Vec<(Token, SimpleSpan)> {
-	let raw: Vec<(Token, SimpleSpan)> = Token::lexer(src)
-		.spanned()
-		.filter_map(|(token, span)| match token {
-			Ok(Token::BlockComment) => None,
-			Ok(token) => Some((token, span.into())),
-			Err(()) => Some((Token::Error(src[span.clone()].to_string()), span.into())),
-		})
-		.collect();
-
+	let raw = raw_lex(src, 0);
 	let mut out = Vec::with_capacity(raw.len() + 4);
 	for i in 0..raw.len() {
 		let (tok, span) = &raw[i];
@@ -276,7 +337,10 @@ pub fn lex(src: &str) -> Vec<(Token, SimpleSpan)> {
 				out.push((Token::DocBreak, (raw[i - 1].1.end..span.start).into()));
 			}
 		}
-		out.push((tok.clone(), *span));
+		match tok {
+			Token::String(s) => out.extend(expand_string(s, *span, src)),
+			_ => out.push((tok.clone(), *span)),
+		}
 	}
 	out
 }

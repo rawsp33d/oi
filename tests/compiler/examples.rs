@@ -12,7 +12,7 @@ const EXPECTED: &[(&str, &str)] = &[
 	("points", "(13, 4)"),
 	("ranges", "true"),
 	("shapes", "triangle: (3.0, 4.0, 5.0)"),
-	("users", "🟢 {u.name}\nWelcome back, {self.name}!"), // FIX: revisit once string interpolation is implemented
+	("users", "🟢 ur_mom_lolol\nWelcome back, ur_mom_lolol!"),
 ];
 
 fn examples_dir() -> PathBuf {
