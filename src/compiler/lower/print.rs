@@ -165,7 +165,7 @@ impl<'a> Translator<'a> {
 				self.emit_frag(runtime::Tag::Raw, val, 0, false, sink);
 			}
 
-			Typ::Enum(_) | Typ::Option(_) | Typ::Result(_) | Typ::AtomSum(_) => {
+			Typ::Enum(_) | Typ::Option(_) | Typ::Result(_) => {
 				let variants = self.variants_of(typ);
 				let ptr = self.enum_name_str(&variants, val);
 				self.emit_frag(runtime::Tag::Raw, ptr, 0, false, sink);
@@ -204,7 +204,6 @@ impl<'a> Translator<'a> {
 					| Typ::Enum(_)
 					| Typ::Option(_)
 					| Typ::Result(_)
-					| Typ::AtomSum(_)
 					| Typ::Sum(..)
 					| Typ::Range
 					| Typ::Fn(..)

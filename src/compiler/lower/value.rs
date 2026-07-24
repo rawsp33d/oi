@@ -48,7 +48,7 @@ impl<'a> Translator<'a> {
 			Typ::Bool | Typ::ISize | Typ::USize => self.b.ins().iconst(self.int, 0),
 			Typ::Fn(..) | Typ::Closure(..) => self.b.ins().iconst(self.int, 0),
 			// default to first variant, with zero'd payload fields
-			Typ::Enum(_) | Typ::Option(_) | Typ::Result(_) | Typ::AtomSum(_) | Typ::Sum(..) => {
+			Typ::Enum(_) | Typ::Option(_) | Typ::Result(_) | Typ::Sum(..) => {
 				let variants = self.variants_of(typ);
 				let v = variants.first().cloned();
 				let disc = v.as_ref().map_or(0, |v| v.disc);
@@ -150,7 +150,7 @@ impl<'a> Translator<'a> {
 				self.construct_variant(typ, variant, args, value.1)?.0
 			}
 			(Expr::None, Typ::Option(inner)) => self.make_enum(&option_variants(inner), 0, &[]),
-			(Expr::Atom(name), Typ::AtomSum(_) | Typ::Sum(..)) => {
+			(Expr::Atom(name), Typ::Sum(..)) => {
 				let variants = self.variants_of(target);
 				let Some(v) = variants.iter().find(|v| &v.name == name && v.payload.is_empty()) else {
 					return Err(
@@ -180,7 +180,6 @@ impl<'a> Translator<'a> {
 			Typ::Enum(name) => self.enum_variants(name),
 			Typ::Option(inner) => option_variants(inner),
 			Typ::Result(inner) => result_variants(inner),
-			Typ::AtomSum(names) => atom_sum_variants(names),
 			Typ::Sum(variants) => variants.clone(),
 			_ => Vec::new(),
 		}
@@ -461,6 +460,9 @@ impl<'a> Translator<'a> {
 						let hit = self.b.ins().icmp_imm(IntCC::Equal, old, s);
 						let dv = self.b.ins().iconst(self.int, d);
 						tag = self.b.ins().select(hit, dv, tag);
+					}
+					if !enum_boxed(dst) {
+						return Ok((tag, target.clone()));
 					}
 					let slots = enum_slots(dst);
 					let ptr = self.call_alloc(slots);

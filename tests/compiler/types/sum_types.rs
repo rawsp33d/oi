@@ -488,3 +488,49 @@ fn single_type_stays_transparent_alias() {
 		"6",
 	);
 }
+
+#[test]
+fn atom_sums_order() {
+	check(
+		indoc! {"
+			type A = :ok | :err
+			type B = :err | :ok
+			a A := :ok
+			b B := a
+			int(b)
+		"},
+		"1",
+	);
+	check(
+		indoc! {"
+			type A = :ok | :err
+			type B = :err | :ok
+			a A := :ok
+			b B := a
+			a == b
+		"},
+		"true",
+	);
+}
+
+#[test]
+fn atom_sum_alias_splices_as_member() {
+	check(
+		indoc! {"
+			type Status = :ok | :err
+			type V = Status | int
+			mut x V := :err
+			int(x)
+		"},
+		"1",
+	);
+	check(
+		indoc! {"
+			type Status = :ok | :err
+			type V = Status | int
+			mut x V := 5
+			int(x)
+		"},
+		"2",
+	);
+}

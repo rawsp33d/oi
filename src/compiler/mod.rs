@@ -45,7 +45,6 @@ pub(crate) enum Typ {
 	Enum(String),
 	Option(Box<Typ>),
 	Result(Box<Typ>),
-	AtomSum(Vec<String>),
 	Sum(Vec<VariantInfo>),
 	Error,
 	Range,
@@ -72,10 +71,7 @@ impl Typ {
 	}
 
 	pub fn is_enumish(&self) -> bool {
-		matches!(
-			self,
-			Typ::Enum(_) | Typ::Option(_) | Typ::Result(_) | Typ::AtomSum(_) | Typ::Sum(..)
-		)
+		matches!(self, Typ::Enum(_) | Typ::Option(_) | Typ::Result(_) | Typ::Sum(..))
 	}
 }
 
@@ -101,13 +97,6 @@ impl fmt::Display for Typ {
 			Typ::Enum(name) => write!(f, "{name}"),
 			Typ::Option(inner) => write!(f, "?{inner}"),
 			Typ::Result(inner) => write!(f, "!{inner}"),
-			Typ::AtomSum(names) => {
-				write!(
-					f,
-					"{}",
-					names.iter().map(|n| format!(":{n}")).collect::<Vec<_>>().join(" | ")
-				)
-			}
 			Typ::Sum(variants) => {
 				write!(
 					f,
@@ -159,7 +148,6 @@ impl PartialEq for Typ {
 				a == b
 			}
 			(Typ::FixedArray(a, n), Typ::FixedArray(b, m)) => a == b && n == m,
-			(Typ::AtomSum(a), Typ::AtomSum(b)) => a == b,
 			(Typ::Sum(a), Typ::Sum(b)) => a == b,
 			(Typ::Fn(p, r), Typ::Fn(q, s)) | (Typ::Closure(p, r), Typ::Closure(q, s)) => p == q && r == s,
 			(Typ::Map(k, v), Typ::Map(l, w)) => k == l && v == w,
@@ -382,7 +370,7 @@ impl TypeCtx<'_> {
 							.with_label("repeated atom"),
 					);
 				}
-				Ok(Typ::AtomSum(names.clone()))
+				Ok(Typ::Sum(atom_sum_variants(names)))
 			}
 			TypeExpr::Sum(ms) => self.resolve_sum(ms, span),
 			TypeExpr::TupleStruct(name, fields) => {
