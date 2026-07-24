@@ -33,7 +33,7 @@ tags: []
 - result types (`!`) `v`
 - structs `c v go rust`
 - `or <expr>` `v odin`
-- ~~tuple structs `rust`~~ (nah, we already have this with short struct literals)
+- tuple structs `rust`
 - tuples `rust zig nim julia janet`
 - comptime `zig revo nim`
 - no parens needed for simple conditionals `v rust go nu`

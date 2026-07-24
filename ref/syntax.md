@@ -208,6 +208,42 @@ x := 2
 y := 1
 q := Point{x, y}
 
+# tuple structs
+
+# a struct can take a tuple body instead of a record body
+struct Money(int)
+struct Point(x: float, y: float)
+m := Money(500)
+p := Point(1.0, 2.0)
+p := Point(x: 1.0, y: 2.0) # named call args work too
+assert!(p.0 == p.x)
+print(m.0) # 500
+
+# these types are distinct, unlike type aliases
+fn pay(m Money) {}
+# pay(500) # error: expected Money, got int
+pay(Money(500))
+
+# can receive methods
+impl Money {
+	fn str(self) string {
+		"${self.0}"
+	}
+	fn double(self) Self {
+		self * 2
+	}
+}
+print(Money(5)) # $5
+print(Money(5).double()) # $10
+
+# tuple structs are nominal step-bros of type aliases
+# transparent types
+type Money = float
+type UserId = int | string
+# distinct types
+struct Money(float)
+struct UserId(int | string)
+
 # struct update
 
 struct User {
@@ -1252,6 +1288,13 @@ fn main() {
 	mut id Id := 7
 	id = "abc123"
 	
+	# sum types may be used in type signatures
+	fn lookup(id Id) User | :missing { :missing }
+	
+	# nested sum aliases splice in place
+	type Num = int | f64
+	type Value = Num | string # = int | f64 | string
+	
 	# matching is exhaustive
 	fn describe(id Id) string {
 		match id {
@@ -1266,8 +1309,11 @@ fn main() {
 	# the zero value is the first member's zero
 	mut blank Id # 0
 	
-	# atoms make creat sum types
+	# atoms make great sum types
 	type Status = :ok | :err
+	
+	# to make distinct types, wrap sum type in tuple structs
+	struct UserId(int | string)
 
 	## errors
 	
