@@ -37,6 +37,19 @@ fn swap() {
 }
 
 #[test]
+fn loose_commas() {
+	let src = indoc! {r#"
+		fn get_coords() (int, int) { (7, 2) }
+		(lat long) := get_coords()
+		(mut a, mut b) := (lat long)
+		(a b) = (b a)
+		loop (x y) in [(1 2)] { print(x + y) }
+		match (a b) { (l r) => print(l - r), }
+	"#};
+	check(src, "3\n-5");
+}
+
+#[test]
 fn bare_tuple_still_expr() {
 	check("(a, b) := (1, 2)\n(a, b)", "(1, 2)");
 }

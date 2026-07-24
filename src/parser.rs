@@ -303,7 +303,7 @@ where
 
 	// tuple destructuring
 	let name = just(Token::Mut).or_not().map(|m| m.is_some()).then(ident());
-	let destructure = paren(list(name))
+	let destructure = paren(loose_list(name))
 		.then(just(Token::Bind).to(true).or(just(Token::Assign).to(false)))
 		.then(expr.clone())
 		.try_map(|((names, bind), value), span| {
@@ -541,8 +541,7 @@ where
 		// a for-loop binds/destructures into names
 		let pattern = {
 			let name = ident();
-			let tuple =
-				paren(name.separated_by(just(Token::Comma)).allow_trailing().collect::<Vec<_>>()).map(Pattern::Tuple);
+			let tuple = paren(loose_list(name)).map(Pattern::Tuple);
 			tuple.or(name.map(Pattern::Name))
 		};
 		let for_expr = just(Token::Loop)
