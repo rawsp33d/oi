@@ -127,6 +127,13 @@ impl<'a> Translator<'a> {
 			}
 
 			Typ::Struct(sname, fields) => {
+				if let Some(sig) = self.funcs.get(&format!("{sname}.str")).cloned()
+					&& sig.params.len() == 1
+					&& sig.ret == Typ::Str
+				{
+					let (s, _) = self.emit_call(&sig, &[val]);
+					return self.emit_frag(runtime::Tag::Raw, s, 0, false, sink);
+				}
 				let sname = sname.clone();
 				let fields = fields.clone();
 				self.write_lit(&format!("{sname}{{"), sink);

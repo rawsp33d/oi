@@ -39,3 +39,25 @@ fn user_str_wins() {
 	"#};
 	check(src, "$");
 }
+
+#[test]
+fn print_uses_user_str() {
+	let src = indoc! {r#"
+		struct Money { n int }
+		impl Money { fn str(self) string { "$" + self.n.str() } }
+		m := Money{5}
+		print(m)
+		print([m, m])
+	"#};
+	check(src, "$5\n[$5, $5]");
+}
+
+#[test]
+fn user_str_nested_in_derived_render() {
+	let src = indoc! {r#"
+		struct Money { n int }
+		impl Money { fn str(self) string { "$" + self.n.str() } }
+		[Money{5}, Money{7}].str()
+	"#};
+	check(src, "[$5, $7]");
+}
