@@ -1,0 +1,62 @@
+use crate::helpers::*;
+
+#[test]
+fn bind_basic() {
+	check(r#"(foo, bar) := ("food", "bard"); foo"#, "food");
+	check(r#"(foo, bar) := ("food", "bard"); bar"#, "bard");
+}
+
+#[test]
+fn bind_from_fn() {
+	let src = indoc! {"
+		fn pair() (int, int) { (10, 20) }
+		(a, b) := pair()
+		a + b
+	"};
+	check(src, "30");
+}
+
+#[test]
+fn bind_mut_reassigned() {
+	let src = indoc! {"
+		(mut a, b) := (1, 2)
+		a = a + b
+		a
+	"};
+	check(src, "3");
+}
+
+#[test]
+fn swap() {
+	let src = indoc! {"
+		(mut a, mut b) := (1, 2)
+		(a, b) = (b, a)
+		a
+	"};
+	check(src, "2");
+}
+
+#[test]
+fn bare_tuple_still_expr() {
+	check("(a, b) := (1, 2)\n(a, b)", "(1, 2)");
+}
+
+#[test]
+fn fail_arity_mismatch() {
+	assert!(fail("(a, b, c) := (1, 2)").contains("fields"));
+}
+
+#[test]
+fn fail_non_tuple() {
+	assert!(fail("(a, b) := 5").contains("expected a tuple"));
+}
+
+#[test]
+fn fail_mut_in_assign() {
+	fail("(mut a, mut b) := (1, 2)\n(mut a, b) = (3, 4)");
+}
+
+#[test]
+fn fail_assign_immutable() {
+	assert!(fail("(a, b) := (1, 2)\n(a, b) = (3, 4)").contains("mut"));
+}

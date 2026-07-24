@@ -50,6 +50,39 @@ impl<'a> Translator<'a> {
 					self.vars.insert(name.clone(), Local::plain(var, typ, *mutable));
 				}
 
+				Expr::Destructure { names, value, bind } => {
+					let (ptr, typ) = self.expr(value)?;
+					let fields = match &typ {
+						Typ::Tuple(f) if f.len() == names.len() => f.clone(),
+						_ => {
+							return Err(Diagnostic::new(
+								format!("cannot destructure {typ} into {} names", names.len()),
+								value.1.into_range(),
+							)
+							.with_label(format!("expected a tuple with {} fields", names.len())));
+						}
+					};
+					for (i, ((mutable, name), (_, ftyp))) in names.iter().zip(fields).enumerate() {
+						let cl = cl_type(&ftyp, self.int);
+						let val = self.b.ins().load(cl, MemFlags::new(), ptr, (i * 8) as i32);
+						if *bind {
+							let var = self.b.declare_var(cl);
+							self.b.def_var(var, val);
+							self.vars.insert(name.clone(), Local::plain(var, ftyp, *mutable));
+						} else {
+							let local = self.mutable_local(name, stmt.1.into_range(), Mutation::Assign)?;
+							if local.typ != ftyp {
+								return Err(Diagnostic::new(
+									format!("cannot assign {ftyp} to `{name}`, which is {}", local.typ),
+									value.1.into_range(),
+								)
+								.with_label("type mismatch"));
+							}
+							self.write_local(&local, val);
+						}
+					}
+				}
+
 				Expr::Assign { name, value } => {
 					let local = self.mutable_local(name, stmt.1.into_range(), Mutation::Assign)?;
 					let (val, typ) = self.check_expr(value, &local.typ)?;

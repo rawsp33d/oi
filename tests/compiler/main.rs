@@ -9,6 +9,7 @@ mod assertions;
 mod comments;
 mod comparisons;
 mod control;
+mod destructuring;
 mod diagnostics;
 mod dollar;
 mod examples;

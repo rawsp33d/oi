@@ -88,7 +88,9 @@ fn collect(expr: &Expr, out: &mut HashSet<String>) {
 	let mut child = |e: &Spanned<Expr>| collect(&e.0, out);
 	match expr {
 		Bind { value: Some(v), .. } => child(v),
-		Assign { value, .. } | FieldAssign { value, .. } | Append { value, .. } => child(value),
+		Assign { value, .. } | FieldAssign { value, .. } | Append { value, .. } | Destructure { value, .. } => {
+			child(value)
+		}
 		IndexAssign { index, value, .. } => {
 			child(index);
 			child(value);

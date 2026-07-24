@@ -478,6 +478,7 @@ impl<'a> Translator<'a> {
 
 			Expr::Bind { .. } => unreachable!("bind in expression position"),
 			Expr::Assign { .. } => unreachable!("assign in expression position"),
+			Expr::Destructure { .. } => unreachable!("destructuring in expression position"),
 			Expr::IndexAssign { .. } => unreachable!("index assign in expression position"),
 			Expr::Fn { .. } => unreachable!("fn definition in expression position"),
 			Expr::StructDef { .. } => unreachable!("struct definition in expression position"),

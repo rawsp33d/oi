@@ -301,6 +301,26 @@ where
 			)
 		});
 
+	// tuple destructuring
+	let name = just(Token::Mut).or_not().map(|m| m.is_some()).then(ident());
+	let destructure = paren(list(name))
+		.then(just(Token::Bind).to(true).or(just(Token::Assign).to(false)))
+		.then(expr.clone())
+		.try_map(|((names, bind), value), span| {
+			if names.len() < 2 {
+				return Err(Rich::custom(span, "tuple destructuring needs at least 2 names"));
+			}
+			if !bind && names.iter().any(|&(m, _)| m) {
+				return Err(Rich::custom(span, "`mut` only applies to `:=` bindings"));
+			}
+			Ok(Expr::Destructure {
+				names,
+				bind,
+				value: Box::new(value),
+			})
+		})
+		.map_with(|e, ex| (e, ex.span()));
+
 	let doc = select! { Token::Doc(text) => text }
 		.repeated()
 		.at_least(1)
@@ -311,6 +331,7 @@ where
 	// statements
 	let stmt = doc
 		.or(ret_stmt)
+		.or(destructure)
 		.or(bind)
 		.or(field_assign)
 		.or(assign)

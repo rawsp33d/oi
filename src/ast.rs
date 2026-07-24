@@ -47,6 +47,13 @@ pub enum Expr {
 		value: Box<Spanned<Expr>>,
 	},
 
+	// `(a, mut b) := value` or `(a, b) = value`
+	Destructure {
+		names: Vec<(bool, String)>,
+		value: Box<Spanned<Expr>>,
+		bind: bool,
+	},
+
 	Fn {
 		name: String,
 		type_params: Vec<TypeParam>,
