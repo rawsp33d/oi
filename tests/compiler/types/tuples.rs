@@ -171,3 +171,21 @@ fn if_no_else_tuple_zero() {
 	"};
 	check(src, "(0, 0)");
 }
+
+#[test]
+fn field_names_are_hints() {
+	check(
+		indoc! {"
+			t (int, int) := (x: 1, y: 2)
+			t.0 + t.1
+		"},
+		"3",
+	);
+	check(
+		indoc! {"
+			fn f(t (int, int)) int { t.0 }
+			f((x: 7, y: 8))
+		"},
+		"7",
+	);
+}

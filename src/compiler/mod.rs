@@ -27,8 +27,7 @@ type EnumItem<'a> = (&'a str, &'a [EnumVariant]);
 // resolved params with an optional return annotation
 type ParamsRet = (Vec<(String, Typ, bool)>, Option<(Typ, Span)>);
 
-// TODO: PartialEq compares tuple field names, but comparisons should ignore them
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug)]
 pub(crate) enum Typ {
 	Int(u16),
 	UInt(u16),
@@ -144,6 +143,28 @@ impl fmt::Display for Typ {
 impl PartialEq for FieldDef {
 	fn eq(&self, other: &Self) -> bool {
 		self.name == other.name && self.typ == other.typ
+	}
+}
+
+// Ignore tuple field names for equality.
+impl PartialEq for Typ {
+	fn eq(&self, other: &Self) -> bool {
+		match (self, other) {
+			(Typ::Tuple(a), Typ::Tuple(b)) => a.len() == b.len() && a.iter().zip(b).all(|((_, x), (_, y))| x == y),
+			(Typ::TupleStruct(a, _), Typ::TupleStruct(b, _)) => a == b,
+			(Typ::Int(a), Typ::Int(b)) | (Typ::UInt(a), Typ::UInt(b)) | (Typ::Float(a), Typ::Float(b)) => a == b,
+			(Typ::Struct(n, a), Typ::Struct(m, b)) => n == m && a == b,
+			(Typ::Enum(a), Typ::Enum(b)) => a == b,
+			(Typ::Option(a), Typ::Option(b)) | (Typ::Result(a), Typ::Result(b)) | (Typ::Array(a), Typ::Array(b)) => {
+				a == b
+			}
+			(Typ::FixedArray(a, n), Typ::FixedArray(b, m)) => a == b && n == m,
+			(Typ::AtomSum(a), Typ::AtomSum(b)) => a == b,
+			(Typ::Sum(a), Typ::Sum(b)) => a == b,
+			(Typ::Fn(p, r), Typ::Fn(q, s)) | (Typ::Closure(p, r), Typ::Closure(q, s)) => p == q && r == s,
+			(Typ::Map(k, v), Typ::Map(l, w)) => k == l && v == w,
+			_ => std::mem::discriminant(self) == std::mem::discriminant(other),
+		}
 	}
 }
 
