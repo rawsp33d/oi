@@ -332,6 +332,84 @@ fn enum_payload() {
 }
 
 #[test]
+fn struct_form_construct_and_match() {
+	check(
+		indoc! {r#"
+			enum Shape {
+				circle { radius f64 }
+				rectangle { width f64, height f64 }
+				triangle(f64, f64, f64)
+				point
+			}
+			s := Shape.circle { radius: 5.0 }
+			match s {
+				.circle { radius } => radius * 2.0,
+				.rectangle { width, height } => width * height,
+				.triangle(a, b, c) => a + b + c,
+				.point => 0.0,
+			}
+		"#},
+		"10.0",
+	);
+}
+
+#[test]
+fn struct_form_shorthand_and_rename() {
+	check(
+		indoc! {r#"
+			enum Shape { circle { radius f64 } rectangle { width f64, height f64 } }
+			fn mk() Shape { .rectangle { width: 3.0, height: 4.0 } }
+			match mk() {
+				.rectangle { width: w, height } => w * height,
+				else => 0.0,
+			}
+		"#},
+		"12.0",
+	);
+}
+
+#[test]
+fn struct_form_zero_is_first_variant() {
+	check(
+		indoc! {r#"
+			enum Shape { circle { radius f64 } rectangle { width f64, height f64 } }
+			match Shape{} { .circle { radius } => radius, else => -1.0 }
+		"#},
+		"0.0",
+	);
+}
+
+#[test]
+fn struct_form_unknown_field() {
+	let err = fail("enum S { circle { radius f64 } }\nS.circle { r: 1.0 }");
+	assert!(err.contains("no field `r`"), "got: {err}");
+}
+
+#[test]
+fn struct_form_omitted_field_zeroes() {
+	check(
+		indoc! {r#"
+			enum S { rect { w f64, h f64 } }
+			s := S.rect { h: 2.0 }
+			match s { .rect { w, h } => w + h }
+		"#},
+		"2.0",
+	);
+}
+
+#[test]
+fn struct_form_positional_rejected() {
+	let err = fail("enum S { circle { radius f64 } }\nS.circle(1.0)");
+	assert!(err.contains("takes named fields"), "got: {err}");
+}
+
+#[test]
+fn tuple_form_record_rejected() {
+	let err = fail("enum S { tri(f64, f64) }\nS.tri { a: 1.0 }");
+	assert!(err.contains("takes 2 field(s), got 1"), "got: {err}");
+}
+
+#[test]
 fn alias_payload() {
 	check(
 		indoc! {"

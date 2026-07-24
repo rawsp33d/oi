@@ -172,6 +172,7 @@ pub(crate) struct VariantInfo {
 	pub name: String,
 	pub disc: i64,
 	pub payload: Vec<Typ>,
+	pub names: Vec<String>,
 }
 
 impl VariantInfo {
@@ -180,6 +181,7 @@ impl VariantInfo {
 			name: name.into(),
 			disc,
 			payload,
+			names: vec![],
 		}
 	}
 }
@@ -235,6 +237,7 @@ fn build_variants(variants: &[EnumVariant], types: TypeCtx) -> Result<Vec<Varian
 				name: v.name.clone(),
 				disc,
 				payload,
+				names: v.names.clone(),
 			})
 		})
 		.collect()

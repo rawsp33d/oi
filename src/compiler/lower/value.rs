@@ -230,7 +230,21 @@ impl<'a> Translator<'a> {
 		let Some(v) = variants.iter().find(|v| v.name == variant) else {
 			return bad(format!("`{typ}` has no variant `{variant}`"));
 		};
-		let binds = field_binds(args.iter().zip(&v.payload), 8, 8)?;
+		let binds = if let [(Expr::Record(entries), _)] = args {
+			let mut binds = Vec::with_capacity(entries.len());
+			for (k, val) in entries {
+				let (Expr::Ident(field), Expr::Ident(local)) = (&k.0, &val.0) else {
+					return bad("field patterns bind names".into());
+				};
+				let Some(idx) = v.names.iter().position(|n| n == field) else {
+					return bad(format!("`{variant}` has no field `{field}`"));
+				};
+				binds.push((local.clone(), v.payload[idx].clone(), 8 + idx as i32 * 8));
+			}
+			binds
+		} else {
+			field_binds(args.iter().zip(&v.payload), 8, 8)?
+		};
 		Ok((v.disc, binds))
 	}
 
@@ -290,7 +304,33 @@ impl<'a> Translator<'a> {
 			Diagnostic::new(format!("enum `{name}` has no variant `{variant}`"), span.into_range())
 				.with_label("no such variant")
 		})?;
-		let (disc, payload) = (v.disc, v.payload.clone());
+		let (disc, payload, names) = (v.disc, v.payload.clone(), v.names.clone());
+		if !names.is_empty() {
+			let [(Expr::Record(entries), _)] = args else {
+				let msg = format!("`{name}.{variant}` takes named fields");
+				return Err(Diagnostic::new(msg, span.into_range()).with_label("use `{ field: value }`"));
+			};
+			let mut fields: Vec<Value> = payload.iter().map(|t| self.zero(t)).collect();
+			for (k, val) in entries {
+				let Expr::Ident(key) = &k.0 else {
+					return Err(
+						Diagnostic::new("field names must be idents", k.1.into_range()).with_label("not a field name")
+					);
+				};
+				let idx = names.iter().position(|n| n == key).ok_or_else(|| {
+					Diagnostic::new(format!("`{name}.{variant}` has no field `{key}`"), k.1.into_range())
+						.with_label("no such field")
+				})?;
+				let (fv, at) = self.check_expr(val, &payload[idx])?;
+				if at != payload[idx] {
+					let msg = format!("expected {}, got {at}", payload[idx]);
+					return Err(Diagnostic::new(msg, val.1.into_range()).with_label("type mismatch"));
+				}
+				fields[idx] = fv;
+			}
+			let val = self.make_enum(&variants, disc, &fields);
+			return Ok((val, Typ::Enum(name.to_string())));
+		}
 		if args.len() != payload.len() {
 			let msg = format!(
 				"`{name}.{variant}` takes {} field(s), got {}",
