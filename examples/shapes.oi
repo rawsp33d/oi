@@ -19,22 +19,17 @@ Shape.rect(3.0, 4.0)
 
 shape := Shape.triangle(3.0, 4.0, 5.0)
 
-# TODO: this is goofy for now because string interpolation isn't implemented yet
 match shape {
 	.point => {
-		write("origin: ")
-		print(())
+		print("origin: {()}")
 	}
 	.circle(r) => {
-		write("circle: ")
-		print((r,))
+		print("circle: {(r,)}")
 	}
 	.rect(w, h) => {
-		write("rect: ")
-		print((w h))
+		print("rect: {(w h)}")
 	}
 	.triangle(a, b, c) => {
-		write("triangle: ")
-		print((a b c))
+		print("triangle: {(a b c)}")
 	}
 }
