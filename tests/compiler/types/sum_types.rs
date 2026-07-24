@@ -154,16 +154,70 @@ fn struct_field_type() {
 }
 
 #[test]
-fn anonymous_sum_in_signature_errors() {
-	fail(indoc! {"
-		fn f() :ok | :err { :err }
-		f()
-	"});
+fn anonymous_sum_in_signature() {
+	check(
+		indoc! {"
+			fn f() :ok | :err { :err }
+			f()
+		"},
+		"err",
+	);
 }
 
 #[test]
-fn anonymous_sum_in_bind_errors() {
-	fail("x :ok | :err := :ok");
+fn anonymous_sum_in_bind() {
+	check(
+		indoc! {"
+			x :ok | :err := :ok
+			x
+		"},
+		"ok",
+	);
+}
+
+#[test]
+fn anonymous_sum_param_and_return() {
+	check(
+		indoc! {"
+			fn f(v int | string) int | string { v }
+			match f(7) {
+				n @ int => n + 1,
+				string => 0,
+			}
+		"},
+		"8",
+	);
+	check(
+		indoc! {r#"
+			fn f(v int | string) int | string { v }
+			match f("hi") {
+				int => "no",
+				s @ string => s,
+			}
+		"#},
+		"hi",
+	);
+}
+
+#[test]
+fn tight_prefix_precedence() {
+	check(
+		indoc! {"
+			type V = :none | []int | :other
+			mut x V := :other
+			int(x)
+		"},
+		"2",
+	);
+	check(
+		indoc! {"
+			type V = :none | []int | :other
+			mut x V := :none
+			x = [1, 2]
+			int(x)
+		"},
+		"1",
+	);
 }
 
 #[test]
@@ -308,14 +362,56 @@ fn general_eq_is_structural() {
 }
 
 #[test]
-fn member_order_matters_for_identity() {
-	fail(indoc! {"
-		type A = int | string
-		type B = string | int
-		a A := 1
-		b B := 1
-		a == b
-	"});
+fn set_identity() {
+	check(
+		indoc! {"
+			type A = int | string
+			type B = string | int
+			a A := 7
+			b B := a
+			match b {
+				n @ int => n + 1,
+				string => 0,
+			}
+		"},
+		"8",
+	);
+	check(
+		indoc! {"
+			type A = int | string
+			type B = string | int
+			a A := 7
+			b B := a
+			a == b
+		"},
+		"true",
+	);
+	check(
+		indoc! {"
+			type A = int | string
+			a A := 7
+			int(a)
+		"},
+		"0",
+	);
+	check(
+		indoc! {"
+			type A = int | string
+			type B = string | int
+			a A := 7
+			b B := a
+			int(b)
+		"},
+		"1",
+	);
+	check(
+		indoc! {r#"
+			type B = string | int
+			mut x B
+			x == ""
+		"#},
+		"true",
+	);
 }
 
 #[test]

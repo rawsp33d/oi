@@ -83,68 +83,87 @@ where
 
 	// type annotations
 	let type_expr = recursive(|te| {
-		let name = ident().map(TypeExpr::Name);
-		let unit = just(Token::LParen).then(just(Token::RParen)).to(TypeExpr::Tuple(vec![]));
-		let tuple = paren(
-			te.clone()
-				.separated_by(just(Token::Comma).or_not())
-				.allow_trailing()
-				.at_least(1)
-				.collect::<Vec<_>>(),
-		)
-		.map(TypeExpr::Tuple);
-		// arrays
-		let array = just(Token::LBracket)
-			.ignore_then(select! { Token::Int(n) => n }.or_not())
-			.then_ignore(just(Token::RBracket))
-			.then(te.clone())
-			.map(|(n, elem)| match n {
-				Some(n) => TypeExpr::FixedArray(Box::new(elem), n as usize),
-				None => TypeExpr::Array(Box::new(elem)),
-			});
-		let fn_type = just(Token::Fn)
-			.ignore_then(paren(loose_list(te.clone())))
-			.then(te.clone())
-			.map(|(params, ret)| TypeExpr::Fn(params, Box::new(ret)));
-		// options
-		let option = just(Token::Question)
-			.ignore_then(te.clone())
-			.map(|t| TypeExpr::Option(Box::new(t)));
-		// results
-		let result = just(Token::Not)
-			.ignore_then(te.clone())
-			.map(|t| TypeExpr::Result(Box::new(t), None));
-		// atom(s)
-		let atom = select! { Token::Atom(a) => TypeExpr::AtomSum(vec![a]) };
+		let base = recursive(|base| {
+			let name = ident().map(TypeExpr::Name);
+			let unit = just(Token::LParen).then(just(Token::RParen)).to(TypeExpr::Tuple(vec![]));
+			let tuple = paren(
+				te.clone()
+					.separated_by(just(Token::Comma).or_not())
+					.allow_trailing()
+					.at_least(1)
+					.collect::<Vec<_>>(),
+			)
+			.map(TypeExpr::Tuple);
+			// arrays
+			let array = just(Token::LBracket)
+				.ignore_then(select! { Token::Int(n) => n }.or_not())
+				.then_ignore(just(Token::RBracket))
+				.then(base.clone())
+				.map(|(n, elem)| match n {
+					Some(n) => TypeExpr::FixedArray(Box::new(elem), n as usize),
+					None => TypeExpr::Array(Box::new(elem)),
+				});
+			let fn_type = just(Token::Fn)
+				.ignore_then(paren(loose_list(te.clone())))
+				.then(base.clone())
+				.map(|(params, ret)| TypeExpr::Fn(params, Box::new(ret)));
+			// options
+			let option = just(Token::Question)
+				.ignore_then(base.clone())
+				.map(|t| TypeExpr::Option(Box::new(t)));
+			// results
+			let result = just(Token::Not)
+				.ignore_then(base.clone())
+				.map(|t| TypeExpr::Result(Box::new(t), None));
+			// atom(s)
+			let atom = select! { Token::Atom(a) => TypeExpr::AtomSum(vec![a]) };
 
-		// built-in generic types
-		let map_type = just(Token::Ident("Map".to_string()))
-			.ignore_then(bracket(te.clone().then_ignore(just(Token::Comma)).then(te.clone())))
-			.map(|(k, v)| TypeExpr::Map(Box::new(k), Box::new(v)));
-		let result_long = just(Token::Ident("Result".to_string()))
-			.ignore_then(bracket(te.clone().then_ignore(just(Token::Comma)).then(te.clone())))
-			.map(|(t, e)| TypeExpr::Result(Box::new(t), Some(Box::new(e))));
-		let option_long = just(Token::Ident("Option".to_string()))
-			.ignore_then(bracket(te.clone()))
-			.map(|t| TypeExpr::Option(Box::new(t)));
-		// generic struct instantiation
-		let generic_instance = ident()
-			.then(bracket(
-				te.clone().separated_by(just(Token::Comma)).at_least(1).collect::<Vec<_>>(),
-			))
-			.map(|(name, args)| TypeExpr::Generic(name, args));
+			// built-in generic types
+			let map_type = just(Token::Ident("Map".to_string()))
+				.ignore_then(bracket(te.clone().then_ignore(just(Token::Comma)).then(te.clone())))
+				.map(|(k, v)| TypeExpr::Map(Box::new(k), Box::new(v)));
+			let result_long = just(Token::Ident("Result".to_string()))
+				.ignore_then(bracket(te.clone().then_ignore(just(Token::Comma)).then(te.clone())))
+				.map(|(t, e)| TypeExpr::Result(Box::new(t), Some(Box::new(e))));
+			let option_long = just(Token::Ident("Option".to_string()))
+				.ignore_then(bracket(te.clone()))
+				.map(|t| TypeExpr::Option(Box::new(t)));
+			// generic struct instantiation
+			let generic_instance = ident()
+				.then(bracket(
+					te.clone().separated_by(just(Token::Comma)).at_least(1).collect::<Vec<_>>(),
+				))
+				.map(|(name, args)| TypeExpr::Generic(name, args));
 
-		unit.or(fn_type)
-			.or(option)
-			.or(result)
-			.or(atom)
-			.or(map_type)
-			.or(result_long)
-			.or(option_long)
-			.or(generic_instance)
-			.or(name)
-			.or(tuple)
-			.or(array)
+			unit.or(fn_type)
+				.or(option)
+				.or(result)
+				.or(atom)
+				.or(map_type)
+				.or(result_long)
+				.or(option_long)
+				.or(generic_instance)
+				.or(name)
+				.or(tuple)
+				.or(array)
+		});
+
+		base.separated_by(just(Token::Pipe))
+			.at_least(1)
+			.collect::<Vec<_>>()
+			.map(|mut ms| {
+				if ms.len() == 1 {
+					return ms.pop().unwrap();
+				}
+				let atom = |m: &TypeExpr| match m {
+					TypeExpr::AtomSum(a) if a.len() == 1 => Some(a[0].clone()),
+					_ => None,
+				};
+				match ms.iter().map(atom).collect::<Option<Vec<_>>>() {
+					Some(names) => TypeExpr::AtomSum(names),
+					None => TypeExpr::Sum(ms),
+				}
+			})
 	});
 
 	// param type is kept for the compiler to resolve
@@ -855,27 +874,10 @@ where
 		});
 
 	// type aliases
-	let sum = type_expr
-		.separated_by(just(Token::Pipe))
-		.at_least(1)
-		.collect::<Vec<_>>()
-		.map(|mut ms| {
-			if ms.len() == 1 {
-				return ms.pop().unwrap();
-			}
-			let atom = |m: &TypeExpr| match m {
-				TypeExpr::AtomSum(a) if a.len() == 1 => Some(a[0].clone()),
-				_ => None,
-			};
-			match ms.iter().map(atom).collect::<Option<Vec<_>>>() {
-				Some(names) => TypeExpr::AtomSum(names),
-				None => TypeExpr::Sum(ms),
-			}
-		});
 	let type_alias = just(Token::Type)
 		.ignore_then(ident())
 		.then_ignore(just(Token::Assign))
-		.then(sum)
+		.then(type_expr.clone())
 		.map_with(|(name, typ), ex| (Expr::TypeAlias { name, typ }, ex.span()));
 
 	let impl_block = just(Token::Impl)

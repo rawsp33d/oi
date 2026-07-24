@@ -11,7 +11,7 @@ use cranelift_module::{DataDescription, Linkage, Module};
 use super::{
 	FieldDef, FnSig, GenericFnDef, GenericStructDef, Generics, Local, LoopFrame, Pending, Typ, TypeCtx, VariantInfo,
 	atom_sum_variants, cl_int_for_width, cl_type, elem_size, enum_boxed, enum_slots, oi_symbol, option_variants,
-	result_variants,
+	result_variants, sum_remap,
 };
 use crate::ast::{BinOp, Expr, MatchArm, Pattern, Span, Spanned, TypeExpr};
 use crate::diagnostics::Diagnostic;

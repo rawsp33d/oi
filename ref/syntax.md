@@ -1309,6 +1309,18 @@ fn main() {
 	# the zero value is the first member's zero
 	mut blank Id # 0
 	
+	# sum types are interchangeable
+	# NOTE: except for containers like []Id and []Handle
+	type Handle = string | int
+	h Handle := blank
+	
+	# member order is defined by each type, which determines zero values
+	mut new Id
+	mut fresh Handle
+	assert!(new != fresh)
+	assert!(new == 0)
+	assert!(fresh == "")
+	
 	# atoms make great sum types
 	type Status = :ok | :err
 	

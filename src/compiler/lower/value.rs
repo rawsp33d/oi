@@ -406,6 +406,26 @@ impl<'a> Translator<'a> {
 			},
 			_ => {
 				let (val, vt) = self.expr(value)?;
+				// same member sets with different order. remap the tag into a fresh box
+				if let (Typ::Sum(src), Typ::Sum(dst)) = (&vt, target)
+					&& src != dst && let Some(map) = sum_remap(src, dst)
+				{
+					let old = self.enum_tag(src, val);
+					let mut tag = self.b.ins().iconst(self.int, map[0].1);
+					for &(s, d) in &map[1..] {
+						let hit = self.b.ins().icmp_imm(IntCC::Equal, old, s);
+						let dv = self.b.ins().iconst(self.int, d);
+						tag = self.b.ins().select(hit, dv, tag);
+					}
+					let slots = enum_slots(dst);
+					let ptr = self.call_alloc(slots);
+					self.b.ins().store(MemFlags::new(), tag, ptr, 0);
+					for i in 1..slots {
+						let w = self.b.ins().load(self.int, MemFlags::new(), val, (i * 8) as i32);
+						self.b.ins().store(MemFlags::new(), w, ptr, (i * 8) as i32);
+					}
+					return Ok((ptr, target.clone()));
+				}
 				if let Typ::Sum(variants) = target
 					&& let Some(v) = variants.iter().find(|v| v.payload == [vt.clone()])
 				{

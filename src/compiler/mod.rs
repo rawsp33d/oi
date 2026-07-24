@@ -113,7 +113,11 @@ impl fmt::Display for Typ {
 					"{}",
 					variants
 						.iter()
-						.map(|v| if v.payload.is_empty() { format!(":{}", v.name) } else { v.name.clone() })
+						.map(|v| if v.payload.is_empty() {
+							format!(":{}", v.name)
+						} else {
+							v.name.clone()
+						})
 						.collect::<Vec<_>>()
 						.join(" | ")
 				)
@@ -199,6 +203,20 @@ impl VariantInfo {
 // An enum is a tagged union if any variant has fields.
 pub(crate) fn enum_boxed(variants: &[VariantInfo]) -> bool {
 	variants.iter().any(|v| !v.payload.is_empty())
+}
+
+// Tag permutation to coerce a sum across definitions with the same member set.
+pub(crate) fn sum_remap(src: &[VariantInfo], dst: &[VariantInfo]) -> Option<Vec<(i64, i64)>> {
+	if src.len() != dst.len() {
+		return None;
+	}
+	src.iter()
+		.map(|s| {
+			dst.iter()
+				.find(|d| d.name == s.name && d.payload == s.payload)
+				.map(|d| (s.disc, d.disc))
+		})
+		.collect()
 }
 
 // Slot count of a boxed enum.
@@ -343,10 +361,7 @@ impl TypeCtx<'_> {
 				}
 				Ok(Typ::AtomSum(names.clone()))
 			}
-			TypeExpr::Sum(_) => Err(
-				Diagnostic::new("sum types must be declared with `type`", span.into_range())
-					.with_label("anonymous sum types aren't allowed"),
-			),
+			TypeExpr::Sum(ms) => self.resolve_sum(ms, span),
 			TypeExpr::Fn(params, ret) => {
 				let params = params.iter().map(|p| self.resolve(p, span)).collect::<Result<_, _>>()?;
 				Ok(Typ::Fn(params, Box::new(self.resolve(ret, span)?)))
@@ -503,9 +518,6 @@ impl TypeCtx<'_> {
 			};
 		}
 		if let Some(te) = self.aliases.get(name) {
-			if let TypeExpr::Sum(ms) = te {
-				return self.resolve_sum(ms, span);
-			}
 			return self.resolve(te, span);
 		}
 		if let Some(fields) = self.structs.get(name) {
