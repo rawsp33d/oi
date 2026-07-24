@@ -153,12 +153,10 @@ impl<'a> Translator<'a> {
 					(name.clone(), None)
 				} else {
 					let (recv_val, recv_typ) = self.expr(recv)?;
+					if method == "str" && args.is_empty() && !matches!(recv_typ, Typ::Struct(..)) {
+						return Ok((self.derived_str(recv_val, &recv_typ), Typ::Str));
+					}
 					if let Typ::Enum(enum_name) = &recv_typ {
-						if method == "str" && args.is_empty() {
-							let variants = self.enum_variants(enum_name);
-							let s = self.enum_name_str(&variants, recv_val);
-							return Ok((s, Typ::Str));
-						}
 						return Err(Diagnostic::new(
 							format!("enum `{enum_name}` has no method `{method}`"),
 							expr.1.into_range(),
@@ -193,6 +191,12 @@ impl<'a> Translator<'a> {
 				let gkey = format!("{}.{method}", sname.split('[').next().unwrap());
 				if let Some(def) = self.generic_fns.get(&gkey).cloned() {
 					return self.call_generic(&gkey, &def, &[], args, recv, expr.1);
+				}
+				if method == "str"
+					&& args.is_empty()
+					&& let Some((v, t)) = recv
+				{
+					return Ok((self.derived_str(v, &t), Typ::Str));
 				}
 				Err(
 					Diagnostic::new(format!("`{sname}` has no method `{method}`"), expr.1.into_range())

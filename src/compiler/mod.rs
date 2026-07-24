@@ -682,6 +682,8 @@ impl Default for Compiler {
 			.unwrap();
 		let mut builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
 		builder.symbol(runtime::STR_CONCAT, runtime::str_concat as *const u8);
+		builder.symbol(runtime::STR_MARK, runtime::str_mark as *const u8);
+		builder.symbol(runtime::STR_TAKE, runtime::str_take as *const u8);
 		builder.symbol(runtime::ALLOC, runtime::alloc as *const u8);
 		builder.symbol(runtime::WRITE, runtime::write as *const u8);
 		builder.symbol(runtime::WRITE_SEP, runtime::write_sep as *const u8);
@@ -1015,8 +1017,8 @@ impl Compiler {
 		let callee = trans.module.declare_func_in_func(entry, trans.b.func);
 		let call = trans.b.ins().call(callee, &[]);
 		if let Some(val) = trans.b.inst_results(call).first().copied() {
-			trans.emit_print(val, &typ, false, false);
-			trans.write_lit("\n", false);
+			trans.emit_print(val, &typ, false, runtime::Sink::Out);
+			trans.write_lit("\n", runtime::Sink::Out);
 		}
 		trans.b.ins().return_(&[]);
 		trans.b.finalize();

@@ -17,6 +17,7 @@ mod io;
 mod methods;
 mod pipelines;
 mod statements;
+mod str_method;
 mod types;
 mod unit;
 mod vars;

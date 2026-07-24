@@ -1,22 +1,33 @@
 use super::*;
 
 impl<'a> Translator<'a> {
-	pub fn write_lit(&mut self, s: &str, stderr: bool) {
+	pub fn write_lit(&mut self, s: &str, sink: runtime::Sink) {
 		let ptr = self.str_const(s);
-		self.emit_frag(runtime::Tag::Raw, ptr, 0, false, stderr);
+		self.emit_frag(runtime::Tag::Raw, ptr, 0, false, sink);
 	}
 
-	fn emit_frag(&mut self, tag: runtime::Tag, bits: Value, width: u16, quote: bool, stderr: bool) {
+	fn emit_frag(&mut self, tag: runtime::Tag, bits: Value, width: u16, quote: bool, sink: runtime::Sink) {
 		let tag = self.b.ins().iconst(self.int, tag as i64);
 		let width = self.b.ins().iconst(self.int, width as i64);
 		let quote = self.b.ins().iconst(self.int, quote as i64);
-		let stderr_v = self.b.ins().iconst(self.int, stderr as i64);
+		let sink_v = self.b.ins().iconst(self.int, sink as i64);
 		let func = self.import_fn(
 			runtime::WRITE,
 			&[self.int, self.int, self.int, self.int, self.int],
 			None,
 		);
-		self.b.ins().call(func, &[tag, bits, width, quote, stderr_v]);
+		self.b.ins().call(func, &[tag, bits, width, quote, sink_v]);
+	}
+
+	// Universal `str` method.
+	pub(super) fn derived_str(&mut self, val: Value, typ: &Typ) -> Value {
+		let mark = self.import_fn(runtime::STR_MARK, &[], Some(self.int));
+		let call = self.b.ins().call(mark, &[]);
+		let mark = self.b.inst_results(call)[0];
+		self.emit_print(val, typ, false, runtime::Sink::Buf);
+		let take = self.import_fn(runtime::STR_TAKE, &[self.int], Some(self.int));
+		let call = self.b.ins().call(take, &[mark]);
+		self.b.inst_results(call)[0]
 	}
 
 	// Enum `Display`.
@@ -33,7 +44,7 @@ impl<'a> Translator<'a> {
 	}
 
 	// Sum `Display`.
-	fn emit_sum(&mut self, variants: &[VariantInfo], val: Value, quote: bool, stderr: bool) {
+	fn emit_sum(&mut self, variants: &[VariantInfo], val: Value, quote: bool, sink: runtime::Sink) {
 		let done = self.b.create_block();
 		let tag = self.enum_tag(variants, val);
 		for v in variants {
@@ -47,39 +58,39 @@ impl<'a> Translator<'a> {
 			self.b.seal_block(hit);
 			self.b.switch_to_block(hit);
 			let pv = self.b.ins().load(cl_type(&v.payload[0], self.int), MemFlags::new(), val, 8);
-			self.emit_print(pv, &v.payload[0], quote, stderr);
+			self.emit_print(pv, &v.payload[0], quote, sink);
 			self.b.ins().jump(done, &[]);
 			self.b.seal_block(next);
 			self.b.switch_to_block(next);
 		}
 		let ptr = self.enum_name_str(variants, val);
-		self.emit_frag(runtime::Tag::Raw, ptr, 0, false, stderr);
+		self.emit_frag(runtime::Tag::Raw, ptr, 0, false, sink);
 		self.b.ins().jump(done, &[]);
 		self.b.seal_block(done);
 		self.b.switch_to_block(done);
 	}
 
-	pub fn emit_print(&mut self, val: Value, typ: &Typ, quote: bool, stderr: bool) {
+	pub fn emit_print(&mut self, val: Value, typ: &Typ, quote: bool, sink: runtime::Sink) {
 		match typ {
 			Typ::Tuple(fields) => {
-				self.write_lit("(", stderr);
+				self.write_lit("(", sink);
 				for (i, (name, ft)) in fields.iter().enumerate() {
 					if i > 0 {
-						self.write_lit(", ", stderr);
+						self.write_lit(", ", sink);
 					}
 					if let Some(name) = name {
-						self.write_lit(&format!("{name}: "), stderr);
+						self.write_lit(&format!("{name}: "), sink);
 					}
 					let cl = cl_type(ft, self.int);
 					let fv = self.b.ins().load(cl, MemFlags::new(), val, (i * 8) as i32);
-					self.emit_print(fv, ft, true, stderr);
+					self.emit_print(fv, ft, true, sink);
 				}
-				self.write_lit(")", stderr);
+				self.write_lit(")", sink);
 			}
 
 			// array length is only known at runtime, so emit a loop
 			Typ::Array(elem) | Typ::FixedArray(elem, _) => {
-				self.write_lit("[", stderr);
+				self.write_lit("[", sink);
 				let (data, len) = self.array_parts(val, typ);
 				let i = self.b.declare_var(self.int);
 				let zero = self.b.ins().iconst(self.int, 0);
@@ -99,64 +110,64 @@ impl<'a> Translator<'a> {
 
 				self.b.switch_to_block(body);
 				let iv = self.b.use_var(i);
-				let stderr_v = self.b.ins().iconst(self.int, stderr as i64);
+				let sink_v = self.b.ins().iconst(self.int, sink as i64);
 				let sep = self.import_fn(runtime::WRITE_SEP, &[self.int, self.int], None);
-				self.b.ins().call(sep, &[iv, stderr_v]);
+				self.b.ins().call(sep, &[iv, sink_v]);
 				let off = self.b.ins().imul_imm(iv, elem_size(elem));
 				let addr = self.b.ins().iadd(data, off);
 				let ev = self.b.ins().load(cl_type(elem, self.int), MemFlags::new(), addr, 0);
-				self.emit_print(ev, elem, true, stderr);
+				self.emit_print(ev, elem, true, sink);
 				let next = self.b.ins().iadd_imm(iv, 1);
 				self.b.def_var(i, next);
 				self.b.ins().jump(header, &[]);
 				self.b.seal_block(header);
 
 				self.b.switch_to_block(exit);
-				self.write_lit("]", stderr);
+				self.write_lit("]", sink);
 			}
 
 			Typ::Struct(sname, fields) => {
 				let sname = sname.clone();
 				let fields = fields.clone();
-				self.write_lit(&format!("{sname}{{"), stderr);
+				self.write_lit(&format!("{sname}{{"), sink);
 				for (i, f) in fields.iter().enumerate() {
 					if i > 0 {
-						self.write_lit(", ", stderr);
+						self.write_lit(", ", sink);
 					}
-					self.write_lit(&format!("{}: ", f.name), stderr);
+					self.write_lit(&format!("{}: ", f.name), sink);
 					let cl = cl_type(&f.typ, self.int);
 					let fv = self.b.ins().load(cl, MemFlags::new(), val, (i * 8) as i32);
-					self.emit_print(fv, &f.typ, true, stderr);
+					self.emit_print(fv, &f.typ, true, sink);
 				}
-				self.write_lit("}", stderr);
+				self.write_lit("}", sink);
 			}
 
 			Typ::Atom => {
-				self.emit_frag(runtime::Tag::Raw, val, 0, false, stderr);
+				self.emit_frag(runtime::Tag::Raw, val, 0, false, sink);
 			}
 
 			Typ::Enum(_) | Typ::Option(_) | Typ::Result(_) | Typ::AtomSum(_) => {
 				let variants = self.variants_of(typ);
 				let ptr = self.enum_name_str(&variants, val);
-				self.emit_frag(runtime::Tag::Raw, ptr, 0, false, stderr);
+				self.emit_frag(runtime::Tag::Raw, ptr, 0, false, sink);
 			}
 
 			Typ::Sum(_, variants) => {
 				let variants = variants.clone();
-				self.emit_sum(&variants, val, quote, stderr);
+				self.emit_sum(&variants, val, quote, sink);
 			}
 
 			Typ::Range => {
 				let cl = cl_int_for_width(32);
 				let start = self.b.ins().load(cl, MemFlags::new(), val, 0);
 				let end = self.b.ins().load(cl, MemFlags::new(), val, 8);
-				self.emit_print(start, &Typ::Int(32), false, stderr);
-				self.write_lit("..", stderr);
-				self.emit_print(end, &Typ::Int(32), false, stderr);
+				self.emit_print(start, &Typ::Int(32), false, sink);
+				self.write_lit("..", sink);
+				self.emit_print(end, &Typ::Int(32), false, sink);
 			}
 
-			Typ::Fn(..) | Typ::Closure(..) => self.write_lit("<fn>", stderr),
-			Typ::Map(..) => self.write_lit("<map>", stderr),
+			Typ::Fn(..) | Typ::Closure(..) => self.write_lit("<fn>", sink),
+			Typ::Map(..) => self.write_lit("<map>", sink),
 
 			_ => {
 				let tag = match typ {
@@ -201,7 +212,7 @@ impl<'a> Translator<'a> {
 					Typ::UInt(w) if *w < 64 => (self.b.ins().uextend(self.int, val), 0),
 					_ => (val, 0),
 				};
-				self.emit_frag(tag, bits, float_width, quote, stderr);
+				self.emit_frag(tag, bits, float_width, quote, sink);
 			}
 		}
 	}

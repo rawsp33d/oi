@@ -1,11 +1,14 @@
 //! Functions a compiled Oi program calls at runtime.
 //! Backend-agnostic: the JIT registers them as symbols, an object backend would link them in.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::{CStr, c_char};
 use std::mem::size_of;
 
 pub const STR_CONCAT: &str = "oi_str_concat";
+pub const STR_MARK: &str = "oi_str_mark";
+pub const STR_TAKE: &str = "oi_str_take";
 pub const ALLOC: &str = "oi_alloc";
 pub const WRITE: &str = "oi_write";
 pub const WRITE_SEP: &str = "oi_write_sep";
@@ -52,6 +55,28 @@ impl Tag {
 	}
 }
 
+// Output sink for writing.
+#[repr(i64)]
+#[derive(Clone, Copy)]
+pub enum Sink {
+	Out,
+	Err,
+	Buf,
+}
+
+thread_local! {
+	static BUF: RefCell<String> = const { RefCell::new(String::new()) };
+}
+
+// Route a fragment to its sink.
+fn emit(sink: i64, s: &str) {
+	match sink {
+		0 => print!("{s}"),
+		1 => eprint!("{s}"),
+		_ => BUF.with(|b| b.borrow_mut().push_str(s)),
+	}
+}
+
 unsafe fn cstr<'a>(ptr: *const u8) -> &'a CStr {
 	unsafe { CStr::from_ptr(ptr as *const c_char) }
 }
@@ -79,15 +104,15 @@ fn render(tag: Tag, bits: i64, width: i64, quote: bool) -> String {
 }
 
 // Write a rendered value fragment.
-pub extern "C" fn write(tag: i64, bits: i64, width: i64, quote: i64, stderr: i64) {
+pub extern "C" fn write(tag: i64, bits: i64, width: i64, quote: i64, sink: i64) {
 	let s = render(Tag::from_i64(tag), bits, width, quote != 0);
-	if stderr != 0 { eprint!("{s}") } else { print!("{s}") }
+	emit(sink, &s);
 }
 
 // Write the ", " separator before every element but the first.
-pub extern "C" fn write_sep(i: i64, stderr: i64) {
+pub extern "C" fn write_sep(i: i64, sink: i64) {
 	if i > 0 {
-		if stderr != 0 { eprint!(", ") } else { print!(", ") }
+		emit(sink, ", ");
 	}
 }
 
@@ -146,6 +171,20 @@ pub unsafe extern "C" fn str_concat(a: *const u8, b: *const u8) -> *const u8 {
 	out.extend_from_slice(b);
 	out.push(0);
 	Box::leak(out.into_boxed_slice()).as_ptr()
+}
+
+// Current buffer length.
+pub extern "C" fn str_mark() -> i64 {
+	BUF.with(|b| b.borrow().len() as i64)
+}
+
+// Split the buffer tail from `mark` into a fresh NUL-terminated heap string.
+pub extern "C" fn str_take(mark: i64) -> *const u8 {
+	BUF.with(|b| {
+		let mut out = b.borrow_mut().split_off(mark as usize).into_bytes();
+		out.push(0);
+		Box::leak(out.into_boxed_slice()).as_ptr()
+	})
 }
 
 // Allocate `size` zeroed bytes for a composite value (e.g. a tuple's field slots).

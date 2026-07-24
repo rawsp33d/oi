@@ -68,17 +68,20 @@ impl<'a> Translator<'a> {
 							.with_label("missing argument"),
 					);
 				}
-				let stderr = matches!(name, "eprint" | "ewrite");
+				let sink = match name {
+					"eprint" | "ewrite" => runtime::Sink::Err,
+					_ => runtime::Sink::Out,
+				};
 				let newline = matches!(name, "print" | "eprint");
 				for (i, arg) in args.iter().enumerate() {
 					if i > 0 {
-						self.write_lit(" ", stderr);
+						self.write_lit(" ", sink);
 					}
 					let (val, typ) = self.expr(arg)?;
-					self.emit_print(val, &typ, false, stderr);
+					self.emit_print(val, &typ, false, sink);
 				}
 				if newline {
-					self.write_lit("\n", stderr);
+					self.write_lit("\n", sink);
 				}
 				Ok(Some(self.unit_value()))
 			}
