@@ -43,6 +43,29 @@ fn method_trailing_fn() {
 }
 
 #[test]
+fn leading_literals() {
+	let src = indoc! {"
+		struct Box { n int }
+		impl Box { fn tag(self, a :go) int { self.n } }
+		fn shout(s string) string { s }
+		fn take(n int) int { n }
+		print(shout \"hey\")
+		print(take 1_000)
+		Box{ n: 10 }.tag :go
+	"};
+	check(src, "hey\n1000\n10");
+}
+
+#[test]
+fn literal_and_trailing_fn() {
+	let src = indoc! {"
+		fn run_test(name string, f fn() int) int { print(name) f() }
+		run_test \"reg\" fn() int { 21 }
+	"};
+	check(src, "reg\n21");
+}
+
+#[test]
 fn headers_stay_juxt_free() {
 	let src = indoc! {"
 		cond := true
@@ -57,6 +80,15 @@ fn headers_stay_juxt_free() {
 }
 
 #[test]
+fn call_then_literal_return() {
+	let src = indoc! {"
+		fn logret() string { print(1) \"done\" }
+		logret()
+	"};
+	check(src, "1\ndone");
+}
+
+#[test]
 fn bind_rhs_trailing_fn() {
 	let src = indoc! {"
 		fn twice(f fn() int) int { f() + f() }
@@ -64,4 +96,14 @@ fn bind_rhs_trailing_fn() {
 		x
 	"};
 	check(src, "42");
+}
+
+#[test]
+fn array_elem_juxt() {
+	let src = indoc! {"
+		fn double(n int) int { n * 2 }
+		a := [double 3]
+		a.len
+	"};
+	check(src, "1");
 }

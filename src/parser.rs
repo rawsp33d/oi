@@ -1,4 +1,4 @@
-use crate::ast::{BinOp, Capture, EnumVariant, Expr, MatchArm, Param, Pattern, Spanned, TypeExpr, TypeParam};
+use crate::ast::{BinOp, Capture, EnumVariant, Expr, MatchArm, Param, Pattern, Span, Spanned, TypeExpr, TypeParam};
 use crate::lexer::Token;
 
 use chumsky::{
@@ -34,6 +34,20 @@ fn pipe_step((e, span): Spanned<Expr>) -> Spanned<Expr> {
 	}
 }
 
+// Wrap a value and `or` body into an `OrElse`.
+fn or_else((value, body): (Spanned<Expr>, Option<Vec<Spanned<Expr>>>), span: Span) -> Spanned<Expr> {
+	match body {
+		Some(body) => (
+			Expr::OrElse {
+				value: Box::new(value),
+				body,
+			},
+			span,
+		),
+		None => value,
+	}
+}
+
 pub fn parser<'token, I>() -> impl Parser<'token, I, Vec<Spanned<Expr>>, extra::Err<Rich<'token, Token>>>
 where
 	I: ValueInput<'token, Token = Token, Span = SimpleSpan>,
@@ -42,6 +56,7 @@ where
 	// `if` is an expression, but its branches are statement blocks.
 	// Declare `expr` up front so the statement parsers can reference it before it is defined.
 	let mut expr = Recursive::declare();
+	let mut header_expr = Recursive::declare();
 
 	let ident = || select! { Token::Ident(name) => name };
 
@@ -503,7 +518,7 @@ where
 
 		let if_expr = recursive(|if_expr| {
 			just(Token::If)
-				.ignore_then(expr.clone())
+				.ignore_then(header_expr.clone())
 				.then(block.clone())
 				.then(
 					just(Token::Else)
@@ -528,7 +543,7 @@ where
 				block
 					.clone()
 					.map(|body| (None, body))
-					.or(expr.clone().map(Some).then(block.clone())),
+					.or(header_expr.clone().map(Some).then(block.clone())),
 			)
 			.map_with(|(cond, body), ex| {
 				(
@@ -549,7 +564,7 @@ where
 		let for_expr = just(Token::Loop)
 			.ignore_then(pattern)
 			.then_ignore(just(Token::In))
-			.then(expr.clone().map(Box::new))
+			.then(header_expr.clone().map(Box::new))
 			.then(block.clone())
 			.map_with(|((pat, iter), body), ex| (Expr::For { pat, iter, body }, ex.span()));
 		let break_expr = just(Token::Break).map_with(|_, ex| (Expr::Break, ex.span()));
@@ -590,7 +605,7 @@ where
 				body,
 			});
 		let match_expr = just(Token::Match)
-			.ignore_then(expr.clone())
+			.ignore_then(header_expr.clone())
 			.then(brace(
 				match_arm.repeated().collect::<Vec<_>>().then(
 					just(Token::Else)
@@ -653,7 +668,7 @@ where
 			.or(loop_expr)
 			.or(break_expr)
 			.or(continue_expr)
-			.or(anon_fn)
+			.or(anon_fn.clone())
 			.or(bad);
 
 		// field/tuple/method access
@@ -783,7 +798,7 @@ where
 			}),
 		));
 
-		// trailing functions
+		// juxts (leading literals and trailing functions)
 		let trailing = anon_fn.clone().or(block.clone().map_with(|body, ex| {
 			(
 				Expr::AnonFn {
@@ -796,28 +811,35 @@ where
 				ex.span(),
 			)
 		}));
+		let lit_arg = literal.map_with(|e, ex| (e, ex.span()));
+		let juxt = choice((
+			lit_arg.then(trailing.clone().or_not()).map(|(l, t)| (Some(l), t)),
+			trailing.map(|t| (None, Some(t))),
+		));
 		let juxted = core
 			.clone()
-			.then(trailing.or_not())
-			.try_map(|((inner, s), trail), span| {
-				let Some(trail) = trail else { return Ok((inner, s)) };
+			.then(juxt.or_not())
+			.try_map(|((inner, s), jx), span| {
+				let Some((lit, trail)) = jx else { return Ok((inner, s)) };
+				let has_lit = lit.is_some();
+				let args: Vec<_> = lit.into_iter().chain(trail).collect();
 				let e = match inner {
 					Expr::Ident(name) => Expr::Call {
 						name,
 						type_args: vec![],
-						args: vec![trail],
+						args,
 					},
 					Expr::Field { tuple, field } => Expr::MethodCall {
 						recv: tuple,
 						method: field,
-						args: vec![trail],
+						args,
 					},
 					Expr::Call {
 						name,
 						type_args,
 						args: mut a,
-					} => {
-						a.push(trail);
+					} if !has_lit => {
+						a.extend(args);
 						Expr::Call {
 							name,
 							type_args,
@@ -828,8 +850,8 @@ where
 						recv,
 						method,
 						args: mut a,
-					} => {
-						a.push(trail);
+					} if !has_lit => {
+						a.extend(args);
 						Expr::MethodCall { recv, method, args: a }
 					}
 					_ => return Err(Rich::custom(span, "trailing arg needs a call or method callee")),
