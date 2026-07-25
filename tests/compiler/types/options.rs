@@ -3,7 +3,7 @@ use indoc::indoc;
 
 #[test]
 fn construct_some() {
-	check("?int(42)", "some");
+	check("?int(42)", "some(42)");
 }
 
 #[test]
@@ -96,7 +96,7 @@ fn struct_field_type() {
 		"struct Box { val ?int }
 		b := Box{ val: ?int(42) }
 		b.val",
-		"some",
+		"some(42)",
 	);
 }
 
@@ -122,7 +122,7 @@ fn bare_value_return_wraps_some() {
 		}
 		find(5)
 	"};
-	check(src, "some");
+	check(src, "some(5)");
 }
 
 #[test]

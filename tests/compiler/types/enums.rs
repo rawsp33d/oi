@@ -183,7 +183,7 @@ fn negative_disc() {
 fn payload_construct() {
 	check(
 		"enum Shape { point triangle(f64, f64, f64) }\nShape.triangle(3.0, 4.0, 5.0)",
-		"triangle",
+		"triangle(3.0, 4.0, 5.0)",
 	);
 }
 
@@ -563,7 +563,7 @@ fn from_atom_no_match() {
 fn from_payload_zero_fills() {
 	check(
 		"enum Shape { point triangle(f64, f64, f64) }\nShape.from(1) or { Shape.point }",
-		"triangle",
+		"triangle(0.0, 0.0, 0.0)",
 	);
 }
 
@@ -653,5 +653,21 @@ fn shorthand_coerces_in_match_expr() {
 			c
 		"#},
 		"blue",
+	);
+}
+
+#[test]
+fn print_payloads() {
+	check(
+		indoc! {"
+			enum Shape {
+				point triangle(f64, f64, f64)
+				circle { radius f64 }
+			}
+			print(Shape.triangle(3.0, 4.0, 5.0))
+			print(Shape.circle { radius: 5.0 })
+			print(Shape.point)
+		"},
+		"triangle(3.0, 4.0, 5.0)\ncircle{radius: 5.0}\npoint",
 	);
 }

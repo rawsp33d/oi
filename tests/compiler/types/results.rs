@@ -3,17 +3,17 @@ use indoc::indoc;
 
 #[test]
 fn construct_ok() {
-	check("!int(42)", "ok");
+	check("!int(42)", "ok(42)");
 }
 
 #[test]
 fn construct_err() {
-	check(r#"!int(error("oops"))"#, "err");
+	check(r#"!int(error("oops"))"#, r#"err("oops")"#);
 }
 
 #[test]
 fn zero_value_is_ok() {
-	check("mut r !int\nr", "ok");
+	check("mut r !int\nr", "ok(0)");
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn struct_field_type() {
 		"struct Box { val !int }
 		b := Box{ val: !int(42) }
 		b.val",
-		"ok",
+		"ok(42)",
 	);
 }
 
@@ -116,7 +116,7 @@ fn bare_value_return_wraps_ok() {
 		}
 		find(5)
 	"};
-	check(src, "ok");
+	check(src, "ok(5)");
 }
 
 #[test]
@@ -127,7 +127,7 @@ fn bare_error_return_wraps_err() {
 		}
 		find(5)
 	"#};
-	check(src, "err");
+	check(src, r#"err("not found")"#);
 }
 
 #[test]

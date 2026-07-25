@@ -49,8 +49,8 @@ impl<'a> Translator<'a> {
 		ptr
 	}
 
-	// Sum `Display`.
-	fn emit_sum(&mut self, variants: &[VariantInfo], val: Value, quote: bool, sink: runtime::Sink) {
+	// Payload `Display`.
+	fn emit_variant(&mut self, variants: &[VariantInfo], val: Value, quote: bool, named: bool, sink: runtime::Sink) {
 		let done = self.b.create_block();
 		let tag = self.enum_tag(variants, val);
 		for v in variants {
@@ -63,8 +63,28 @@ impl<'a> Translator<'a> {
 			self.b.ins().brif(is, hit, &[], next, &[]);
 			self.b.seal_block(hit);
 			self.b.switch_to_block(hit);
-			let pv = self.b.ins().load(cl_type(&v.payload[0], self.int), MemFlags::new(), val, 8);
-			self.emit_print(pv, &v.payload[0], quote, sink);
+			if !named {
+				let pv = self.b.ins().load(cl_type(&v.payload[0], self.int), MemFlags::new(), val, 8);
+				self.emit_print(pv, &v.payload[0], quote, sink);
+			} else {
+				self.write_lit(&v.name, sink);
+				let braced = !v.names.is_empty();
+				self.write_lit(if braced { "{" } else { "(" }, sink);
+				for (i, pt) in v.payload.iter().enumerate() {
+					if i > 0 {
+						self.write_lit(", ", sink);
+					}
+					if braced {
+						self.write_lit(&format!("{}: ", v.names[i]), sink);
+					}
+					let pv = self
+						.b
+						.ins()
+						.load(cl_type(pt, self.int), MemFlags::new(), val, (8 + i * 8) as i32);
+					self.emit_print(pv, pt, true, sink);
+				}
+				self.write_lit(if braced { "}" } else { ")" }, sink);
+			}
 			self.b.ins().jump(done, &[]);
 			self.b.seal_block(next);
 			self.b.switch_to_block(next);
@@ -167,13 +187,12 @@ impl<'a> Translator<'a> {
 
 			Typ::Enum(_) | Typ::Option(_) | Typ::Result(_) => {
 				let variants = self.variants_of(typ);
-				let ptr = self.enum_name_str(&variants, val);
-				self.emit_frag(runtime::Tag::Raw, ptr, 0, false, sink);
+				self.emit_variant(&variants, val, quote, true, sink);
 			}
 
 			Typ::Sum(variants) => {
 				let variants = variants.clone();
-				self.emit_sum(&variants, val, quote, sink);
+				self.emit_variant(&variants, val, quote, false, sink);
 			}
 
 			Typ::Range => {

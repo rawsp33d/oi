@@ -18,7 +18,7 @@ fn composites() {
 fn variants() {
 	check("enum Color { Red, Green }\nColor.Red.str()", "Red");
 	check("o := ?int(none)\no.str()", "none");
-	check("r := !int(42)\nr.str()", "ok");
+	check("r := !int(42)\nr.str()", "ok(42)");
 }
 
 #[test]
