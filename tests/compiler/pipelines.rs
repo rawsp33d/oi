@@ -156,3 +156,64 @@ fn or_tail_bare_ident_calls_with_dollar() {
 	"#};
 	check(src, "missing\n0");
 }
+
+#[test]
+fn pipeline_fn_shorthand_annotated() {
+	let src = indoc! {"
+		fn double(x int) int { x * 2 }
+		fn inc(x int) int { x + 1 }
+		fn f(x int) int = double |> inc
+		print(f(20))
+	"};
+	check(src, "41");
+}
+
+#[test]
+fn pipeline_fn_shorthand_inferred_ret() {
+	let src = indoc! {"
+		fn double(x int) int { x * 2 }
+		fn inc(x int) int { x + 1 }
+		fn f(x int) = double |> inc
+		print(f(20))
+	"};
+	check(src, "41");
+}
+
+#[test]
+fn pipeline_fn_shorthand_named_param_mid_pipe() {
+	let src = indoc! {"
+		fn double(x int) int { x * 2 }
+		fn f(x int) int = double |> ($ + x)
+		print(f(3))
+	"};
+	check(src, "9");
+}
+
+#[test]
+fn pipeline_fn_shorthand_non_pipe_body() {
+	let src = indoc! {"
+		fn inc2(x int) int = $ + 1
+		print(inc2(5))
+	"};
+	check(src, "6");
+}
+
+#[test]
+fn pipeline_fn_shorthand_zero_param_explicit_ret() {
+	let src = indoc! {"
+		fn double(x int) int { x * 2 }
+		fn quad int = double |> double
+		print(quad(3))
+	"};
+	check(src, "12");
+}
+
+#[test]
+fn pipeline_fn_shorthand_bare_needs_ret() {
+	let src = indoc! {"
+		fn double(x int) int { x * 2 }
+		fn quad = double |> double
+		quad(3)
+	"};
+	assert!(fail(src).contains("explicit return type"));
+}

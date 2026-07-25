@@ -34,6 +34,66 @@ fn pipe_step((e, span): Spanned<Expr>) -> Spanned<Expr> {
 	}
 }
 
+// `value |> step`
+fn pipe(value: Spanned<Expr>, step: Spanned<Expr>, span: Span) -> Spanned<Expr> {
+	(
+		Expr::Pipe {
+			value: Box::new(value),
+			step: Box::new(pipe_step(step)),
+		},
+		span,
+	)
+}
+
+// Prepend $ to LHS of pipeline.
+fn dollar_pipe((e, span): Spanned<Expr>) -> Spanned<Expr> {
+	match e {
+		Expr::Pipe { value, step } => (
+			Expr::Pipe {
+				value: Box::new(dollar_pipe(*value)),
+				step,
+			},
+			span,
+		),
+		e => pipe((Expr::Dollar, span), (e, span), span),
+	}
+}
+
+// Assemble a fn item.
+fn fn_def(
+	(name, mut type_params): (String, Vec<TypeParam>),
+	params: Option<(Vec<Param>, bool)>,
+	ret: Option<Spanned<TypeExpr>>,
+	body: Vec<Spanned<Expr>>,
+	span: Span,
+) -> Spanned<Expr> {
+	let (params, params_tuple) = params.unwrap_or_else(|| {
+		type_params.push(TypeParam {
+			name: "$I".into(),
+			bound: None,
+		});
+		let param = Param {
+			name: "$".into(),
+			typ: TypeExpr::Name("$I".into()),
+			span,
+			default: None,
+			mutable: false,
+		};
+		(vec![param], false)
+	});
+	(
+		Expr::Fn {
+			name,
+			type_params,
+			params,
+			params_tuple,
+			ret,
+			body,
+		},
+		span,
+	)
+}
+
 // Wrap a value and `or` body into an `OrElse`.
 fn or_else((value, body): (Spanned<Expr>, Option<Vec<Spanned<Expr>>>), span: Span) -> Spanned<Expr> {
 	match body {
@@ -787,15 +847,7 @@ where
 				)
 			}),
 			// pipelines
-			infix(left(0), just(Token::Pipeline), |l, _, r, ex| {
-				(
-					Expr::Pipe {
-						value: Box::new(l),
-						step: Box::new(pipe_step(r)),
-					},
-					ex.span(),
-				)
-			}),
+			infix(left(0), just(Token::Pipeline), |l, _, r, ex| pipe(l, r, ex.span())),
 		));
 
 		// juxts (leading literals and trailing functions)
@@ -871,25 +923,22 @@ where
 	expr.define(definition);
 
 	// fn defs
-	let func = just(Token::Fn)
-		.ignore_then(ident())
-		.then(type_params.clone())
-		.then(params)
-		.then(ret)
+	let fn_head = just(Token::Fn).ignore_then(ident()).then(type_params.clone());
+	let func = fn_head
+		.clone()
+		.then(params.clone())
+		.then(ret.clone())
 		.then(block.clone())
-		.map_with(|((((name, type_params), (params, tuple)), ret), body), ex| {
-			(
-				Expr::Fn {
-					name,
-					type_params,
-					params,
-					params_tuple: tuple,
-					ret,
-					body,
-				},
-				ex.span(),
-			)
-		});
+		.map_with(|(((head, params), ret), body), ex| fn_def(head, Some(params), ret, body, ex.span()))
+		// pipeline shorthand
+		.or(fn_head
+			.then(params.or_not())
+			.then(ret)
+			.then_ignore(just(Token::Assign))
+			.then(expr.clone())
+			.map_with(|(((head, params), ret), body), ex| {
+				fn_def(head, params, ret, vec![dollar_pipe(body)], ex.span())
+			}));
 
 	// struct defs
 	let struct_field = ident()
