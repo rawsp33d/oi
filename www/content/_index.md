@@ -27,8 +27,8 @@ Its features [try to] encourage uninterrupted thought:
 ```oi
 enum Shape {
 	point
-	circle(f64)
-	rect(f64, f64)
+	circle { radius f64 }
+	rect { w float, h float }
 	triangle(f64, f64, f64)
 }
 
@@ -40,7 +40,7 @@ fn area(s Shape) f64 {
 	}
 }
 
-Shape.rect(3.0, 4.0)
+Shape.rect({ w: 3.0, h: 4.0 })
 	|> area
 	|> print
 # => 12.0
@@ -57,9 +57,9 @@ match shape {
 	.rect(w, h) => {
 		print("rect: {(w h)}")
 	}
-	.triangle(a, b, c) => {
-		print("triangle: {(a b c)}")
+	t @ .triangle(a, b, c) => {
+		print(t)
 	}
 }
-# => triangle: (3.0, 4.0, 5.0)
+# => triangle(3.0, 4.0, 5.0)
 ```
