@@ -78,16 +78,16 @@ tags: []
 	- `oi lsp`
 # TODO
 - immediate
-	- [ ] backport these obsidian notes into the Oi repo
+	- [x] backport these obsidian notes into the Oi repo
 - [x] pipeline examples with `!` postfix collide with macros
 - [x] revisit needing `print`, `assert`, et al to be macros
 	- V allows this without macros: `error('User ${id} not found')`
 	- maybe I can do away with the `!` macros postfix entirely, solving the clash with `Result`
 - [ ] implicit context
-- [x] shore up enum shorthands: `.foo` is enum syntax (payloads, patterns), `:foo` is atom coercion (prototyping, payload-less). both kept, non-overlapping roles. prefer `.foo` when enum exists.
 - [ ] computed values `swift`
 - [ ] ptr type (ptr, voidptr, rawptr) `nim v odin`
-- [ ] make another pass on generics. I don't love what I have now
+- [ ] better errors. atom and int code support?
+- [x] make another pass on generics. I don't love what I have now
 - [x] make another pass on metaprogramming. I don't love what I have now
 - [ ] varargs
 	- v vs nim vs ?
@@ -97,7 +97,7 @@ tags: []
 - [ ] bit flags syntax
 - [ ] channels
 - [ ] units and unit conversion
-- [ ] enum methods `rust`
+- [x] enum methods `rust`
 - [ ] primitive data type for paths
 - [ ] `unsafe`
 - [ ] `@noinit` `v`
@@ -120,9 +120,8 @@ tags: []
 - mutable `$` by default or opt-in?
 - `loop <expr>` rather than any special case dispatch
 - adding colon before return type sig `fn foo(x int, y int): z int { ... }`
-- [x] `[]` in anon fns turns off implicit capture (non-capturing, not pure). `@pure` is the separate purity annotation; compiler-verified no IO/globals/impure calls. `@pure` implies non-capturing so [] is redundant alongside it.
-- I kind of like Rust's `pub(crate)` concept where you specify what it's public for
-- nushell's easy working with var parts in pipelines
+- I kind of like Rust's `pub(scope)` concept where you specify what it's public for
+- [x] nushell's easy working with var parts in pipelines
 	- `("hi", "mom") |> "{$in.0}, {$in.1}!"`
 - `for/else`, `while/else` `python`
 - `match{}/or` (in addition to the planned `match{else}`)

@@ -11,7 +11,8 @@ const EXPECTED: &[(&str, &str)] = &[
 	("main", "3.2"),
 	("points", "(13, 4)"),
 	("ranges", "true"),
-	("shapes", "triangle: (3.0, 4.0, 5.0)"),
+	("shapes", "triangle(3.0, 4.0, 5.0)"),
+	("pipelines", "hi, mom!"),
 	("users", "🟢 ur_mom_lolol\nWelcome back, ur_mom_lolol!"),
 ];
 
