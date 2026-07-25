@@ -49,6 +49,8 @@ pub enum Token {
 	Float(String),
 	#[regex(r#""([^"\\]|\\.)*""#, |lex| { let s = lex.slice(); s[1..s.len() - 1].to_string() })]
 	String(String),
+	#[regex(r#"r"[^"]*""#, |lex| { let s = lex.slice(); s[2..s.len() - 1].to_string() })]
+	RawString(String),
 	#[regex(r":[A-Za-z0-9_]+", |lex| lex.slice()[1..].to_string())]
 	Atom(String),
 
@@ -195,6 +197,7 @@ impl fmt::Display for Token {
 			Token::Int(n) => write!(f, "{n}"),
 			Token::Float(s) => write!(f, "{s}"),
 			Token::String(s) => write!(f, "\"{s}\""),
+			Token::RawString(s) => write!(f, "r\"{s}\""),
 			Token::Fn => write!(f, "fn"),
 			Token::Struct => write!(f, "struct"),
 			Token::Enum => write!(f, "enum"),
@@ -347,6 +350,7 @@ pub fn lex(src: &str) -> Vec<(Token, SimpleSpan)> {
 		}
 		match tok {
 			Token::String(s) => out.extend(expand_string(s, *span, src)),
+			Token::RawString(s) => out.push((Token::String(s.clone()), *span)),
 			_ => out.push((tok.clone(), *span)),
 		}
 	}

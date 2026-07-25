@@ -61,3 +61,10 @@ fn escapes() {
 fn unknown_escape_fails() {
 	fail(r#"print("\z")"#);
 }
+
+#[test]
+fn raw_strings() {
+	check(r#"print(r"no\nescape")"#, r"no\nescape");
+	check(r#"print(r"C:\Users\{who}")"#, r"C:\Users\{who}");
+	check(r#"r"a\b" + "!""#, r"a\b!");
+}
