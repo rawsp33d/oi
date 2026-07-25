@@ -47,8 +47,14 @@ fn foo() {
 }
 
 # use `pub` modifier to make visible to outside modules
+# TODO: likely `pub(scope)` a la Rust
 pub fn bar() {
 	print("bar")
+}
+
+# param modifiers
+pub fn baz(mut i int) {
+	i += 2
 }
 
 # implicit return
@@ -66,7 +72,7 @@ fn random_user() User {
 # implicit input data
 
 # `$` is the data passed to a function
-# TODO: mutable `$` by default or opt-in?
+# `$` inherits mutability from the fn signature
 
 # `$` directly matches the call signature, so it is strongly typed and enforceable by the compiler
 fn single_val(x int) {
