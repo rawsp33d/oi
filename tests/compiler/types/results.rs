@@ -17,9 +17,9 @@ fn zero_value_is_ok() {
 }
 
 #[test]
-fn int_cast_gives_tag() {
-	check("int(!int(42))", "0");
-	check(r#"int(!int(error("oops")))"#, "1");
+fn ord_gives_tag() {
+	check("ord(!int(42))", "0");
+	check(r#"ord(!int(error("oops")))"#, "1");
 }
 
 #[test]

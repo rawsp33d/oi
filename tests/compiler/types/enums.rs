@@ -490,6 +490,16 @@ fn compare_via_int() {
 }
 
 #[test]
+fn ord_gives_discriminant() {
+	check("enum Color { red green blue }\nord(Color.blue)", "2");
+}
+
+#[test]
+fn ord_on_payload_variant() {
+	check("enum Opt { nope some(int) }\nord(Opt.some(1))", "1");
+}
+
+#[test]
 fn str_method() {
 	check("enum Color { red green blue }\nColor.blue.str()", "blue");
 }

@@ -121,12 +121,12 @@ fn duplicate_atom_in_type_errors() {
 }
 
 #[test]
-fn int_cast_gives_tag() {
+fn ord_gives_tag() {
 	check(
 		indoc! {"
 			type Status = :ok | :err
 			x Status := :ok
-			int(x)
+			ord(x)
 		"},
 		"0",
 	);
@@ -134,7 +134,7 @@ fn int_cast_gives_tag() {
 		indoc! {"
 			type Status = :ok | :err
 			x Status := :err
-			int(x)
+			ord(x)
 		"},
 		"1",
 	);
@@ -205,7 +205,7 @@ fn tight_prefix_precedence() {
 		indoc! {"
 			type V = :none | []int | :other
 			mut x V := :other
-			int(x)
+			ord(x)
 		"},
 		"2",
 	);
@@ -214,7 +214,7 @@ fn tight_prefix_precedence() {
 			type V = :none | []int | :other
 			mut x V := :none
 			x = [1, 2]
-			int(x)
+			ord(x)
 		"},
 		"1",
 	);
@@ -390,7 +390,7 @@ fn set_identity() {
 		indoc! {"
 			type A = int | string
 			a A := 7
-			int(a)
+			ord(a)
 		"},
 		"0",
 	);
@@ -400,7 +400,7 @@ fn set_identity() {
 			type B = string | int
 			a A := 7
 			b B := a
-			int(b)
+			ord(b)
 		"},
 		"1",
 	);
@@ -415,12 +415,12 @@ fn set_identity() {
 }
 
 #[test]
-fn general_int_cast_gives_tag() {
+fn general_ord_gives_tag() {
 	check(
 		indoc! {r#"
 			type Id = int | string
 			x Id := "x"
-			int(x)
+			ord(x)
 		"#},
 		"1",
 	);
@@ -497,7 +497,7 @@ fn atom_sums_order() {
 			type B = :err | :ok
 			a A := :ok
 			b B := a
-			int(b)
+			ord(b)
 		"},
 		"1",
 	);
@@ -520,7 +520,7 @@ fn atom_sum_alias_splices_as_member() {
 			type Status = :ok | :err
 			type V = Status | int
 			mut x V := :err
-			int(x)
+			ord(x)
 		"},
 		"1",
 	);
@@ -529,7 +529,7 @@ fn atom_sum_alias_splices_as_member() {
 			type Status = :ok | :err
 			type V = Status | int
 			mut x V := 5
-			int(x)
+			ord(x)
 		"},
 		"2",
 	);

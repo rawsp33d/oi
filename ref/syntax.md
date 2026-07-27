@@ -594,9 +594,9 @@ type Lookup[V] = Map[string, ?V]
 # in expression position a bracket is always an index
 grid[x][y] = 0
 
-# name type args on a value with `as`, for when there's nothing to infer from
-empty := Stack{} as Stack[int]
-meters := Tagged{ value: 5.0 } as Tagged[Meters]
+# types may be specified when there's nothing to infer from
+empty Stack[int] := Stack{}
+meters Tagged[Meters] := Tagged{ value: 5.0 }
 
 ## main entrypoint
 

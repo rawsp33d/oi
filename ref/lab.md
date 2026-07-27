@@ -3,6 +3,13 @@
 Things I'm playing with that might not work or make it.
 
 ```rust
+# name type args on a value with `as`, for when there's nothing to infer from
+# TODO: revisit.exe
+#       I was trying to take good parts of GDScript here but it feels confusing.
+#       Why not just put the type on LHS?
+empty := Stack{} as Stack[int]
+meters := Tagged{ value: 5.0 } as Tagged[Meters]
+
 # normie
 fn add(a int, b int) int {
 	return a + b

@@ -179,6 +179,24 @@ impl<'a> Translator<'a> {
 				Ok(Some((msg, Typ::Error)))
 			}
 
+			"ord" => {
+				let (val, typ) = self.cast_operand(name, args, span)?;
+				if !typ.is_enumish() {
+					return Err(
+						Diagnostic::new(format!("`ord` expects an enum or sum, got {typ}"), span.into_range())
+							.with_label("not an enum or sum"),
+					);
+				}
+				let variants = self.variants_of(&typ);
+				let tag = self.enum_tag(&variants, val);
+				let out = if self.int == types::I32 {
+					tag
+				} else {
+					self.b.ins().ireduce(types::I32, tag)
+				};
+				Ok(Some((out, Typ::Int(32))))
+			}
+
 			_ => self.cast_call(name, args, span),
 		}
 	}

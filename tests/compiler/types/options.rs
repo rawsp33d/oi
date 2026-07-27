@@ -23,9 +23,9 @@ fn bare_none_without_context_errors() {
 }
 
 #[test]
-fn int_cast_gives_tag() {
-	check("int(?int(42))", "1");
-	check("int(?int(none))", "0");
+fn ord_gives_tag() {
+	check("ord(?int(42))", "1");
+	check("ord(?int(none))", "0");
 }
 
 #[test]
