@@ -26,6 +26,11 @@ check: build && fmt test lint
 @test:
 	cargo test
 
+# install
+[group("cargo")]
+@install:
+	cargo install --path .
+
 # build rustdocs
 [group("cargo")]
 [group("docs")]
