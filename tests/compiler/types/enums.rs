@@ -486,6 +486,29 @@ fn cast_to_int_explicit_disc() {
 }
 
 #[test]
+fn backed_cast_to_backing() {
+	check("enum Status: u8 { ok = 200, err = 250 }\nu8(Status.ok)", "200");
+}
+
+#[test]
+fn backing_non_integer_errors() {
+	let err = fail("enum E: bool { a }");
+	assert!(err.contains("not an enum-able type"), "got: {err}");
+}
+
+#[test]
+fn backing_out_of_range_errors() {
+	let err = fail("enum E: u8 { a = 300 }");
+	assert!(err.contains("out of range for its backing type"), "got: {err}");
+}
+
+#[test]
+fn backing_with_payload_errors() {
+	let err = fail("enum E: u8 { a some(int) }");
+	assert!(err.contains("cannot have payload"), "got: {err}");
+}
+
+#[test]
 fn compare_via_int() {
 	check("enum Color { red green blue }\nint(Color.green) == 1", "true");
 }

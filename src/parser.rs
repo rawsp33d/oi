@@ -992,6 +992,7 @@ where
 		.then(select! { Token::Int(n) => n })
 		.map(|(neg, n)| if neg.is_some() { -n } else { n });
 	let fields = brace(loose_list(ident().then(annot.clone())));
+	let backing = just(Token::Colon).ignore_then(annot.clone()).or_not();
 	let payload = paren(annot.separated_by(just(Token::Comma)).allow_trailing().collect::<Vec<_>>());
 	let variant = ident()
 		.then(
@@ -1013,8 +1014,9 @@ where
 	let enum_def = just(Token::Enum)
 		.ignore_then(ident())
 		.then(type_params.clone())
+		.then(backing)
 		.then(brace(loose_list(variant)))
-		.try_map_with(|((name, type_params), variants), ex| {
+		.try_map_with(|(((name, type_params), backing), variants), ex| {
 			let mut next = 0;
 			let mut seen = Vec::new();
 			for v in &variants {
@@ -1029,6 +1031,7 @@ where
 			Ok((
 				Expr::EnumDef {
 					name,
+					backing,
 					type_params,
 					variants,
 				},

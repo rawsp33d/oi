@@ -209,9 +209,10 @@ pub enum Expr {
 		end: Option<Box<Spanned<Expr>>>,
 	},
 
-	// `enum Name {}`
+	// `enum Name: backing {}`
 	EnumDef {
 		name: String,
+		backing: Option<Spanned<TypeExpr>>,
 		type_params: Vec<TypeParam>,
 		variants: Vec<EnumVariant>,
 	},

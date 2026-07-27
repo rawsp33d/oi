@@ -22,7 +22,7 @@ struct FnItem<'a> {
 	body: &'a [Spanned<Expr>],
 }
 
-type EnumItem<'a> = (&'a str, &'a [EnumVariant]);
+type EnumItem<'a> = (&'a str, Option<&'a Spanned<TypeExpr>>, &'a [EnumVariant]);
 
 // resolved params with an optional return annotation
 type ParamsRet = (Vec<(String, Typ, bool)>, Option<(Typ, Span)>);
@@ -198,6 +198,7 @@ pub(crate) struct VariantInfo {
 	pub disc: i64,
 	pub payload: Vec<Typ>,
 	pub names: Vec<String>,
+	pub backing: Option<Typ>,
 }
 
 impl VariantInfo {
@@ -207,6 +208,7 @@ impl VariantInfo {
 			disc,
 			payload,
 			names: vec![],
+			backing: None,
 		}
 	}
 }
@@ -277,9 +279,46 @@ fn build_variants(variants: &[EnumVariant], types: TypeCtx) -> Result<Vec<Varian
 				disc,
 				payload,
 				names: v.names.clone(),
+				backing: None,
 			})
 		})
 		.collect()
+}
+
+// Resolve and validate an enum backing.
+fn apply_backing(backing: &Spanned<TypeExpr>, variants: &mut [VariantInfo], types: TypeCtx) -> Result<(), Diagnostic> {
+	let (te, span) = backing;
+	let err = |msg: String, label| Err(Diagnostic::new(msg, span.into_range()).with_label(label));
+	let bt = types.resolve(te, *span)?;
+	let (lo, hi) = match &bt {
+		Typ::Int(w) if *w < 64 => (-(1i64 << (w - 1)), (1i64 << (w - 1)) - 1),
+		Typ::UInt(w) if *w < 64 => (0, (1i64 << w) - 1),
+		Typ::Int(_) | Typ::ISize => (i64::MIN, i64::MAX),
+		Typ::UInt(_) | Typ::USize => (0, i64::MAX),
+		t => {
+			return err(
+				format!("enum backing type `{t}` is unsupported"),
+				// TODO: come up with a better label
+				"not an enum-able type",
+			);
+		}
+	};
+	for v in variants.iter_mut() {
+		if !v.payload.is_empty() {
+			return err(
+				"a backed enum cannot have payload variants".into(),
+				"payloads exclude a backing",
+			);
+		}
+		if v.disc < lo || v.disc > hi {
+			return err(
+				format!("discriminant `{}` is out of range for its backing type", v.disc),
+				"out of range",
+			);
+		}
+		v.backing = Some(bt.clone());
+	}
+	Ok(())
 }
 
 // The named types in scope for resolution.
@@ -800,6 +839,7 @@ impl Compiler {
 					name,
 					type_params,
 					variants,
+					..
 				} if !type_params.is_empty() => {
 					generics.enums.insert(
 						name.clone(),
@@ -809,7 +849,12 @@ impl Compiler {
 						},
 					);
 				}
-				Expr::EnumDef { name, variants, .. } => enum_items.push((name.as_str(), variants.as_slice())),
+				Expr::EnumDef {
+					name,
+					backing,
+					variants,
+					..
+				} => enum_items.push((name.as_str(), backing.as_ref(), variants.as_slice())),
 				Expr::TypeAlias { name, typ } => {
 					if matches!(typ, TypeExpr::TupleStruct(..)) && TypeCtx::builtin_type(name) {
 						let msg = format!("`{name}` is a builtin type");
@@ -918,7 +963,7 @@ impl Compiler {
 
 		// name-only registry
 		let enum_names: HashMap<String, Vec<VariantInfo>> =
-			enum_items.iter().map(|(name, _)| (name.to_string(), Vec::new())).collect();
+			enum_items.iter().map(|(name, ..)| (name.to_string(), Vec::new())).collect();
 
 		// TODO: struct fields can't reference other structs yet, so resolve against none
 		let no_structs: HashMap<String, Vec<FieldDef>> = HashMap::new();
@@ -943,7 +988,13 @@ impl Compiler {
 		let variant_types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics);
 		let enums: HashMap<String, Vec<VariantInfo>> = enum_items
 			.iter()
-			.map(|(name, variants)| Ok((name.to_string(), build_variants(variants, variant_types)?)))
+			.map(|(name, backing, variants)| {
+				let mut vs = build_variants(variants, variant_types)?;
+				if let Some(bt) = backing {
+					apply_backing(bt, &mut vs, variant_types)?;
+				}
+				Ok((name.to_string(), vs))
+			})
 			.collect::<Result<_, _>>()?;
 
 		// hoist functions with an explicit return type

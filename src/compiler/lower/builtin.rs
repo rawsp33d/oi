@@ -287,6 +287,7 @@ impl<'a> Translator<'a> {
 
 		if let Some(target) = int_cast_width('i', name) {
 			let (val, typ) = self.cast_operand(name, args, span)?;
+			let (val, typ) = self.enum_as_backing(val, typ, args[0].1)?;
 			let target_cl = cl_type(&Typ::Int(target), self.int);
 			let out = match &typ {
 				Typ::Int(w) if *w == target => val,
@@ -298,28 +299,6 @@ impl<'a> Translator<'a> {
 					Sign::Signed,
 					target_cl,
 				),
-				_ if typ.is_enumish() => {
-					let variants = self.variants_of(&typ);
-					if matches!(typ, Typ::Sum(_)) {
-						return Err(
-							Diagnostic::new("cannot extract a sum member by casting", args[0].1.into_range())
-								.with_label("no member extraction yet"),
-						);
-					}
-					if enum_boxed(&variants) {
-						return Err(Diagnostic::new(
-							format!("`{typ}` has no backing value to cast"),
-							args[0].1.into_range(),
-						)
-						.with_label("no backing value"));
-					}
-					let tag = self.enum_tag(&variants, val);
-					if target_cl == types::I64 {
-						tag
-					} else {
-						self.b.ins().ireduce(target_cl, tag)
-					}
-				}
 				_ => {
 					return Err(
 						Diagnostic::new(format!("cannot cast {typ} to i{target}"), args[0].1.into_range())
@@ -332,6 +311,7 @@ impl<'a> Translator<'a> {
 
 		if let Some(target) = int_cast_width('u', name) {
 			let (val, typ) = self.cast_operand(name, args, span)?;
+			let (val, typ) = self.enum_as_backing(val, typ, args[0].1)?;
 			let target_cl = cl_type(&Typ::UInt(target), self.int);
 			let out = match &typ {
 				Typ::UInt(w) if *w == target => val,
@@ -394,6 +374,34 @@ impl<'a> Translator<'a> {
 		}
 
 		Ok(None)
+	}
+
+	// A fieldless enum casts as its backing value.
+	fn enum_as_backing(&mut self, val: Value, typ: Typ, span: Span) -> Result<TypedVal, Diagnostic> {
+		if !typ.is_enumish() {
+			return Ok((val, typ));
+		}
+		if matches!(typ, Typ::Sum(_)) {
+			return Err(
+				Diagnostic::new("cannot extract a sum member by casting", span.into_range())
+					.with_label("no member extraction yet"),
+			);
+		}
+		let variants = self.variants_of(&typ);
+		if enum_boxed(&variants) {
+			return Err(
+				Diagnostic::new(format!("`{typ}` has no backing value to cast"), span.into_range())
+					.with_label("no backing value"),
+			);
+		}
+		let bt = variants.first().and_then(|v| v.backing.clone()).unwrap_or(Typ::Int(64));
+		let cl = cl_type(&bt, self.int);
+		let val = if cl == self.int {
+			val
+		} else {
+			self.b.ins().ireduce(cl, val)
+		};
+		Ok((val, bt))
 	}
 
 	// Evaluate the operand of a single-argument cast.
