@@ -28,8 +28,8 @@ check: build && fmt test lint
 
 # install
 [group("cargo")]
-@install:
-	cargo install --path .
+@install *args:
+	cargo install --path . "$@"
 
 # build rustdocs
 [group("cargo")]
