@@ -204,8 +204,9 @@ fn payload_empty_literal_is_default() {
 }
 
 #[test]
-fn payload_int_cast_gives_tag() {
-	check("enum Opt { nope some(int) }\nint(Opt.some(1))", "1");
+fn payload_int_cast_errors() {
+	let err = fail("enum Opt { nope some(int) }\nint(Opt.some(1))");
+	assert!(err.contains("no backing value"), "got: {err}");
 }
 
 #[test]

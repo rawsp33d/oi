@@ -183,7 +183,7 @@ impl<'a> Translator<'a> {
 				let (val, typ) = self.cast_operand(name, args, span)?;
 				if !typ.is_enumish() {
 					return Err(
-						Diagnostic::new(format!("`ord` expects an enum or sum, got {typ}"), span.into_range())
+						Diagnostic::new(format!("`ord` expects an Ordinal, got {typ}"), span.into_range())
 							.with_label("not an enum or sum"),
 					);
 				}
@@ -300,6 +300,19 @@ impl<'a> Translator<'a> {
 				),
 				_ if typ.is_enumish() => {
 					let variants = self.variants_of(&typ);
+					if matches!(typ, Typ::Sum(_)) {
+						return Err(
+							Diagnostic::new("cannot extract a sum member by casting", args[0].1.into_range())
+								.with_label("no member extraction yet"),
+						);
+					}
+					if enum_boxed(&variants) {
+						return Err(Diagnostic::new(
+							format!("`{typ}` has no backing value to cast"),
+							args[0].1.into_range(),
+						)
+						.with_label("no backing value"));
+					}
 					let tag = self.enum_tag(&variants, val);
 					if target_cl == types::I64 {
 						tag

@@ -427,6 +427,12 @@ fn general_ord_gives_tag() {
 }
 
 #[test]
+fn int_cast_on_sum_errors() {
+	let err = fail("type Id = int | string\nx Id := 4\nint(x)");
+	assert!(err.contains("cannot extract a sum member by casting"), "got: {err}");
+}
+
+#[test]
 fn duplicate_type_member_errors() {
 	let err = fail(indoc! {"
 		type Bad = int | int

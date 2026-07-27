@@ -29,6 +29,12 @@ fn ord_gives_tag() {
 }
 
 #[test]
+fn int_cast_errors() {
+	let err = fail("int(?int(42))");
+	assert!(err.contains("no backing value"), "got: {err}");
+}
+
+#[test]
 fn eq_same_some() {
 	check("?int(42) == ?int(42)", "true");
 }
