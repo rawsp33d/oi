@@ -987,10 +987,11 @@ where
 		});
 
 	// enum defs
-	let disc = just(Token::Assign)
-		.ignore_then(just(Token::Minus).or_not())
+	let disc_int = just(Token::Minus)
+		.or_not()
 		.then(select! { Token::Int(n) => n })
-		.map(|(neg, n)| if neg.is_some() { -n } else { n });
+		.map(|(neg, n)| (Some(if neg.is_some() { -n } else { n }), None));
+	let disc = just(Token::Assign).ignore_then(disc_int.or(select! { Token::String(s) => (None, Some(s)) }));
 	let fields = brace(loose_list(ident().then(annot.clone())));
 	let backing = just(Token::Colon).ignore_then(annot.clone()).or_not();
 	let payload = paren(annot.separated_by(just(Token::Comma)).allow_trailing().collect::<Vec<_>>());
@@ -1002,11 +1003,13 @@ where
 				.or_not(),
 		)
 		.then(disc.or_not())
-		.map(|((name, body), disc)| {
+		.map(|((name, body), assign)| {
 			let (names, payload) = body.unwrap_or_default();
+			let (disc, raw) = assign.unwrap_or((None, None));
 			EnumVariant {
 				name,
 				disc,
+				raw,
 				payload,
 				names,
 			}
@@ -1027,6 +1030,9 @@ where
 				}
 				seen.push(d);
 				next = d + 1;
+			}
+			if backing.is_none() && variants.iter().any(|v| v.raw.is_some()) {
+				return Err(Rich::custom(ex.span(), "a raw value needs a string backing"));
 			}
 			Ok((
 				Expr::EnumDef {

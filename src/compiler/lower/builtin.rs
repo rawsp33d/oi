@@ -215,6 +215,18 @@ impl<'a> Translator<'a> {
 			other => other,
 		};
 
+		if matches!(name, "str" | "string") {
+			let (val, typ) = self.cast_operand(name, args, span)?;
+			let (val, typ) = self.enum_as_backing(val, typ, args[0].1)?;
+			if typ == Typ::Str {
+				return Ok(Some((val, Typ::Str)));
+			}
+			return Err(
+				Diagnostic::new(format!("cannot cast {typ} to str"), args[0].1.into_range())
+					.with_label("not castable to str"),
+			);
+		}
+
 		if matches!(name, "isize" | "usize") {
 			let signed = name == "isize";
 			let (val, typ) = self.cast_operand(name, args, span)?;
@@ -395,6 +407,17 @@ impl<'a> Translator<'a> {
 			);
 		}
 		let bt = variants.first().and_then(|v| v.backing.clone()).unwrap_or(Typ::Int(64));
+		if bt == Typ::Str {
+			let raw = |v: &VariantInfo| v.raw.clone().unwrap_or_else(|| v.name.clone());
+			let mut out = self.str_const(&raw(&variants[0]));
+			for v in &variants[1..] {
+				let d = self.b.ins().iconst(self.int, v.disc);
+				let hit = self.b.ins().icmp(IntCC::Equal, val, d);
+				let s = self.str_const(&raw(v));
+				out = self.b.ins().select(hit, s, out);
+			}
+			return Ok((out, Typ::Str));
+		}
 		let cl = cl_type(&bt, self.int);
 		let val = if cl == self.int {
 			val

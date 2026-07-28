@@ -307,6 +307,7 @@ pub struct MatchArm {
 pub struct EnumVariant {
 	pub name: String,
 	pub disc: Option<i64>,
+	pub raw: Option<String>,
 	pub payload: Vec<Spanned<TypeExpr>>,
 	pub names: Vec<String>,
 }

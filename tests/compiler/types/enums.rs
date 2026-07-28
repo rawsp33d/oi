@@ -729,6 +729,39 @@ fn backed_arrays_pack() {
 }
 
 #[test]
+fn string_backed_raws() {
+	check(
+		indoc! {r#"
+			enum Suit: string { hearts = "♥" spades = "♠" }
+			print(string(Suit.spades))
+			print(str(Suit.hearts))
+			print(Suit.spades.str())
+			print(ord(Suit.spades))
+			print(Suit.hearts == Suit.hearts)
+			a := [Suit.spades, Suit.hearts]
+			print(str(a[1]))
+			match Suit.spades { .spades => "s", else => "?" }
+		"#},
+		"♠\n♥\nspades\n1\ntrue\n♥\ns",
+	);
+	check("enum S: string { a b }\nstr(S.b)", "b");
+}
+
+#[test]
+fn string_backed_errors() {
+	let err = fail("enum S: string { a b }\nint(S.a)");
+	assert!(err.contains("cannot cast str"), "got: {err}");
+	let err = fail("enum S { a = \"x\" }");
+	assert!(err.contains("needs a string backing"), "got: {err}");
+	let err = fail("enum S: string { a = 2 }");
+	assert!(err.contains("uses raw values"), "got: {err}");
+	let err = fail("enum S: string { a = \"x\" b = \"x\" }");
+	assert!(err.contains("assigned more than once"), "got: {err}");
+	let err = fail("enum S: string { a b = \"a\" }");
+	assert!(err.contains("assigned more than once"), "got: {err}");
+}
+
+#[test]
 fn backed_array_signed_sextends() {
 	check(
 		indoc! {r#"

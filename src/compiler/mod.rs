@@ -196,6 +196,7 @@ pub(crate) fn elem_size(typ: &Typ) -> i64 {
 pub(crate) struct VariantInfo {
 	pub name: String,
 	pub disc: i64,
+	pub raw: Option<String>,
 	pub payload: Vec<Typ>,
 	pub names: Vec<String>,
 	pub backing: Option<Typ>,
@@ -206,6 +207,7 @@ impl VariantInfo {
 		VariantInfo {
 			name: name.into(),
 			disc,
+			raw: None,
 			payload,
 			names: vec![],
 			backing: None,
@@ -277,6 +279,7 @@ fn build_variants(variants: &[EnumVariant], types: TypeCtx) -> Result<Vec<Varian
 			Ok(VariantInfo {
 				name: v.name.clone(),
 				disc,
+				raw: v.raw.clone(),
 				payload,
 				names: v.names.clone(),
 				backing: None,
@@ -286,36 +289,61 @@ fn build_variants(variants: &[EnumVariant], types: TypeCtx) -> Result<Vec<Varian
 }
 
 // Resolve and validate an enum backing.
-fn apply_backing(backing: &Spanned<TypeExpr>, variants: &mut [VariantInfo], types: TypeCtx) -> Result<(), Diagnostic> {
+fn apply_backing(
+	backing: &Spanned<TypeExpr>,
+	variants: &mut [VariantInfo],
+	ast: &[EnumVariant],
+	types: TypeCtx,
+) -> Result<(), Diagnostic> {
 	let (te, span) = backing;
 	let err = |msg: String, label| Err(Diagnostic::new(msg, span.into_range()).with_label(label));
 	let bt = types.resolve(te, *span)?;
-	let (lo, hi) = match &bt {
-		Typ::Int(w) if *w < 64 => (-(1i64 << (w - 1)), (1i64 << (w - 1)) - 1),
-		Typ::UInt(w) if *w < 64 => (0, (1i64 << w) - 1),
-		Typ::Int(_) | Typ::ISize => (i64::MIN, i64::MAX),
-		Typ::UInt(_) | Typ::USize => (0, i64::MAX),
-		t => {
+	if variants.iter().any(|v| !v.payload.is_empty()) {
+		return err(
+			"a backed enum cannot have payload variants".into(),
+			"payloads exclude a backing",
+		);
+	}
+	if bt != Typ::Str && variants.iter().any(|v| v.raw.is_some()) {
+		return err("a raw value needs a string backing".into(), "not a string backing");
+	}
+	if bt == Typ::Str {
+		if ast.iter().any(|a| a.disc.is_some()) {
 			return err(
-				format!("enum backing type `{t}` is unsupported"),
-				// TODO: come up with a better label
-				"not an enum-able type",
+				"a string-backed enum uses raw values, not discriminants".into(),
+				"not a raw value",
 			);
 		}
-	};
-	for v in variants.iter_mut() {
-		if !v.payload.is_empty() {
+		// raws default to the variant name at the use site
+		let raws: Vec<_> = variants.iter().map(|v| v.raw.as_ref().unwrap_or(&v.name)).collect();
+		if let Some(r) = raws.iter().enumerate().find_map(|(i, r)| raws[..i].contains(r).then_some(*r)) {
 			return err(
-				"a backed enum cannot have payload variants".into(),
-				"payloads exclude a backing",
+				format!("raw value `{r}` assigned more than once"),
+				"duplicate raw value",
 			);
 		}
-		if v.disc < lo || v.disc > hi {
+	} else {
+		let (lo, hi) = match &bt {
+			Typ::Int(w) if *w < 64 => (-(1i64 << (w - 1)), (1i64 << (w - 1)) - 1),
+			Typ::UInt(w) if *w < 64 => (0, (1i64 << w) - 1),
+			Typ::Int(_) | Typ::ISize => (i64::MIN, i64::MAX),
+			Typ::UInt(_) | Typ::USize => (0, i64::MAX),
+			t => {
+				return err(
+					format!("enum backing type `{t}` is unsupported"),
+					// TODO: come up with a better label
+					"not an enum-able type",
+				);
+			}
+		};
+		if let Some(v) = variants.iter().find(|v| v.disc < lo || v.disc > hi) {
 			return err(
 				format!("discriminant `{}` is out of range for its backing type", v.disc),
 				"out of range",
 			);
 		}
+	}
+	for v in variants.iter_mut() {
 		v.backing = Some(bt.clone());
 	}
 	Ok(())
@@ -991,7 +1019,7 @@ impl Compiler {
 			.map(|(name, backing, variants)| {
 				let mut vs = build_variants(variants, variant_types)?;
 				if let Some(bt) = backing {
-					apply_backing(bt, &mut vs, variant_types)?;
+					apply_backing(bt, &mut vs, variants, variant_types)?;
 				}
 				Ok((name.to_string(), vs))
 			})
