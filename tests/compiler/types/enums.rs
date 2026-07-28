@@ -705,3 +705,40 @@ fn print_payloads() {
 		"triangle(3.0, 4.0, 5.0)\ncircle{radius: 5.0}\npoint",
 	);
 }
+
+#[test]
+fn backed_arrays_pack() {
+	check(
+		indoc! {"
+			enum Status: u8 { ok = 200, err = 250 }
+			mut a := [Status.ok, Status.err]
+			a[0] = Status.err
+			a << Status.ok
+			print(a)
+			loop s in a { print(s) }
+			print(Status.err in a)
+			print(match a { [x, y, z] => z, else => Status.err })
+			mut f [3]Status
+			f[1] = Status.err
+			print(f[1])
+			f[0] == Status.ok
+		"},
+		// TODO: make helpers that take a lines vec rather than writing newlines
+		"[err, err, ok]\nerr\nerr\nok\ntrue\nok\nerr\ntrue",
+	);
+}
+
+#[test]
+fn backed_array_signed_sextends() {
+	check(
+		indoc! {r#"
+			enum Delta: i8 { down = -3, up = 4 }
+			a := [Delta.up, Delta.down]
+			d := a[1]
+			print(int(d))
+			print(match d { Delta.down => "yes", else => "no" })
+			d == Delta.down
+		"#},
+		"-3\nyes\ntrue",
+	);
+}

@@ -139,9 +139,7 @@ impl<'a> Translator<'a> {
 				let sink_v = self.b.ins().iconst(self.int, sink as i64);
 				let sep = self.import_fn(runtime::WRITE_SEP, &[self.int, self.int], None);
 				self.b.ins().call(sep, &[iv, sink_v]);
-				let off = self.b.ins().imul_imm(iv, elem_size(elem));
-				let addr = self.b.ins().iadd(data, off);
-				let ev = self.b.ins().load(cl_type(elem, self.int), MemFlags::new(), addr, 0);
+				let ev = self.load_nth(data, iv, elem);
 				self.emit_print(ev, elem, true, sink);
 				let next = self.b.ins().iadd_imm(iv, 1);
 				self.b.def_var(i, next);

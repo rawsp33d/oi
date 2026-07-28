@@ -86,7 +86,7 @@ impl<'a> Translator<'a> {
 			}
 			Typ::FixedArray(elem, n) => {
 				let elem = (**elem).clone();
-				let stride = elem_size(&elem);
+				let stride = self.elem_stride(&elem);
 				let slot = self.b.create_sized_stack_slot(StackSlotData::new(
 					StackSlotKind::ExplicitSlot,
 					(*n as i64 * stride) as u32,
@@ -95,7 +95,7 @@ impl<'a> Translator<'a> {
 				let ptr = self.b.ins().stack_addr(self.int, slot, 0);
 				for i in 0..*n {
 					let z = self.zero(&elem);
-					self.b.ins().store(MemFlags::new(), z, ptr, (i as i64 * stride) as i32);
+					self.store_elem(ptr, (i as i64 * stride) as i32, &elem, z);
 				}
 				ptr
 			}
@@ -747,8 +747,7 @@ impl<'a> Translator<'a> {
 	}
 
 	pub(super) fn fixed_copy(&mut self, src: Value, elem: &Typ, n: usize) -> Value {
-		let stride = elem_size(elem);
-		let cl = cl_type(elem, self.int);
+		let stride = self.elem_stride(elem);
 		let slot = self.b.create_sized_stack_slot(StackSlotData::new(
 			StackSlotKind::ExplicitSlot,
 			(n as i64 * stride) as u32,
@@ -757,8 +756,8 @@ impl<'a> Translator<'a> {
 		let dst = self.b.ins().stack_addr(self.int, slot, 0);
 		for i in 0..n {
 			let off = (i as i64 * stride) as i32;
-			let v = self.b.ins().load(cl, MemFlags::new(), src, off);
-			self.b.ins().store(MemFlags::new(), v, dst, off);
+			let v = self.load_elem(src, off, elem);
+			self.store_elem(dst, off, elem, v);
 		}
 		dst
 	}

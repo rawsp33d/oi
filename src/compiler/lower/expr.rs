@@ -318,10 +318,10 @@ impl<'a> Translator<'a> {
 					vals.push(val);
 				}
 				let elem = elem_typ.unwrap();
-				let size = elem_size(&elem);
+				let size = self.elem_stride(&elem);
 				let data = self.call_alloc_bytes(elems.len() as i64 * size);
 				for (i, val) in vals.into_iter().enumerate() {
-					self.b.ins().store(MemFlags::new(), val, data, (i as i64 * size) as i32);
+					self.store_elem(data, (i as i64 * size) as i32, &elem, val);
 				}
 				let len = self.b.ins().iconst(self.int, elems.len() as i64);
 				let header = self.make_array(data, len);
@@ -380,7 +380,8 @@ impl<'a> Translator<'a> {
 					}
 					None => self.array_len(ptr),
 				};
-				let size = self.b.ins().iconst(self.int, elem_size(&elem));
+				let stride = self.elem_stride(&elem);
+				let size = self.b.ins().iconst(self.int, stride);
 				let func = self.import_fn(
 					runtime::SLICE,
 					&[self.int, self.int, self.int, self.int],

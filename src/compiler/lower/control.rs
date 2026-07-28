@@ -162,7 +162,7 @@ impl<'a> Translator<'a> {
 				} else if let (Typ::Array(elem) | Typ::FixedArray(elem, _), Expr::Array(elems)) = (&st, &pat.0) {
 					if arm.patterns.len() == 1 {
 						let pairs = elems.iter().map(|e| (e, elem.as_ref()));
-						binds = field_binds(pairs, 0, elem_size(elem) as i32)?;
+						binds = field_binds(pairs, 0, self.elem_stride(elem) as i32)?;
 					}
 					let sv = self.b.use_var(sv_var);
 					let (_, len) = self.array_parts(sv, &st);
@@ -205,9 +205,11 @@ impl<'a> Translator<'a> {
 					_ => sv,
 				};
 				for (name, typ, off) in cap.iter().chain(&binds) {
-					let cl = cl_type(typ, s.int);
-					let fv = s.b.ins().load(cl, MemFlags::new(), base, *off);
-					let var = s.b.declare_var(cl);
+					let fv = match &st {
+						Typ::Array(_) | Typ::FixedArray(..) => s.load_elem(base, *off, typ),
+						_ => s.b.ins().load(cl_type(typ, s.int), MemFlags::new(), base, *off),
+					};
+					let var = s.b.declare_var(cl_type(typ, s.int));
 					s.b.def_var(var, fv);
 					s.vars.insert(name.clone(), Local::plain(var, typ.clone(), false));
 				}
@@ -537,14 +539,7 @@ impl<'a> Translator<'a> {
 		let iv = self.b.use_var(counter);
 		let (val, typ) = match &arr_src {
 			None => (iv, Typ::Int(32)),
-			Some((data, elem)) => {
-				let off = self.b.ins().imul_imm(iv, elem_size(elem));
-				let addr = self.b.ins().iadd(*data, off);
-				(
-					self.b.ins().load(cl_type(elem, self.int), MemFlags::new(), addr, 0),
-					elem.clone(),
-				)
-			}
+			Some((data, elem)) => (self.load_nth(*data, iv, elem), elem.clone()),
 		};
 		let flow = self.scoped(|s| {
 			s.bind_pattern(pat, val, &typ, span)?;

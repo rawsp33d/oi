@@ -55,8 +55,23 @@ impl<'a> Translator<'a> {
 		self.b.use_var(eq)
 	}
 
-	// Sign-extend the low `w` bits of `val` within its Cranelift container.
-	// A no-op for standard widths (8, 16, 32, 64).
+	// Cast int-like to int-like.
+	// ref: https://github.com/rust-lang/rustc_codegen_cranelift/blob/main/src/cast.rs
+	pub(super) fn intcast(&mut self, val: Value, to: types::Type, signed: bool) -> Value {
+		let from = self.b.func.dfg.value_type(val);
+		if from == to {
+			val
+		} else if from.bits() > to.bits() {
+			self.b.ins().ireduce(to, val)
+		} else if signed {
+			self.b.ins().sextend(to, val)
+		} else {
+			self.b.ins().uextend(to, val)
+		}
+	}
+
+	// Sign-extend the low `w` bits of `val` within its container.
+	// NOTE: noop for standard cranelift widths (8, 16, 32, 64).
 	pub(super) fn reduce_int(&mut self, val: Value, w: u16) -> Value {
 		let cl = cl_type(&Typ::Int(w), self.int);
 		let shift = cl.bits() as i64 - w as i64;
@@ -298,9 +313,7 @@ impl<'a> Translator<'a> {
 
 		self.b.switch_to_block(body);
 		let iv = self.b.use_var(i);
-		let off = self.b.ins().imul_imm(iv, elem_size(&elem));
-		let addr = self.b.ins().iadd(data, off);
-		let elem_val = self.b.ins().load(cl_type(&elem, self.int), MemFlags::new(), addr, 0);
+		let elem_val = self.load_nth(data, iv, &elem);
 		let equal = self.emit_eq(val, elem_val, &elem);
 		self.b.ins().brif(equal, found_block, &[], continue_block, &[]);
 		self.b.seal_block(found_block);

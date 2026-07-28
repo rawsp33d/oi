@@ -171,7 +171,8 @@ impl<'a> Translator<'a> {
 						}
 					};
 					let (val, vtyp) = self.expr(value)?;
-					let size = self.b.ins().iconst(self.int, elem_size(&elem));
+					let stride = self.elem_stride(&elem);
+					let size = self.b.ins().iconst(self.int, stride);
 					let ptr = self.read_local(&local);
 
 					if vtyp == elem {
@@ -194,9 +195,9 @@ impl<'a> Translator<'a> {
 						self.b.switch_to_block(ok_block);
 						let len = self.array_len(ptr);
 						let data = self.array_data(ptr);
-						let off = self.b.ins().imul_imm(len, elem_size(&elem));
+						let off = self.b.ins().imul_imm(len, stride);
 						let addr = self.b.ins().iadd(data, off);
-						self.b.ins().store(MemFlags::new(), val, addr, 0);
+						self.store_elem(addr, 0, &elem, val);
 						let new_len = self.b.ins().iadd_imm(len, 1);
 						self.b.ins().store(MemFlags::new(), new_len, ptr, 8);
 					} else if vtyp == Typ::Array(Box::new(elem.clone())) {
@@ -376,13 +377,12 @@ impl<'a> Translator<'a> {
 			}
 			Typ::FixedArray(elem, n) => {
 				let (elem, n) = ((**elem).clone(), *n);
-				let stride = elem_size(&elem);
-				let cl = cl_type(&elem, self.int);
+				let stride = self.elem_stride(&elem);
 				let heap = self.call_alloc_bytes(n as i64 * stride);
 				for i in 0..n {
 					let off = (i as i64 * stride) as i32;
-					let v = self.b.ins().load(cl, MemFlags::new(), val, off);
-					self.b.ins().store(MemFlags::new(), v, heap, off);
+					let v = self.load_elem(val, off, &elem);
+					self.store_elem(heap, off, &elem, v);
 				}
 				heap
 			}
