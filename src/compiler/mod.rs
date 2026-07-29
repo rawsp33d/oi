@@ -793,6 +793,7 @@ pub struct Compiler {
 	generics: HashMap<String, GenericFnDef>,
 	mono: HashMap<String, FnSig>,
 	pending: Vec<Pending>,
+	trait_impls: HashSet<(String, String)>,
 }
 
 impl Default for Compiler {
@@ -834,6 +835,7 @@ impl Default for Compiler {
 			generics: HashMap::new(),
 			mono: HashMap::new(),
 			pending: Vec::new(),
+			trait_impls: HashSet::new(),
 		}
 	}
 }
@@ -916,6 +918,7 @@ impl Compiler {
 							);
 						}
 						trait_bodies.push((item.1, typ.as_str(), tn.as_str(), methods.as_slice()));
+						self.trait_impls.insert((typ.clone(), tn.clone()));
 					}
 					for m in methods {
 						let Expr::Fn {
@@ -1279,6 +1282,7 @@ impl Compiler {
 			type_params: types.type_params,
 			generics: types.generics,
 			generic_fns: &self.generics,
+			trait_impls: &self.trait_impls,
 			mono: &mut self.mono,
 			pending: &mut self.pending,
 			string_idx: &mut self.string_idx,

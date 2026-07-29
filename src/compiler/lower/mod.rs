@@ -47,6 +47,7 @@ pub(super) struct Translator<'a> {
 	pub type_params: &'a HashMap<String, Typ>,
 	pub generics: &'a Generics,
 	pub generic_fns: &'a HashMap<String, GenericFnDef>,
+	pub trait_impls: &'a HashSet<(String, String)>,
 	pub mono: &'a mut HashMap<String, FnSig>,
 	pub pending: &'a mut Vec<Pending>,
 	pub string_idx: &'a mut usize,

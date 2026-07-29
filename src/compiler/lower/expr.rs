@@ -73,6 +73,22 @@ impl<'a> Translator<'a> {
 
 			Expr::Dollar => Ok(self.dollar()),
 
+			Expr::Is {
+				subject,
+				trait_name,
+				negated,
+			} => {
+				let Expr::Ident(name) = &subject.0 else {
+					return Err(Diagnostic::new(
+						"`is` takes a type name on the left",
+						subject.1.into_range(),
+					));
+				};
+				let typ = self.types().resolve(&TypeExpr::Name(name.clone()), subject.1)?;
+				let holds = self.trait_impls.contains(&(typ.to_string(), trait_name.clone())) ^ negated;
+				Ok((self.b.ins().iconst(self.int, holds as i64), Typ::Bool))
+			}
+
 			Expr::Negative(e) => {
 				let (v, typ) = self.expr(e)?;
 				let out = match typ {

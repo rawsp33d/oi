@@ -829,6 +829,23 @@ where
 			binop(5, Token::Gt, BinOp::Gt),
 			binop(5, Token::Le, BinOp::Le),
 			binop(5, Token::Ge, BinOp::Ge),
+			// trait check
+			postfix(
+				5,
+				just(Token::Is)
+					.ignore_then(just(Token::Ident("not".into())).or_not())
+					.then(ident()),
+				|lhs, (not, trait_name): (Option<Token>, String), ex| {
+					(
+						Expr::Is {
+							subject: Box::new(lhs),
+							trait_name,
+							negated: not.is_some(),
+						},
+						ex.span(),
+					)
+				},
+			),
 			// equality | membership
 			binop(4, Token::Eq, BinOp::Eq),
 			binop(4, Token::Ne, BinOp::Ne),

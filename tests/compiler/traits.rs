@@ -80,6 +80,36 @@ fn field_requirement_satisfied() {
 }
 
 #[test]
+fn is_expression() {
+	let src = indoc! {"
+		trait Animal {}
+		struct Dog {}
+		impl Animal for Dog
+		type D = Dog
+		print(Dog is Animal)
+		print(Dog is not Animal)
+		print(D is Animal)
+	"};
+	check(src, "true\nfalse\ntrue");
+
+	let src = indoc! {"
+		trait Animal {}
+		struct Cat {}
+		print(Cat is Animal)
+		print(Cat is not Animal)
+	"};
+	check(src, "false\ntrue");
+}
+
+#[test]
+fn is_expression_unknown_type() {
+	fail(indoc! {"
+		trait Animal {}
+		print(Ghost is Animal)
+	"});
+}
+
+#[test]
 fn rejects_bad_impls() {
 	fail(indoc! {r#"
 		struct Dog {}

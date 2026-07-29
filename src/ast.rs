@@ -233,6 +233,13 @@ pub enum Expr {
 
 	// operators
 
+	// `T is not? Trait`
+	Is {
+		subject: Box<Spanned<Expr>>,
+		trait_name: String,
+		negated: bool,
+	},
+
 	// unary
 	Negative(Box<Spanned<Expr>>),
 
