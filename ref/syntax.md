@@ -422,10 +422,16 @@ trait Animal {
 
 struct Dog { kind string }
 struct Cat { kind string }
+struct Person {
+	kind string = "Human"
+}
 
 # traits are satisfied by an explicit `impl`
 impl Animal for Dog { fn speak(self) string { "woof" } }
 impl Animal for Cat { fn speak(self) string { "meow" } }
+impl Animal for Person {
+	fn speak(self) string { "Lorem ipsum..." }
+}
 
 # an embedded struct can satisfy requirements too
 struct Meta { kind string, id int }
@@ -445,15 +451,8 @@ fn demo_traits() {
 	}
 }
 
-# implementing traits typically requires explicit `impl` blocks
-struct Person {
-	kind string = "Human"
-}
-impl Animal for Person {
-	fn speak(self) string { "Lorem ipsum..." }
-}
-# TODO: nail down syntax for trait checking. this is english for clarity, not final form
-assert!(Person is of Animal)
+# use `is` to check whether a type satisfies a trait
+assert!(Person is Animal)
 
 # traits can use `@implicit` to opt-in to structural / duck typing
 # any type with the right shape satisfies it even without an impl block
@@ -473,16 +472,17 @@ struct Apple {
 struct Bike {
 	color Color = :purple
 }
+# a bare claim needs no body when the shape is already satisfied
 impl Fruit for Apple
-assert!(Kiwi is of Fruit)
-assert!(Apple is of Fruit)
-assert!(Bike is not of Fruit)
+assert!(Kiwi is Fruit)
+assert!(Apple is Fruit)
+assert!(Bike is not Fruit)
 
 ## static vs dynamic dispatch
 
 # A trait used as a bound is static: monomorphized per concrete type.
 # no vtable, no indirection, no allocation
-fn greet[A: Animal](a A) { print(a.shout()) }
+fn greet[A Animal](a A) { print(a.shout()) }
 
 # A trait used directly as a type is dynamic: a trait object behind a vtable.
 zoo := []Animal{ Dog{"collie"}, Cat{"mau"}, Enemy{ kind: "boss", hp: 9 } }
@@ -509,10 +509,10 @@ impl Iterator for Range {
 
 # require another trait alongside this one
 # every Ord is also an Eq
-trait Ord: Eq {
+trait Ord is Eq {
 	fn cmp(self, other Self) Ordering
 }
-fn max[T: Ord](a T, b T) T {
+fn max[T Ord](a T, b T) T {
 	if a.cmp(b) == .greater { a } else { b }
 }
 
@@ -533,7 +533,7 @@ impl Bounded for i8 {
 trait ToString {
 	fn to_string(self) string
 }
-impl[T: Display] ToString for T {
+impl[T Display] ToString for T {
 	fn to_string(self) string { self.display() }
 }
 
@@ -541,7 +541,22 @@ impl[T: Display] ToString for T {
 
 # traits don't have to have methods or fields or anything
 trait Copy {}
-impl Copy for Point {}
+impl Copy for Point
+
+## delegation
+
+# `via` routes a trait impl through an embedded field that already implements it
+struct Horn { kind string }
+impl Animal for Horn {
+	fn speak(self) string { "honk" }
+}
+struct Car {
+	Horn
+}
+impl Animal for Car via Horn
+
+# a `via` impl may override individual methods, routing the rest through the field
+# impl Animal for Car via Horn { fn speak(self) string { "HONK HONK" } }
 
 ## composite types
 
@@ -1654,10 +1669,10 @@ fn main() {
 		if xs.len() == 0 { none } else { Some(xs[0]) }
 	}
 	# generics can have trait guards
-	fn max[T: Ord](a T, b T) T {
+	fn max[T Ord](a T, b T) T {
 		if a > b { a } else { b }
 	}
-	fn max(comp T type, a T, b T) T where T: Ord { ... }
+	fn max(comp T type, a T, b T) T where T is Ord { ... }
 
 	## annotations
 	
@@ -1748,7 +1763,7 @@ fn main() {
 
 ## prelude
 
-fn print[T: Display](value T)
+fn print[T Display](value T)
 
 # these are plain fns, interpolation happens in the lexer
 print(value) # stdout, with newline

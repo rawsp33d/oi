@@ -9,6 +9,7 @@ tags: []
 - high emphasis on ergonomics
 - hopefully ends up being good for gamedev
 ## [[syntax]]
+> NOTE: `where` and `when` are reserved for possible future comptime conditions
 ## [[projects/env/oi/lab|lab]]
 # facets
 - leading literals `oi`
