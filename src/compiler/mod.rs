@@ -24,6 +24,9 @@ struct FnItem<'a> {
 
 type EnumItem<'a> = (&'a str, Option<&'a Spanned<TypeExpr>>, &'a [EnumVariant]);
 
+// a trait's supertraits, fields, and methods
+type TraitItem<'a> = (&'a [String], &'a [Param], &'a [Spanned<Expr>]);
+
 // resolved params with an optional return annotation
 type ParamsRet = (Vec<(String, Typ, bool)>, Option<(Typ, Span)>);
 
@@ -851,12 +854,18 @@ impl Compiler {
 		let mut loose_refs: Vec<&Spanned<Expr>> = vec![];
 		let mut trait_bodies: Vec<(Span, &str, &str, &[Spanned<Expr>])> = vec![];
 
-		let traits: HashMap<&str, (&[Param], &[Spanned<Expr>])> = program
+		let traits: HashMap<&str, TraitItem> = program
 			.iter()
 			.filter_map(|(e, _)| match e {
 				Expr::TraitDef {
-					name, fields, methods, ..
-				} => Some((name.as_str(), (fields.as_slice(), methods.as_slice()))),
+					name,
+					supers,
+					fields,
+					methods,
+				} => Some((
+					name.as_str(),
+					(supers.as_slice(), fields.as_slice(), methods.as_slice()),
+				)),
 				_ => None,
 			})
 			.collect();
@@ -1041,11 +1050,17 @@ impl Compiler {
 
 		// trait impls
 		for (span, typ, tn, methods) in trait_bodies {
-			let Some((tfields, tmethods)) = traits.get(tn) else {
+			let Some((supers, tfields, tmethods)) = traits.get(tn) else {
 				return Err(
 					Diagnostic::new(format!("unknown trait `{tn}`"), span.into_range()).with_label("no such trait")
 				);
 			};
+			for s in *supers {
+				if !self.trait_impls.contains(&(typ.to_string(), s.clone())) {
+					let msg = format!("`{typ}` must also implement `{s}`, the supertrait of `{tn}`");
+					return Err(Diagnostic::new(msg, span.into_range()).with_label("missing supertrait impl"));
+				}
+			}
 			for tf in *tfields {
 				let want = field_types.resolve(&tf.typ, tf.span)?;
 				if !structs

@@ -39,6 +39,23 @@ fn supertraits() {
 		trait Baz is Foo, Bar {}
 	"};
 	check(src, "");
+
+	let src = indoc! {"
+		trait Eq {}
+		trait Ord is Eq {}
+		struct X {}
+		impl Eq for X
+		impl Ord for X
+		print(X is Ord)
+	"};
+	check(src, "true");
+
+	fail(indoc! {"
+		trait Eq {}
+		trait Ord is Eq {}
+		struct X {}
+		impl Ord for X
+	"});
 }
 
 #[test]
