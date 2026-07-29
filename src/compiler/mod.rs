@@ -890,10 +890,12 @@ impl Compiler {
 					}
 					alias_items.push((name.as_str(), typ));
 				}
+				Expr::TraitDef { .. } => {}
 				Expr::Impl {
 					typ,
 					type_params,
 					methods,
+					..
 				} => {
 					for m in methods {
 						let Expr::Fn {

@@ -194,6 +194,15 @@ pub enum Expr {
 	Impl {
 		typ: String,
 		type_params: Vec<TypeParam>,
+		trait_name: Option<String>,
+		methods: Vec<Spanned<Expr>>,
+	},
+
+	// `trait Name {}`
+	TraitDef {
+		name: String,
+		supers: Vec<String>,
+		fields: Vec<Param>,
 		methods: Vec<Spanned<Expr>>,
 	},
 

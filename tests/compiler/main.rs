@@ -21,6 +21,7 @@ mod methods;
 mod pipelines;
 mod statements;
 mod str_method;
+mod traits;
 mod types;
 mod unit;
 mod vars;

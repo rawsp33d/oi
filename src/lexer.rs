@@ -69,6 +69,12 @@ pub enum Token {
 	Return,
 	#[token("match")]
 	Match,
+	#[token("trait")]
+	Trait,
+	#[token("for")]
+	For,
+	#[token("is")]
+	Is,
 
 	// control flow
 	#[token("if")]
@@ -205,6 +211,9 @@ impl fmt::Display for Token {
 			Token::Type => write!(f, "type"),
 			Token::Return => write!(f, "return"),
 			Token::Match => write!(f, "match"),
+			Token::Trait => write!(f, "trait"),
+			Token::For => write!(f, "for"),
+			Token::Is => write!(f, "is"),
 			Token::If => write!(f, "if"),
 			Token::Else => write!(f, "else"),
 			Token::Loop => write!(f, "loop"),

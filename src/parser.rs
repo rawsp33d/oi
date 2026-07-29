@@ -7,7 +7,7 @@ use chumsky::{
 	prelude::*,
 };
 
-// The contents of a `[...]` subscript. A single index, or a range to slice.
+// The contents of a subscript.
 enum Subscript {
 	Index(Spanned<Expr>),
 	Slice(Option<Spanned<Expr>>, Option<Spanned<Expr>>),
@@ -932,8 +932,8 @@ where
 		.map_with(|(((head, params), ret), body), ex| fn_def(head, Some(params), ret, body, ex.span()))
 		// pipeline shorthand
 		.or(fn_head
-			.then(params.or_not())
-			.then(ret)
+			.then(params.clone().or_not())
+			.then(ret.clone())
 			.then_ignore(just(Token::Assign))
 			.then(expr.clone())
 			.map_with(|(((head, params), ret), body), ex| {
@@ -954,7 +954,7 @@ where
 	let struct_def = just(Token::Struct)
 		.ignore_then(ident())
 		.then(type_params.clone())
-		.then(brace(loose_list(struct_field)))
+		.then(brace(loose_list(struct_field.clone())))
 		.map_with(|((name, type_params), fields), ex| {
 			(
 				Expr::StructDef {
@@ -1052,16 +1052,54 @@ where
 		.then(type_expr.clone())
 		.map_with(|(name, typ), ex| (Expr::TypeAlias { name, typ }, ex.span()));
 
+	// trait definitions
+	let trait_method = just(Token::Fn)
+		.ignore_then(ident())
+		.then(params.clone())
+		.then(ret.clone())
+		.then(block.clone().or_not())
+		.map_with(|(((name, params), ret), body), ex| {
+			fn_def((name, vec![]), Some(params), ret, body.unwrap_or_default(), ex.span())
+		});
+	let trait_def = just(Token::Trait)
+		.ignore_then(ident())
+		.then(
+			just(Token::Is)
+				.ignore_then(list(ident()))
+				.or_not()
+				.map(Option::unwrap_or_default),
+		)
+		.then(brace(
+			loose_list(struct_field.clone()).then(trait_method.repeated().collect::<Vec<_>>()),
+		))
+		.map_with(|((name, supers), (fields, methods)), ex| {
+			(
+				Expr::TraitDef {
+					name,
+					supers,
+					fields,
+					methods,
+				},
+				ex.span(),
+			)
+		});
+
 	let impl_block = just(Token::Impl)
 		.ignore_then(ident())
+		.then(just(Token::For).ignore_then(ident()).or_not())
 		.then(type_params.clone())
-		.then(brace(func.clone().repeated().collect::<Vec<_>>()))
-		.map_with(|((typ, type_params), methods), ex| {
+		.then(brace(func.clone().repeated().collect::<Vec<_>>()).or_not())
+		.map_with(|(((head, target), type_params), methods), ex| {
+			let (typ, trait_name) = match target {
+				Some(t) => (t, Some(head)),
+				None => (head, None),
+			};
 			(
 				Expr::Impl {
 					typ,
 					type_params,
-					methods,
+					trait_name,
+					methods: methods.unwrap_or_default(),
 				},
 				ex.span(),
 			)
@@ -1072,6 +1110,7 @@ where
 		.or(enum_def)
 		.or(type_alias)
 		.or(func)
+		.or(trait_def)
 		.or(impl_block)
 		.or(stmt)
 		.repeated()

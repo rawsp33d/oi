@@ -485,6 +485,7 @@ impl<'a> Translator<'a> {
 			Expr::StructDef { .. } => unreachable!("struct definition in expression position"),
 			Expr::EnumDef { .. } => unreachable!("enum definition in expression position"),
 			Expr::Impl { .. } => unreachable!("impl block in expression position"),
+			Expr::TraitDef { .. } => unreachable!("trait definition in expression position"),
 			Expr::TypeAlias { .. } => unreachable!("type alias in expression position"),
 			Expr::FieldAssign { .. } => unreachable!("field assign in expression position"),
 			Expr::Return(..) => unreachable!("return in expression position"),
