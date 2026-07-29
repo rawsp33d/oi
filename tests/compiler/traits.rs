@@ -6,11 +6,11 @@ fn trait_def_and_impl() {
 		trait Animal {
 			kind string
 			fn speak(self) string
-			fn shout(self) string { self.speak().upper() }
+			fn shout(self) string { self.speak() + "!" }
 		}
 		struct Dog { kind string }
 		impl Animal for Dog { fn speak(self) string { "woof" } }
-		Dog{"Collie"}.speak()
+		Dog{ "Collie" }.speak()
 	"#};
 	check(src, "woof");
 }
@@ -21,7 +21,7 @@ fn marker_impl() {
 		trait Copy {}
 		struct Dog { kind string }
 		impl Copy for Dog
-		Dog{"Collie"}.kind
+		Dog{ "Collie" }.kind
 	"#};
 	check(src, "Collie");
 }
@@ -39,4 +39,60 @@ fn supertraits() {
 		trait Baz is Foo, Bar {}
 	"};
 	check(src, "");
+}
+
+#[test]
+fn default_methods() {
+	let src = indoc! {r#"
+		trait Animal {
+			fn speak(self) string
+			fn shout(self) string { self.speak() + "!" }
+		}
+		struct Dog {}
+		impl Animal for Dog { fn speak(self) string { "woof" } }
+		Dog{}.shout()
+	"#};
+	check(src, "woof!");
+	let src = indoc! {r#"
+		trait Animal {
+			fn speak(self) string
+			fn shout(self) string { self.speak() + "!" }
+		}
+		struct Dog {}
+		impl Animal for Dog {
+			fn speak(self) string { "woof" }
+			fn shout(self) string { "WOOF" }
+		}
+		Dog{}.shout()
+	"#};
+	check(src, "WOOF");
+}
+
+#[test]
+fn field_requirement_satisfied() {
+	let src = indoc! {r#"
+		trait Animal { kind string }
+		struct Dog { kind string }
+		impl Animal for Dog
+		Dog{ "Collie" }.kind
+	"#};
+	check(src, "Collie");
+}
+
+#[test]
+fn rejects_bad_impls() {
+	fail(indoc! {r#"
+		struct Dog {}
+		impl Animal for Dog { fn speak(self) string { "woof" } }
+	"#});
+	fail(indoc! {r#"
+		trait Animal { fn speak(self) string }
+		struct Dog {}
+		impl Animal for Dog {}
+	"#});
+	fail(indoc! {r#"
+		trait Animal { kind string }
+		struct Dog {}
+		impl Animal for Dog
+	"#});
 }

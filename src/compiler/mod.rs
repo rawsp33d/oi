@@ -847,6 +847,17 @@ impl Compiler {
 		let mut main_body: Option<&[Spanned<Expr>]> = None;
 		let mut others: Vec<FnItem> = vec![];
 		let mut loose_refs: Vec<&Spanned<Expr>> = vec![];
+		let mut trait_bodies: Vec<(Span, &str, &str, &[Spanned<Expr>])> = vec![];
+
+		let traits: HashMap<&str, (&[Param], &[Spanned<Expr>])> = program
+			.iter()
+			.filter_map(|(e, _)| match e {
+				Expr::TraitDef {
+					name, fields, methods, ..
+				} => Some((name.as_str(), (fields.as_slice(), methods.as_slice()))),
+				_ => None,
+			})
+			.collect();
 		for item in program {
 			match &item.0 {
 				Expr::StructDef {
@@ -894,9 +905,18 @@ impl Compiler {
 				Expr::Impl {
 					typ,
 					type_params,
+					trait_name,
 					methods,
-					..
 				} => {
+					if let Some(tn) = trait_name {
+						if !type_params.is_empty() {
+							let msg = "generic trait impls aren't supported yet".to_string();
+							return Err(
+								Diagnostic::new(msg, item.1.into_range()).with_label("remove the type parameters")
+							);
+						}
+						trait_bodies.push((item.1, typ.as_str(), tn.as_str(), methods.as_slice()));
+					}
 					for m in methods {
 						let Expr::Fn {
 							name,
@@ -1015,6 +1035,53 @@ impl Compiler {
 				Ok((name.to_string(), resolved))
 			})
 			.collect::<Result<_, Diagnostic>>()?;
+
+		// trait impls
+		for (span, typ, tn, methods) in trait_bodies {
+			let Some((tfields, tmethods)) = traits.get(tn) else {
+				return Err(
+					Diagnostic::new(format!("unknown trait `{tn}`"), span.into_range()).with_label("no such trait")
+				);
+			};
+			for tf in *tfields {
+				let want = field_types.resolve(&tf.typ, tf.span)?;
+				if !structs
+					.get(typ)
+					.is_some_and(|fs| fs.iter().any(|f| f.name == tf.name && f.typ == want))
+				{
+					let msg = format!("`{typ}` is missing field `{} {want}` required by trait `{tn}`", tf.name);
+					return Err(Diagnostic::new(msg, span.into_range()).with_label("required by the trait"));
+				}
+			}
+			for t in *tmethods {
+				let Expr::Fn {
+					name,
+					params,
+					params_tuple,
+					ret,
+					body,
+					..
+				} = &t.0
+				else {
+					continue;
+				};
+				if methods.iter().any(|m| matches!(&m.0, Expr::Fn { name: n, .. } if n == name)) {
+					continue;
+				}
+				if body.is_empty() {
+					let msg = format!("`{typ}` is missing method `{name}` required by trait `{tn}`");
+					return Err(Diagnostic::new(msg, span.into_range()).with_label("provide this method"));
+				}
+				others.push(FnItem {
+					key: format!("{typ}.{name}"),
+					params,
+					params_tuple: *params_tuple,
+					ret,
+					body,
+				});
+			}
+		}
+
 		let variant_types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics);
 		let enums: HashMap<String, Vec<VariantInfo>> = enum_items
 			.iter()
