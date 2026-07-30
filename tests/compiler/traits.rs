@@ -145,6 +145,14 @@ fn rejects_bad_impls() {
 }
 
 #[test]
+fn rejects_duplicate_trait() {
+	fail(indoc! {"
+		trait Animal { fn speak(self) string }
+		trait Animal { fn bark(self) string }
+	"});
+}
+
+#[test]
 fn rejects_method_not_in_trait() {
 	fail(indoc! {r#"
 		trait Animal { fn speak(self) string }

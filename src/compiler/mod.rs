@@ -873,21 +873,23 @@ impl Compiler {
 		let mut loose_refs: Vec<&Spanned<Expr>> = vec![];
 		let mut trait_bodies: Vec<(Span, &str, &str, &[Spanned<Expr>])> = vec![];
 
-		let traits: HashMap<&str, TraitItem> = program
-			.iter()
-			.filter_map(|(e, _)| match e {
-				Expr::TraitDef {
-					name,
-					supers,
-					fields,
-					methods,
-				} => Some((
-					name.as_str(),
-					(supers.as_slice(), fields.as_slice(), methods.as_slice()),
-				)),
-				_ => None,
-			})
-			.collect();
+		let mut traits: HashMap<&str, TraitItem> = HashMap::new();
+		for (e, span) in program {
+			let Expr::TraitDef {
+				name,
+				supers,
+				fields,
+				methods,
+			} = e
+			else {
+				continue;
+			};
+			let item = (supers.as_slice(), fields.as_slice(), methods.as_slice());
+			if traits.insert(name.as_str(), item).is_some() {
+				let msg = format!("duplicate trait `{name}`");
+				return Err(Diagnostic::new(msg, span.into_range()).with_label("already defined"));
+			}
+		}
 		for item in program {
 			match &item.0 {
 				Expr::StructDef {
