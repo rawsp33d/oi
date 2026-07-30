@@ -96,12 +96,12 @@ fn break_targets_innermost() {
 
 #[test]
 fn break_outside_loop() {
-	assert!(fail("break").contains("outside of a loop"));
+	fail_with("break", "outside of a loop");
 }
 
 #[test]
 fn continue_outside_loop() {
-	assert!(fail("continue").contains("outside of a loop"));
+	fail_with("continue", "outside of a loop");
 }
 
 // a condition makes `loop` a `while`: it runs until the condition goes false
@@ -178,7 +178,7 @@ fn while_continue() {
 // a non-Bool condition is rejected
 #[test]
 fn while_condition_must_be_bool() {
-	assert!(fail("loop 3 { }").contains("must be Bool"));
+	fail_with("loop 3 { }", "must be Bool");
 }
 
 // for loops over a range
@@ -295,7 +295,7 @@ fn for_range_returns() {
 // the loop variable doesn't leak past the loop
 #[test]
 fn for_var_is_scoped() {
-	assert!(fail("loop i in 0..3 { i }\ni").contains("undefined variable"));
+	fail_with("loop i in 0..3 { i }\ni", "undefined variable");
 }
 
 // for loops over an array
@@ -363,20 +363,20 @@ fn for_each_tuple_destructure() {
 
 #[test]
 fn for_each_iterable_must_be_array() {
-	assert!(fail("loop x in 5 { x }").contains("not iterable"));
+	fail_with("loop x in 5 { x }", "not iterable");
 }
 
 #[test]
 fn for_range_bound_must_be_int() {
-	assert!(fail("loop i in 0..true { i }").contains("must be Int"));
+	fail_with("loop i in 0..true { i }", "must be Int");
 }
 
 #[test]
 fn for_tuple_pattern_on_non_tuple() {
-	assert!(fail("loop (x, y) in [1, 2, 3] { x }").contains("destructure"));
+	fail_with("loop (x, y) in [1, 2, 3] { x }", "destructure");
 }
 
 #[test]
 fn for_tuple_pattern_wrong_field_count() {
-	assert!(fail("loop (x, y, z) in [(1, 2)] { x }").contains("fields"));
+	fail_with("loop (x, y, z) in [(1, 2)] { x }", "fields");
 }

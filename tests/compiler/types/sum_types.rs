@@ -91,33 +91,39 @@ fn matching() {
 		"#},
 		"fallback",
 	);
-	let err = fail(indoc! {r#"
+	fail_with(
+		indoc! {r#"
 			type Status = :ok | :err
 			x Status := :err
 			match x {
 				:ok => "good",
 			}
-		"#});
-	assert!(err.contains("non-exhaustive match, missing: err"), "got: {err}");
+		"#},
+		"non-exhaustive match, missing: err",
+	);
 }
 
 #[test]
 fn unknown_atom_errors() {
-	let err = fail(indoc! {"
-		type Status = :ok | :err
-		x Status := :nope
-	"});
-	assert!(err.contains("has no atom `:nope`"), "got: {err}");
+	fail_with(
+		indoc! {"
+			type Status = :ok | :err
+			x Status := :nope
+		"},
+		"has no atom `:nope`",
+	);
 }
 
 #[test]
 fn duplicate_atom_in_type_errors() {
-	let err = fail(indoc! {"
-		type Status = :ok | :ok
-		fn f() Status { :ok }
-		f()
-	"});
-	assert!(err.contains("duplicate atom `:ok` in sum type"), "got: {err}");
+	fail_with(
+		indoc! {"
+			type Status = :ok | :ok
+			fn f() Status { :ok }
+			f()
+		"},
+		"duplicate atom `:ok` in sum type",
+	);
 }
 
 #[test]
@@ -319,14 +325,16 @@ fn general_match() {
 		"#},
 		"2",
 	);
-	let err = fail(indoc! {"
-		type Id = int | string
-		x Id := 7
-		match x {
-			string => 0,
-		}
-	"});
-	assert!(err.contains("non-exhaustive match, missing: int"), "got: {err}");
+	fail_with(
+		indoc! {"
+			type Id = int | string
+			x Id := 7
+			match x {
+				string => 0,
+			}
+		"},
+		"non-exhaustive match, missing: int",
+	);
 }
 
 #[test]
@@ -428,18 +436,19 @@ fn general_ord_gives_tag() {
 
 #[test]
 fn int_cast_on_sum_errors() {
-	let err = fail("type Id = int | string\nx Id := 4\nint(x)");
-	assert!(err.contains("cannot extract a sum member by casting"), "got: {err}");
+	fail_with("type Id = int | string\nx Id := 4\nint(x)", "cannot extract a sum member by casting");
 }
 
 #[test]
 fn duplicate_type_member_errors() {
-	let err = fail(indoc! {"
-		type Bad = int | int
-		mut x Bad
-		x
-	"});
-	assert!(err.contains("duplicate member `int` in sum type"), "got: {err}");
+	fail_with(
+		indoc! {"
+			type Bad = int | int
+			mut x Bad
+			x
+		"},
+		"duplicate member `int` in sum type",
+	);
 }
 
 #[test]
@@ -474,13 +483,15 @@ fn nested_sum_alias_splices() {
 
 #[test]
 fn splice_duplicate_member_errors() {
-	let err = fail(indoc! {"
-		type Num = int | f64
-		type Bad = Num | int
-		mut x Bad
-		x
-	"});
-	assert!(err.contains("duplicate member `int` in sum type"), "got: {err}");
+	fail_with(
+		indoc! {"
+			type Num = int | f64
+			type Bad = Num | int
+			mut x Bad
+			x
+		"},
+		"duplicate member `int` in sum type",
+	);
 }
 
 #[test]

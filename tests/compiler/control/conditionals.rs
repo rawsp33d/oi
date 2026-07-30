@@ -107,7 +107,7 @@ fn branch_binding_does_not_leak() {
 		if true { y := 5 }
 		y
 	"};
-	assert!(fail(src).contains("undefined variable"));
+	fail_with(src, "undefined variable");
 }
 
 // `return` inside a branch propagates out of the function
@@ -149,10 +149,10 @@ fn return_in_one_branch() {
 
 #[test]
 fn condition_must_be_bool() {
-	assert!(fail("if 1 { 2 } else { 3 }").contains("must be Bool"));
+	fail_with("if 1 { 2 } else { 3 }", "must be Bool");
 }
 
 #[test]
 fn mismatched_branches() {
-	assert!(fail(r#"if true { 1 } else { "x" }"#).contains("mismatched types"));
+	fail_with(r#"if true { 1 } else { "x" }"#, "mismatched types");
 }

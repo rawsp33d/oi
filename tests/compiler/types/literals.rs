@@ -126,5 +126,5 @@ fn range_stored_then_iterated() {
 
 #[test]
 fn range_bound_must_be_int() {
-	assert!(fail("0..true").contains("must be Int"));
+	fail_with("0..true", "must be Int");
 }

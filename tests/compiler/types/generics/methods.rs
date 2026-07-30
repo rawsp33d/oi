@@ -53,12 +53,14 @@ fn concrete_impl_own_type_param() {
 
 #[test]
 fn unknown_method_error() {
-	let err = fail(indoc! {"
-		struct Box[T] { v T }
-		impl Box[T] { fn get(self) T { self.v } }
-		Box{ v: 1 }.nope()
-	"});
-	assert!(err.contains("no such method"), "got: {err}");
+	fail_with(
+		indoc! {"
+			struct Box[T] { v T }
+			impl Box[T] { fn get(self) T { self.v } }
+			Box{ v: 1 }.nope()
+		"},
+		"no such method",
+	);
 }
 
 #[test]

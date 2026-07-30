@@ -48,7 +48,7 @@ fn string_in_empty_value() {
 
 #[test]
 fn string_in_type_mismatch_error() {
-	assert!(fail(r#"42 in "foo""#).contains("type mismatch"));
+	fail_with(r#"42 in "foo""#, "type mismatch");
 }
 
 #[test]

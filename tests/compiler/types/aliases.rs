@@ -90,5 +90,5 @@ fn unknown_alias_target_errors() {
 		fn f(x Foo) Foo { x }
 		f(1)
 	"};
-	assert!(fail(src).contains("unknown type"));
+	fail_with(src, "unknown type");
 }

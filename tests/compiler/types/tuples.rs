@@ -94,17 +94,17 @@ fn tuple_in_var_prints() {
 
 #[test]
 fn index_out_of_range() {
-	assert!(fail("t := (1, 2)\nt.5").contains("out of range"));
+	fail_with("t := (1, 2)\nt.5", "out of range");
 }
 
 #[test]
 fn unknown_named_field() {
-	assert!(fail("t := (a: 1)\nt.z").contains("no field `z`"));
+	fail_with("t := (a: 1)\nt.z", "no field `z`");
 }
 
 #[test]
 fn field_of_non_tuple() {
-	assert!(fail("x := 5\nx.0").contains("cannot access a field"));
+	fail_with("x := 5\nx.0", "cannot access a field");
 }
 
 #[test]
@@ -150,7 +150,7 @@ fn fn_return_type_mismatch_tuple() {
 		fn bad() (int, int) { 42 }
 		bad()
 	"};
-	assert!(fail(src).contains("wrong return type"));
+	fail_with(src, "wrong return type");
 }
 
 #[test]

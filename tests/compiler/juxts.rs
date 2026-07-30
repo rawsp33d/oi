@@ -15,7 +15,7 @@ fn bare_block_desugars_to_anon_fn() {
 		fn retry(n int, f fn() int) int { f() }
 		retry(2) { 21 }
 	"};
-	assert!(fail(src).contains("explicit return type"));
+	fail_with(src, "explicit return type");
 }
 
 #[test]

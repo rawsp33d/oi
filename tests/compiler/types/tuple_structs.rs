@@ -219,8 +219,6 @@ fn wrong_arity_and_type() {
 
 #[test]
 fn builtin_name_errors_at_def() {
-	let err = fail("struct int(bool)");
-	assert!(err.contains("is a builtin type"), "got: {err}");
-	let err = fail("struct f32(float)");
-	assert!(err.contains("is a builtin type"), "got: {err}");
+	fail_with("struct int(bool)", "is a builtin type");
+	fail_with("struct f32(float)", "is a builtin type");
 }

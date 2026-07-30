@@ -162,7 +162,7 @@ fn match_binding() {
 
 #[test]
 fn match_range_needs_int_subject() {
-	assert!(fail(r#"match "s" { 0..5 => 1, _ => 2 }"#).contains("integer subject"));
+	fail_with(r#"match "s" { 0..5 => 1, _ => 2 }"#, "integer subject");
 }
 
 #[test]
@@ -172,7 +172,7 @@ fn match_tuple_destructure() {
 
 #[test]
 fn match_tuple_arity_mismatch() {
-	assert!(fail("match (1, 2) { (a, b, c) => a, }").contains("tuple pattern has 3"));
+	fail_with("match (1, 2) { (a, b, c) => a, }", "tuple pattern has 3");
 }
 
 #[test]
@@ -195,7 +195,7 @@ fn match_struct_unknown_field() {
 			Point { z } => z,
 		}
 	"#};
-	assert!(fail(src).contains("no field `z`"));
+	fail_with(src, "no field `z`");
 }
 
 #[test]
@@ -231,19 +231,19 @@ fn match_enum_non_exhaustive() {
 			.green => 2,
 		}
 	"#};
-	assert!(fail(src).contains("non-exhaustive match, missing: blue"));
+	fail_with(src, "non-exhaustive match, missing: blue");
 }
 
 // arms must yield the same type
 #[test]
 fn match_mismatched_arm_types() {
-	assert!(fail(r#"match 1 { 1 => "str", else => 2 }"#).contains("mismatched types"));
+	fail_with(r#"match 1 { 1 => "str", else => 2 }"#, "mismatched types");
 }
 
 // pattern type must match subject type
 #[test]
 fn match_pattern_type_mismatch() {
-	assert!(fail(r#"match 1 { "str" => 1, }"#).contains("type mismatch"));
+	fail_with(r#"match 1 { "str" => 1, }"#, "type mismatch");
 }
 
 // an arm body may be a method chain split across newlines

@@ -36,8 +36,7 @@ fn empty_literal_is_default() {
 
 #[test]
 fn empty_literal_rejects_fields() {
-	let err = fail("enum Color { red green blue }\nColor{ red }");
-	assert!(err.contains("only supports"), "got: {err}");
+	fail_with("enum Color { red green blue }\nColor{ red }", "only supports");
 }
 
 #[test]
@@ -92,8 +91,7 @@ fn in_match() {
 
 #[test]
 fn unknown_variant() {
-	let err = fail("enum Color { red green blue }\nColor.purple");
-	assert!(err.contains("no variant `purple`"), "got: {err}");
+	fail_with("enum Color { red green blue }\nColor.purple", "no variant `purple`");
 }
 
 #[test]
@@ -151,32 +149,27 @@ fn shorthand_in_struct_field() {
 
 #[test]
 fn shorthand_unknown_variant() {
-	let err = fail("enum Color { red green blue }\nc := Color.red\nc == .purple");
-	assert!(err.contains("no variant `purple`"), "got: {err}");
+	fail_with("enum Color { red green blue }\nc := Color.red\nc == .purple", "no variant `purple`");
 }
 
 #[test]
 fn shorthand_without_context_errors() {
-	let err = fail("enum Color { red green blue }\n.red");
-	assert!(err.contains("cannot infer the enum type"), "got: {err}");
+	fail_with("enum Color { red green blue }\n.red", "cannot infer the enum type");
 }
 
 #[test]
 fn duplicate_disc_rejected() {
-	let err = fail("enum E { a = 2, b, c = 2 }");
-	assert!(err.contains("discriminant value `2`"), "got: {err}");
+	fail_with("enum E { a = 2, b, c = 2 }", "discriminant value `2`");
 }
 
 #[test]
 fn auto_increment_from_explicit() {
-	let err = fail("enum E { a = 5, b, c = 6 }");
-	assert!(err.contains("discriminant value `6`"), "got: {err}");
+	fail_with("enum E { a = 5, b, c = 6 }", "discriminant value `6`");
 }
 
 #[test]
 fn negative_disc() {
-	let err = fail("enum E { a = -2, b, c = -1 }");
-	assert!(err.contains("discriminant value `-1`"), "got: {err}");
+	fail_with("enum E { a = -2, b, c = -1 }", "discriminant value `-1`");
 }
 
 #[test]
@@ -205,20 +198,17 @@ fn payload_empty_literal_is_default() {
 
 #[test]
 fn payload_int_cast_errors() {
-	let err = fail("enum Opt { nope some(int) }\nint(Opt.some(1))");
-	assert!(err.contains("no backing value"), "got: {err}");
+	fail_with("enum Opt { nope some(int) }\nint(Opt.some(1))", "no backing value");
 }
 
 #[test]
 fn payload_field_type_mismatch() {
-	let err = fail("enum Opt { nope some(int) }\nOpt.some(3.0)");
-	assert!(err.contains("expected int, got float"), "got: {err}");
+	fail_with("enum Opt { nope some(int) }\nOpt.some(3.0)", "expected int, got float");
 }
 
 #[test]
 fn payload_wrong_arity() {
-	let err = fail("enum Opt { nope some(int) }\nOpt.some()");
-	assert!(err.contains("takes 1 field(s), got 0"), "got: {err}");
+	fail_with("enum Opt { nope some(int) }\nOpt.some()", "takes 1 field(s), got 0");
 }
 
 #[test]
@@ -293,8 +283,7 @@ fn payload_eq_string_field() {
 
 #[test]
 fn payload_ordering_rejected() {
-	let err = fail("enum Opt { nope some(int) }\nOpt.some(1) < Opt.some(2)");
-	assert!(err.contains("only `==`&`!=`"), "got: {err}");
+	fail_with("enum Opt { nope some(int) }\nOpt.some(1) < Opt.some(2)", "only `==`&`!=`");
 }
 
 #[test]
@@ -382,8 +371,7 @@ fn struct_form_zero_is_first_variant() {
 
 #[test]
 fn struct_form_unknown_field() {
-	let err = fail("enum S { circle { radius f64 } }\nS.circle { r: 1.0 }");
-	assert!(err.contains("no field `r`"), "got: {err}");
+	fail_with("enum S { circle { radius f64 } }\nS.circle { r: 1.0 }", "no field `r`");
 }
 
 #[test]
@@ -400,14 +388,12 @@ fn struct_form_omitted_field_zeroes() {
 
 #[test]
 fn struct_form_positional_rejected() {
-	let err = fail("enum S { circle { radius f64 } }\nS.circle(1.0)");
-	assert!(err.contains("takes named fields"), "got: {err}");
+	fail_with("enum S { circle { radius f64 } }\nS.circle(1.0)", "takes named fields");
 }
 
 #[test]
 fn tuple_form_record_rejected() {
-	let err = fail("enum S { tri(f64, f64) }\nS.tri { a: 1.0 }");
-	assert!(err.contains("takes 2 field(s), got 1"), "got: {err}");
+	fail_with("enum S { tri(f64, f64) }\nS.tri { a: 1.0 }", "takes 2 field(s), got 1");
 }
 
 #[test]
@@ -428,8 +414,7 @@ fn alias_payload() {
 
 #[test]
 fn payload_unknown_type_rejected() {
-	let err = fail("enum A { wrap(NoSuchType) }");
-	assert!(err.contains("unknown type"), "got: {err}");
+	fail_with("enum A { wrap(NoSuchType) }", "unknown type");
 }
 
 #[test]
@@ -471,8 +456,7 @@ fn atom_coerces_in_struct_field() {
 
 #[test]
 fn atom_unknown_variant() {
-	let err = fail("enum Color { red green blue }\nc Color := :purple");
-	assert!(err.contains("no variant `purple`"), "got: {err}");
+	fail_with("enum Color { red green blue }\nc Color := :purple", "no variant `purple`");
 }
 
 #[test]
@@ -492,20 +476,17 @@ fn backed_cast_to_backing() {
 
 #[test]
 fn backing_non_integer_errors() {
-	let err = fail("enum E: bool { a }");
-	assert!(err.contains("not an enum-able type"), "got: {err}");
+	fail_with("enum E: bool { a }", "not an enum-able type");
 }
 
 #[test]
 fn backing_out_of_range_errors() {
-	let err = fail("enum E: u8 { a = 300 }");
-	assert!(err.contains("out of range for its backing type"), "got: {err}");
+	fail_with("enum E: u8 { a = 300 }", "out of range for its backing type");
 }
 
 #[test]
 fn backing_with_payload_errors() {
-	let err = fail("enum E: u8 { a some(int) }");
-	assert!(err.contains("cannot have payload"), "got: {err}");
+	fail_with("enum E: u8 { a some(int) }", "cannot have payload");
 }
 
 #[test]
@@ -539,8 +520,7 @@ fn str_method_concat() {
 
 #[test]
 fn no_such_method() {
-	let err = fail("enum Color { red green blue }\nColor.red.hex()");
-	assert!(err.contains("has no method `hex`"), "got: {err}");
+	fail_with("enum Color { red green blue }\nColor.red.hex()", "has no method `hex`");
 }
 
 #[test]
@@ -603,8 +583,7 @@ fn from_payload_zero_fills() {
 
 #[test]
 fn from_wrong_type() {
-	let err = fail("enum Color { red green blue }\nColor.from(true)");
-	assert!(err.contains("needs an int, str, or atom"), "got: {err}");
+	fail_with("enum Color { red green blue }\nColor.from(true)", "needs an int, str, or atom");
 }
 
 #[test]
@@ -749,16 +728,11 @@ fn string_backed_raws() {
 
 #[test]
 fn string_backed_errors() {
-	let err = fail("enum S: string { a b }\nint(S.a)");
-	assert!(err.contains("cannot cast str"), "got: {err}");
-	let err = fail("enum S { a = \"x\" }");
-	assert!(err.contains("needs a string backing"), "got: {err}");
-	let err = fail("enum S: string { a = 2 }");
-	assert!(err.contains("uses raw values"), "got: {err}");
-	let err = fail("enum S: string { a = \"x\" b = \"x\" }");
-	assert!(err.contains("assigned more than once"), "got: {err}");
-	let err = fail("enum S: string { a b = \"a\" }");
-	assert!(err.contains("assigned more than once"), "got: {err}");
+	fail_with("enum S: string { a b }\nint(S.a)", "cannot cast str");
+	fail_with("enum S { a = \"x\" }", "needs a string backing");
+	fail_with("enum S: string { a = 2 }", "uses raw values");
+	fail_with("enum S: string { a = \"x\" b = \"x\" }", "assigned more than once");
+	fail_with("enum S: string { a b = \"a\" }", "assigned more than once");
 }
 
 #[test]

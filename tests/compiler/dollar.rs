@@ -11,8 +11,7 @@ fn dollar_scalar() {
 
 #[test]
 fn dollar_scalar_has_no_fields() {
-	let err = fail("fn f(x int) int { $.0 } f(9)");
-	assert!(err.contains("cannot access a field of int"), "{err}");
+	fail_with("fn f(x int) int { $.0 } f(9)", "cannot access a field of int");
 }
 
 #[test]
@@ -45,6 +44,5 @@ fn dollar_unit() {
 
 #[test]
 fn dollar_index_out_of_range() {
-	let err = fail("fn f(x int, y int) int { $.5 } f(1, 2)");
-	assert!(err.contains("out of range"), "{err}");
+	fail_with("fn f(x int, y int) int { $.5 } f(1, 2)", "out of range");
 }

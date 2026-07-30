@@ -36,7 +36,7 @@ fn print_as_statement() {
 
 #[test]
 fn print_no_args() {
-	assert!(fail("print()").contains("at least 1 argument"));
+	fail_with("print()", "at least 1 argument");
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn write_multiple() {
 
 #[test]
 fn write_no_args() {
-	assert!(fail("write()").contains("at least 1 argument"));
+	fail_with("write()", "at least 1 argument");
 }
 
 #[test]
@@ -84,10 +84,10 @@ fn ewrite_goes_to_stderr() {
 
 #[test]
 fn eprint_no_args() {
-	assert!(fail("eprint()").contains("at least 1 argument"));
+	fail_with("eprint()", "at least 1 argument");
 }
 
 #[test]
 fn ewrite_no_args() {
-	assert!(fail("ewrite()").contains("at least 1 argument"));
+	fail_with("ewrite()", "at least 1 argument");
 }

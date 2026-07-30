@@ -85,8 +85,7 @@ fn question_infers_enclosing_return_type() {
 
 #[test]
 fn requires_option_or_result() {
-	let err = fail("fn f() int { 42? }\nf()");
-	assert!(err.contains("`?` needs a `?T` or `!T` value"), "got: {err}");
+	fail_with("fn f() int { 42? }\nf()", "`?` needs a `?T` or `!T` value");
 }
 
 #[test]
@@ -98,8 +97,7 @@ fn option_panics_in_main() {
 		}
 		find(1)?
 	"};
-	let err = fail(src);
-	assert!(err.contains("panic: unwrapped `none`"), "got: {err}");
+	fail_with(src, "panic: unwrapped `none`");
 }
 
 #[test]
@@ -111,8 +109,7 @@ fn result_panics_in_main() {
 		}
 		load("nope")?
 	"#};
-	let err = fail(src);
-	assert!(err.contains("panic: missing"), "got: {err}");
+	fail_with(src, "panic: missing");
 }
 
 #[test]
@@ -127,8 +124,7 @@ fn requires_matching_enclosing_return() {
 		}
 		display(7)
 	"};
-	let err = fail(src);
-	assert!(err.contains("needs an enclosing fn returning `?T`"), "got: {err}");
+	fail_with(src, "needs an enclosing fn returning `?T`");
 }
 
 #[test]
@@ -143,6 +139,5 @@ fn requires_matching_enclosing_return_result() {
 		}
 		display("ok")
 	"#};
-	let err = fail(src);
-	assert!(err.contains("needs an enclosing fn returning `!T`"), "got: {err}");
+	fail_with(src, "needs an enclosing fn returning `!T`");
 }

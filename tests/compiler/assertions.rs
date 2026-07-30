@@ -17,45 +17,42 @@ fn assert_as_statement() {
 
 #[test]
 fn assert_false_aborts() {
-	let err = fail("assert(false)");
-	assert!(err.contains("assertion failed"), "{err}");
+	fail_with("assert(false)", "assertion failed");
 }
 
 #[test]
 fn assert_false_with_message() {
-	let err = fail(r#"assert(false, "bad value")"#);
-	assert!(err.contains("bad value"), "{err}");
+	fail_with(r#"assert(false, "bad value")"#, "bad value");
 }
 
 #[test]
 fn assert_wrong_arg_count() {
-	assert!(fail("assert()").contains("1 or 2 arguments"));
-	assert!(fail(r#"assert(true, "a", "b")"#).contains("1 or 2 arguments"));
+	fail_with("assert()", "1 or 2 arguments");
+	fail_with(r#"assert(true, "a", "b")"#, "1 or 2 arguments");
 }
 
 #[test]
 fn assert_non_bool_condition() {
-	assert!(fail("assert(1)").contains("must be Bool"));
+	fail_with("assert(1)", "must be Bool");
 }
 
 #[test]
 fn assert_non_str_message() {
-	assert!(fail("assert(false, 42)").contains("must be Str"));
+	fail_with("assert(false, 42)", "must be Str");
 }
 
 #[test]
 fn panic_aborts_with_message() {
-	let err = fail(r#"panic("uh oh")"#);
-	assert!(err.contains("panic: uh oh"), "{err}");
+	fail_with(r#"panic("uh oh")"#, "panic: uh oh");
 }
 
 #[test]
 fn panic_wrong_arg_count() {
-	assert!(fail("panic()").contains("1 argument"));
-	assert!(fail(r#"panic("a", "b")"#).contains("1 argument"));
+	fail_with("panic()", "1 argument");
+	fail_with(r#"panic("a", "b")"#, "1 argument");
 }
 
 #[test]
 fn panic_non_str_message() {
-	assert!(fail("panic(42)").contains("must be Str"));
+	fail_with("panic(42)", "must be Str");
 }

@@ -234,12 +234,12 @@ fn record_pun() {
 
 #[test]
 fn record_mixed_value_types_fail() {
-	assert!(fail(r#"m := { a: 1, b: "two" }"#).contains("expected int, got str"));
+	fail_with(r#"m := { a: 1, b: "two" }"#, "expected int, got str");
 }
 
 #[test]
 fn record_empty_needs_target() {
-	assert!(fail("m := {}").contains("cannot infer"));
+	fail_with("m := {}", "cannot infer");
 }
 
 #[test]
@@ -270,26 +270,26 @@ fn delete_missing_key_is_noop() {
 
 #[test]
 fn deleted_key_then_lookup_panics() {
-	assert!(
-		fail(indoc! {r#"
+	fail_with(
+		indoc! {r#"
 			mut m Map[string, int]
 			m["one"] = 1
 			m.delete["one"]
 			m["one"]
-		"#})
-		.contains("key not found")
+		"#},
+		"key not found",
 	);
 }
 
 #[test]
 fn init_with_elements_fails() {
-	assert!(fail(r#"Map[string, int]{"x"}"#).contains("only array initializers take elements"));
+	fail_with(r#"Map[string, int]{"x"}"#, "only array initializers take elements");
 }
 
 #[test]
 fn delete_on_immutable_map_fails() {
-	assert!(
-		fail(indoc! {r#"
+	fail_with(
+		indoc! {r#"
 			fn f(m Map[string, int]) int {
 				m.delete["one"]
 				m["one"]
@@ -297,7 +297,7 @@ fn delete_on_immutable_map_fails() {
 			mut n Map[string, int]
 			n["one"] = 1
 			f(n)
-		"#})
-		.contains("immutable")
+		"#},
+		"immutable",
 	);
 }

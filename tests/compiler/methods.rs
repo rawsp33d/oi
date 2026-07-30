@@ -97,8 +97,7 @@ fn self_param_and_fields() {
 
 #[test]
 fn self_outside_impl() {
-	let err = fail("Self{}");
-	assert!(err.contains("no enclosing impl"), "{err}");
+	fail_with("Self{}", "no enclosing impl");
 }
 
 #[test]
@@ -119,36 +118,41 @@ fn mut_self_mutates_receiver() {
 
 #[test]
 fn immutable_self_rejects_field_assign() {
-	let err = fail(indoc! {"
-		struct P { x int }
-		impl P { fn bad(self) { self.x = 9 } }
-		P{1}.bad()
-	"});
-	assert!(err.contains("without `mut`"), "{err}");
+	fail_with(
+		indoc! {"
+			struct P { x int }
+			impl P { fn bad(self) { self.x = 9 } }
+			P{1}.bad()
+		"},
+		"without `mut`",
+	);
 }
 
 #[test]
 fn no_such_method() {
-	let err = fail(indoc! {"
-		struct P { x int }
-		p := P{1}
-		p.nope()
-	"});
-	assert!(err.contains("no method `nope`"), "{err}");
+	fail_with(
+		indoc! {"
+			struct P { x int }
+			p := P{1}
+			p.nope()
+		"},
+		"no method `nope`",
+	);
 }
 
 #[test]
 fn methods_only_on_structs() {
-	let err = fail("(5).double()");
-	assert!(err.contains("no methods"), "{err}");
+	fail_with("(5).double()", "no methods");
 }
 
 #[test]
 fn wrong_arg_count() {
-	let err = fail(indoc! {"
-		struct P { x int }
-		impl P { fn add(self, k int) int { self.x + k } }
-		P{1}.add()
-	"});
-	assert!(err.contains("expects 1 argument"), "{err}");
+	fail_with(
+		indoc! {"
+			struct P { x int }
+			impl P { fn add(self, k int) int { self.x + k } }
+			P{1}.add()
+		"},
+		"expects 1 argument",
+	);
 }

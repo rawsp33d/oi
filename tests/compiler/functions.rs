@@ -112,7 +112,7 @@ fn fn_arg_wrong_type() {
 		fn i(x int) { x }
 		i(2.4)
 	"};
-	assert!(fail(src).contains("wrong argument type"));
+	fail_with(src, "wrong argument type");
 }
 
 #[test]

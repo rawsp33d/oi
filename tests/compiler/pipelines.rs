@@ -215,5 +215,5 @@ fn pipeline_fn_shorthand_bare_needs_ret() {
 		fn quad = double |> double
 		quad(3)
 	"};
-	assert!(fail(src).contains("explicit return type"));
+	fail_with(src, "explicit return type");
 }

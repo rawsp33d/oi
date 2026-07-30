@@ -70,15 +70,10 @@ fn fallback_can_diverge() {
 
 #[test]
 fn type_mismatch_errors() {
-	let err = fail(r#"?int(42) or { "wrong" }"#);
-	assert!(
-		err.contains("or` branches have mismatched types: int and str"),
-		"got: {err}"
-	);
+	fail_with(r#"?int(42) or { "wrong" }"#, "or` branches have mismatched types: int and str");
 }
 
 #[test]
 fn requires_option_or_result() {
-	let err = fail("42 or { 0 }");
-	assert!(err.contains("needs a `?T`/`!T` value"), "got: {err}");
+	fail_with("42 or { 0 }", "needs a `?T`/`!T` value");
 }

@@ -32,20 +32,24 @@ fn type_position_param() {
 
 #[test]
 fn conflicting_field_types_error() {
-	let err = fail(indoc! {r#"
-		struct Pair[T] { a T, b T }
-		Pair{ a: 3, b: "x" }
-	"#});
-	assert!(err.contains("bound to both"), "got: {err}");
+	fail_with(
+		indoc! {r#"
+			struct Pair[T] { a T, b T }
+			Pair{ a: 3, b: "x" }
+		"#},
+		"bound to both",
+	);
 }
 
 #[test]
 fn cannot_infer_error() {
-	let err = fail(indoc! {"
-		struct Pair[T] { a T, b T }
-		Pair{}
-	"});
-	assert!(err.contains("cannot infer"), "got: {err}");
+	fail_with(
+		indoc! {"
+			struct Pair[T] { a T, b T }
+			Pair{}
+		"},
+		"cannot infer",
+	);
 }
 
 #[test]
@@ -74,12 +78,14 @@ fn partial_lit_infers_from_annotation() {
 
 #[test]
 fn bare_name_needs_type_arguments() {
-	let err = fail(indoc! {"
-		struct Pair[T] { a T, b T }
-		fn f(p Pair) int { p.a }
-		0
-	"});
-	assert!(err.contains("needs type arguments"), "got: {err}");
+	fail_with(
+		indoc! {"
+			struct Pair[T] { a T, b T }
+			fn f(p Pair) int { p.a }
+			0
+		"},
+		"needs type arguments",
+	);
 }
 
 #[test]
@@ -94,19 +100,23 @@ fn generic_fn_round_trip() {
 
 #[test]
 fn concrete_field_type_still_checked() {
-	let err = fail(indoc! {r#"
-		struct Tagged[T] { v T, id int }
-		Tagged{ v: 1.5, id: "x" }
-	"#});
-	assert!(err.contains("expected int"), "got: {err}");
+	fail_with(
+		indoc! {r#"
+			struct Tagged[T] { v T, id int }
+			Tagged{ v: 1.5, id: "x" }
+		"#},
+		"expected int",
+	);
 }
 
 #[test]
 fn type_args_on_non_generic_struct_error() {
-	let err = fail(indoc! {"
-		struct Point { x int, y int }
-		fn f(p Point[int]) int { p.x }
-		0
-	"});
-	assert!(err.contains("is not generic"), "got: {err}");
+	fail_with(
+		indoc! {"
+			struct Point { x int, y int }
+			fn f(p Point[int]) int { p.x }
+			0
+		"},
+		"is not generic",
+	);
 }

@@ -34,7 +34,7 @@ fn wrong_arg_count() {
 		add := fn [] (x int, y int) int { x + y }
 		add(1)
 	"};
-	assert!(fail(src).contains("expects 2 argument"));
+	fail_with(src, "expects 2 argument");
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn wrong_arg_type() {
 		add := fn [] (x int, y int) int { x + y }
 		add(1, 2.0)
 	"};
-	assert!(fail(src).contains("wrong argument type"));
+	fail_with(src, "wrong argument type");
 }
 
 #[test]
@@ -52,7 +52,7 @@ fn not_callable() {
 		x := 5
 		x()
 	"};
-	assert!(fail(src).contains("not callable"));
+	fail_with(src, "not callable");
 }
 
 #[test]
@@ -92,7 +92,7 @@ fn capture_undefined() {
 		f := fn [missing] () int { 0 }
 		f()
 	"};
-	assert!(fail(src).contains("undefined variable"));
+	fail_with(src, "undefined variable");
 }
 
 #[test]
@@ -125,7 +125,7 @@ fn capture_mut_requires_mut_binding() {
 		f := fn [mut x] () int { x }
 		f()
 	"};
-	assert!(fail(src).contains("cannot capture `x` as `mut`"));
+	fail_with(src, "cannot capture `x` as `mut`");
 }
 
 #[test]
@@ -136,7 +136,7 @@ fn capturing_closure_rejected_as_plain_fn_param() {
 		scale := fn [factor] (n int) int { n * factor }
 		apply(scale, 21)
 	"};
-	assert!(fail(src).contains("wrong argument type"));
+	fail_with(src, "wrong argument type");
 }
 
 #[test]

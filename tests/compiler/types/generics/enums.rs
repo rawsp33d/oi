@@ -53,22 +53,26 @@ fn two_instances_coexist() {
 
 #[test]
 fn bare_name_needs_type_arguments() {
-	let err = fail(indoc! {"
-		enum Opt[T] { nope, some(T) }
-		fn f(o Opt) int { 0 }
-		0
-	"});
-	assert!(err.contains("needs type arguments"), "got: {err}");
+	fail_with(
+		indoc! {"
+			enum Opt[T] { nope, some(T) }
+			fn f(o Opt) int { 0 }
+			0
+		"},
+		"needs type arguments",
+	);
 }
 
 #[test]
 fn wrong_arity() {
-	let err = fail(indoc! {"
-		enum Opt[T] { nope, some(T) }
-		fn f() Opt[int, string] { .nope }
-		0
-	"});
-	assert!(err.contains("expects 1 type argument(s), got 2"), "got: {err}");
+	fail_with(
+		indoc! {"
+			enum Opt[T] { nope, some(T) }
+			fn f() Opt[int, string] { .nope }
+			0
+		"},
+		"expects 1 type argument(s), got 2",
+	);
 }
 
 #[test]

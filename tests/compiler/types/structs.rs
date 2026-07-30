@@ -136,7 +136,7 @@ fn fn_return_type_annotation_mismatch() {
 		fn bad() Point { 42 }
 		bad()
 	"};
-	assert!(fail(src).contains("wrong return type"));
+	fail_with(src, "wrong return type");
 }
 
 #[test]
@@ -161,12 +161,12 @@ fn if_no_else_struct_zero() {
 
 #[test]
 fn immutable_field_assign_error() {
-	let err = fail(
+	fail_with(
 		"struct Point { x int, y int }
 		p := Point{}
 		p.x = 5",
+		"immutable",
 	);
-	assert!(err.contains("immutable"), "{err}");
 }
 
 #[test]
@@ -229,20 +229,20 @@ fn empty_record_defaults_struct() {
 
 #[test]
 fn record_unknown_field_error() {
-	let err = fail(
+	fail_with(
 		"struct Point { x int, y int }
 		p Point := { z: 1 }",
+		"no field `z`",
 	);
-	assert!(err.contains("no field `z`"), "{err}");
 }
 
 #[test]
 fn record_non_ident_key_error() {
-	let err = fail(
+	fail_with(
 		r#"struct Point { x int, y int }
 		p Point := { "x": 1 }"#,
+		"named by idents",
 	);
-	assert!(err.contains("named by idents"), "{err}");
 }
 
 #[test]
@@ -313,10 +313,10 @@ fn mixed_positional_and_named_args() {
 
 #[test]
 fn named_before_positional_error() {
-	let err = fail(
+	fail_with(
 		"struct Options { foo int }
 		fn g(x int, o Options) {}
 		g(foo: 1, 2)",
+		"positional args go before named args",
 	);
-	assert!(err.contains("positional args go before named args"), "{err}");
 }

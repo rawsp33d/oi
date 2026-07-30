@@ -73,5 +73,5 @@ fn equality_looser_than_relational() {
 
 #[test]
 fn mismatched_types() {
-	assert!(fail("1 < 2.0").contains("cannot compare"));
+	fail_with("1 < 2.0", "cannot compare");
 }

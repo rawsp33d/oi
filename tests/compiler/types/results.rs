@@ -24,8 +24,7 @@ fn ord_gives_tag() {
 
 #[test]
 fn int_cast_errors() {
-	let err = fail("int(!int(42))");
-	assert!(err.contains("no backing value"), "got: {err}");
+	fail_with("int(!int(42))", "no backing value");
 }
 
 #[test]
@@ -46,14 +45,12 @@ fn eq_ok_vs_err() {
 
 #[test]
 fn field_type_mismatch() {
-	let err = fail("!int(3.0)");
-	assert!(err.contains("expected int or Error, got float"), "got: {err}");
+	fail_with("!int(3.0)", "expected int or Error, got float");
 }
 
 #[test]
 fn ordering_rejected() {
-	let err = fail("!int(1) < !int(2)");
-	assert!(err.contains("only `==`&`!=`"), "got: {err}");
+	fail_with("!int(1) < !int(2)", "only `==`&`!=`");
 }
 
 #[test]
@@ -86,8 +83,7 @@ fn match_err_arm() {
 
 #[test]
 fn match_non_exhaustive_errors() {
-	let err = fail("r := !int(42)\nmatch r {\n\t.ok(n) => n,\n}");
-	assert!(err.contains("non-exhaustive match, missing: err"), "got: {err}");
+	fail_with("r := !int(42)\nmatch r {\n\t.ok(n) => n,\n}", "non-exhaustive match, missing: err");
 }
 
 #[test]
@@ -154,8 +150,7 @@ fn error_message_via_dollar() {
 
 #[test]
 fn error_unknown_method() {
-	let err = fail(r#"error("oops").code()"#);
-	assert!(err.contains("`Error` has no method `code`"), "got: {err}");
+	fail_with(r#"error("oops").code()"#, "`Error` has no method `code`");
 }
 
 #[test]
@@ -202,6 +197,5 @@ fn long_form_nested() {
 
 #[test]
 fn long_form_rejects_custom_error() {
-	let err = fail("fn load() Result[int, MyError] { 42 }\nload()");
-	assert!(err.contains("custom error types aren't supported yet"), "got: {err}");
+	fail_with("fn load() Result[int, MyError] { 42 }\nload()", "custom error types aren't supported yet");
 }

@@ -62,20 +62,24 @@ fn first_of_array() {
 
 #[test]
 fn type_mismatch_across_args() {
-	let err = fail(indoc! {r#"
-		fn max[T](a T, b T) T { if a > b { a } else { b } }
-		max(1, "a")
-	"#});
-	assert!(err.contains("bound to both"), "got: {err}");
+	fail_with(
+		indoc! {r#"
+			fn max[T](a T, b T) T { if a > b { a } else { b } }
+			max(1, "a")
+		"#},
+		"bound to both",
+	);
 }
 
 #[test]
 fn missing_return_type_errors() {
-	let err = fail(indoc! {r"
-		fn noret[T](x T) { x }
-		noret(1)
-	"});
-	assert!(err.contains("needs an explicit return type"), "got: {err}");
+	fail_with(
+		indoc! {r"
+			fn noret[T](x T) { x }
+			noret(1)
+		"},
+		"needs an explicit return type",
+	);
 }
 
 #[test]
@@ -102,29 +106,35 @@ fn explicit_type_arg_redundant_with_inference() {
 
 #[test]
 fn explicit_type_arg_conflicts_with_args() {
-	let err = fail(indoc! {r#"
-		fn max[T](a T, b T) T { if a > b { a } else { b } }
-		max[int](3, "a")
-	"#});
-	assert!(err.contains("bound to both"), "got: {err}");
+	fail_with(
+		indoc! {r#"
+			fn max[T](a T, b T) T { if a > b { a } else { b } }
+			max[int](3, "a")
+		"#},
+		"bound to both",
+	);
 }
 
 #[test]
 fn explicit_type_arg_count_mismatch() {
-	let err = fail(indoc! {"
-		fn max[T](a T, b T) T { if a > b { a } else { b } }
-		max[int, string](3, 7)
-	"});
-	assert!(err.contains("expects 1 type argument"), "got: {err}");
+	fail_with(
+		indoc! {"
+			fn max[T](a T, b T) T { if a > b { a } else { b } }
+			max[int, string](3, 7)
+		"},
+		"expects 1 type argument",
+	);
 }
 
 #[test]
 fn explicit_type_arg_on_non_generic_errors() {
-	let err = fail(indoc! {"
-		fn add(a int, b int) int { a + b }
-		add[int](3, 7)
-	"});
-	assert!(err.contains("is not generic"), "got: {err}");
+	fail_with(
+		indoc! {"
+			fn add(a int, b int) int { a + b }
+			add[int](3, 7)
+		"},
+		"is not generic",
+	);
 }
 
 #[test]

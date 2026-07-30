@@ -56,12 +56,12 @@ fn bare_tuple_still_expr() {
 
 #[test]
 fn fail_arity_mismatch() {
-	assert!(fail("(a, b, c) := (1, 2)").contains("fields"));
+	fail_with("(a, b, c) := (1, 2)", "fields");
 }
 
 #[test]
 fn fail_non_tuple() {
-	assert!(fail("(a, b) := 5").contains("expected a tuple"));
+	fail_with("(a, b) := 5", "expected a tuple");
 }
 
 #[test]
@@ -76,5 +76,5 @@ fn fail_mut_in_assign() {
 
 #[test]
 fn fail_assign_immutable() {
-	assert!(fail("(a, b) := (1, 2)\n(a, b) = (3, 4)").contains("mut"));
+	fail_with("(a, b) := (1, 2)\n(a, b) = (3, 4)", "mut");
 }

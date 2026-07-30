@@ -144,33 +144,33 @@ fn index_into_nested() {
 
 #[test]
 fn mixed_types() {
-	assert!(fail(r#"[1, "two"]"#).contains("must share a type"));
+	fail_with(r#"[1, "two"]"#, "must share a type");
 }
 
 #[test]
 fn empty_unsupported() {
-	assert!(fail("[]").contains("empty array"));
+	fail_with("[]", "empty array");
 }
 
 #[test]
 fn index_non_array() {
-	assert!(fail("x := 5\nx[0]").contains("cannot index"));
+	fail_with("x := 5\nx[0]", "cannot index");
 }
 
 #[test]
 fn non_int_index() {
-	assert!(fail(r#"a := [1, 2]; a["x"]"#).contains("index must be Int"));
+	fail_with(r#"a := [1, 2]; a["x"]"#, "index must be Int");
 }
 
 #[test]
 fn index_out_of_range() {
 	// out-of-range indexing aborts at runtime
-	assert!(fail("a := [1, 2]\na[5]").contains("out of range"));
+	fail_with("a := [1, 2]\na[5]", "out of range");
 }
 
 #[test]
 fn unknown_named_field() {
-	assert!(fail("a := [1, 2]\na.foo").contains("no field `foo`"));
+	fail_with("a := [1, 2]\na.foo", "no field `foo`");
 }
 
 // slices
@@ -234,22 +234,22 @@ fn slice_of_tuples() {
 
 #[test]
 fn slice_out_of_bounds() {
-	assert!(fail("a := [1, 2, 3]\na[1..9]").contains("out of bounds"));
+	fail_with("a := [1, 2, 3]\na[1..9]", "out of bounds");
 }
 
 #[test]
 fn slice_reversed_range() {
-	assert!(fail("a := [1, 2, 3]\na[3..1]").contains("out of bounds"));
+	fail_with("a := [1, 2, 3]\na[3..1]", "out of bounds");
 }
 
 #[test]
 fn slice_non_array() {
-	assert!(fail("x := 5\nx[0..1]").contains("cannot slice"));
+	fail_with("x := 5\nx[0..1]", "cannot slice");
 }
 
 #[test]
 fn slice_non_int_bound() {
-	assert!(fail(r#"a := [1, 2, 3]; a[true..2]"#).contains("must be Int"));
+	fail_with(r#"a := [1, 2, 3]; a[true..2]"#, "must be Int");
 }
 
 // index assignment
@@ -294,22 +294,22 @@ fn index_assign_slice_sees_mutation() {
 
 #[test]
 fn index_assign_immutable_error() {
-	assert!(fail("a := [1, 2]\na[0] = 5").contains("immutable"));
+	fail_with("a := [1, 2]\na[0] = 5", "immutable");
 }
 
 #[test]
 fn index_assign_non_array_error() {
-	assert!(fail("mut x := 5\nx[0] = 1").contains("not an array"));
+	fail_with("mut x := 5\nx[0] = 1", "not an array");
 }
 
 #[test]
 fn index_assign_type_mismatch_error() {
-	assert!(fail(r#"mut a := [1, 2]; a[0] = "hi""#).contains("type mismatch"));
+	fail_with(r#"mut a := [1, 2]; a[0] = "hi""#, "type mismatch");
 }
 
 #[test]
 fn index_assign_oob_error() {
-	assert!(fail("mut a := [1, 2]\na[5] = 9").contains("out of range"));
+	fail_with("mut a := [1, 2]\na[5] = 9", "out of range");
 }
 
 // append
@@ -348,17 +348,17 @@ fn append_slice_copies_buffer() {
 
 #[test]
 fn append_immutable_error() {
-	assert!(fail("a := [1, 2]\na << 3").contains("immutable"));
+	fail_with("a := [1, 2]\na << 3", "immutable");
 }
 
 #[test]
 fn append_non_array_error() {
-	assert!(fail("mut x := 5\nx << 1").contains("not an array"));
+	fail_with("mut x := 5\nx << 1", "not an array");
 }
 
 #[test]
 fn append_type_mismatch_error() {
-	assert!(fail(r#"mut a := [1, 2]; a << "hi""#).contains("type mismatch"));
+	fail_with(r#"mut a := [1, 2]; a << "hi""#, "type mismatch");
 }
 
 // array extend (<<)
@@ -387,7 +387,7 @@ fn extend_into_empty_ish() {
 
 #[test]
 fn extend_type_mismatch_error() {
-	assert!(fail(r#"mut a := [1, 2]; b := ["x"]; a << b"#).contains("type mismatch"));
+	fail_with(r#"mut a := [1, 2]; b := ["x"]; a << b"#, "type mismatch");
 }
 
 // in operator
@@ -429,12 +429,12 @@ fn in_after_append() {
 
 #[test]
 fn in_non_array_error() {
-	assert!(fail("5 in 10").contains("not an array"));
+	fail_with("5 in 10", "not an array");
 }
 
 #[test]
 fn in_type_mismatch_error() {
-	assert!(fail(r#"a := [1, 2]; "x" in a"#).contains("type mismatch"));
+	fail_with(r#"a := [1, 2]; "x" in a"#, "type mismatch");
 }
 
 #[test]
@@ -462,7 +462,7 @@ fn fn_return_type_mismatch_array() {
 		fn bad() []int { 42 }
 		bad()
 	"};
-	assert!(fail(src).contains("wrong return type"));
+	fail_with(src, "wrong return type");
 }
 
 #[test]
@@ -518,7 +518,7 @@ fn fixed_value_semantics() {
 
 #[test]
 fn fixed_index_out_of_range() {
-	assert!(fail("a := [2]int{}\na[5]").contains("out of range"));
+	fail_with("a := [2]int{}\na[5]", "out of range");
 }
 
 #[test]
@@ -538,5 +538,5 @@ fn typed_literal_index() {
 
 #[test]
 fn typed_literal_mismatch() {
-	assert!(fail(r#"a := []int{1, "x"}"#).contains("share a type"));
+	fail_with(r#"a := []int{1, "x"}"#, "share a type");
 }

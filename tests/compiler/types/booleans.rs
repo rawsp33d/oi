@@ -66,10 +66,10 @@ fn or_short_circuits() {
 
 #[test]
 fn and_requires_bool() {
-	assert!(fail("1 && true").contains("expected Bool"));
+	fail_with("1 && true", "expected Bool");
 }
 
 #[test]
 fn not_requires_bool() {
-	assert!(fail("!1").contains("expected Bool"));
+	fail_with("!1", "expected Bool");
 }

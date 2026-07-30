@@ -54,7 +54,7 @@ fn annotated_binding() {
 
 #[test]
 fn annotation_type_mismatch() {
-	assert!(fail(r#"x int := "hi""#).contains("expected int, got str"));
+	fail_with(r#"x int := "hi""#, "expected int, got str");
 }
 
 #[test]
@@ -71,5 +71,5 @@ fn annotation_coerces_float() {
 
 #[test]
 fn annotation_out_of_range() {
-	assert!(fail("mut x i8 := 9999\nx").contains("out of range for i8"));
+	fail_with("mut x i8 := 9999\nx", "out of range for i8");
 }

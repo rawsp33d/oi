@@ -44,7 +44,7 @@ fn mod_binds_like_mul() {
 
 #[test]
 fn mod_float_unsupported() {
-	assert!(fail("10.0 % 3.0").contains("not yet supported on floats"));
+	fail_with("10.0 % 3.0", "not yet supported on floats");
 }
 
 #[test]

@@ -18,8 +18,7 @@ fn zero_value_is_none() {
 
 #[test]
 fn bare_none_without_context_errors() {
-	let err = fail("none");
-	assert!(err.contains("cannot infer the type"), "got: {err}");
+	fail_with("none", "cannot infer the type");
 }
 
 #[test]
@@ -30,8 +29,7 @@ fn ord_gives_tag() {
 
 #[test]
 fn int_cast_errors() {
-	let err = fail("int(?int(42))");
-	assert!(err.contains("no backing value"), "got: {err}");
+	fail_with("int(?int(42))", "no backing value");
 }
 
 #[test]
@@ -52,14 +50,12 @@ fn eq_none_vs_some() {
 
 #[test]
 fn field_type_mismatch() {
-	let err = fail("?int(3.0)");
-	assert!(err.contains("expected int, got float"), "got: {err}");
+	fail_with("?int(3.0)", "expected int, got float");
 }
 
 #[test]
 fn ordering_rejected() {
-	let err = fail("?int(1) < ?int(2)");
-	assert!(err.contains("only `==`&`!=`"), "got: {err}");
+	fail_with("?int(1) < ?int(2)", "only `==`&`!=`");
 }
 
 #[test]
@@ -92,8 +88,7 @@ fn match_none_arm() {
 
 #[test]
 fn match_non_exhaustive_errors() {
-	let err = fail("o := ?int(42)\nmatch o {\n\t.some(n) => n,\n}");
-	assert!(err.contains("non-exhaustive match, missing: none"), "got: {err}");
+	fail_with("o := ?int(42)\nmatch o {\n\t.some(n) => n,\n}", "non-exhaustive match, missing: none");
 }
 
 #[test]
