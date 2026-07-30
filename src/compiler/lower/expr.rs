@@ -173,12 +173,12 @@ impl<'a> Translator<'a> {
 					(name.clone(), None)
 				} else {
 					let (recv_val, recv_typ) = self.expr(recv)?;
-					if let Typ::Trait(tn) = &recv_typ {
-						return self.dyn_call(recv_val, tn, method, args, expr.1);
-					}
 					if method == "str" && args.is_empty() && !matches!(recv_typ, Typ::Struct(..) | Typ::TupleStruct(..))
 					{
 						return Ok((self.derived_str(recv_val, &recv_typ), Typ::Str));
+					}
+					if let Typ::Trait(tn) = &recv_typ {
+						return self.dyn_call(recv_val, tn, method, args, expr.1);
 					}
 					if let Typ::Enum(enum_name) = &recv_typ {
 						return Err(Diagnostic::new(

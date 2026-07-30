@@ -26,7 +26,7 @@ impl<'a> Translator<'a> {
 	}
 
 	// Universal `str` method.
-	pub(super) fn derived_str(&mut self, val: Value, typ: &Typ) -> Value {
+	pub(crate) fn derived_str(&mut self, val: Value, typ: &Typ) -> Value {
 		let mark = self.import_fn(runtime::STR_MARK, &[], Some(self.int));
 		let call = self.b.ins().call(mark, &[]);
 		let mark = self.b.inst_results(call)[0];
@@ -204,7 +204,19 @@ impl<'a> Translator<'a> {
 
 			Typ::Fn(..) | Typ::Closure(..) => self.write_lit("<fn>", sink),
 			Typ::Map(..) => self.write_lit("<map>", sink),
-			Typ::Trait(_) => self.write_lit("<trait>", sink),
+
+			Typ::Trait(tn) => {
+				let (_, tfields, tmethods) = self.traits[tn.as_str()];
+				let slot = (trait_fns(tmethods).count() + tfields.len()) * 8;
+				let vtable = self.b.ins().load(self.int, MemFlags::new(), val, 0);
+				let data = self.b.ins().load(self.int, MemFlags::new(), val, 8);
+				let fnptr = self.b.ins().load(self.int, MemFlags::new(), vtable, slot as i32);
+				let sig = Typ::Fn(vec![typ.clone()], Box::new(Typ::Str));
+				let Ok((s, _)) = self.call_value("str", fnptr, &sig, &[], Some(data), (0..0).into()) else {
+					unreachable!("no args to check")
+				};
+				self.emit_frag(runtime::Tag::Raw, s, 0, false, sink);
+			}
 
 			_ => {
 				let tag = match typ {

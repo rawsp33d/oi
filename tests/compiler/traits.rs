@@ -198,6 +198,66 @@ fn dyn_trait_param_and_default() {
 }
 
 #[test]
+fn trait_object_renders_concrete_struct() {
+	let src = indoc! {r#"
+		trait Animal { fn speak(self) string }
+		struct Dog { kind string }
+		impl Animal for Dog { fn speak(self) string { "woof" } }
+		a Animal := Dog{ "collie" }
+		print(a)
+		print("says {a}")
+		print(a.str())
+	"#};
+	check(
+		src,
+		[
+			r#"Dog{kind: "collie"}"#,
+			r#"says Dog{kind: "collie"}"#,
+			r#"Dog{kind: "collie"}"#,
+		],
+	);
+}
+
+#[test]
+fn trait_object_uses_str_override() {
+	let src = indoc! {r#"
+		trait Animal { fn speak(self) string }
+		struct Dog { kind string }
+		impl Dog { fn str(self) string { "a " + self.kind + " dog" } }
+		impl Animal for Dog { fn speak(self) string { "woof" } }
+		a Animal := Dog{ "collie" }
+		print(a)
+	"#};
+	check(src, "a collie dog");
+}
+
+#[test]
+fn array_of_trait_objects_renders() {
+	let src = indoc! {r#"
+		trait Animal { fn speak(self) string }
+		struct Dog { kind string }
+		struct Cat { kind string }
+		impl Animal for Dog { fn speak(self) string { "woof" } }
+		impl Animal for Cat { fn speak(self) string { "meow" } }
+		print([]Animal{ Dog{ "collie" }, Cat{ "mau" } })
+	"#};
+	check(src, "[Dog{kind: \"collie\"}, Cat{kind: \"mau\"}]");
+}
+
+#[test]
+fn trait_declared_str_dyn_dispatches() {
+	let src = indoc! {r#"
+		trait Animal { fn str(self) string }
+		struct Dog { kind string }
+		impl Animal for Dog { fn str(self) string { "custom-" + self.kind } }
+		a Animal := Dog{ "collie" }
+		print(a)
+		print(a.str())
+	"#};
+	check(src, "custom-collie\ncustom-collie");
+}
+
+#[test]
 fn rejects_non_implementing_trait_object() {
 	fail(indoc! {r#"
 		trait Animal { fn speak(self) string }

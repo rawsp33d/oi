@@ -1200,12 +1200,34 @@ impl Compiler {
 			);
 		}
 
+		// a `str` wrapper per struct
+		let mut render = HashMap::new();
+		for (name, _) in self.trait_impls.clone() {
+			if render.contains_key(&name) {
+				continue;
+			}
+			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits);
+			let styp = types.named(&name, (0..0).into())?;
+			let param = [("self".into(), styp.clone(), false)];
+			let def = FnDef {
+				params: &param,
+				..FnDef::default()
+			};
+			let (mut trans, block) = self.translator(&def, &funcs, types);
+			let val = trans.b.block_params(block)[0];
+			let s = trans.derived_str(val, &styp);
+			trans.emit_return(s, Typ::Str, (0..0).into())?;
+			trans.b.finalize();
+			render.insert(name.clone(), self.finish_fn(&oi_symbol(&format!("{name}#str"))));
+		}
+
 		// define vtables now that every concrete method has a FuncId
 		for (typ, tn) in &self.trait_impls {
 			let (_, tfields, tmethods) = traits[tn.as_str()];
 			let methods: Vec<&str> = trait_fns(tmethods).map(|(n, ..)| n).collect();
 			let m = methods.len();
-			let mut bytes = vec![0u8; (m + tfields.len()) * 8];
+			let f = tfields.len();
+			let mut bytes = vec![0u8; (m + f + 1) * 8];
 			for (i, tf) in tfields.iter().enumerate() {
 				let idx = structs[typ.as_str()]
 					.iter()
@@ -1220,6 +1242,8 @@ impl Compiler {
 				let fref = self.module.declare_func_in_data(id, &mut desc);
 				desc.write_function_addr((i * 8) as u32, fref);
 			}
+			let fref = self.module.declare_func_in_data(render[typ.as_str()], &mut desc);
+			desc.write_function_addr(((m + f) * 8) as u32, fref);
 			let sym = oi_symbol(&format!("vtable_{typ}_{tn}"));
 			let id = self
 				.module
