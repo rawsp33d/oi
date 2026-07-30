@@ -261,6 +261,47 @@ fn dyn_trait_param_and_default() {
 }
 
 #[test]
+fn trait_typed_struct_field() {
+	let src = indoc! {r#"
+		trait Animal { fn speak(self) string }
+		struct Dog {}
+		impl Animal for Dog { fn speak(self) string { "woof" } }
+		struct Pen { pet Animal }
+		p := Pen{ pet: Dog{} }
+		print(p.pet.speak())
+	"#};
+	check(src, "woof");
+}
+
+#[test]
+fn self_sig_static_dispatch_ok() {
+	let src = indoc! {r#"
+		trait Cloner { fn dup(self) Self }
+		struct Dog {}
+		impl Cloner for Dog { fn dup(self) Self { Dog{} } }
+		d := Dog{}.dup()
+		print("cloned")
+	"#};
+	check(src, "cloned");
+}
+
+#[test]
+fn rejects_non_object_safe_trait() {
+	fail(indoc! {r#"
+		trait Cloner { fn dup(self) Self }
+		struct Dog {}
+		impl Cloner for Dog { fn dup(self) Self { Dog{} } }
+		fn f(c Cloner) string { "no" }
+	"#});
+	fail(indoc! {r#"
+		trait Eater { fn eat(self, other Self) string }
+		struct Dog {}
+		impl Eater for Dog { fn eat(self, other Self) string { "ate" } }
+		pack := []Eater{ Dog{} }
+	"#});
+}
+
+#[test]
 fn trait_object_renders_concrete_struct() {
 	let src = indoc! {r#"
 		trait Animal { fn speak(self) string }

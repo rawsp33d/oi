@@ -650,7 +650,15 @@ impl TypeCtx<'_> {
 					.with_label(format!("try `{name}[...]`")),
 			);
 		}
-		if self.traits.contains_key(name) {
+		if let Some((_, _, tmethods)) = self.traits.get(name) {
+			// dyn dispatch erases the concrete type, so `Self` only works as the receiver
+			for (m, ps, ret) in trait_fns(tmethods) {
+				let in_ret = matches!(ret, Some((te, _)) if mentions_self(te));
+				if in_ret || ps.iter().skip(1).any(|p| mentions_self(&p.typ)) {
+					let msg = format!("trait `{name}` isn't object-safe: `{m}` uses `Self` beyond the receiver");
+					return Err(Diagnostic::new(msg, span.into_range()).with_label("can't be a trait object"));
+				}
+			}
 			return Ok(Typ::Trait(name.to_string()));
 		}
 		Err(Diagnostic::new(format!("unknown type `{name}`"), span.into_range()).with_label("not a known type"))
@@ -758,6 +766,20 @@ pub(crate) struct Generics {
 	pub instances: RefCell<HashMap<String, Vec<VariantInfo>>>,
 	// struct instances' concrete type args keyed by display name (`Box[int]`)
 	pub instance_args: RefCell<HashMap<String, Vec<Typ>>>,
+}
+
+// Does a type ref mention `Self`?
+fn mentions_self(te: &TypeExpr) -> bool {
+	match te {
+		TypeExpr::Name(n) => n == "Self",
+		TypeExpr::Array(e) | TypeExpr::FixedArray(e, _) | TypeExpr::Option(e) => mentions_self(e),
+		TypeExpr::Result(e, err) => mentions_self(e) || err.as_deref().is_some_and(mentions_self),
+		TypeExpr::Tuple(es) | TypeExpr::Sum(es) | TypeExpr::Generic(_, es) => es.iter().any(mentions_self),
+		TypeExpr::Fn(ps, r) => ps.iter().any(mentions_self) || mentions_self(r),
+		TypeExpr::TupleStruct(_, fs) => fs.iter().any(|(_, t)| mentions_self(t)),
+		TypeExpr::Map(k, v) => mentions_self(k) || mentions_self(v),
+		TypeExpr::AtomSum(_) => false,
+	}
 }
 
 // Rewrite `Self` type refs to the owning type.
