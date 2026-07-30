@@ -226,6 +226,17 @@ fn usize_arithmetic() {
 }
 
 #[test]
+fn promotion() {
+	check("2 + 1.0 == 3.0", "true");
+	check("2 + 1.0", "3.0");
+	check("1.0 + 2", "3.0");
+	check("i64(2) + i8(3)", "5");
+	check("u8(200) + u16(1000)", "1200");
+	check("f32(1.5) + 2.0", "3.5");
+	fail_with("i8(1) + u8(1)", "cannot apply");
+}
+
+#[test]
 fn f16_not_yet_supported() {
 	fail_with("f16(1.0)", "f16 casts are not yet supported");
 	fail_with("f16(123)", "f16 casts are not yet supported");

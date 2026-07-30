@@ -73,5 +73,12 @@ fn equality_looser_than_relational() {
 
 #[test]
 fn mismatched_types() {
-	fail_with("1 < 2.0", "cannot compare");
+	fail_with(r#"1 < "x""#, "cannot compare");
+}
+
+#[test]
+fn promoted_cmp() {
+	check("1.0 == 1", "true");
+	check("1 == 1.0", "true");
+	check("1 < 2.0", "true");
 }

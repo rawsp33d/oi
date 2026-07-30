@@ -94,6 +94,35 @@ impl<'a> Translator<'a> {
 		self.b.ins().band(val, mask_v)
 	}
 
+	// Promote ints to larger-width ints and floats.
+	fn promote(&mut self, lv: Value, lt: Typ, rv: Value, rt: Typ) -> (Value, Typ, Value, Typ) {
+		let ints = |t: &Typ| matches!(t, Typ::Int(_) | Typ::ISize | Typ::UInt(_) | Typ::USize);
+		let common = match (&lt, &rt) {
+			(Typ::Int(a), Typ::Int(b)) => Typ::Int(*a.max(b)),
+			(Typ::UInt(a), Typ::UInt(b)) => Typ::UInt(*a.max(b)),
+			(Typ::Float(a), Typ::Float(b)) => Typ::Float(*a.max(b)),
+			(Typ::Float(w), o) | (o, Typ::Float(w)) if ints(o) => Typ::Float(*w),
+			_ => return (lv, lt, rv, rt),
+		};
+		let (lv, rv) = (self.numcast(lv, &lt, &common), self.numcast(rv, &rt, &common));
+		(lv, common.clone(), rv, common)
+	}
+
+	// Cast a numeric value to a wider (or same) numeric type.
+	fn numcast(&mut self, val: Value, from: &Typ, to: &Typ) -> Value {
+		if from == to {
+			return val;
+		}
+		let cl = cl_type(to, self.int);
+		match (from, to) {
+			(Typ::Float(_), _) => self.b.ins().fpromote(cl, val),
+			(Typ::UInt(_) | Typ::USize, Typ::Float(_)) => self.b.ins().fcvt_from_uint(cl, val),
+			(_, Typ::Float(_)) => self.b.ins().fcvt_from_sint(cl, val),
+			(Typ::UInt(_), _) => self.intcast(val, cl, false),
+			_ => self.intcast(val, cl, true),
+		}
+	}
+
 	pub(super) fn binop(
 		&mut self,
 		op: BinOp,
@@ -108,6 +137,7 @@ impl<'a> Translator<'a> {
 		if let (BinOp::Add, Typ::Str, Typ::Str) = (op, &lt, &rt) {
 			return Ok((self.call_concat(lv, rv), Typ::Str));
 		}
+		let (lv, lt, rv, rt) = self.promote(lv, lt, rv, rt);
 
 		#[derive(Clone, Copy)]
 		enum NumKind {
@@ -115,7 +145,6 @@ impl<'a> Translator<'a> {
 			UInt,
 			Float,
 		}
-		// NOTE: might go with V-style int/float promotion eventually
 		let kind = match (&lt, &rt) {
 			(Typ::Int(lw), Typ::Int(rw)) if lw == rw => NumKind::Int,
 			(Typ::ISize, Typ::ISize) => NumKind::Int,
@@ -178,6 +207,7 @@ impl<'a> Translator<'a> {
 			let rhs = self.check_expr(r, &lt)?;
 			((lv, lt), rhs)
 		};
+		let (lv, lt, rv, rt) = self.promote(lv, lt, rv, rt);
 
 		// () == ()
 		if let (Typ::Tuple(lf), Typ::Tuple(rf)) = (&lt, &rt)
