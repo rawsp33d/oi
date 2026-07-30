@@ -77,6 +77,12 @@ impl<const N: usize> Expected for [&str; N] {
 	}
 }
 
+/// Run provided source expecting a compilation error containing `expected`.
+pub(crate) fn fail_with(src: &str, expected: &str) {
+	let err = fail(src);
+	assert!(err.contains(expected), "\nexpected error containing {expected:?}\nsrc:\n{src}\nstderr:\n{err}");
+}
+
 /// Run provided source expecting a given result.
 pub(crate) fn check(src: &str, expected: impl Expected) {
 	assert_eq!(run(src), expected.text(), "\nsrc:\n{src}");
