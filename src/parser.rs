@@ -540,9 +540,8 @@ where
 		let type_init = type_expr
 			.clone()
 			.filter(|t| matches!(t, TypeExpr::Array(_) | TypeExpr::FixedArray(..) | TypeExpr::Map(..)))
-			.then_ignore(just(Token::LBrace))
-			.then_ignore(just(Token::RBrace))
-			.map_with(|te, ex| (Expr::TypeInit((te, ex.span())), ex.span()));
+			.then(brace(loose_list(expr.clone())))
+			.map_with(|(te, elems), ex| (Expr::TypeInit((te, ex.span()), elems), ex.span()));
 
 		let option_init = just(Token::Question)
 			.ignore_then(type_expr.clone())

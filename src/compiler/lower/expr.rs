@@ -319,9 +319,17 @@ impl<'a> Translator<'a> {
 
 			Expr::Array(elems) => self.array_lit(elems, None, expr.1),
 
-			Expr::TypeInit((te, span)) => {
+			Expr::TypeInit((te, span), elems) => {
 				let typ = self.types().resolve(te, *span)?;
-				Ok((self.zero(&typ), typ))
+				match &typ {
+					_ if elems.is_empty() => Ok((self.zero(&typ), typ)),
+					Typ::Array(elem) => self.array_lit(elems, Some(elem), expr.1),
+					_ => Err(Diagnostic::new(
+						format!("only array initializers take elements, not {typ}"),
+						expr.1.into_range(),
+					)
+					.with_label("expected empty braces here")),
+				}
 			}
 
 			Expr::Index { collection, index } => {

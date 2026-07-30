@@ -525,3 +525,18 @@ fn fixed_index_out_of_range() {
 fn empty_dynamic_via_init() {
 	check("a := []int{}\na.len", "0");
 }
+
+#[test]
+fn typed_literal() {
+	check("[]int{1, 2}", "[1, 2]");
+}
+
+#[test]
+fn typed_literal_index() {
+	check("a := []int{10, 20, 30}\na[1]", "20");
+}
+
+#[test]
+fn typed_literal_mismatch() {
+	assert!(fail(r#"a := []int{1, "x"}"#).contains("share a type"));
+}

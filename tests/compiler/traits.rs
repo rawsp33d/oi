@@ -162,6 +162,23 @@ fn dyn_dispatch_zoo() {
 }
 
 #[test]
+fn trait_object_array_literal() {
+	let src = indoc! {r#"
+		trait Animal {
+			kind string
+			fn speak(self) string
+		}
+		struct Dog { kind string }
+		struct Cat { kind string }
+		impl Animal for Dog { fn speak(self) string { "woof" } }
+		impl Animal for Cat { fn speak(self) string { "meow" } }
+		animals := []Animal{ Dog{ "collie" }, Cat{ "mau" } }
+		loop a in animals { print("{a.kind}: {a.speak()}") }
+	"#};
+	check(src, "collie: woof\nmau: meow");
+}
+
+#[test]
 fn dyn_trait_param_and_default() {
 	let src = indoc! {r#"
 		trait Animal {

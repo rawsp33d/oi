@@ -27,7 +27,7 @@ pub enum Expr {
 	},
 
 	// `T{}`
-	TypeInit(Spanned<TypeExpr>),
+	TypeInit(Spanned<TypeExpr>, Vec<Spanned<Expr>>),
 
 	// `?T(value)` or `?T(none)`
 	OptionInit {

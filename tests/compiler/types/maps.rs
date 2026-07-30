@@ -282,6 +282,11 @@ fn deleted_key_then_lookup_panics() {
 }
 
 #[test]
+fn init_with_elements_fails() {
+	assert!(fail(r#"Map[string, int]{"x"}"#).contains("only array initializers take elements"));
+}
+
+#[test]
 fn delete_on_immutable_map_fails() {
 	assert!(
 		fail(indoc! {r#"
