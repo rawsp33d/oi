@@ -107,7 +107,7 @@ fn is_expression() {
 		print(Dog is not Animal)
 		print(D is Animal)
 	"};
-	check(src, "true\nfalse\ntrue");
+	check(src, ["true", "false", "true"]);
 
 	let src = indoc! {"
 		trait Animal {}
@@ -115,7 +115,7 @@ fn is_expression() {
 		print(Cat is Animal)
 		print(Cat is not Animal)
 	"};
-	check(src, "false\ntrue");
+	check(src, ["false", "true"]);
 }
 
 #[test]
@@ -158,7 +158,7 @@ fn dyn_dispatch_zoo() {
 		zoo []Animal := [ Dog{ "collie" }, Cat{ 4, "mau" } ]
 		loop a in zoo { print("a " + a.kind + " says " + a.speak()) }
 	"#};
-	check(src, "a collie says woof\na mau says meow");
+	check(src, ["a collie says woof", "a mau says meow"]);
 }
 
 #[test]
@@ -175,7 +175,7 @@ fn trait_object_array_literal() {
 		animals := []Animal{ Dog{ "collie" }, Cat{ "mau" } }
 		loop a in animals { print("{a.kind}: {a.speak()}") }
 	"#};
-	check(src, "collie: woof\nmau: meow");
+	check(src, ["collie: woof", "mau: meow"]);
 }
 
 #[test]
@@ -194,7 +194,7 @@ fn dyn_trait_param_and_default() {
 		print(greet(Dog{}))
 		print(relay(Cat{}))
 	"#};
-	check(src, "woof!\nmeow!");
+	check(src, ["woof!", "meow!"]);
 }
 
 #[test]

@@ -54,7 +54,30 @@ pub(crate) fn fail(src: &str) -> String {
 	trim_trailing_newline(&out.stderr)
 }
 
+/// Expected output.
+pub(crate) trait Expected {
+	fn text(&self) -> String;
+}
+
+impl Expected for &str {
+	fn text(&self) -> String {
+		(*self).to_string()
+	}
+}
+
+impl Expected for &String {
+	fn text(&self) -> String {
+		(*self).clone()
+	}
+}
+
+impl<const N: usize> Expected for [&str; N] {
+	fn text(&self) -> String {
+		self.join("\n")
+	}
+}
+
 /// Run provided source expecting a given result.
-pub(crate) fn check(src: &str, expected: &str) {
-	assert_eq!(run(src), expected, "\nsrc:\n{src}");
+pub(crate) fn check(src: &str, expected: impl Expected) {
+	assert_eq!(run(src), expected.text(), "\nsrc:\n{src}");
 }
