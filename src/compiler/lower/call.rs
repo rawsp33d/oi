@@ -78,6 +78,7 @@ impl<'a> Translator<'a> {
 		callee: Value,
 		typ: &Typ,
 		args: &[Spanned<Expr>],
+		recv: Option<Value>,
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
 		let (addr, env, params, ret) = match typ {
@@ -91,15 +92,21 @@ impl<'a> Translator<'a> {
 					.with_label(format!("this is {typ}, not a function")));
 			}
 		};
-		if args.len() != params.len() {
+		let self_n = recv.is_some() as usize;
+		if args.len() + self_n != params.len() {
 			return Err(Diagnostic::new(
-				format!("`{name}` expects {} argument(s), got {}", params.len(), args.len()),
+				format!(
+					"`{name}` expects {} argument(s), got {}",
+					params.len() - self_n,
+					args.len()
+				),
 				span.into_range(),
 			)
 			.with_label("wrong number of arguments"));
 		}
-		let mut vals = Vec::with_capacity(args.len() + 1);
-		for (arg, want) in args.iter().zip(params) {
+		let mut vals = Vec::with_capacity(args.len() + self_n + 1);
+		vals.extend(recv);
+		for (arg, want) in args.iter().zip(&params[self_n..]) {
 			let (val, typ) = self.check_expr(arg, want)?;
 			if &typ != want {
 				return Err(
@@ -219,5 +226,58 @@ impl<'a> Translator<'a> {
 		let func = self.import_fn(runtime::MAP_DELETE, &[self.int, self.int, self.int], None);
 		let tag_v = self.b.ins().iconst(self.int, tag as i64);
 		self.b.ins().call(func, &[map, tag_v, bits]);
+	}
+
+	// Dispatch a trait-object method through its vtable.
+	pub(super) fn dyn_call(
+		&mut self,
+		boxv: Value,
+		tn: &str,
+		method: &str,
+		args: &[Spanned<Expr>],
+		span: Span,
+	) -> Result<TypedVal, Diagnostic> {
+		let (_, _, tmethods) = self.traits[tn];
+		let Some((idx, (_, params, ret))) = trait_fns(tmethods).enumerate().find(|(_, (n, ..))| *n == method) else {
+			let msg = format!("trait `{tn}` has no method `{method}`");
+			return Err(Diagnostic::new(msg, span.into_range()).with_label("no such method"));
+		};
+		// the receiver slot is the erased data pointer, the rest resolve like any signature
+		let mut typs = vec![Typ::Trait(tn.into())];
+		for p in params.iter().skip(1) {
+			typs.push(self.types().resolve(&p.typ, p.span)?);
+		}
+		let ret = match ret {
+			Some((te, s)) => self.types().resolve(te, *s)?,
+			None => Typ::unit(),
+		};
+		let vtable = self.b.ins().load(self.int, MemFlags::new(), boxv, 0);
+		let data = self.b.ins().load(self.int, MemFlags::new(), boxv, 8);
+		let fnptr = self.b.ins().load(self.int, MemFlags::new(), vtable, (idx * 8) as i32);
+		self.call_value(method, fnptr, &Typ::Fn(typs, Box::new(ret)), args, Some(data), span)
+	}
+
+	// Read a required trait field.
+	pub(super) fn trait_field(
+		&mut self,
+		boxv: Value,
+		tn: &str,
+		field: &str,
+		span: Span,
+	) -> Result<TypedVal, Diagnostic> {
+		let (_, tfields, tmethods) = self.traits[tn];
+		let Some(idx) = tfields.iter().position(|f| f.name == field) else {
+			let msg = format!("trait `{tn}` has no field `{field}`");
+			return Err(Diagnostic::new(msg, span.into_range()).with_label("no such field"));
+		};
+		let ftyp = self.types().resolve(&tfields[idx].typ, tfields[idx].span)?;
+		let vtable = self.b.ins().load(self.int, MemFlags::new(), boxv, 0);
+		let data = self.b.ins().load(self.int, MemFlags::new(), boxv, 8);
+		let m = trait_fns(tmethods).count();
+		// slot offset lives after the method pointers in the vtable
+		let off = self.b.ins().load(self.int, MemFlags::new(), vtable, ((m + idx) * 8) as i32);
+		let addr = self.b.ins().iadd(data, off);
+		let v = self.b.ins().load(cl_type(&ftyp, self.int), MemFlags::new(), addr, 0);
+		Ok((v, ftyp))
 	}
 }

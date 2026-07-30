@@ -131,7 +131,7 @@ impl<'a> Translator<'a> {
 				}
 				if let Some(local) = self.vars.get(name).cloned() {
 					let callee = self.read_local(&local);
-					return self.call_value(name, callee, &local.typ, args, expr.1);
+					return self.call_value(name, callee, &local.typ, args, None, expr.1);
 				}
 				match self.builtin_call(name, args, expr.1)? {
 					Some(result) => Ok(result),
@@ -173,6 +173,9 @@ impl<'a> Translator<'a> {
 					(name.clone(), None)
 				} else {
 					let (recv_val, recv_typ) = self.expr(recv)?;
+					if let Typ::Trait(tn) = &recv_typ {
+						return self.dyn_call(recv_val, tn, method, args, expr.1);
+					}
 					if method == "str" && args.is_empty() && !matches!(recv_typ, Typ::Struct(..) | Typ::TupleStruct(..))
 					{
 						return Ok((self.derived_str(recv_val, &recv_typ), Typ::Str));
@@ -251,6 +254,10 @@ impl<'a> Translator<'a> {
 
 				let (ptr, typ) = self.expr(tuple)?;
 
+				if let Typ::Trait(tn) = &typ {
+					return self.trait_field(ptr, tn, field, expr.1);
+				}
+
 				// arrays expose `.len` and numeric `.n` (sugar for `arr[n]`)
 				if let Typ::Array(_) | Typ::FixedArray(..) = &typ {
 					let elem = array_elem(&typ).clone();
@@ -310,39 +317,7 @@ impl<'a> Translator<'a> {
 				Ok((v, field_typ))
 			}
 
-			Expr::Array(elems) => {
-				if elems.is_empty() {
-					return Err(
-						Diagnostic::new("empty array literals aren't supported yet", expr.1.into_range())
-							.with_label("needs at least one element to infer its type"),
-					);
-				}
-				let mut elem_typ: Option<Typ> = None;
-				let mut vals = Vec::with_capacity(elems.len());
-				for e in elems {
-					let (val, typ) = self.expr(e)?;
-					match &elem_typ {
-						Some(t) if t != &typ => {
-							return Err(Diagnostic::new(
-								format!("array elements must share a type: expected {t}, got {typ}"),
-								e.1.into_range(),
-							)
-							.with_label("mismatched element type"));
-						}
-						_ => elem_typ = Some(typ),
-					}
-					vals.push(val);
-				}
-				let elem = elem_typ.unwrap();
-				let size = self.elem_stride(&elem);
-				let data = self.call_alloc_bytes(elems.len() as i64 * size);
-				for (i, val) in vals.into_iter().enumerate() {
-					self.store_elem(data, (i as i64 * size) as i32, &elem, val);
-				}
-				let len = self.b.ins().iconst(self.int, elems.len() as i64);
-				let header = self.make_array(data, len);
-				Ok((header, Typ::Array(Box::new(elem))))
-			}
+			Expr::Array(elems) => self.array_lit(elems, None, expr.1),
 
 			Expr::TypeInit((te, span)) => {
 				let typ = self.types().resolve(te, *span)?;

@@ -22,6 +22,44 @@ impl<'a> Translator<'a> {
 		header
 	}
 
+	// Build an array literal.
+	pub(super) fn array_lit(
+		&mut self,
+		elems: &[Spanned<Expr>],
+		want: Option<&Typ>,
+		span: Span,
+	) -> Result<TypedVal, Diagnostic> {
+		let mut elem = want.cloned();
+		let mut vals = Vec::with_capacity(elems.len());
+		for e in elems {
+			let (val, typ) = match &elem {
+				Some(t) => self.check_expr(e, t)?,
+				None => self.expr(e)?,
+			};
+			match &elem {
+				Some(t) if t != &typ => {
+					let msg = format!("array elements must share a type: expected {t}, got {typ}");
+					return Err(Diagnostic::new(msg, e.1.into_range()).with_label("mismatched element type"));
+				}
+				_ => elem = Some(typ),
+			}
+			vals.push(val);
+		}
+		let Some(elem) = elem else {
+			return Err(
+				Diagnostic::new("empty array literals aren't supported yet", span.into_range())
+					.with_label("needs at least one element to infer its type"),
+			);
+		};
+		let size = self.elem_stride(&elem);
+		let data = self.call_alloc_bytes(vals.len() as i64 * size);
+		for (i, val) in vals.into_iter().enumerate() {
+			self.store_elem(data, (i as i64 * size) as i32, &elem, val);
+		}
+		let len = self.b.ins().iconst(self.int, elems.len() as i64);
+		Ok((self.make_array(data, len), Typ::Array(Box::new(elem))))
+	}
+
 	// Evaluate an array-typed operand.
 	pub(super) fn array_operand(&mut self, collection: &Spanned<Expr>, what: &str) -> Result<TypedVal, Diagnostic> {
 		let (ptr, typ) = self.expr(collection)?;

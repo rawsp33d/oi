@@ -5,7 +5,7 @@ use std::fmt;
 use cranelift::codegen;
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{FuncId, Linkage, Module};
+use cranelift_module::{DataDescription, FuncId, Linkage, Module};
 
 use crate::ast::{EnumVariant, Expr, Param, Span, Spanned, TypeExpr, TypeParam};
 use crate::diagnostics::Diagnostic;
@@ -24,8 +24,18 @@ struct FnItem<'a> {
 
 type EnumItem<'a> = (&'a str, Option<&'a Spanned<TypeExpr>>, &'a [EnumVariant]);
 
-// a trait's supertraits, fields, and methods
-type TraitItem<'a> = (&'a [String], &'a [Param], &'a [Spanned<Expr>]);
+// A trait's supertraits, fields, and methods.
+pub(crate) type TraitItem<'a> = (&'a [String], &'a [Param], &'a [Spanned<Expr>]);
+
+// A trait method's name, params, and return annotation.
+pub(crate) type TraitFn<'a> = (&'a str, &'a [Param], &'a Option<Spanned<TypeExpr>>);
+
+pub(crate) fn trait_fns(methods: &[Spanned<Expr>]) -> impl Iterator<Item = TraitFn<'_>> {
+	methods.iter().filter_map(|m| match &m.0 {
+		Expr::Fn { name, params, ret, .. } => Some((name.as_str(), params.as_slice(), ret)),
+		_ => None,
+	})
+}
 
 // resolved params with an optional return annotation
 type ParamsRet = (Vec<(String, Typ, bool)>, Option<(Typ, Span)>);
@@ -46,6 +56,7 @@ pub(crate) enum Typ {
 	Struct(String, Vec<FieldDef>),
 	TupleStruct(String, Vec<(Option<String>, Typ)>),
 	Enum(String),
+	Trait(String),
 	Option(Box<Typ>),
 	Result(Box<Typ>),
 	Sum(Vec<VariantInfo>),
@@ -98,6 +109,7 @@ impl fmt::Display for Typ {
 			Typ::Struct(name, _) => write!(f, "{name}"),
 			Typ::TupleStruct(name, _) => write!(f, "{name}"),
 			Typ::Enum(name) => write!(f, "{name}"),
+			Typ::Trait(name) => write!(f, "{name}"),
 			Typ::Option(inner) => write!(f, "?{inner}"),
 			Typ::Result(inner) => write!(f, "!{inner}"),
 			Typ::Sum(variants) => {
@@ -147,6 +159,7 @@ impl PartialEq for Typ {
 			(Typ::Int(a), Typ::Int(b)) | (Typ::UInt(a), Typ::UInt(b)) | (Typ::Float(a), Typ::Float(b)) => a == b,
 			(Typ::Struct(n, a), Typ::Struct(m, b)) => n == m && a == b,
 			(Typ::Enum(a), Typ::Enum(b)) => a == b,
+			(Typ::Trait(a), Typ::Trait(b)) => a == b,
 			(Typ::Option(a), Typ::Option(b)) | (Typ::Result(a), Typ::Result(b)) | (Typ::Array(a), Typ::Array(b)) => {
 				a == b
 			}
@@ -360,6 +373,7 @@ pub(crate) struct TypeCtx<'a> {
 	pub aliases: &'a HashMap<String, TypeExpr>,
 	pub type_params: &'a HashMap<String, Typ>,
 	pub generics: &'a Generics,
+	pub traits: &'a HashMap<&'a str, TraitItem<'a>>,
 	// keep track of generic instantiations to catch recursion
 	depth: usize,
 }
@@ -371,6 +385,7 @@ impl<'a> TypeCtx<'a> {
 		aliases: &'a HashMap<String, TypeExpr>,
 		type_params: &'a HashMap<String, Typ>,
 		generics: &'a Generics,
+		traits: &'a HashMap<&'a str, TraitItem<'a>>,
 	) -> Self {
 		TypeCtx {
 			structs,
@@ -378,6 +393,7 @@ impl<'a> TypeCtx<'a> {
 			aliases,
 			type_params,
 			generics,
+			traits,
 			depth: 0,
 		}
 	}
@@ -633,6 +649,9 @@ impl TypeCtx<'_> {
 				Diagnostic::new(format!("`{name}` needs type arguments"), span.into_range())
 					.with_label(format!("try `{name}[...]`")),
 			);
+		}
+		if self.traits.contains_key(name) {
+			return Ok(Typ::Trait(name.to_string()));
 		}
 		Err(Diagnostic::new(format!("unknown type `{name}`"), span.into_range()).with_label("not a known type"))
 	}
@@ -1030,7 +1049,7 @@ impl Compiler {
 		// TODO: struct fields can't reference other structs yet, so resolve against none
 		let no_structs: HashMap<String, Vec<FieldDef>> = HashMap::new();
 		let no_type_params: HashMap<String, Typ> = HashMap::new();
-		let field_types = TypeCtx::new(&no_structs, &enum_names, &aliases, &no_type_params, &generics);
+		let field_types = TypeCtx::new(&no_structs, &enum_names, &aliases, &no_type_params, &generics, &traits);
 		let structs: HashMap<String, Vec<FieldDef>> = struct_items
 			.iter()
 			.map(|(name, fields)| {
@@ -1100,7 +1119,7 @@ impl Compiler {
 			}
 		}
 
-		let variant_types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics);
+		let variant_types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits);
 		let enums: HashMap<String, Vec<VariantInfo>> = enum_items
 			.iter()
 			.map(|(name, backing, variants)| {
@@ -1121,7 +1140,7 @@ impl Compiler {
 			if let Some(t) = item.key.rsplit_once('.').map(|(t, _)| t) {
 				aliases.insert("Self".into(), TypeExpr::Name(t.into()));
 			}
-			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics);
+			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits);
 			let param_typs: Vec<Typ> = item
 				.params
 				.iter()
@@ -1154,7 +1173,7 @@ impl Compiler {
 			if let Some(t) = self_type {
 				aliases.insert("Self".into(), TypeExpr::Name(t.into()));
 			}
-			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics);
+			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits);
 			let (params, ret) = types.resolve_params_ret(item.params, item.ret)?;
 			let sym = oi_symbol(&item.key);
 			let ret = self.translate(
@@ -1181,6 +1200,34 @@ impl Compiler {
 			);
 		}
 
+		// define vtables now that every concrete method has a FuncId
+		for (typ, tn) in &self.trait_impls {
+			let (_, tfields, tmethods) = traits[tn.as_str()];
+			let methods: Vec<&str> = trait_fns(tmethods).map(|(n, ..)| n).collect();
+			let m = methods.len();
+			let mut bytes = vec![0u8; (m + tfields.len()) * 8];
+			for (i, tf) in tfields.iter().enumerate() {
+				let idx = structs[typ.as_str()]
+					.iter()
+					.position(|fd| fd.name == tf.name)
+					.expect("field checked by trait impl");
+				bytes[(m + i) * 8..(m + i + 1) * 8].copy_from_slice(&((idx * 8) as i64).to_le_bytes());
+			}
+			let mut desc = DataDescription::new();
+			desc.define(bytes.into_boxed_slice());
+			for (i, name) in methods.iter().enumerate() {
+				let id = funcs[&format!("{typ}.{name}")].id;
+				let fref = self.module.declare_func_in_data(id, &mut desc);
+				desc.write_function_addr((i * 8) as u32, fref);
+			}
+			let sym = oi_symbol(&format!("vtable_{typ}_{tn}"));
+			let id = self
+				.module
+				.declare_data(&sym, Linkage::Local, false, false)
+				.expect("declare vtable");
+			self.module.define_data(id, &desc).expect("define vtable");
+		}
+
 		// gather loose top-level statements
 		let loose: Vec<Spanned<Expr>>;
 		let entry: &[Spanned<Expr>] = match main_body {
@@ -1201,7 +1248,7 @@ impl Compiler {
 			}
 		};
 
-		let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics);
+		let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits);
 		let typ = self.translate(
 			FnDef {
 				params_tuple: true,
@@ -1216,7 +1263,7 @@ impl Compiler {
 
 		// drain generic instances queued by calls we've seen
 		while let Some((sym, def, subst)) = self.pending.pop() {
-			let types = TypeCtx::new(&structs, &enums, &aliases, &subst, &generics);
+			let types = TypeCtx::new(&structs, &enums, &aliases, &subst, &generics, &traits);
 			let (params, ret) = types.resolve_params_ret(&def.params, &def.ret)?;
 			self.translate(
 				FnDef {
@@ -1296,6 +1343,7 @@ impl Compiler {
 			aliases: types.aliases,
 			type_params: types.type_params,
 			generics: types.generics,
+			traits: types.traits,
 			generic_fns: &self.generics,
 			trait_impls: &self.trait_impls,
 			mono: &mut self.mono,

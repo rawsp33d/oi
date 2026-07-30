@@ -204,6 +204,7 @@ impl<'a> Translator<'a> {
 
 			Typ::Fn(..) | Typ::Closure(..) => self.write_lit("<fn>", sink),
 			Typ::Map(..) => self.write_lit("<map>", sink),
+			Typ::Trait(_) => self.write_lit("<trait>", sink),
 
 			_ => {
 				let tag = match typ {
@@ -225,6 +226,7 @@ impl<'a> Translator<'a> {
 					| Typ::Range
 					| Typ::Fn(..)
 					| Typ::Closure(..)
+					| Typ::Trait(_)
 					| Typ::Map(..) => {
 						unreachable!("handled above")
 					}

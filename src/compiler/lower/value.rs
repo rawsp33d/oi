@@ -46,7 +46,7 @@ impl<'a> Translator<'a> {
 			Typ::Int(w) => self.b.ins().iconst(cl_type(&Typ::Int(*w), self.int), 0),
 			Typ::UInt(w) => self.b.ins().iconst(cl_type(&Typ::UInt(*w), self.int), 0),
 			Typ::Bool | Typ::ISize | Typ::USize => self.b.ins().iconst(self.int, 0),
-			Typ::Fn(..) | Typ::Closure(..) => self.b.ins().iconst(self.int, 0),
+			Typ::Fn(..) | Typ::Closure(..) | Typ::Trait(_) => self.b.ins().iconst(self.int, 0),
 			// default to first variant, with zero'd payload fields
 			Typ::Enum(_) | Typ::Option(_) | Typ::Result(_) | Typ::Sum(..) => {
 				let variants = self.variants_of(typ);
@@ -397,14 +397,21 @@ impl<'a> Translator<'a> {
 	}
 
 	// Evaluate `value` against an expected type.
-	// Resolves variant shorthands, atoms, and `none` via coercion.
+	// Coerces variant shorthands, atoms, and `none`.
 	pub(super) fn check_expr(&mut self, value: &Spanned<Expr>, target: &Typ) -> Result<TypedVal, Diagnostic> {
+		if let Typ::Trait(tn) = target {
+			let (val, vt) = self.expr(value)?;
+			return self.make_trait_object(val, &vt, tn, value.1);
+		}
 		if matches!(value.0, Expr::EnumShorthand { .. } | Expr::Atom(_) | Expr::None)
 			&& let Some(v) = self.coerce_lit(value, target)?
 		{
 			return Ok((v, target.clone()));
 		}
 		match &value.0 {
+			Expr::Array(elems) if matches!(target, Typ::Array(_)) => {
+				self.array_lit(elems, Some(&array_elem(target).clone()), value.1)
+			}
 			Expr::If { cond, then, els } => {
 				match self.conditional(cond, then, els.as_deref(), Some(target), value.1)? {
 					Some(vt) => Ok(vt),
@@ -481,6 +488,34 @@ impl<'a> Translator<'a> {
 				Ok((val, vt))
 			}
 		}
+	}
+
+	// Box a struct behind its vtable.
+	fn make_trait_object(&mut self, val: Value, vt: &Typ, tn: &str, span: Span) -> Result<TypedVal, Diagnostic> {
+		// already the right trait object, pass it through
+		if matches!(vt, Typ::Trait(n) if n == tn) {
+			return Ok((val, vt.clone()));
+		}
+		let Typ::Struct(name, _) = vt else {
+			return Err(
+				Diagnostic::new("only structs can be trait objects yet", span.into_range())
+					.with_label(format!("`{vt}` is not a struct")),
+			);
+		};
+		if !self.trait_impls.contains(&(name.clone(), tn.to_string())) {
+			return Err(
+				Diagnostic::new(format!("`{name}` doesn't implement `{tn}`"), span.into_range())
+					.with_label("no matching impl"),
+			);
+		}
+		let sym = oi_symbol(&format!("vtable_{name}_{tn}"));
+		let id = self.module.declare_data(&sym, Linkage::Local, false, false).unwrap();
+		let gv = self.module.declare_data_in_func(id, self.b.func);
+		let vtable = self.b.ins().symbol_value(self.int, gv);
+		let boxp = self.call_alloc(2);
+		self.b.ins().store(MemFlags::new(), vtable, boxp, 0);
+		self.b.ins().store(MemFlags::new(), val, boxp, 8);
+		Ok((boxp, Typ::Trait(tn.to_string())))
 	}
 
 	pub(super) fn float_lit(&mut self, x: f64, w: u16, span: Span) -> Result<Value, Diagnostic> {

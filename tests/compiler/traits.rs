@@ -143,3 +143,50 @@ fn rejects_bad_impls() {
 		impl Animal for Dog
 	"#});
 }
+
+#[test]
+fn dyn_dispatch_zoo() {
+	let src = indoc! {r#"
+		trait Animal {
+			kind string
+			fn speak(self) string
+		}
+		struct Dog { kind string }
+		struct Cat { legs int, kind string }
+		impl Animal for Dog { fn speak(self) string { "woof" } }
+		impl Animal for Cat { fn speak(self) string { "meow" } }
+		zoo []Animal := [ Dog{ "collie" }, Cat{ 4, "mau" } ]
+		loop a in zoo { print("a " + a.kind + " says " + a.speak()) }
+	"#};
+	check(src, "a collie says woof\na mau says meow");
+}
+
+#[test]
+fn dyn_trait_param_and_default() {
+	let src = indoc! {r#"
+		trait Animal {
+			fn speak(self) string
+			fn shout(self) string { self.speak() + "!" }
+		}
+		struct Dog {}
+		struct Cat {}
+		impl Animal for Dog { fn speak(self) string { "woof" } }
+		impl Animal for Cat { fn speak(self) string { "meow" } }
+		fn greet(a Animal) string { a.shout() }
+		fn relay(a Animal) string { greet(a) }
+		print(greet(Dog{}))
+		print(relay(Cat{}))
+	"#};
+	check(src, "woof!\nmeow!");
+}
+
+#[test]
+fn rejects_non_implementing_trait_object() {
+	fail(indoc! {r#"
+		trait Animal { fn speak(self) string }
+		struct Dog {}
+		impl Animal for Dog { fn speak(self) string { "woof" } }
+		struct Rock {}
+		a Animal := Rock{}
+	"#});
+}
