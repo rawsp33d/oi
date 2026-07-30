@@ -145,6 +145,61 @@ fn rejects_bad_impls() {
 }
 
 #[test]
+fn rejects_method_not_in_trait() {
+	fail(indoc! {r#"
+		trait Animal { fn speak(self) string }
+		struct Dog {}
+		impl Animal for Dog {
+			fn speak(self) string { "woof" }
+			fn fetch(self) string { "stick" }
+		}
+	"#});
+}
+
+#[test]
+fn rejects_wrong_arity_impl() {
+	fail(indoc! {r#"
+		trait Animal { fn speak(self) string }
+		struct Dog {}
+		impl Animal for Dog { fn speak(self, loud bool) string { "woof" } }
+	"#});
+}
+
+#[test]
+fn rejects_wrong_param_type_impl() {
+	fail(indoc! {r#"
+		trait Animal { fn speak(self, times int) string }
+		struct Dog {}
+		impl Animal for Dog { fn speak(self, times float) string { "woof" } }
+	"#});
+}
+
+#[test]
+fn rejects_wrong_return_type_impl() {
+	fail(indoc! {r#"
+		trait Animal { fn speak(self) string }
+		struct Dog {}
+		impl Animal for Dog { fn speak(self) int { 0 } }
+	"#});
+}
+
+#[test]
+fn overrides_default_method_multi_param() {
+	let src = indoc! {r#"
+		trait Animal {
+			fn speak(self, times int, loud bool) string
+			fn shout(self) string { self.speak(1, false) + "!" }
+		}
+		struct Dog {}
+		impl Animal for Dog {
+			fn speak(self, times int, loud bool) string { if loud { "WOOF" } else { "woof" } }
+		}
+		Dog{}.speak(2, true)
+	"#};
+	check(src, "WOOF");
+}
+
+#[test]
 fn dyn_dispatch_zoo() {
 	let src = indoc! {r#"
 		trait Animal {

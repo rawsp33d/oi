@@ -1090,6 +1090,31 @@ impl Compiler {
 					return Err(Diagnostic::new(msg, span.into_range()).with_label("required by the trait"));
 				}
 			}
+			let mut sig_aliases = aliases.clone();
+			sig_aliases.insert("Self".into(), TypeExpr::Name(typ.into()));
+			let sig_types = TypeCtx::new(&structs, &enum_names, &sig_aliases, &no_type_params, &generics, &traits);
+			let sig = |ps: &[Param], ret: &Option<Spanned<TypeExpr>>| -> Result<Typ, Diagnostic> {
+				let params = ps.iter().map(|p| sig_types.resolve(&p.typ, p.span)).collect::<Result<_, _>>()?;
+				let ret = match ret {
+					Some((te, sp)) => sig_types.resolve(te, *sp)?,
+					None => Typ::unit(),
+				};
+				Ok(Typ::Fn(params, Box::new(ret)))
+			};
+			for m in methods {
+				let Expr::Fn { name, params, ret, .. } = &m.0 else {
+					continue;
+				};
+				let Some((_, tp, tr)) = trait_fns(tmethods).find(|(n, ..)| n == name) else {
+					let msg = format!("trait `{tn}` has no method `{name}`");
+					return Err(Diagnostic::new(msg, m.1.into_range()).with_label("not in the trait"));
+				};
+				let (got, want) = (sig(params, ret)?, sig(tp, tr)?);
+				if got != want {
+					let msg = format!("`{typ}.{name}` is `{got}`, trait `{tn}` declares `{want}`");
+					return Err(Diagnostic::new(msg, m.1.into_range()).with_label("wrong signature"));
+				}
+			}
 			for t in *tmethods {
 				let Expr::Fn {
 					name,
