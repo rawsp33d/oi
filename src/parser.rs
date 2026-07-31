@@ -155,6 +155,13 @@ where
 	{
 		p.separated_by(just(Token::Comma).or_not()).allow_trailing().collect::<Vec<_>>()
 	}
+	fn spanned<'token, I, O, P>(p: P) -> impl Parser<'token, I, Spanned<O>, extra::Err<Rich<'token, Token>>> + Clone
+	where
+		I: ValueInput<'token, Token = Token, Span = SimpleSpan>,
+		P: Parser<'token, I, O, extra::Err<Rich<'token, Token>>> + Clone,
+	{
+		p.map_with(|o, ex| (o, ex.span()))
+	}
 
 	// type annotations
 	let type_expr = recursive(|te| {
@@ -210,17 +217,20 @@ where
 				))
 				.map(|(name, args)| TypeExpr::Generic(name, args));
 
-			unit.or(fn_type)
-				.or(option)
-				.or(result)
-				.or(atom)
-				.or(map_type)
-				.or(result_long)
-				.or(option_long)
-				.or(generic_instance)
-				.or(name)
-				.or(tuple)
-				.or(array)
+			choice((
+				unit,
+				fn_type,
+				option,
+				result,
+				atom,
+				map_type,
+				result_long,
+				option_long,
+				generic_instance,
+				name,
+				tuple,
+				array,
+			))
 		});
 
 		base.separated_by(just(Token::Pipe))
@@ -267,7 +277,7 @@ where
 	});
 
 	// optional return type annotation
-	let ret = type_expr.clone().map_with(|t, ex| (t, ex.span())).or_not();
+	let ret = spanned(type_expr.clone()).or_not();
 
 	// generics
 	let type_param = ident()
@@ -276,7 +286,7 @@ where
 	let type_params = bracket(list(type_param)).or_not().map(Option::unwrap_or_default);
 
 	// bindings
-	let annot = type_expr.clone().map_with(|t, ex| (t, ex.span()));
+	let annot = spanned(type_expr.clone());
 	let bind = just(Token::Mut)
 		.or_not()
 		.then(ident())
@@ -473,9 +483,7 @@ where
 
 		// explicit generic types
 		let call_type_args = bracket(
-			type_expr
-				.clone()
-				.map_with(|t, ex| (t, ex.span()))
+			spanned(type_expr.clone())
 				.separated_by(just(Token::Comma))
 				.at_least(1)
 				.collect::<Vec<_>>(),
@@ -493,7 +501,7 @@ where
 			});
 
 		// leaf atoms pair themselves with their span
-		let leaf = literal.or(struct_lit).or(var_or_call).map_with(|e, ex| (e, ex.span()));
+		let leaf = spanned(literal.or(struct_lit).or(var_or_call));
 
 		// record entries
 		let key = select! {
@@ -502,9 +510,7 @@ where
 			Token::String(s) => Expr::String(s),
 			Token::Atom(a) => Expr::Atom(a),
 		};
-		let keyed = key
-			.map_with(|k, ex| (k, ex.span()))
-			.then(just(Token::Colon).ignore_then(expr.clone()));
+		let keyed = spanned(key).then(just(Token::Colon).ignore_then(expr.clone()));
 		let pun = ident().map_with(|n, ex| ((Expr::Ident(n.clone()), ex.span()), (Expr::Ident(n), ex.span())));
 		let record_entries = keyed
 			.clone()
@@ -712,23 +718,25 @@ where
 			});
 
 		// atoms
-		let atom = type_init
-			.or(leaf)
-			.or(enum_shorthand)
-			.or(group)
-			.or(tuple)
-			.or(option_init)
-			.or(result_init)
-			.or(array)
-			.or(record)
-			.or(if_expr)
-			.or(match_expr)
-			.or(for_expr)
-			.or(loop_expr)
-			.or(break_expr)
-			.or(continue_expr)
-			.or(anon_fn.clone())
-			.or(bad);
+		let atom = choice((
+			type_init,
+			leaf,
+			enum_shorthand,
+			group,
+			tuple,
+			option_init,
+			result_init,
+			array,
+			record,
+			if_expr,
+			match_expr,
+			for_expr,
+			loop_expr,
+			break_expr,
+			continue_expr,
+			anon_fn.clone(),
+			bad,
+		));
 
 		// field/tuple/method access
 		let access = choice((
@@ -879,7 +887,7 @@ where
 				ex.span(),
 			)
 		}));
-		let lit_arg = literal.map_with(|e, ex| (e, ex.span()));
+		let lit_arg = spanned(literal);
 		let juxt = choice((
 			lit_arg.then(trailing.clone().or_not()).map(|(l, t)| (Some(l), t)),
 			trailing.map(|t| (None, Some(t))),
