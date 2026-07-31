@@ -320,3 +320,56 @@ fn named_before_positional_error() {
 		"positional args go before named args",
 	);
 }
+
+#[test]
+fn struct_typed_field() {
+	let src = indoc! {"
+		struct Money { amount int }
+		struct Wallet { cash Money }
+		w := Wallet{ cash: Money{ amount: 5 } }
+		print(w.cash.amount)
+		print(w)
+	"};
+	check(src, ["5", "Wallet{cash: Money{amount: 5}}"]);
+}
+
+#[test]
+fn struct_typed_field_out_of_order() {
+	let src = indoc! {"
+		struct Wallet { cash Money }
+		struct Money { amount int }
+		Wallet{ cash: Money{ amount: 7 } }.cash.amount
+	"};
+	check(src, "7");
+}
+
+#[test]
+fn struct_typed_field_reassign() {
+	let src = indoc! {"
+		struct Money { amount int }
+		struct Wallet { cash Money }
+		mut w := Wallet{ cash: Money{ amount: 5 } }
+		w.cash = Money{ amount: 9 }
+		w.cash.amount
+	"};
+	check(src, "9");
+}
+
+#[test]
+fn self_recursive_struct_error() {
+	fail_with("struct A { a A }", "recurses without end");
+}
+
+#[test]
+fn mutually_recursive_structs_error() {
+	fail_with(
+		"struct A { b B }
+		struct B { a A }",
+		"recurses without end",
+	);
+}
+
+#[test]
+fn unknown_field_type_error() {
+	fail_with("struct Wallet { cash Money }", "unknown type `Money`");
+}

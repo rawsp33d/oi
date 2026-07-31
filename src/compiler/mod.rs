@@ -653,8 +653,8 @@ impl TypeCtx<'_> {
 		if let Some((_, _, tmethods)) = self.traits.get(name) {
 			// dyn dispatch erases the concrete type, so `Self` only works as the receiver
 			for (m, ps, ret) in trait_fns(tmethods) {
-				let in_ret = matches!(ret, Some((te, _)) if mentions_self(te));
-				if in_ret || ps.iter().skip(1).any(|p| mentions_self(&p.typ)) {
+				let in_ret = matches!(ret, Some((te, _)) if mentions(te, "Self"));
+				if in_ret || ps.iter().skip(1).any(|p| mentions(&p.typ, "Self")) {
 					let msg = format!("trait `{name}` isn't object-safe: `{m}` uses `Self` beyond the receiver");
 					return Err(Diagnostic::new(msg, span.into_range()).with_label("can't be a trait object"));
 				}
@@ -768,16 +768,16 @@ pub(crate) struct Generics {
 	pub instance_args: RefCell<HashMap<String, Vec<Typ>>>,
 }
 
-// Does a type ref mention `Self`?
-fn mentions_self(te: &TypeExpr) -> bool {
+// Does a type ref mention the named type?
+fn mentions(te: &TypeExpr, name: &str) -> bool {
 	match te {
-		TypeExpr::Name(n) => n == "Self",
-		TypeExpr::Array(e) | TypeExpr::FixedArray(e, _) | TypeExpr::Option(e) => mentions_self(e),
-		TypeExpr::Result(e, err) => mentions_self(e) || err.as_deref().is_some_and(mentions_self),
-		TypeExpr::Tuple(es) | TypeExpr::Sum(es) | TypeExpr::Generic(_, es) => es.iter().any(mentions_self),
-		TypeExpr::Fn(ps, r) => ps.iter().any(mentions_self) || mentions_self(r),
-		TypeExpr::TupleStruct(_, fs) => fs.iter().any(|(_, t)| mentions_self(t)),
-		TypeExpr::Map(k, v) => mentions_self(k) || mentions_self(v),
+		TypeExpr::Name(n) => n == name,
+		TypeExpr::Array(e) | TypeExpr::FixedArray(e, _) | TypeExpr::Option(e) => mentions(e, name),
+		TypeExpr::Result(e, err) => mentions(e, name) || err.as_deref().is_some_and(|e| mentions(e, name)),
+		TypeExpr::Tuple(es) | TypeExpr::Sum(es) | TypeExpr::Generic(_, es) => es.iter().any(|e| mentions(e, name)),
+		TypeExpr::Fn(ps, r) => ps.iter().any(|p| mentions(p, name)) || mentions(r, name),
+		TypeExpr::TupleStruct(_, fs) => fs.iter().any(|(_, t)| mentions(t, name)),
+		TypeExpr::Map(k, v) => mentions(k, name) || mentions(v, name),
 		TypeExpr::AtomSum(_) => false,
 	}
 }
@@ -1070,26 +1070,52 @@ impl Compiler {
 		let enum_names: HashMap<String, Vec<VariantInfo>> =
 			enum_items.iter().map(|(name, ..)| (name.to_string(), Vec::new())).collect();
 
-		// TODO: struct fields can't reference other structs yet, so resolve against none
-		let no_structs: HashMap<String, Vec<FieldDef>> = HashMap::new();
+		// structs can ref each other
 		let no_type_params: HashMap<String, Typ> = HashMap::new();
-		let field_types = TypeCtx::new(&no_structs, &enum_names, &aliases, &no_type_params, &generics, &traits);
-		let structs: HashMap<String, Vec<FieldDef>> = struct_items
-			.iter()
-			.map(|(name, fields)| {
-				let resolved = fields
-					.iter()
-					.map(|p| {
-						field_types.resolve(&p.typ, p.span).map(|t| FieldDef {
-							name: p.name.clone(),
-							typ: t,
-							default: p.default.clone(),
-						})
+		let mut structs: HashMap<String, Vec<FieldDef>> = HashMap::new();
+		let mut pending = struct_items;
+		while !pending.is_empty() {
+			let types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits);
+			let (mut done, mut err) = (vec![], None);
+			pending.retain(|(name, fields)| {
+				let field = |p: &Param| {
+					let typ = types.resolve(&p.typ, p.span)?;
+					Ok(FieldDef {
+						name: p.name.clone(),
+						typ,
+						default: p.default.clone(),
 					})
-					.collect::<Result<Vec<_>, _>>()?;
-				Ok((name.to_string(), resolved))
-			})
-			.collect::<Result<_, Diagnostic>>()?;
+				};
+				match fields.iter().map(field).collect::<Result<Vec<_>, Diagnostic>>() {
+					Ok(fs) => {
+						done.push((name.to_string(), fs));
+						false
+					}
+					Err(e) => {
+						err = Some(e);
+						true
+					}
+				}
+			});
+			if done.is_empty() {
+				// detect recursion
+				let cycle = pending.iter().find_map(|(name, fields)| {
+					Some((
+						*name,
+						fields.iter().find(|p| pending.iter().any(|(n, _)| mentions(&p.typ, n)))?.span,
+					))
+				});
+				let Some((name, span)) = cycle else {
+					return Err(err.unwrap());
+				};
+				return Err(
+					Diagnostic::new(format!("`{name}` recurses for ever ever"), span.into_range())
+						.with_label("would require infinitely nested fields"),
+				);
+			}
+			structs.extend(done);
+		}
+		let field_types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits);
 
 		// trait impls
 		for (span, typ, tn, methods) in trait_bodies {
