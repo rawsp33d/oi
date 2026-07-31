@@ -275,7 +275,8 @@ where
 	.map(|(params, trailing)| {
 		let tuple = params.len() != 1 || trailing.is_some();
 		(params, tuple)
-	});
+	})
+	.boxed();
 
 	// optional return type annotation
 	let ret = spanned(type_expr.clone()).or_not();
@@ -284,7 +285,7 @@ where
 	let type_param = ident()
 		.then(just(Token::Colon).ignore_then(ident()).or_not())
 		.map(|(name, bound)| TypeParam { name, bound });
-	let type_params = bracket(list(type_param)).or_not().map(Option::unwrap_or_default);
+	let type_params = bracket(list(type_param)).or_not().map(Option::unwrap_or_default).boxed();
 
 	// bindings
 	let annot = spanned(type_expr.clone());
@@ -430,7 +431,7 @@ where
 		.boxed();
 
 	// blocks
-	let block = brace(stmt.clone().repeated().collect::<Vec<_>>());
+	let block = brace(stmt.clone().repeated().collect::<Vec<_>>()).boxed();
 
 	let definition = {
 		let literal = select! {
@@ -504,7 +505,7 @@ where
 			});
 
 		// leaf atoms pair themselves with their span
-		let leaf = spanned(literal.or(struct_lit).or(var_or_call));
+		let leaf = spanned(literal.or(struct_lit).or(var_or_call)).boxed();
 
 		// record entries
 		let key = select! {
@@ -534,7 +535,8 @@ where
 			.map_with(|(variant, args), ex| {
 				let args = args.unwrap_or_default();
 				(Expr::EnumShorthand { variant, args }, ex.span())
-			});
+			})
+			.boxed();
 
 		// a lexer error token
 		let bad = select! { Token::Error(text) => text }
@@ -759,7 +761,8 @@ where
 					Some(args) => Access::Method(name, args),
 					None => Access::Fields(vec![name]),
 				}),
-		));
+		))
+		.boxed();
 
 		// array subscripts
 		let no_start_range = just(Token::DotDot)
@@ -776,7 +779,7 @@ where
 				// numeric index
 				(e, None) => Subscript::Index(e),
 			});
-		let subscript = bracket(no_start_range.or(with_start));
+		let subscript = bracket(no_start_range.or(with_start)).boxed();
 
 		// infix operator builder
 		let binop = |prec, tok: Token, op: BinOp| {
@@ -978,7 +981,8 @@ where
 			.then(expr.clone())
 			.map_with(|(((head, params), ret), body), ex| {
 				fn_def(head, params, ret, vec![dollar_pipe(body)], ex.span())
-			}));
+			}))
+		.boxed();
 
 	// struct defs
 	let struct_field = ident()
@@ -990,7 +994,8 @@ where
 			span: ex.span(),
 			default,
 			mutable: false,
-		});
+		})
+		.boxed();
 	let struct_def = just(Token::Struct)
 		.ignore_then(ident())
 		.then(type_params.clone())
@@ -1004,7 +1009,8 @@ where
 				},
 				ex.span(),
 			)
-		});
+		})
+		.boxed();
 
 	// tuple struct defs
 	let ts_field = ident()
@@ -1024,7 +1030,8 @@ where
 		.map_with(|(name, fields), ex| {
 			let typ = TypeExpr::TupleStruct(name.clone(), fields);
 			(Expr::TypeAlias { name, typ }, ex.span())
-		});
+		})
+		.boxed();
 
 	// enum defs
 	let disc_int = just(Token::Minus)
@@ -1083,7 +1090,8 @@ where
 				},
 				ex.span(),
 			))
-		});
+		})
+		.boxed();
 
 	// type aliases
 	let type_alias = just(Token::Type)
@@ -1122,7 +1130,8 @@ where
 				},
 				ex.span(),
 			)
-		});
+		})
+		.boxed();
 
 	let impl_block = just(Token::Impl)
 		.ignore_then(ident())
@@ -1143,7 +1152,8 @@ where
 				},
 				ex.span(),
 			)
-		});
+		})
+		.boxed();
 
 	tuple_struct_def
 		.or(struct_def)
