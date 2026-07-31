@@ -1,5 +1,26 @@
 use crate::helpers::*;
 
+const ANIMAL_DOG: &str = indoc! {r#"
+	trait Animal { fn speak(self) string }
+	struct Dog {}
+	impl Animal for Dog { fn speak(self) string { "woof" } }
+"#};
+
+const ANIMAL_DOG_KIND: &str = indoc! {r#"
+	trait Animal { fn speak(self) string }
+	struct Dog { kind string }
+	impl Animal for Dog { fn speak(self) string { "woof" } }
+"#};
+
+const ANIMAL_KIND: &str = indoc! {r#"
+	trait Animal {
+		kind string
+		fn speak(self) string
+	}
+	struct Dog { kind string }
+	impl Animal for Dog { fn speak(self) string { "woof" } }
+"#};
+
 #[test]
 fn trait_def_and_impl() {
 	let src = indoc! {r#"
@@ -210,35 +231,23 @@ fn overrides_default_method_multi_param() {
 #[test]
 fn dyn_dispatch_zoo() {
 	let src = indoc! {r#"
-		trait Animal {
-			kind string
-			fn speak(self) string
-		}
-		struct Dog { kind string }
 		struct Cat { legs int, kind string }
-		impl Animal for Dog { fn speak(self) string { "woof" } }
 		impl Animal for Cat { fn speak(self) string { "meow" } }
 		zoo []Animal := [ Dog{ "collie" }, Cat{ 4, "mau" } ]
 		loop a in zoo { print("a " + a.kind + " says " + a.speak()) }
 	"#};
-	check(src, ["a collie says woof", "a mau says meow"]);
+	check_in(ANIMAL_KIND, src, ["a collie says woof", "a mau says meow"]);
 }
 
 #[test]
 fn trait_object_array_literal() {
 	let src = indoc! {r#"
-		trait Animal {
-			kind string
-			fn speak(self) string
-		}
-		struct Dog { kind string }
 		struct Cat { kind string }
-		impl Animal for Dog { fn speak(self) string { "woof" } }
 		impl Animal for Cat { fn speak(self) string { "meow" } }
 		animals := []Animal{ Dog{ "collie" }, Cat{ "mau" } }
 		loop a in animals { print("{a.kind}: {a.speak()}") }
 	"#};
-	check(src, ["collie: woof", "mau: meow"]);
+	check_in(ANIMAL_KIND, src, ["collie: woof", "mau: meow"]);
 }
 
 #[test]
@@ -263,14 +272,11 @@ fn dyn_trait_param_and_default() {
 #[test]
 fn trait_typed_struct_field() {
 	let src = indoc! {r#"
-		trait Animal { fn speak(self) string }
-		struct Dog {}
-		impl Animal for Dog { fn speak(self) string { "woof" } }
 		struct Pen { pet Animal }
 		p := Pen{ pet: Dog{} }
 		print(p.pet.speak())
 	"#};
-	check(src, "woof");
+	check_in(ANIMAL_DOG, src, "woof");
 }
 
 #[test]
@@ -304,15 +310,13 @@ fn rejects_non_object_safe_trait() {
 #[test]
 fn trait_object_renders_concrete_struct() {
 	let src = indoc! {r#"
-		trait Animal { fn speak(self) string }
-		struct Dog { kind string }
-		impl Animal for Dog { fn speak(self) string { "woof" } }
 		a Animal := Dog{ "collie" }
 		print(a)
 		print("says {a}")
 		print(a.str())
 	"#};
-	check(
+	check_in(
+		ANIMAL_DOG_KIND,
 		src,
 		[
 			r#"Dog{kind: "collie"}"#,
@@ -325,27 +329,21 @@ fn trait_object_renders_concrete_struct() {
 #[test]
 fn trait_object_uses_str_override() {
 	let src = indoc! {r#"
-		trait Animal { fn speak(self) string }
-		struct Dog { kind string }
 		impl Dog { fn str(self) string { "a " + self.kind + " dog" } }
-		impl Animal for Dog { fn speak(self) string { "woof" } }
 		a Animal := Dog{ "collie" }
 		print(a)
 	"#};
-	check(src, "a collie dog");
+	check_in(ANIMAL_DOG_KIND, src, "a collie dog");
 }
 
 #[test]
 fn array_of_trait_objects_renders() {
 	let src = indoc! {r#"
-		trait Animal { fn speak(self) string }
-		struct Dog { kind string }
 		struct Cat { kind string }
-		impl Animal for Dog { fn speak(self) string { "woof" } }
 		impl Animal for Cat { fn speak(self) string { "meow" } }
 		print([]Animal{ Dog{ "collie" }, Cat{ "mau" } })
 	"#};
-	check(src, "[Dog{kind: \"collie\"}, Cat{kind: \"mau\"}]");
+	check_in(ANIMAL_DOG_KIND, src, "[Dog{kind: \"collie\"}, Cat{kind: \"mau\"}]");
 }
 
 #[test]
@@ -363,11 +361,9 @@ fn trait_declared_str_dyn_dispatches() {
 
 #[test]
 fn rejects_non_implementing_trait_object() {
-	fail(indoc! {r#"
-		trait Animal { fn speak(self) string }
-		struct Dog {}
-		impl Animal for Dog { fn speak(self) string { "woof" } }
+	let src = indoc! {"
 		struct Rock {}
 		a Animal := Rock{}
-	"#});
+	"};
+	fail(&format!("{ANIMAL_DOG}\n{src}"));
 }

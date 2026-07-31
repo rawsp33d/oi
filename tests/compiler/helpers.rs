@@ -91,3 +91,8 @@ pub(crate) fn fail_with(src: &str, expected: &str) {
 pub(crate) fn check(src: &str, expected: impl Expected) {
 	assert_eq!(run(src), expected.text(), "\nsrc:\n{src}");
 }
+
+/// Run `check` with a prepended `prelude`.
+pub(crate) fn check_in(prelude: &str, src: &str, expected: impl Expected) {
+	check(&format!("{prelude}\n{src}"), expected);
+}

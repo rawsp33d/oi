@@ -357,7 +357,7 @@ fn struct_typed_field_reassign() {
 
 #[test]
 fn self_recursive_struct_error() {
-	fail_with("struct A { a A }", "recurses without end");
+	fail_with("struct A { a A }", "recurses for ever ever");
 }
 
 #[test]
@@ -365,7 +365,7 @@ fn mutually_recursive_structs_error() {
 	fail_with(
 		"struct A { b B }
 		struct B { a A }",
-		"recurses without end",
+		"recurses for ever ever",
 	);
 }
 
