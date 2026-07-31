@@ -24,14 +24,7 @@ impl<'a> Translator<'a> {
 						(Some(value), Some(target)) => match self.coerce_lit(value, &target)? {
 							Some(val) => (val, target),
 							None => {
-								let (val, found) = self.check_expr(value, &target)?;
-								if found != target {
-									return Err(Diagnostic::new(
-										format!("expected {target}, got {found}"),
-										value.1.into_range(),
-									)
-									.with_label("does not match the declared type"));
-								}
+								let val = self.check_typed(value, &target, "does not match the declared type")?;
 								(val, target)
 							}
 						},

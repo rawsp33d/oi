@@ -35,13 +35,7 @@ impl<'a> Translator<'a> {
 					let val = self.make_enum(&variants, 0, &[]);
 					return Ok((val, Typ::Option(Box::new(inner_typ))));
 				}
-				let (fv, at) = self.check_expr(arg, &inner_typ)?;
-				if at != inner_typ {
-					return Err(
-						Diagnostic::new(format!("expected {inner_typ}, got {at}"), arg.1.into_range())
-							.with_label("type mismatch"),
-					);
-				}
+				let fv = self.check_typed(arg, &inner_typ, "type mismatch")?;
 				let val = self.make_enum(&variants, 1, &[fv]);
 				Ok((val, Typ::Option(Box::new(inner_typ))))
 			}

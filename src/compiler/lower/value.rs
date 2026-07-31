@@ -321,7 +321,7 @@ impl<'a> Translator<'a> {
 					Diagnostic::new(format!("`{name}.{variant}` has no field `{key}`"), k.1.into_range())
 						.with_label("no such field")
 				})?;
-				fields[idx] = self.field_arg(val, &payload[idx])?;
+				fields[idx] = self.check_typed(val, &payload[idx], "type mismatch")?;
 			}
 			let val = self.make_enum(&variants, disc, &fields);
 			return Ok((val, Typ::Enum(name.to_string())));
@@ -336,7 +336,7 @@ impl<'a> Translator<'a> {
 		}
 		let mut fields = Vec::with_capacity(args.len());
 		for (arg, ft) in args.iter().zip(&payload) {
-			fields.push(self.field_arg(arg, ft)?);
+			fields.push(self.check_typed(arg, ft, "type mismatch")?);
 		}
 		let val = self.make_enum(&variants, disc, &fields);
 		Ok((val, Typ::Enum(name.to_string())))
@@ -378,7 +378,7 @@ impl<'a> Translator<'a> {
 		let ptr = self.call_alloc(fields.len());
 		for (i, ((_, ft), slot)) in fields.iter().zip(&slots).enumerate() {
 			let v = match *slot {
-				Some(arg) => self.field_arg(arg, ft)?,
+				Some(arg) => self.check_typed(arg, ft, "type mismatch")?,
 				None => self.zero(ft),
 			};
 			self.b.ins().store(MemFlags::new(), v, ptr, (i * 8) as i32);
@@ -386,12 +386,12 @@ impl<'a> Translator<'a> {
 		Ok((ptr, typ))
 	}
 
-	// A constructor arg checked against its field type.
-	fn field_arg(&mut self, arg: &Spanned<Expr>, ft: &Typ) -> Result<Value, Diagnostic> {
+	// An expr checked against an expected type.
+	pub(super) fn check_typed(&mut self, arg: &Spanned<Expr>, ft: &Typ, label: &str) -> Result<Value, Diagnostic> {
 		let (fv, at) = self.check_expr(arg, ft)?;
 		if at != *ft {
 			let msg = format!("expected {ft}, got {at}");
-			return Err(Diagnostic::new(msg, arg.1.into_range()).with_label("type mismatch"));
+			return Err(Diagnostic::new(msg, arg.1.into_range()).with_label(label));
 		}
 		Ok(fv)
 	}
@@ -561,16 +561,10 @@ impl<'a> Translator<'a> {
 				_ => self.map_key(key, &key_typ)?,
 			};
 			let (val, vt) = match &val_typ {
-				Some(t) => self.check_expr(value, t)?,
+				Some(t) => (self.check_typed(value, t, "type mismatch")?, t.clone()),
 				None => self.expr(value)?,
 			};
-			let want = val_typ.get_or_insert(vt.clone());
-			if &vt != want {
-				return Err(
-					Diagnostic::new(format!("expected {want}, got {vt}"), value.1.into_range())
-						.with_label("type mismatch"),
-				);
-			}
+			val_typ.get_or_insert(vt);
 			let bits = self.map_bits(val);
 			self.call_map_set(map, tag, key_bits, bits);
 		}
@@ -633,14 +627,7 @@ impl<'a> Translator<'a> {
 					.with_label("wrong number of fields"));
 				}
 				for (i, (_, value)) in fields.iter().enumerate() {
-					let expected = struct_fields[i].typ.clone();
-					let (val, vtyp) = self.check_expr(value, &expected)?;
-					if vtyp != expected {
-						return Err(
-							Diagnostic::new(format!("expected {expected}, got {vtyp}"), value.1.into_range())
-								.with_label("type mismatch"),
-						);
-					}
+					let val = self.check_typed(value, &struct_fields[i].typ, "type mismatch")?;
 					self.b.ins().store(MemFlags::new(), val, ptr, (i * 8) as i32);
 				}
 			} else {
@@ -653,14 +640,7 @@ impl<'a> Translator<'a> {
 						Diagnostic::new(format!("`{name}` has no field `{fname}`"), value.1.into_range())
 							.with_label("no such field")
 					})?;
-					let expected = struct_fields[idx].typ.clone();
-					let (val, vtyp) = self.check_expr(value, &expected)?;
-					if vtyp != expected {
-						return Err(
-							Diagnostic::new(format!("expected {expected}, got {vtyp}"), value.1.into_range())
-								.with_label("type mismatch"),
-						);
-					}
+					let val = self.check_typed(value, &struct_fields[idx].typ, "type mismatch")?;
 					self.b.ins().store(MemFlags::new(), val, ptr, (idx * 8) as i32);
 				}
 			}
