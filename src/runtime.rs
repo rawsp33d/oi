@@ -1,5 +1,5 @@
 //! Functions a compiled Oi program calls at runtime.
-//! Backend-agnostic: the JIT registers them as symbols, an object backend would link them in.
+//! Backend-agnostic. The JIT registers them as symbols, and an object backend would link them in.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
