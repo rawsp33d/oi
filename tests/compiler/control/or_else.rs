@@ -70,7 +70,10 @@ fn fallback_can_diverge() {
 
 #[test]
 fn type_mismatch_errors() {
-	fail_with(r#"?int(42) or { "wrong" }"#, "or` branches have mismatched types: int and str");
+	fail_with(
+		r#"?int(42) or { "wrong" }"#,
+		"or` branches have mismatched types: int and str",
+	);
 }
 
 #[test]

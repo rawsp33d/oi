@@ -436,7 +436,10 @@ fn general_ord_gives_tag() {
 
 #[test]
 fn int_cast_on_sum_errors() {
-	fail_with("type Id = int | string\nx Id := 4\nint(x)", "cannot extract a sum member by casting");
+	fail_with(
+		"type Id = int | string\nx Id := 4\nint(x)",
+		"cannot extract a sum member by casting",
+	);
 }
 
 #[test]

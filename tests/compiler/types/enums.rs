@@ -149,7 +149,10 @@ fn shorthand_in_struct_field() {
 
 #[test]
 fn shorthand_unknown_variant() {
-	fail_with("enum Color { red green blue }\nc := Color.red\nc == .purple", "no variant `purple`");
+	fail_with(
+		"enum Color { red green blue }\nc := Color.red\nc == .purple",
+		"no variant `purple`",
+	);
 }
 
 #[test]
@@ -283,7 +286,10 @@ fn payload_eq_string_field() {
 
 #[test]
 fn payload_ordering_rejected() {
-	fail_with("enum Opt { nope some(int) }\nOpt.some(1) < Opt.some(2)", "only `==`&`!=`");
+	fail_with(
+		"enum Opt { nope some(int) }\nOpt.some(1) < Opt.some(2)",
+		"only `==`&`!=`",
+	);
 }
 
 #[test]
@@ -456,7 +462,10 @@ fn atom_coerces_in_struct_field() {
 
 #[test]
 fn atom_unknown_variant() {
-	fail_with("enum Color { red green blue }\nc Color := :purple", "no variant `purple`");
+	fail_with(
+		"enum Color { red green blue }\nc Color := :purple",
+		"no variant `purple`",
+	);
 }
 
 #[test]
@@ -583,7 +592,10 @@ fn from_payload_zero_fills() {
 
 #[test]
 fn from_wrong_type() {
-	fail_with("enum Color { red green blue }\nColor.from(true)", "needs an int, str, or atom");
+	fail_with(
+		"enum Color { red green blue }\nColor.from(true)",
+		"needs an int, str, or atom",
+	);
 }
 
 #[test]

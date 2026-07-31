@@ -88,7 +88,10 @@ fn match_none_arm() {
 
 #[test]
 fn match_non_exhaustive_errors() {
-	fail_with("o := ?int(42)\nmatch o {\n\t.some(n) => n,\n}", "non-exhaustive match, missing: none");
+	fail_with(
+		"o := ?int(42)\nmatch o {\n\t.some(n) => n,\n}",
+		"non-exhaustive match, missing: none",
+	);
 }
 
 #[test]

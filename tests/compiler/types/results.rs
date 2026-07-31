@@ -83,7 +83,10 @@ fn match_err_arm() {
 
 #[test]
 fn match_non_exhaustive_errors() {
-	fail_with("r := !int(42)\nmatch r {\n\t.ok(n) => n,\n}", "non-exhaustive match, missing: err");
+	fail_with(
+		"r := !int(42)\nmatch r {\n\t.ok(n) => n,\n}",
+		"non-exhaustive match, missing: err",
+	);
 }
 
 #[test]
@@ -197,5 +200,8 @@ fn long_form_nested() {
 
 #[test]
 fn long_form_rejects_custom_error() {
-	fail_with("fn load() Result[int, MyError] { 42 }\nload()", "custom error types aren't supported yet");
+	fail_with(
+		"fn load() Result[int, MyError] { 42 }\nload()",
+		"custom error types aren't supported yet",
+	);
 }
