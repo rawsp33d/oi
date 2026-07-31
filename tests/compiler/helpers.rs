@@ -45,8 +45,9 @@ pub(crate) fn run_file(name: &str) -> String {
 }
 
 /// Run provided source expecting a compilation error.
-pub(crate) fn fail(src: &str) -> String {
-	let out = run_raw(src);
+pub(crate) fn fail(src: impl Lines) -> String {
+	let src = src.text();
+	let out = run_raw(&src);
 	assert!(
 		!out.status.success(),
 		"expected failure but compiler succeeded\nsrc:\n{src}\nstdout:\n{}",
@@ -55,32 +56,33 @@ pub(crate) fn fail(src: &str) -> String {
 	trim_trailing_newline(&out.stderr)
 }
 
-/// Expected output.
-pub(crate) trait Expected {
+/// Text joined by newlines.
+pub(crate) trait Lines {
 	fn text(&self) -> String;
 }
 
-impl Expected for &str {
+impl Lines for &str {
 	fn text(&self) -> String {
 		(*self).to_string()
 	}
 }
 
-impl Expected for &String {
+impl Lines for &String {
 	fn text(&self) -> String {
 		(*self).clone()
 	}
 }
 
-impl<const N: usize> Expected for [&str; N] {
+impl<const N: usize> Lines for [&str; N] {
 	fn text(&self) -> String {
 		self.join("\n")
 	}
 }
 
 /// Run provided source expecting a compilation error containing `expected`.
-pub(crate) fn fail_with(src: &str, expected: &str) {
-	let err = fail(src);
+pub(crate) fn fail_with(src: impl Lines, expected: &str) {
+	let src = src.text();
+	let err = fail(&src);
 	assert!(
 		err.contains(expected),
 		"\nexpected error containing {expected:?}\nsrc:\n{src}\nstderr:\n{err}"
@@ -88,11 +90,7 @@ pub(crate) fn fail_with(src: &str, expected: &str) {
 }
 
 /// Run provided source expecting a given result.
-pub(crate) fn check(src: &str, expected: impl Expected) {
-	assert_eq!(run(src), expected.text(), "\nsrc:\n{src}");
-}
-
-/// Run `check` with a prepended `prelude`.
-pub(crate) fn check_in(prelude: &str, src: &str, expected: impl Expected) {
-	check(&format!("{prelude}\n{src}"), expected);
+pub(crate) fn check(src: impl Lines, expected: impl Lines) {
+	let src = src.text();
+	assert_eq!(run(&src), expected.text(), "\nsrc:\n{src}");
 }
