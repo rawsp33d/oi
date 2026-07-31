@@ -5,28 +5,34 @@ impl<'a> Translator<'a> {
 	pub(super) fn str_const(&mut self, s: &str) -> Value {
 		let mut bytes = s.as_bytes().to_vec();
 		bytes.push(0);
-		let name = format!("__str_{}", *self.string_idx);
+		let sym = format!("__str_{}", *self.string_idx);
 		*self.string_idx += 1;
-		let id = self.module.declare_data(&name, Linkage::Local, false, false).unwrap();
-		let mut desc = DataDescription::new();
-		desc.define(bytes.into_boxed_slice());
-		self.module.define_data(id, &desc).unwrap();
-		let gv = self.module.declare_data_in_func(id, self.b.func);
-		self.b.ins().symbol_value(self.int, gv)
+		self.define_data(&sym, bytes);
+		self.data_addr(&sym)
 	}
 
 	// Intern an atom name to a pointer-sized symbol.
 	pub(super) fn atom_const(&mut self, name: &str) -> Value {
 		let sym = format!("__atom_{name}");
 		if self.atoms.insert(name.to_string()) {
-			let id = self.module.declare_data(&sym, Linkage::Local, false, false).unwrap();
 			let mut bytes = format!(":{name}").into_bytes();
 			bytes.push(0);
-			let mut desc = DataDescription::new();
-			desc.define(bytes.into_boxed_slice());
-			self.module.define_data(id, &desc).unwrap();
+			self.define_data(&sym, bytes);
 		}
-		let id = self.module.declare_data(&sym, Linkage::Local, false, false).unwrap();
+		self.data_addr(&sym)
+	}
+
+	// Define a data symbol holding raw bytes.
+	fn define_data(&mut self, sym: &str, bytes: Vec<u8>) {
+		let id = self.module.declare_data(sym, Linkage::Local, false, false).unwrap();
+		let mut desc = DataDescription::new();
+		desc.define(bytes.into_boxed_slice());
+		self.module.define_data(id, &desc).unwrap();
+	}
+
+	// The address of a data symbol.
+	fn data_addr(&mut self, sym: &str) -> Value {
+		let id = self.module.declare_data(sym, Linkage::Local, false, false).unwrap();
 		let gv = self.module.declare_data_in_func(id, self.b.func);
 		self.b.ins().symbol_value(self.int, gv)
 	}
@@ -59,11 +65,7 @@ impl<'a> Translator<'a> {
 			_ if typ.is_unit() => self.b.ins().iconst(self.int, 0),
 			Typ::Struct(_, fields) => {
 				let fields = fields.clone();
-				let size = (fields.len() * 8) as u32;
-				let slot = self
-					.b
-					.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, size, 0));
-				let ptr = self.b.ins().stack_addr(self.int, slot, 0);
+				let ptr = self.stack_slot((fields.len() * 8) as u32);
 				for (i, f) in fields.iter().enumerate() {
 					let z = self.zero(&f.typ);
 					self.b.ins().store(MemFlags::new(), z, ptr, (i * 8) as i32);
@@ -87,12 +89,7 @@ impl<'a> Translator<'a> {
 			Typ::FixedArray(elem, n) => {
 				let elem = (**elem).clone();
 				let stride = self.elem_stride(&elem);
-				let slot = self.b.create_sized_stack_slot(StackSlotData::new(
-					StackSlotKind::ExplicitSlot,
-					(*n as i64 * stride) as u32,
-					0,
-				));
-				let ptr = self.b.ins().stack_addr(self.int, slot, 0);
+				let ptr = self.stack_slot((*n as i64 * stride) as u32);
 				for i in 0..*n {
 					let z = self.zero(&elem);
 					self.store_elem(ptr, (i as i64 * stride) as i32, &elem, z);
@@ -509,9 +506,7 @@ impl<'a> Translator<'a> {
 			);
 		}
 		let sym = oi_symbol(&format!("vtable_{name}_{tn}"));
-		let id = self.module.declare_data(&sym, Linkage::Local, false, false).unwrap();
-		let gv = self.module.declare_data_in_func(id, self.b.func);
-		let vtable = self.b.ins().symbol_value(self.int, gv);
+		let vtable = self.data_addr(&sym);
 		let boxp = self.call_alloc(2);
 		self.b.ins().store(MemFlags::new(), vtable, boxp, 0);
 		self.b.ins().store(MemFlags::new(), val, boxp, 8);
@@ -650,11 +645,7 @@ impl<'a> Translator<'a> {
 
 	// Allocate a struct on the stack, initializing each field to its default.
 	fn struct_slot(&mut self, struct_fields: &[FieldDef]) -> Result<Value, Diagnostic> {
-		let size = (struct_fields.len() * 8) as u32;
-		let slot = self
-			.b
-			.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, size, 0));
-		let ptr = self.b.ins().stack_addr(self.int, slot, 0);
+		let ptr = self.stack_slot((struct_fields.len() * 8) as u32);
 		for (i, f) in struct_fields.iter().enumerate() {
 			let init = if let Some(default_expr) = &f.default {
 				let (val, vtyp) = self.expr(default_expr)?;
@@ -747,28 +738,32 @@ impl<'a> Translator<'a> {
 		Ok((ptr, typ))
 	}
 
-	pub(super) fn struct_copy(&mut self, src: Value, fields: &[FieldDef]) -> Value {
-		let size = (fields.len() * 8) as u32;
+	// A stack slot's base address.
+	fn stack_slot(&mut self, size: u32) -> Value {
 		let slot = self
 			.b
 			.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, size, 0));
-		let dst = self.b.ins().stack_addr(self.int, slot, 0);
+		self.b.ins().stack_addr(self.int, slot, 0)
+	}
+
+	pub(super) fn struct_copy(&mut self, src: Value, fields: &[FieldDef]) -> Value {
+		let dst = self.stack_slot((fields.len() * 8) as u32);
+		self.copy_fields(src, dst, fields);
+		dst
+	}
+
+	// Copy field slots between structs.
+	pub(super) fn copy_fields(&mut self, src: Value, dst: Value, fields: &[FieldDef]) {
 		for (i, f) in fields.iter().enumerate() {
 			let cl = cl_type(&f.typ, self.int);
 			let fv = self.b.ins().load(cl, MemFlags::new(), src, (i * 8) as i32);
 			self.b.ins().store(MemFlags::new(), fv, dst, (i * 8) as i32);
 		}
-		dst
 	}
 
 	pub(super) fn fixed_copy(&mut self, src: Value, elem: &Typ, n: usize) -> Value {
 		let stride = self.elem_stride(elem);
-		let slot = self.b.create_sized_stack_slot(StackSlotData::new(
-			StackSlotKind::ExplicitSlot,
-			(n as i64 * stride) as u32,
-			0,
-		));
-		let dst = self.b.ins().stack_addr(self.int, slot, 0);
+		let dst = self.stack_slot((n as i64 * stride) as u32);
 		for i in 0..n {
 			let off = (i as i64 * stride) as i32;
 			let v = self.load_elem(src, off, elem);

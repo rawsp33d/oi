@@ -89,11 +89,7 @@ impl<'a> Translator<'a> {
 					if let Typ::Struct(_, ref fields) = typ {
 						let fields = fields.clone();
 						let dst = self.read_local(&local);
-						for (i, f) in fields.iter().enumerate() {
-							let cl = cl_type(&f.typ, self.int);
-							let fv = self.b.ins().load(cl, MemFlags::new(), val, (i * 8) as i32);
-							self.b.ins().store(MemFlags::new(), fv, dst, (i * 8) as i32);
-						}
+						self.copy_fields(val, dst, &fields);
 					} else {
 						self.write_local(&local, val);
 					}
