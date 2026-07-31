@@ -61,6 +61,6 @@ impl Diagnostic {
 		if let Some(note) = &self.note {
 			builder = builder.with_note(note);
 		}
-		builder.finish().eprint((id, Source::from(src))).unwrap();
+		let _ = builder.finish().eprint((id, Source::from(src)));
 	}
 }

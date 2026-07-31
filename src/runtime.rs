@@ -64,16 +64,30 @@ pub enum Sink {
 	Buf,
 }
 
+impl Sink {
+	fn from_i64(v: i64) -> Sink {
+		match v {
+			0 => Sink::Out,
+			1 => Sink::Err,
+			2 => Sink::Buf,
+			_ => {
+				eprintln!("invalid sink: {v}");
+				std::process::abort();
+			}
+		}
+	}
+}
+
 thread_local! {
 	static BUF: RefCell<String> = const { RefCell::new(String::new()) };
 }
 
 // Route a fragment to its sink.
 fn emit(sink: i64, s: &str) {
-	match sink {
-		0 => print!("{s}"),
-		1 => eprint!("{s}"),
-		_ => BUF.with(|b| b.borrow_mut().push_str(s)),
+	match Sink::from_i64(sink) {
+		Sink::Out => print!("{s}"),
+		Sink::Err => eprint!("{s}"),
+		Sink::Buf => BUF.with(|b| b.borrow_mut().push_str(s)),
 	}
 }
 
