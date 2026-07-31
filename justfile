@@ -56,8 +56,7 @@ check: build && fmt test lint
 # compile and run an Oi file
 [group("oi")]
 @run *args:
-	# TODO: borked
-	cargo run --quiet -- run "{{args}}"
+	cargo run --quiet -- run "$@"
 
 # start an interactive Oi REPL
 [group("oi")]
