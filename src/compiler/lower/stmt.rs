@@ -111,9 +111,11 @@ impl<'a> Translator<'a> {
 							)
 							.with_label("type mismatch"));
 						}
-						let ptr = self.read_local(&local);
+						let val = self.copy_in(val, &v);
 						let val_bits = self.map_bits(val);
-						self.call_map_set(ptr, tag, key_bits, val_bits);
+						let ptr = self.read_local(&local);
+						let ptr = self.call_map_set(ptr, tag, key_bits, val_bits);
+						self.write_local(&local, ptr);
 						continue;
 					}
 					let elem = match &local.typ {
@@ -153,7 +155,8 @@ impl<'a> Translator<'a> {
 					};
 					let (tag, key_bits) = self.map_key(key, &k)?;
 					let ptr = self.read_local(&local);
-					self.call_map_delete(ptr, tag, key_bits);
+					let ptr = self.call_map_delete(ptr, tag, key_bits);
+					self.write_local(&local, ptr);
 				}
 
 				Expr::Append { name, value } => {

@@ -64,13 +64,16 @@ impl<'a> Translator<'a> {
 		Ok((self.make_array(data, len), Typ::Array(Box::new(elem))))
 	}
 
-	// Storing an array copies it (new header, rc bump).
-	// The buffer clone waits for a write.
+	// Copy-in point for rc'd handles.
+	// RC bump.
+	// The underlying buffer clone waits for a write.
 	pub(super) fn copy_in(&mut self, val: Value, typ: &Typ) -> Value {
-		if !matches!(typ, Typ::Array(_)) {
-			return val;
-		}
-		let func = self.import_fn(runtime::ARRAY_SHARE, &[self.int], Some(self.int));
+		let sym = match typ {
+			Typ::Array(_) => runtime::ARRAY_SHARE,
+			Typ::Map(..) => runtime::MAP_SHARE,
+			_ => return val,
+		};
+		let func = self.import_fn(sym, &[self.int], Some(self.int));
 		let call = self.b.ins().call(func, &[val]);
 		self.b.inst_results(call)[0]
 	}

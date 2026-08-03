@@ -301,3 +301,80 @@ fn delete_on_immutable_map_fails() {
 		"immutable",
 	);
 }
+
+// value semantics (COW)
+
+#[test]
+fn index_assign_copy() {
+	check(
+		indoc! {r#"
+			mut m Map[string, int]
+			m["a"] = 1
+			b := m
+			m["a"] = 99
+			b["a"]
+		"#},
+		"1",
+	);
+	check(
+		indoc! {r#"
+			mut m Map[string, int]
+			m["a"] = 1
+			mut b := m
+			b["a"] = 99
+			m["a"]
+		"#},
+		"1",
+	);
+}
+
+#[test]
+fn independent_copies() {
+	// delete copy
+	check(
+		indoc! {r#"
+			mut m Map[string, int]
+			m["a"] = 1
+			m["b"] = 2
+			mut n := m
+			n.delete["a"]
+			m["a"]
+		"#},
+		"1",
+	);
+	// chain of copies
+	check(
+		indoc! {r#"
+			mut m Map[string, int]
+			m["a"] = 1
+			n := m
+			mut o := n
+			o["a"] = 99
+			n["a"]
+		"#},
+		"1",
+	);
+	// returned param vs arg
+	check(
+		indoc! {r#"
+			fn id(m Map[string, int]) Map[string, int] { m }
+			mut a Map[string, int]
+			a["a"] = 1
+			mut r := id(a)
+			r["a"] = 99
+			a["a"]
+		"#},
+		"1",
+	);
+	// stored array value
+	check(
+		indoc! {r#"
+			mut m Map[string, []int]
+			mut arr := [1]
+			m["a"] = arr
+			arr << 2
+			m["a"]
+		"#},
+		"[1]",
+	);
+}

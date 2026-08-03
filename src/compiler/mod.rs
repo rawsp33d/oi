@@ -190,6 +190,7 @@ impl Default for Compiler {
 		builder.symbol(runtime::MAP_GET, runtime::map_get as *const u8);
 		builder.symbol(runtime::MAP_SET, runtime::map_set as *const u8);
 		builder.symbol(runtime::MAP_DELETE, runtime::map_delete as *const u8);
+		builder.symbol(runtime::MAP_SHARE, runtime::map_share as *const u8);
 
 		let module = JITModule::new(builder);
 		Self {

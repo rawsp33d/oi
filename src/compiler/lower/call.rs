@@ -216,16 +216,18 @@ impl<'a> Translator<'a> {
 		self.b.inst_results(call)[0]
 	}
 
-	pub(super) fn call_map_set(&mut self, map: Value, tag: runtime::Tag, bits: Value, value: Value) {
-		let func = self.import_fn(runtime::MAP_SET, &[self.int, self.int, self.int, self.int], None);
+	pub(super) fn call_map_set(&mut self, map: Value, tag: runtime::Tag, bits: Value, value: Value) -> Value {
+		let func = self.import_fn(runtime::MAP_SET, &[self.int; 4], Some(self.int));
 		let tag_v = self.b.ins().iconst(self.int, tag as i64);
-		self.b.ins().call(func, &[map, tag_v, bits, value]);
+		let call = self.b.ins().call(func, &[map, tag_v, bits, value]);
+		self.b.inst_results(call)[0]
 	}
 
-	pub(super) fn call_map_delete(&mut self, map: Value, tag: runtime::Tag, bits: Value) {
-		let func = self.import_fn(runtime::MAP_DELETE, &[self.int, self.int, self.int], None);
+	pub(super) fn call_map_delete(&mut self, map: Value, tag: runtime::Tag, bits: Value) -> Value {
+		let func = self.import_fn(runtime::MAP_DELETE, &[self.int; 3], Some(self.int));
 		let tag_v = self.b.ins().iconst(self.int, tag as i64);
-		self.b.ins().call(func, &[map, tag_v, bits]);
+		let call = self.b.ins().call(func, &[map, tag_v, bits]);
+		self.b.inst_results(call)[0]
 	}
 
 	// Dispatch a trait-object method through its vtable.

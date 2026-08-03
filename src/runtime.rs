@@ -26,6 +26,7 @@ pub const MAP_NEW: &str = "oi_map_new";
 pub const MAP_GET: &str = "oi_map_get";
 pub const MAP_SET: &str = "oi_map_set";
 pub const MAP_DELETE: &str = "oi_map_delete";
+pub const MAP_SHARE: &str = "oi_map_share";
 
 // Type tag shared with the compiler.
 #[repr(i64)]
@@ -320,7 +321,7 @@ pub unsafe extern "C" fn array_extend(dst: *mut Header, src: *const Header, elem
 	}
 }
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 enum MapKey {
 	Raw(i64),
 	Str(Vec<u8>),
@@ -335,12 +336,33 @@ fn map_key(tag: Tag, bits: i64) -> MapKey {
 
 pub struct OiMap {
 	entries: HashMap<MapKey, i64>,
+	rc: i64,
 }
 
 pub extern "C" fn map_new() -> *mut OiMap {
 	Box::into_raw(Box::new(OiMap {
 		entries: HashMap::new(),
+		rc: 1,
 	}))
+}
+
+/// Share a map handle.
+/// RC bump.
+/// # Safety
+/// `map` must be a valid, live `OiMap` pointer.
+pub unsafe extern "C" fn map_share(map: *mut OiMap) -> *mut OiMap {
+	unsafe { (*map).rc += 1 };
+	map
+}
+
+// Give a shared map its own entries before a write.
+unsafe fn map_cow(map: *mut OiMap) -> *mut OiMap {
+	if unsafe { (*map).rc } <= 1 {
+		return map;
+	}
+	unsafe { (*map).rc -= 1 };
+	let entries = unsafe { (*map).entries.clone() };
+	Box::into_raw(Box::new(OiMap { entries, rc: 1 }))
 }
 
 /// # Safety
@@ -356,17 +378,20 @@ pub unsafe extern "C" fn map_get(map: *mut OiMap, tag: i64, bits: i64) -> i64 {
 	}
 }
 
+/// Set a map entry, cloning shared entries first.
 /// # Safety
 /// `map` must be a valid, live `OiMap` pointer.
-pub unsafe extern "C" fn map_set(map: *mut OiMap, tag: i64, bits: i64, value: i64) {
-	let map = unsafe { &mut *map };
-	map.entries.insert(map_key(Tag::from_i64(tag), bits), value);
+pub unsafe extern "C" fn map_set(map: *mut OiMap, tag: i64, bits: i64, value: i64) -> *mut OiMap {
+	let map = unsafe { map_cow(map) };
+	unsafe { &mut *map }.entries.insert(map_key(Tag::from_i64(tag), bits), value);
+	map
 }
 
-/// Remove a map entry if present.
+/// Remove a map entry if present, cloning shared entries first.
 /// # Safety
 /// `map` must be a valid, live `OiMap` pointer.
-pub unsafe extern "C" fn map_delete(map: *mut OiMap, tag: i64, bits: i64) {
-	let map = unsafe { &mut *map };
-	map.entries.remove(&map_key(Tag::from_i64(tag), bits));
+pub unsafe extern "C" fn map_delete(map: *mut OiMap, tag: i64, bits: i64) -> *mut OiMap {
+	let map = unsafe { map_cow(map) };
+	unsafe { &mut *map }.entries.remove(&map_key(Tag::from_i64(tag), bits));
+	map
 }
