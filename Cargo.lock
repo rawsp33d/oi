@@ -824,6 +824,7 @@ dependencies = [
  "cranelift-module",
  "cranelift-native",
  "indoc",
+ "libc",
  "logos",
  "pretty_assertions",
  "reedline",
