@@ -33,15 +33,13 @@ impl<'a> Translator<'a> {
 						(None, None) => unreachable!("binding has neither a type nor a value"),
 					};
 					let val = self.copy_in(val, &typ);
-					let (final_val, cl) = match &typ {
-						Typ::Struct(_, fields) => (self.struct_copy(val, fields), self.int),
-						Typ::FixedArray(elem, n) => (self.fixed_copy(val, elem, *n), self.int),
-						_ => (val, self.b.func.dfg.value_type(val)),
+					let final_val = match &typ {
+						Typ::Struct(_, fields) => self.struct_copy(val, fields),
+						Typ::FixedArray(elem, n) => self.fixed_copy(val, elem, *n),
+						_ => val,
 					};
 					// `:=` always declares a fresh binding, shadowing any earlier ones
-					let var = self.b.declare_var(cl);
-					self.b.def_var(var, final_val);
-					self.vars.insert(name.clone(), Local::plain(var, typ, *mutable));
+					self.bind_local(name, final_val, typ, *mutable);
 				}
 
 				Expr::Destructure { names, value, bind } => {
@@ -59,11 +57,9 @@ impl<'a> Translator<'a> {
 					for (i, ((mutable, name), (_, ftyp))) in names.iter().zip(fields).enumerate() {
 						let cl = cl_type(&ftyp, self.int);
 						let val = self.b.ins().load(cl, MemFlags::new(), ptr, (i * 8) as i32);
-						let val = self.copy_in(val, &ftyp);
+						let val = self.copy_bind(val, &ftyp);
 						if *bind {
-							let var = self.b.declare_var(cl);
-							self.b.def_var(var, val);
-							self.vars.insert(name.clone(), Local::plain(var, ftyp, *mutable));
+							self.bind_local(name, val, ftyp, *mutable);
 						} else {
 							let local = self.mutable_local(name, stmt.1.into_range(), Mutation::Assign)?;
 							if local.typ != ftyp {
@@ -73,7 +69,9 @@ impl<'a> Translator<'a> {
 								)
 								.with_label("type mismatch"));
 							}
+							let old = self.read_local(&local);
 							self.write_local(&local, val);
+							self.release_value(old, &ftyp);
 						}
 					}
 				}
@@ -91,10 +89,12 @@ impl<'a> Translator<'a> {
 					if let Typ::Struct(_, ref fields) = typ {
 						let fields = fields.clone();
 						let dst = self.read_local(&local);
-						self.copy_fields(val, dst, &fields);
+						self.assign_fields(val, dst, &fields, true);
 					} else {
 						let val = self.copy_in(val, &typ);
+						let old = self.read_local(&local);
 						self.write_local(&local, val);
+						self.release_value(old, &typ);
 					}
 				}
 
@@ -279,6 +279,11 @@ impl<'a> Translator<'a> {
 					}
 					let val = self.copy_in(val, &vtyp);
 					let ptr = self.read_local(&local);
+					if rc::releasable(&vtyp) {
+						let cl = self.b.func.dfg.value_type(val);
+						let old = self.b.ins().load(cl, MemFlags::new(), ptr, (idx * 8) as i32);
+						self.release_value(old, &vtyp);
+					}
 					self.b.ins().store(MemFlags::new(), val, ptr, (idx * 8) as i32);
 				}
 
@@ -299,18 +304,21 @@ impl<'a> Translator<'a> {
 							exit
 						}
 					};
+					let depth = self.loops.last().unwrap().depth;
+					self.release_scopes(depth);
 					self.b.ins().jump(exit, &[]);
 					return Ok(None);
 				}
 
 				Expr::Continue => {
-					let top = match self.loops.last() {
-						Some(frame) => frame.top,
+					let (top, depth) = match self.loops.last() {
+						Some(frame) => (frame.top, frame.depth),
 						None => {
 							return Err(Diagnostic::new("`continue` outside of a loop", stmt.1.into_range())
 								.with_label("not inside a loop"));
 						}
 					};
+					self.release_scopes(depth);
 					self.b.ins().jump(top, &[]);
 					return Ok(None);
 				}
@@ -361,6 +369,7 @@ impl<'a> Translator<'a> {
 			.with_label("wrong return type"));
 		}
 		if typ.is_unit() {
+			self.release_scopes(0);
 			self.b.ins().return_(&[]);
 			if self.ret.is_none() {
 				self.ret = Some((typ, span));
@@ -373,7 +382,7 @@ impl<'a> Translator<'a> {
 			Typ::Struct(_, fields) => {
 				let fields = fields.clone();
 				let heap = self.call_alloc(fields.len());
-				self.copy_fields(val, heap, &fields);
+				self.assign_fields(val, heap, &fields, false);
 				heap
 			}
 			Typ::FixedArray(elem, n) => {
@@ -389,6 +398,8 @@ impl<'a> Translator<'a> {
 			}
 			_ => val,
 		};
+		// the bumped return value survives the walk over everything this fn owned
+		self.release_scopes(0);
 		// the cranelift signature takes its return type from the first return
 		if self.b.func.signature.returns.is_empty() {
 			self.b.func.signature.returns.push(AbiParam::new(cl_type(&typ, self.int)));

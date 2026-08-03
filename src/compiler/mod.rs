@@ -146,6 +146,7 @@ impl Local {
 pub(crate) struct LoopFrame {
 	pub top: Block,
 	pub exit: Option<Block>,
+	pub depth: usize,
 }
 
 pub struct Compiler {
@@ -176,6 +177,8 @@ impl Default for Compiler {
 		builder.symbol(runtime::ALLOC, runtime::alloc as *const u8);
 		builder.symbol(runtime::ARRAY_SHARE, runtime::array_share as *const u8);
 		builder.symbol(runtime::ARRAY_COW, runtime::array_cow as *const u8);
+		builder.symbol(runtime::ARRAY_RELEASE, runtime::array_release as *const u8);
+		builder.symbol(runtime::MAP_RELEASE, runtime::map_release as *const u8);
 		builder.symbol(runtime::WRITE, runtime::write as *const u8);
 		builder.symbol(runtime::WRITE_SEP, runtime::write_sep as *const u8);
 		builder.symbol(runtime::SLICE, runtime::slice as *const u8);
@@ -698,6 +701,7 @@ impl Compiler {
 			atoms: &mut self.atoms,
 			ret: def.ret.clone(),
 			loops: vec![],
+			scopes: vec![vec![]],
 			self_type: def.self_type.map(str::to_owned),
 			is_main: def.is_main,
 		};

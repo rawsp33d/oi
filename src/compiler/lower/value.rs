@@ -83,8 +83,8 @@ impl<'a> Translator<'a> {
 				ptr
 			}
 			Typ::Array(_) => {
-				let zero = self.b.ins().iconst(self.int, 0);
-				self.make_array(zero, zero)
+				let z = self.b.ins().iconst(self.int, 0);
+				self.make_array(z, z, typ)
 			}
 			Typ::FixedArray(elem, n) => {
 				let elem = (**elem).clone();
@@ -103,7 +103,11 @@ impl<'a> Translator<'a> {
 				self.b.ins().store(MemFlags::new(), z, ptr, 8);
 				ptr
 			}
-			Typ::Map(..) => self.call_map_new(),
+			Typ::Map(..) => {
+				let m = self.call_map_new();
+				self.temp(m, typ);
+				m
+			}
 		}
 	}
 
@@ -441,7 +445,9 @@ impl<'a> Translator<'a> {
 			Expr::StructLit { name, fields }
 				if name == "Map" && fields.is_empty() && matches!(target, Typ::Map(..)) =>
 			{
-				Ok((self.call_map_new(), target.clone()))
+				let m = self.call_map_new();
+				self.temp(m, target);
+				Ok((m, target.clone()))
 			}
 			Expr::StructLit { name, fields } => self.struct_lit(name, fields, value.1, Some(target)),
 			Expr::Record(entries) => match target {
@@ -573,7 +579,9 @@ impl<'a> Translator<'a> {
 			self.call_map_set(map, tag, key_bits, bits);
 		}
 		let val_typ = val_typ.expect("target or first entry set it");
-		Ok((map, Typ::Map(Box::new(key_typ), Box::new(val_typ))))
+		let typ = Typ::Map(Box::new(key_typ), Box::new(val_typ));
+		self.temp(map, &typ);
+		Ok((map, typ))
 	}
 
 	// Struct literal.
@@ -760,17 +768,22 @@ impl<'a> Translator<'a> {
 
 	pub(super) fn struct_copy(&mut self, src: Value, fields: &[FieldDef]) -> Value {
 		let dst = self.stack_slot((fields.len() * 8) as u32);
-		self.copy_fields(src, dst, fields);
+		self.assign_fields(src, dst, fields, false);
 		dst
 	}
 
 	// Copy field slots between structs.
-	pub(super) fn copy_fields(&mut self, src: Value, dst: Value, fields: &[FieldDef]) {
+	pub(super) fn assign_fields(&mut self, src: Value, dst: Value, fields: &[FieldDef], release_old: bool) {
 		for (i, f) in fields.iter().enumerate() {
 			let cl = cl_type(&f.typ, self.int);
+			let old = (release_old && rc::releasable(&f.typ))
+				.then(|| self.b.ins().load(cl, MemFlags::new(), dst, (i * 8) as i32));
 			let fv = self.b.ins().load(cl, MemFlags::new(), src, (i * 8) as i32);
 			let fv = self.copy_in(fv, &f.typ);
 			self.b.ins().store(MemFlags::new(), fv, dst, (i * 8) as i32);
+			if let Some(old) = old {
+				self.release_value(old, &f.typ);
+			}
 		}
 	}
 

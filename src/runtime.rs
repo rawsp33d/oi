@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::{CStr, c_char};
 use std::mem::size_of;
+use std::sync::atomic::{AtomicI64, Ordering};
 
 pub const STR_CONCAT: &str = "oi_str_concat";
 pub const STR_MARK: &str = "oi_str_mark";
@@ -12,6 +13,8 @@ pub const STR_TAKE: &str = "oi_str_take";
 pub const ALLOC: &str = "oi_alloc";
 pub const ARRAY_SHARE: &str = "oi_array_share";
 pub const ARRAY_COW: &str = "oi_array_cow";
+pub const ARRAY_RELEASE: &str = "oi_array_release";
+pub const MAP_RELEASE: &str = "oi_map_release";
 pub const WRITE: &str = "oi_write";
 pub const WRITE_SEP: &str = "oi_write_sep";
 pub const SLICE: &str = "oi_slice";
@@ -204,10 +207,36 @@ pub extern "C" fn str_take(mark: i64) -> *const u8 {
 	})
 }
 
+// Active managed allocations, for leak checks.
+static LIVE: AtomicI64 = AtomicI64::new(0);
+
+pub fn leaked() -> i64 {
+	LIVE.load(Ordering::Relaxed)
+}
+
 // Allocate `size` zeroed bytes for a composite value (e.g. a tuple's field slots).
 pub extern "C" fn alloc(size: i64) -> *mut u8 {
-	let size = size.max(1) as usize;
-	Box::leak(vec![0u8; size].into_boxed_slice()).as_mut_ptr()
+	let size = size.max(1) as usize + 8;
+	let layout = std::alloc::Layout::from_size_align(size, 8).unwrap();
+	LIVE.fetch_add(1, Ordering::Relaxed);
+	unsafe {
+		let base = std::alloc::alloc_zeroed(layout);
+		*(base as *mut i64) = size as i64;
+		base.add(8)
+	}
+}
+
+// Free an `alloc` result.
+unsafe fn free(ptr: *mut u8) {
+	if ptr.is_null() {
+		return;
+	}
+	LIVE.fetch_sub(1, Ordering::Relaxed);
+	unsafe {
+		let base = ptr.sub(8);
+		let size = *(base as *const i64) as usize;
+		std::alloc::dealloc(base, std::alloc::Layout::from_size_align_unchecked(size, 8));
+	}
 }
 
 // Allocate an element buffer with its refcount at data[-8], count starting at 1.
@@ -239,6 +268,25 @@ pub unsafe extern "C" fn array_share(header: *const Header) -> *const Header {
 	let out = alloc(size_of::<Header>() as i64) as *mut Header;
 	unsafe { *out = h };
 	out
+}
+
+/// Drop one ref to an array.
+/// The buffer frees at zero.
+/// # Safety
+/// `header` must be null or point to a valid array header.
+pub unsafe extern "C" fn array_release(header: *mut Header) {
+	if header.is_null() {
+		return;
+	}
+	let Header { data, .. } = unsafe { *header };
+	if data != 0 {
+		let rc = (data - 8) as *mut i64;
+		unsafe { *rc -= 1 };
+		if unsafe { *rc } == 0 {
+			unsafe { free((data - 8) as *mut u8) };
+		}
+	}
+	unsafe { free(header as *mut u8) };
 }
 
 /// Give a shared array its own buffer before a write.
@@ -299,6 +347,9 @@ pub unsafe extern "C" fn array_reserve(header: *mut Header, min_cap: i64, elem_s
 		std::ptr::copy_nonoverlapping(data as *const u8, new_data, (len * elem_size) as usize);
 		(*header).data = new_data as i64;
 		(*header).cap = new_cap;
+		if data != 0 {
+			free((data - 8) as *mut u8);
+		}
 	}
 }
 
@@ -340,10 +391,26 @@ pub struct OiMap {
 }
 
 pub extern "C" fn map_new() -> *mut OiMap {
+	LIVE.fetch_add(1, Ordering::Relaxed);
 	Box::into_raw(Box::new(OiMap {
 		entries: HashMap::new(),
 		rc: 1,
 	}))
+}
+
+/// Drop one ref to a map.
+/// The box frees at zero.
+/// # Safety
+/// `map` must be null or a valid live `OiMap` pointer.
+pub unsafe extern "C" fn map_release(map: *mut OiMap) {
+	if map.is_null() {
+		return;
+	}
+	unsafe { (*map).rc -= 1 };
+	if unsafe { (*map).rc } == 0 {
+		LIVE.fetch_sub(1, Ordering::Relaxed);
+		drop(unsafe { Box::from_raw(map) });
+	}
 }
 
 /// Share a map handle.
@@ -362,6 +429,7 @@ unsafe fn map_cow(map: *mut OiMap) -> *mut OiMap {
 	}
 	unsafe { (*map).rc -= 1 };
 	let entries = unsafe { (*map).entries.clone() };
+	LIVE.fetch_add(1, Ordering::Relaxed);
 	Box::into_raw(Box::new(OiMap { entries, rc: 1 }))
 }
 

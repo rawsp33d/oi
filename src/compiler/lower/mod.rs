@@ -28,6 +28,7 @@ mod generic;
 mod helpers;
 mod op;
 mod print;
+mod rc;
 mod stmt;
 mod value;
 
@@ -55,6 +56,7 @@ pub(super) struct Translator<'a> {
 	pub atoms: &'a mut HashSet<String>,
 	pub ret: Option<(Typ, Span)>,
 	pub loops: Vec<LoopFrame>,
+	pub scopes: Vec<Vec<(Variable, Typ)>>,
 	pub self_type: Option<String>,
 	pub is_main: bool,
 }

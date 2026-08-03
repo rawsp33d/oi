@@ -382,7 +382,10 @@ impl<'a> Translator<'a> {
 					Some(self.int),
 				);
 				let call = self.b.ins().call(func, &[ptr, start, end, size]);
-				Ok((self.b.inst_results(call)[0], Typ::Array(Box::new(elem))))
+				let out = self.b.inst_results(call)[0];
+				let typ = Typ::Array(Box::new(elem));
+				self.temp(out, &typ);
+				Ok((out, typ))
 			}
 
 			Expr::If { cond, then, els } => match self.conditional(cond, then, els.as_deref(), None, expr.1)? {

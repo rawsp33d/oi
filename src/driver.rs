@@ -43,5 +43,8 @@ pub fn run_source(name: &str, src: &str, debug_ast: bool) -> Result<(), Reported
 	// SAFETY: `code` is the finalized `__oi_main` entrypoint emitted by `compile`. There are no params or return.
 	let f = unsafe { std::mem::transmute::<*const u8, fn()>(code) };
 	f();
+	if std::env::var_os("OI_LEAK_CHECK").is_some() {
+		eprintln!("leaked allocations: {}", crate::runtime::leaked());
+	}
 	Ok(())
 }

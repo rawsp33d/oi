@@ -68,6 +68,7 @@ impl<'a> Translator<'a> {
 		} else {
 			self.b.inst_results(call)[0]
 		};
+		self.temp(ret_val, &sig.ret);
 		(ret_val, sig.ret.clone())
 	}
 
@@ -133,6 +134,7 @@ impl<'a> Translator<'a> {
 		} else {
 			self.b.inst_results(call)[0]
 		};
+		self.temp(ret_val, ret);
 		Ok((ret_val, ret.clone()))
 	}
 

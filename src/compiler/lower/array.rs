@@ -14,11 +14,13 @@ impl<'a> Translator<'a> {
 		self.b.ins().load(self.int, MemFlags::new(), header, 16)
 	}
 
-	pub(super) fn make_array(&mut self, data: Value, len: Value) -> Value {
+	// Build a fresh array handle, owned by the enclosing scope.
+	pub(super) fn make_array(&mut self, data: Value, len: Value, typ: &Typ) -> Value {
 		let header = self.call_alloc(3);
 		self.b.ins().store(MemFlags::new(), data, header, 0);
 		self.b.ins().store(MemFlags::new(), len, header, 8);
 		self.b.ins().store(MemFlags::new(), len, header, 16);
+		self.temp(header, typ);
 		header
 	}
 
@@ -61,7 +63,8 @@ impl<'a> Translator<'a> {
 			self.store_elem(data, (i as i64 * size) as i32, &elem, val);
 		}
 		let len = self.b.ins().iconst(self.int, elems.len() as i64);
-		Ok((self.make_array(data, len), Typ::Array(Box::new(elem))))
+		let typ = Typ::Array(Box::new(elem));
+		Ok((self.make_array(data, len, &typ), typ))
 	}
 
 	// Copy-in point for rc'd handles.

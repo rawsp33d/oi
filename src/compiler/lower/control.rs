@@ -44,7 +44,7 @@ impl<'a> Translator<'a> {
 				.map(|(_, t)| t.clone())
 				.or_else(|| target.cloned())
 				.unwrap_or(Typ::unit());
-			Some((self.zero(&t), t))
+			self.scoped(|s| Ok(Some((s.zero(&t), t.clone()))))?
 		};
 		if let Some(vt) = else_flow {
 			self.contribute("if", vt, &mut result, merge, span)?;
@@ -54,18 +54,33 @@ impl<'a> Translator<'a> {
 	}
 
 	// Evaluate `f` in a child scope.
-	fn scoped<T>(&mut self, f: impl FnOnce(&mut Self) -> Result<T, Diagnostic>) -> Result<T, Diagnostic> {
+	fn scoped(
+		&mut self,
+		f: impl FnOnce(&mut Self) -> Result<Option<TypedVal>, Diagnostic>,
+	) -> Result<Option<TypedVal>, Diagnostic> {
 		let saved = self.vars.clone();
-		let r = f(self);
+		self.scopes.push(vec![]);
+		let flow = f(self);
 		self.vars = saved;
-		r
+		let out = match flow? {
+			Some((v, t)) => {
+				let v = self.copy_bind(v, &t);
+				self.release_scopes(self.scopes.len() - 1);
+				Some((v, t))
+			}
+			None => None,
+		};
+		self.scopes.pop();
+		Ok(out)
 	}
 
 	fn finish_merge(&mut self, merge: Block, result: Option<(Variable, Typ)>) -> Option<TypedVal> {
 		result.map(|(var, typ)| {
 			self.b.switch_to_block(merge);
 			self.b.seal_block(merge);
-			(self.b.use_var(var), typ)
+			let v = self.b.use_var(var);
+			self.temp(v, &typ);
+			(v, typ)
 		})
 	}
 
@@ -209,10 +224,8 @@ impl<'a> Translator<'a> {
 						Typ::Array(_) | Typ::FixedArray(..) => s.load_elem(base, *off, typ),
 						_ => s.b.ins().load(cl_type(typ, s.int), MemFlags::new(), base, *off),
 					};
-					let fv = s.copy_in(fv, typ);
-					let var = s.b.declare_var(cl_type(typ, s.int));
-					s.b.def_var(var, fv);
-					s.vars.insert(name.clone(), Local::plain(var, typ.clone(), false));
+					let fv = s.copy_bind(fv, typ);
+					s.bind_local(name, fv, typ.clone(), false);
 				}
 				s.block_tail(&arm.body, target)
 			})?;
@@ -230,7 +243,7 @@ impl<'a> Translator<'a> {
 				Some((_, t)) => t.clone(),
 				None => target.cloned().unwrap_or(Typ::unit()),
 			};
-			Some((self.zero(&t), t))
+			self.scoped(|s| Ok(Some((s.zero(&t), t.clone()))))?
 		};
 		if let Some(vt) = else_flow {
 			self.contribute("match", vt, &mut result, merge, span)?;
@@ -305,6 +318,7 @@ impl<'a> Translator<'a> {
 
 		self.b.switch_to_block(happy_block);
 		let payload = self.b.ins().load(cl_type(&inner, self.int), MemFlags::new(), val, 8);
+		let payload = self.copy_bind(payload, &inner);
 		self.contribute("or", (payload, inner), &mut result, merge, span)?;
 
 		self.b.switch_to_block(fallback_block);
@@ -320,10 +334,7 @@ impl<'a> Translator<'a> {
 			self.contribute("or", vt, &mut result, merge, span)?;
 		}
 
-		self.b.switch_to_block(merge);
-		self.b.seal_block(merge);
-		let (var, typ) = result.unwrap();
-		Ok((self.b.use_var(var), typ))
+		Ok(self.finish_merge(merge, result).expect("`or` always yields"))
 	}
 
 	// Unwraps `?T`/`!T`.
@@ -468,11 +479,14 @@ impl<'a> Translator<'a> {
 			None => None,
 		};
 
-		self.loops.push(LoopFrame { top, exit });
+		let depth = self.scopes.len();
+		self.loops.push(LoopFrame { top, exit, depth });
 		let flow = self.scoped(|s| s.block(body))?;
 		let frame = self.loops.pop().expect("loop frame");
 
-		if flow.is_some() {
+		if let Some((v, t)) = flow {
+			// a discarded body value is released here, once per iteration
+			self.release_value(v, &t);
 			self.b.ins().jump(top, &[]);
 		}
 		self.b.seal_block(top);
@@ -542,17 +556,20 @@ impl<'a> Translator<'a> {
 			None => (iv, Typ::Int(32)),
 			Some((data, elem)) => (self.load_nth(*data, iv, elem), elem.clone()),
 		};
+		let depth = self.scopes.len();
+		self.loops.push(LoopFrame {
+			top: latch,
+			exit: Some(exit),
+			depth,
+		});
 		let flow = self.scoped(|s| {
 			s.bind_pattern(pat, val, &typ, span)?;
-			s.loops.push(LoopFrame {
-				top: latch,
-				exit: Some(exit),
-			});
 			s.block(body)
 		})?;
 		self.loops.pop().expect("loop frame");
 
-		if flow.is_some() {
+		if let Some((v, t)) = flow {
+			self.release_value(v, &t);
 			self.b.ins().jump(latch, &[]);
 		}
 		self.b.seal_block(latch);
@@ -572,10 +589,8 @@ impl<'a> Translator<'a> {
 	pub(super) fn bind_pattern(&mut self, pat: &Pattern, val: Value, typ: &Typ, span: Span) -> Result<(), Diagnostic> {
 		match pat {
 			Pattern::Name(name) => {
-				let val = self.copy_in(val, typ);
-				let var = self.b.declare_var(cl_type(typ, self.int));
-				self.b.def_var(var, val);
-				self.vars.insert(name.clone(), Local::plain(var, typ.clone(), false));
+				let val = self.copy_bind(val, typ);
+				self.bind_local(name, val, typ.clone(), false);
 			}
 			Pattern::Tuple(names) => {
 				let Typ::Tuple(fields) = typ else {
@@ -598,10 +613,8 @@ impl<'a> Translator<'a> {
 				}
 				for (i, (name, (_, ftyp))) in names.iter().zip(fields).enumerate() {
 					let fv = self.b.ins().load(cl_type(ftyp, self.int), MemFlags::new(), val, (i * 8) as i32);
-					let fv = self.copy_in(fv, ftyp);
-					let var = self.b.declare_var(cl_type(ftyp, self.int));
-					self.b.def_var(var, fv);
-					self.vars.insert(name.clone(), Local::plain(var, ftyp.clone(), false));
+					let fv = self.copy_bind(fv, ftyp);
+					self.bind_local(name, fv, ftyp.clone(), false);
 				}
 			}
 		}
