@@ -19,7 +19,12 @@ fn bind() {
 #[test]
 fn reassign() {
 	check(
-		"enum Color { red green blue }\nmut c := Color.red\nc = Color.blue\nc",
+		indoc! {"
+			enum Color { red green blue }
+			mut c := Color.red
+			c = Color.blue
+			c
+		"},
 		"blue",
 	);
 }
@@ -97,7 +102,12 @@ fn unknown_variant() {
 #[test]
 fn shorthand_in_assignment() {
 	check(
-		"enum Color { red green blue }\nmut c := Color.green\nc = .red\nc",
+		indoc! {"
+			enum Color { red green blue }
+			mut c := Color.green
+			c = .red
+			c
+		"},
 		"red",
 	);
 }
@@ -277,9 +287,18 @@ fn payload_eq() {
 
 #[test]
 fn payload_eq_string_field() {
-	check("enum Msg { quit say(str) }\nMsg.say(\"hi\") == Msg.say(\"hi\")", "true");
 	check(
-		"enum Msg { quit say(str) }\nMsg.say(\"hi\") == Msg.say(\"bye\")",
+		indoc! {r#"
+			enum Msg { quit say(str) }
+			Msg.say("hi") == Msg.say("hi")
+		"#},
+		"true",
+	);
+	check(
+		indoc! {r#"
+			enum Msg { quit say(str) }
+			Msg.say("hi") == Msg.say("bye")
+		"#},
 		"false",
 	);
 }
@@ -436,7 +455,12 @@ fn atom_coerces_in_annotated_binding() {
 #[test]
 fn atom_coerces_in_assignment() {
 	check(
-		"enum Color { red green blue }\nmut c := Color.green\nc = :red\nc",
+		indoc! {"
+			enum Color { red green blue }
+			mut c := Color.green
+			c = :red
+			c
+		"},
 		"red",
 	);
 }
@@ -546,7 +570,7 @@ fn from_int_no_match() {
 fn from_int_no_match_carries_error() {
 	check(
 		"enum Color { red green blue }\nColor.from(9) or { print($)\nColor.red }",
-		"no matching variant\nred",
+		["no matching variant", "red"],
 	);
 }
 
@@ -578,7 +602,7 @@ fn from_atom_match() {
 fn from_atom_no_match() {
 	check(
 		"enum Color { red green blue }\nColor.from(:purple) or { print($)\nColor.red }",
-		"no matching variant\nred",
+		["no matching variant", "red"],
 	);
 }
 
@@ -693,7 +717,7 @@ fn print_payloads() {
 			print(Shape.circle { radius: 5.0 })
 			print(Shape.point)
 		"},
-		"triangle(3.0, 4.0, 5.0)\ncircle{radius: 5.0}\npoint",
+		["triangle(3.0, 4.0, 5.0)", "circle{radius: 5.0}", "point"],
 	);
 }
 
@@ -714,8 +738,7 @@ fn backed_arrays_pack() {
 			print(f[1])
 			f[0] == Status.ok
 		"},
-		// TODO: make helpers that take a lines vec rather than writing newlines
-		"[err, err, ok]\nerr\nerr\nok\ntrue\nok\nerr\ntrue",
+		["[err, err, ok]", "err", "err", "ok", "true", "ok", "err", "true"],
 	);
 }
 
@@ -733,7 +756,7 @@ fn string_backed_raws() {
 			print(str(a[1]))
 			match Suit.spades { .spades => "s", else => "?" }
 		"#},
-		"♠\n♥\nspades\n1\ntrue\n♥\ns",
+		["♠", "♥", "spades", "1", "true", "♥", "s"],
 	);
 	check("enum S: string { a b }\nstr(S.b)", "b");
 }
@@ -758,6 +781,6 @@ fn backed_array_signed_sextends() {
 			print(match d { Delta.down => "yes", else => "no" })
 			d == Delta.down
 		"#},
-		"-3\nyes\ntrue",
+		["-3", "yes", "true"],
 	);
 }

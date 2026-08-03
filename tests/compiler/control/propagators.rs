@@ -64,7 +64,7 @@ fn bang_propagates_error() {
 			0
 		}
 	"#};
-	check(src, "missing\n0");
+	check(src, ["missing", "0"]);
 }
 
 #[test]

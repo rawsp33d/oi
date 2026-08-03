@@ -15,14 +15,14 @@ fn match_string() {
 
 #[test]
 fn match_int() {
-	let src = indoc! {"
+	let src = indoc! {r#"
 		x := 2
 		match x {
-			1 => \"one\",
-			2 => \"two\",
-			else => \"other\",
+			1 => "one",
+			2 => "two",
+			else => "other",
 		}
-	"};
+	"#};
 	check(src, "two");
 }
 
@@ -48,7 +48,6 @@ fn match_no_else_hit() {
 	check(src, "penguin");
 }
 
-// no else and no match yields the zero value of the result type
 #[test]
 fn match_no_else_miss_int() {
 	check("match 5 { 1 => 10, }", "0");
@@ -84,7 +83,6 @@ fn match_int_expr_value() {
 	check(src, "31");
 }
 
-// comma-separated patterns within one arm are OR'd
 #[test]
 fn match_or_patterns() {
 	let src = indoc! {r#"
@@ -115,17 +113,16 @@ fn match_bool() {
 	check("match true { true => 1, false => 2, }", "1");
 }
 
-// `match true { cond => ... }` works as an if-else chain
 #[test]
 fn match_true_as_if_chain() {
-	let src = indoc! {"
+	let src = indoc! {r#"
 		x := 7
 		match true {
-			x < 5 => \"small\",
-			x < 10 => \"medium\",
-			else => \"large\",
+			x < 5 => "small",
+			x < 10 => "medium",
+			else => "large",
 		}
-	"};
+	"#};
 	check(src, "medium");
 }
 
@@ -234,19 +231,16 @@ fn match_enum_non_exhaustive() {
 	fail_with(src, "non-exhaustive match, missing: blue");
 }
 
-// arms must yield the same type
 #[test]
 fn match_mismatched_arm_types() {
 	fail_with(r#"match 1 { 1 => "str", else => 2 }"#, "mismatched types");
 }
 
-// pattern type must match subject type
 #[test]
 fn match_pattern_type_mismatch() {
 	fail_with(r#"match 1 { "str" => 1, }"#, "type mismatch");
 }
 
-// an arm body may be a method chain split across newlines
 #[test]
 fn match_arm_chain_across_lines() {
 	let src = indoc! {"

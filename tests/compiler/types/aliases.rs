@@ -12,11 +12,11 @@ fn alias_primitive_in_param() {
 
 #[test]
 fn alias_primitive_in_return() {
-	let src = indoc! {"
+	let src = indoc! {r#"
 		type Name = str
-		fn greet() Name { \"hello\" }
+		fn greet() Name { "hello" }
 		greet()
-	"};
+	"#};
 	check(src, "hello");
 }
 

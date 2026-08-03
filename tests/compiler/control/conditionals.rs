@@ -42,7 +42,6 @@ fn no_else_true() {
 	check("if true { 42 }", "42");
 }
 
-// no else yields the zero value of the if's type
 #[test]
 fn no_else_false_int() {
 	check("if false { 42 }", "0");
@@ -53,7 +52,6 @@ fn no_else_false_string() {
 	check(r#"if false { "idk" }"#, "");
 }
 
-// an `if` is an expression usable anywhere a value is
 #[test]
 fn if_as_binding() {
 	let src = indoc! {"
@@ -87,7 +85,6 @@ fn bool_branches() {
 	check("if false { true } else { false }", "false");
 }
 
-// a binding declared inside a branch is local to it
 #[test]
 fn branch_binding_is_local() {
 	let src = indoc! {"
@@ -110,7 +107,6 @@ fn branch_binding_does_not_leak() {
 	fail_with(src, "undefined variable");
 }
 
-// `return` inside a branch propagates out of the function
 #[test]
 fn guard_return_taken() {
 	let src = indoc! {"
@@ -135,7 +131,6 @@ fn guard_return_not_taken() {
 	check(src, "3");
 }
 
-// one branch returns, the other yields a value
 #[test]
 fn return_in_one_branch() {
 	let src = indoc! {"

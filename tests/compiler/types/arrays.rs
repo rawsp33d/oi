@@ -206,7 +206,7 @@ fn slice_empty() {
 
 #[test]
 fn slice_variable_bounds() {
-	check("a := [0, 2, 4, 6, 8]\nlo := 1\nhi := 4\na[lo..hi]", "[2, 4, 6]");
+	check(["a := [0, 2, 4, 6, 8]", "lo := 1", "hi := 4", "a[lo..hi]"], "[2, 4, 6]");
 }
 
 #[test]
@@ -266,12 +266,12 @@ fn index_assign_first() {
 
 #[test]
 fn index_assign_variable_index() {
-	check("mut a := [1, 2, 3]\nmut i := 2\na[i] = 7\na", "[1, 2, 7]");
+	check(["mut a := [1, 2, 3]", "mut i := 2", "a[i] = 7", "a"], "[1, 2, 7]");
 }
 
 #[test]
 fn index_assign_multiple() {
-	check("mut a := [0, 0, 0]\na[0] = 1\na[1] = 2\na[2] = 3\na", "[1, 2, 3]");
+	check(["mut a := [0, 0, 0]", "a[0] = 1", "a[1] = 2", "a[2] = 3", "a"], "[1, 2, 3]");
 }
 
 #[test]
@@ -321,12 +321,12 @@ fn append_basic() {
 
 #[test]
 fn append_updates_len() {
-	check("mut a := [1, 3, 5]\na << 7\na << 9\na.len", "5");
+	check(["mut a := [1, 3, 5]", "a << 7", "a << 9", "a.len"], "5");
 }
 
 #[test]
 fn append_multiple() {
-	check("mut a := [0]\na << 1\na << 2\na << 3\na", "[0, 1, 2, 3]");
+	check(["mut a := [0]", "a << 1", "a << 2", "a << 3", "a"], "[0, 1, 2, 3]");
 }
 
 #[test]
@@ -337,13 +337,13 @@ fn append_strings() {
 #[test]
 fn append_grows_past_initial_cap() {
 	// initial cap == len == 2; force multiple doublings
-	check("mut a := [1, 2]\na << 3\na << 4\na << 5\na", "[1, 2, 3, 4, 5]");
+	check(["mut a := [1, 2]", "a << 3", "a << 4", "a << 5", "a"], "[1, 2, 3, 4, 5]");
 }
 
 #[test]
 fn append_slice_copies_buffer() {
 	// appending to a slice forces a copy; the parent is unaffected
-	check("a := [1, 2, 3]\nmut b := a[1..]\nb << 99\nb", "[2, 3, 99]");
+	check(["a := [1, 2, 3]", "mut b := a[1..]", "b << 99", "b"], "[2, 3, 99]");
 }
 
 #[test]
@@ -376,13 +376,13 @@ fn extend_updates_len() {
 #[test]
 fn extend_empty_src() {
 	// appending a zero-length slice leaves dst unchanged
-	check("mut a := [1, 2, 3]\nb := a[0..0]\na << b\na", "[1, 2, 3]");
+	check(["mut a := [1, 2, 3]", "b := a[0..0]", "a << b", "a"], "[1, 2, 3]");
 }
 
 #[test]
 fn extend_into_empty_ish() {
 	// extend a slice (cap == len) by another array
-	check("a := [1, 2]\nmut b := a[0..0]\nb << [3, 4]\nb", "[3, 4]");
+	check(["a := [1, 2]", "mut b := a[0..0]", "b << [3, 4]", "b"], "[3, 4]");
 }
 
 #[test]
@@ -422,12 +422,12 @@ fn appended_element_is_independent_copy() {
 
 #[test]
 fn index_assign_copy_forward() {
-	check("mut a := [1, 2, 3]\nb := a\na[0] = 99\nb", "[1, 2, 3]");
+	check(["mut a := [1, 2, 3]", "b := a", "a[0] = 99", "b"], "[1, 2, 3]");
 }
 
 #[test]
 fn index_assign_copy_backward() {
-	check("a := [1, 2, 3]\nmut b := a\nb[0] = 99\na", "[1, 2, 3]");
+	check(["a := [1, 2, 3]", "mut b := a", "b[0] = 99", "a"], "[1, 2, 3]");
 }
 
 #[test]
@@ -447,17 +447,17 @@ fn chain_of_copies_is_independent() {
 
 #[test]
 fn copy_of_zero_value_appends() {
-	check("a := []int{}\nmut b := a\nb << 1\nb", "[1]");
+	check(["a := []int{}", "mut b := a", "b << 1", "b"], "[1]");
 }
 
 #[test]
 fn slice_independent_from_parent() {
-	check("mut a := [1, 2, 3]\nb := a[..]\na[0] = 99\nb", "[1, 2, 3]");
+	check(["mut a := [1, 2, 3]", "b := a[..]", "a[0] = 99", "b"], "[1, 2, 3]");
 }
 
 #[test]
 fn parent_independent_from_slice() {
-	check("a := [1, 2, 3]\nmut b := a[..]\nb[0] = 99\na", "[1, 2, 3]");
+	check(["a := [1, 2, 3]", "mut b := a[..]", "b[0] = 99", "a"], "[1, 2, 3]");
 }
 
 #[test]
@@ -508,7 +508,7 @@ fn in_strings_not_found() {
 
 #[test]
 fn in_after_append() {
-	check("mut a := [1, 2]\na << 3\n3 in a", "true");
+	check(["mut a := [1, 2]", "a << 3", "3 in a"], "true");
 }
 
 #[test]
@@ -583,7 +583,7 @@ fn fixed_index_write_read() {
 
 #[test]
 fn fixed_dot_index() {
-	check("mut a := [2]int{}\na[0] = 9\na.0", "9");
+	check(["mut a := [2]int{}", "a[0] = 9", "a.0"], "9");
 }
 
 #[test]
@@ -597,7 +597,7 @@ grid"#,
 
 #[test]
 fn fixed_value_semantics() {
-	check("mut a := [2]int{}\nmut b := a\na[0] = 9\nb[0]", "0");
+	check(["mut a := [2]int{}", "mut b := a", "a[0] = 9", "b[0]"], "0");
 }
 
 #[test]

@@ -39,12 +39,12 @@ fn dollar_is_error_message() {
 			9
 		}
 	"#};
-	check(src, "boom\n9");
+	check(src, ["boom", "9"]);
 }
 
 #[test]
 fn as_binding() {
-	check("x := ?int(none) or { 99 }\nx", "99");
+	check(["x := ?int(none) or { 99 }", "x"], "99");
 }
 
 #[test]

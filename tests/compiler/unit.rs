@@ -1,6 +1,5 @@
 use crate::helpers::*;
 
-// `()` at top-level yields unit, which prints nothing (same as an empty program)
 #[test]
 fn unit_literal_top_level() {
 	check("()", "");
@@ -105,7 +104,7 @@ fn print_unit() {
 		print(())
 		42
 	"};
-	check(src, "()\n42");
+	check(src, ["()", "42"]);
 }
 
 #[test]

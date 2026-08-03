@@ -13,7 +13,7 @@ fn construct_err() {
 
 #[test]
 fn zero_value_is_ok() {
-	check("mut r !int\nr", "ok(0)");
+	check("mut r !int; r", "ok(0)");
 }
 
 #[test]
@@ -84,7 +84,12 @@ fn match_err_arm() {
 #[test]
 fn match_non_exhaustive_errors() {
 	fail_with(
-		"r := !int(42)\nmatch r {\n\t.ok(n) => n,\n}",
+		indoc! {r"
+			r := !int(42)
+			match r {
+				.ok(n) => n,
+			}
+		"},
 		"non-exhaustive match, missing: err",
 	);
 }
@@ -184,7 +189,7 @@ fn long_form_matches_shorthand() {
 			0
 		}
 	"#};
-	check(src, "missing\n0");
+	check(src, ["missing", "0"]);
 }
 
 #[test]
@@ -201,7 +206,7 @@ fn long_form_nested() {
 #[test]
 fn long_form_rejects_custom_error() {
 	fail_with(
-		"fn load() Result[int, MyError] { 42 }\nload()",
+		"fn load() Result[int, MyError] { 42 }; load()",
 		"custom error types aren't supported yet",
 	);
 }

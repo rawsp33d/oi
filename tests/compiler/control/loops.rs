@@ -1,6 +1,5 @@
 use crate::helpers::*;
 
-// the body repeats until a `return` leaves the function
 #[test]
 fn counts_to_a_return() {
 	let src = indoc! {"
@@ -13,7 +12,6 @@ fn counts_to_a_return() {
 	check(src, "3");
 }
 
-// mutable state carries across iterations
 #[test]
 fn sums_across_iterations() {
 	let src = indoc! {"
@@ -28,7 +26,6 @@ fn sums_across_iterations() {
 	check(src, "10");
 }
 
-// a `loop` inside a function returns out of it
 #[test]
 fn loop_in_function() {
 	let src = indoc! {"
@@ -44,7 +41,6 @@ fn loop_in_function() {
 	check(src, "16");
 }
 
-// `break` exits the loop, and the statements after it run
 #[test]
 fn break_exits() {
 	let src = indoc! {"
@@ -58,7 +54,6 @@ fn break_exits() {
 	check(src, "3");
 }
 
-// `continue` skips the rest of the body: sum the evens in 1..=10, breaking past 10
 #[test]
 fn continue_skips() {
 	let src = indoc! {"
@@ -75,7 +70,6 @@ fn continue_skips() {
 	check(src, "30");
 }
 
-// `break` leaves only the innermost loop
 #[test]
 fn break_targets_innermost() {
 	let src = indoc! {"
@@ -104,7 +98,6 @@ fn continue_outside_loop() {
 	fail_with("continue", "outside of a loop");
 }
 
-// a condition makes `loop` a `while`: it runs until the condition goes false
 #[test]
 fn while_counts() {
 	let src = indoc! {"
@@ -117,7 +110,6 @@ fn while_counts() {
 	check(src, "5");
 }
 
-// a condition false from the start runs the body zero times
 #[test]
 fn while_never_enters() {
 	let src = indoc! {"
@@ -130,7 +122,6 @@ fn while_never_enters() {
 	check(src, "10");
 }
 
-// the condition is re-tested every iteration as the body mutates state
 #[test]
 fn while_sums() {
 	let src = indoc! {"
@@ -145,7 +136,6 @@ fn while_sums() {
 	check(src, "15");
 }
 
-// `break` leaves a `while` early, before the condition would
 #[test]
 fn while_break() {
 	let src = indoc! {"
@@ -159,7 +149,6 @@ fn while_break() {
 	check(src, "3");
 }
 
-// `continue` jumps back to the top, which re-tests the condition: sum the evens in 1..=10
 #[test]
 fn while_continue() {
 	let src = indoc! {"
@@ -175,16 +164,13 @@ fn while_continue() {
 	check(src, "30");
 }
 
-// a non-Bool condition is rejected
 #[test]
 fn while_condition_must_be_bool() {
 	fail_with("loop 3 { }", "must be Bool");
 }
 
-// for loops over a range
+// loops over ranges
 
-// a range loop walks `[start, end)`
-// 0..5 -> 0+1+2+3+4
 #[test]
 fn for_range_sums() {
 	let src = indoc! {"
@@ -197,7 +183,6 @@ fn for_range_sums() {
 	check(src, "10");
 }
 
-// the end bound is excluded
 #[test]
 fn for_range_excludes_end() {
 	let src = indoc! {"
@@ -206,7 +191,6 @@ fn for_range_excludes_end() {
 	check(src, "0\n1\n2");
 }
 
-// an empty range runs the body zero times
 #[test]
 fn for_range_empty() {
 	let src = indoc! {"
@@ -219,7 +203,6 @@ fn for_range_empty() {
 	check(src, "99");
 }
 
-// the bounds are arbitrary Int expressions
 #[test]
 fn for_range_variable_bounds() {
 	let src = indoc! {"
@@ -234,7 +217,6 @@ fn for_range_variable_bounds() {
 	check(src, "9");
 }
 
-// `break` leaves a range loop early
 #[test]
 fn for_range_break() {
 	let src = indoc! {"
@@ -248,7 +230,6 @@ fn for_range_break() {
 	check(src, "10");
 }
 
-// `continue` still advances the counter: sum the evens in 0..6
 #[test]
 fn for_range_continue_advances() {
 	let src = indoc! {"
@@ -262,7 +243,6 @@ fn for_range_continue_advances() {
 	check(src, "6");
 }
 
-// nested range loops each get their own counter
 #[test]
 fn for_range_nested() {
 	let src = indoc! {"
@@ -277,7 +257,6 @@ fn for_range_nested() {
 	check(src, "9");
 }
 
-// a range loop inside a function returns out of it
 #[test]
 fn for_range_returns() {
 	let src = indoc! {"
@@ -292,13 +271,12 @@ fn for_range_returns() {
 	check(src, "9");
 }
 
-// the loop variable doesn't leak past the loop
 #[test]
 fn for_var_is_scoped() {
 	fail_with("loop i in 0..3 { i }\ni", "undefined variable");
 }
 
-// for loops over an array
+// loops over iterables
 
 #[test]
 fn for_each_sums() {
@@ -334,9 +312,8 @@ fn for_each_strings() {
 	check(src, "abc");
 }
 
-// a slice iterates over just its window
 #[test]
-fn for_each_slice() {
+fn slice_iterates_its_window() {
 	let src = indoc! {"
 		a := [0, 2, 4, 6, 8]
 		mut sum := 0
@@ -348,7 +325,6 @@ fn for_each_slice() {
 	check(src, "12");
 }
 
-// a tuple pattern destructures each element
 #[test]
 fn for_each_tuple_destructure() {
 	let src = indoc! {"

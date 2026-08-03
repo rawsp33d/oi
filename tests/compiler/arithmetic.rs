@@ -25,7 +25,6 @@ fn int_mod() {
 	check("10 % 7", "3");
 }
 
-// truncated remainder: the sign follows the dividend
 #[test]
 fn mod_negative_dividend() {
 	check("-10 % 7", "-3");
@@ -36,7 +35,6 @@ fn mod_negative_divisor() {
 	check("10 % -7", "3");
 }
 
-// `%` shares precedence with `*` and `/`, looser than unary `-`
 #[test]
 fn mod_binds_like_mul() {
 	check("1 + 10 % 7", "4");

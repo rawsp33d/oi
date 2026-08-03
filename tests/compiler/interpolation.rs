@@ -48,7 +48,7 @@ fn multiline() {
 		you owe {amount}.
 		")
 	"#};
-	check(src, "\ndear mom,\nyou owe 5.\n");
+	check(src, ["", "dear mom,", "you owe 5.", ""]);
 }
 
 #[test]
