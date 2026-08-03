@@ -80,6 +80,30 @@ fn copy_semantics() {
 }
 
 #[test]
+fn copy_of_array_field_is_independent() {
+	check(
+		"struct Bag { items []int }
+		s := Bag{ items: [1, 2, 3] }
+		mut b := s.items
+		b << 4
+		s.items",
+		"[1, 2, 3]",
+	);
+}
+
+#[test]
+fn struct_lit_copies_array_field() {
+	check(
+		"struct Bag { items []int }
+		mut a := [1]
+		bags := [Bag{ items: a }]
+		a << 2
+		bags[0].items",
+		"[1]",
+	);
+}
+
+#[test]
 fn print_struct() {
 	check(
 		"struct Point { x int, y int }

@@ -280,13 +280,13 @@ fn index_assign_strings() {
 }
 
 #[test]
-fn index_assign_slice_sees_mutation() {
+fn index_assign_slice_is_independent() {
 	check(
 		indoc! {"
 		mut a := [1, 2, 3]
 		b := a[1..]
 		a[1] = 99
-		assert(b[0] == 99)
+		assert(b[0] == 2)
 	"},
 		"true",
 	);
@@ -388,6 +388,76 @@ fn extend_into_empty_ish() {
 #[test]
 fn extend_type_mismatch_error() {
 	fail_with(r#"mut a := [1, 2]; b := ["x"]; a << b"#, "type mismatch");
+}
+
+// value semantics (COW)
+
+#[test]
+fn copy_is_independent_on_append() {
+	check(
+		indoc! {"
+		mut a := [1, 2, 3]
+		b := a
+		a << 4
+		print(a)
+		b
+	"},
+		["[1, 2, 3, 4]", "[1, 2, 3]"],
+	);
+}
+
+#[test]
+fn index_assign_copy_forward() {
+	check("mut a := [1, 2, 3]\nb := a\na[0] = 99\nb", "[1, 2, 3]");
+}
+
+#[test]
+fn index_assign_copy_backward() {
+	check("a := [1, 2, 3]\nmut b := a\nb[0] = 99\na", "[1, 2, 3]");
+}
+
+#[test]
+fn chain_of_copies_is_independent() {
+	check(
+		indoc! {"
+		mut a := [1, 2, 3]
+		b := a
+		c := b
+		a << 4
+		print(b)
+		c
+	"},
+		["[1, 2, 3]", "[1, 2, 3]"],
+	);
+}
+
+#[test]
+fn copy_of_zero_value_appends() {
+	check("a := []int{}\nmut b := a\nb << 1\nb", "[1]");
+}
+
+#[test]
+fn slice_independent_from_parent() {
+	check("mut a := [1, 2, 3]\nb := a[..]\na[0] = 99\nb", "[1, 2, 3]");
+}
+
+#[test]
+fn parent_independent_from_slice() {
+	check("a := [1, 2, 3]\nmut b := a[..]\nb[0] = 99\na", "[1, 2, 3]");
+}
+
+#[test]
+fn returned_param_independent_from_arg() {
+	check(
+		indoc! {"
+		fn id(a []int) []int { a }
+		a := [1, 2, 3]
+		mut r := id(a)
+		r << 4
+		a
+	"},
+		"[1, 2, 3]",
+	);
 }
 
 // in operator

@@ -52,12 +52,35 @@ impl<'a> Translator<'a> {
 			);
 		};
 		let size = self.elem_stride(&elem);
-		let data = self.call_alloc_bytes(vals.len() as i64 * size);
+		let base = self.call_alloc_bytes(vals.len() as i64 * size + 8);
+		let one = self.b.ins().iconst(self.int, 1);
+		self.b.ins().store(MemFlags::new(), one, base, 0);
+		let data = self.b.ins().iadd_imm(base, 8);
 		for (i, val) in vals.into_iter().enumerate() {
+			let val = self.copy_in(val, &elem);
 			self.store_elem(data, (i as i64 * size) as i32, &elem, val);
 		}
 		let len = self.b.ins().iconst(self.int, elems.len() as i64);
 		Ok((self.make_array(data, len), Typ::Array(Box::new(elem))))
+	}
+
+	// Storing an array copies it (new header, rc bump).
+	// The buffer clone waits for a write.
+	pub(super) fn copy_in(&mut self, val: Value, typ: &Typ) -> Value {
+		if !matches!(typ, Typ::Array(_)) {
+			return val;
+		}
+		let func = self.import_fn(runtime::ARRAY_SHARE, &[self.int], Some(self.int));
+		let call = self.b.ins().call(func, &[val]);
+		self.b.inst_results(call)[0]
+	}
+
+	// Clone the buffer before a write if it's shared.
+	pub(super) fn cow_array(&mut self, header: Value, elem: &Typ) {
+		let stride = self.elem_stride(elem);
+		let size = self.b.ins().iconst(self.int, stride);
+		let func = self.import_fn(runtime::ARRAY_COW, &[self.int, self.int], None);
+		self.b.ins().call(func, &[header, size]);
 	}
 
 	// Evaluate an array-typed operand.

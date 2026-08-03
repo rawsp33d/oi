@@ -174,6 +174,8 @@ impl Default for Compiler {
 		builder.symbol(runtime::STR_MARK, runtime::str_mark as *const u8);
 		builder.symbol(runtime::STR_TAKE, runtime::str_take as *const u8);
 		builder.symbol(runtime::ALLOC, runtime::alloc as *const u8);
+		builder.symbol(runtime::ARRAY_SHARE, runtime::array_share as *const u8);
+		builder.symbol(runtime::ARRAY_COW, runtime::array_cow as *const u8);
 		builder.symbol(runtime::WRITE, runtime::write as *const u8);
 		builder.symbol(runtime::WRITE_SEP, runtime::write_sep as *const u8);
 		builder.symbol(runtime::SLICE, runtime::slice as *const u8);

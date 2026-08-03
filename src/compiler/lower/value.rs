@@ -623,6 +623,7 @@ impl<'a> Translator<'a> {
 				}
 				for (i, (_, value)) in fields.iter().enumerate() {
 					let val = self.check_typed(value, &struct_fields[i].typ, "type mismatch")?;
+					let val = self.copy_in(val, &struct_fields[i].typ);
 					self.b.ins().store(MemFlags::new(), val, ptr, (i * 8) as i32);
 				}
 			} else {
@@ -636,6 +637,7 @@ impl<'a> Translator<'a> {
 							.with_label("no such field")
 					})?;
 					let val = self.check_typed(value, &struct_fields[idx].typ, "type mismatch")?;
+					let val = self.copy_in(val, &struct_fields[idx].typ);
 					self.b.ins().store(MemFlags::new(), val, ptr, (idx * 8) as i32);
 				}
 			}
@@ -656,7 +658,7 @@ impl<'a> Translator<'a> {
 					)
 					.with_label("type mismatch"));
 				}
-				val
+				self.copy_in(val, &f.typ)
 			} else {
 				self.zero(&f.typ)
 			};
@@ -705,6 +707,7 @@ impl<'a> Translator<'a> {
 			let (val, vtyp) = self.expr(value)?;
 			unify(&def.fields[idx].typ, &vtyp, &def.type_params, &mut subst, self.generics)
 				.map_err(|msg| Diagnostic::new(msg, value.1.into_range()).with_label("type mismatch"))?;
+			let val = self.copy_in(val, &vtyp);
 			provided.push((idx, val, vtyp, value.1));
 		}
 		// params the field values didn't pin can come from the expected type
@@ -757,6 +760,7 @@ impl<'a> Translator<'a> {
 		for (i, f) in fields.iter().enumerate() {
 			let cl = cl_type(&f.typ, self.int);
 			let fv = self.b.ins().load(cl, MemFlags::new(), src, (i * 8) as i32);
+			let fv = self.copy_in(fv, &f.typ);
 			self.b.ins().store(MemFlags::new(), fv, dst, (i * 8) as i32);
 		}
 	}

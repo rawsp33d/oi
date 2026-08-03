@@ -10,6 +10,8 @@ pub const STR_CONCAT: &str = "oi_str_concat";
 pub const STR_MARK: &str = "oi_str_mark";
 pub const STR_TAKE: &str = "oi_str_take";
 pub const ALLOC: &str = "oi_alloc";
+pub const ARRAY_SHARE: &str = "oi_array_share";
+pub const ARRAY_COW: &str = "oi_array_cow";
 pub const WRITE: &str = "oi_write";
 pub const WRITE_SEP: &str = "oi_write_sep";
 pub const SLICE: &str = "oi_slice";
@@ -207,6 +209,15 @@ pub extern "C" fn alloc(size: i64) -> *mut u8 {
 	Box::leak(vec![0u8; size].into_boxed_slice()).as_mut_ptr()
 }
 
+// Allocate an element buffer with its refcount at data[-8], count starting at 1.
+fn buffer_alloc(bytes: i64) -> *mut u8 {
+	let base = alloc(bytes + 8);
+	unsafe {
+		*(base as *mut i64) = 1;
+		base.add(8)
+	}
+}
+
 // Array header layout shared with the compiler (lower/array.rs, offsets 0/8/16).
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -216,11 +227,41 @@ pub struct Header {
 	cap: i64,
 }
 
-/// View the range `[start, end)` of an array.
-/// The view shares the parent's element buffer.
+/// Clone a header, sharing its buffer with a refcount bump.
+/// # Safety
+/// `header` must point to a valid array header.
+pub unsafe extern "C" fn array_share(header: *const Header) -> *const Header {
+	let h = unsafe { *header };
+	if h.data != 0 {
+		unsafe { *((h.data - 8) as *mut i64) += 1 };
+	}
+	let out = alloc(size_of::<Header>() as i64) as *mut Header;
+	unsafe { *out = h };
+	out
+}
+
+/// Give a shared array its own buffer before a write.
+/// No-op when the buffer is null or unshared.
+/// # Safety
+/// `header` must point to a valid array header.
+pub unsafe extern "C" fn array_cow(header: *mut Header, elem_size: i64) {
+	let Header { data, len, .. } = unsafe { *header };
+	if data == 0 || unsafe { *((data - 8) as *const i64) } <= 1 {
+		return;
+	}
+	let new_data = buffer_alloc(len * elem_size);
+	unsafe {
+		std::ptr::copy_nonoverlapping(data as *const u8, new_data, (len * elem_size) as usize);
+		*((data - 8) as *mut i64) -= 1;
+		(*header).data = new_data as i64;
+		(*header).cap = len;
+	}
+}
+
+/// Copy the range of an array into a fresh array.
 /// Panics if out of range.
 /// # Safety
-/// `header` must point to a valid array header (see `Header`).
+/// `header` must point to a valid array header.
 pub unsafe extern "C" fn slice(header: *const Header, start: i64, end: i64, elem_size: i64) -> *const Header {
 	let Header { data, len, .. } = unsafe { *header };
 	if start < 0 || start > end || end > len {
@@ -228,11 +269,13 @@ pub unsafe extern "C" fn slice(header: *const Header, start: i64, end: i64, elem
 		std::process::abort();
 	}
 	let view_len = end - start;
+	let new_data = buffer_alloc(view_len * elem_size);
 	let out = alloc(size_of::<Header>() as i64) as *mut Header;
 	unsafe {
-		// cap == len: slice can't grow in-place
+		let src = (data + start * elem_size) as *const u8;
+		std::ptr::copy_nonoverlapping(src, new_data, (view_len * elem_size) as usize);
 		*out = Header {
-			data: data + start * elem_size,
+			data: new_data as i64,
 			len: view_len,
 			cap: view_len,
 		};
@@ -243,14 +286,14 @@ pub unsafe extern "C" fn slice(header: *const Header, start: i64, end: i64, elem
 /// Ensure the array has capacity for at least `min_cap` elements.
 /// Grows by doubling, at least to `min_cap`. Updates data and cap in place.
 /// # Safety
-/// `header` must point to a valid array header (see `Header`).
+/// `header` must point to a valid array header.
 pub unsafe extern "C" fn array_reserve(header: *mut Header, min_cap: i64, elem_size: i64) {
 	let Header { data, len, cap } = unsafe { *header };
 	if min_cap <= cap {
 		return;
 	}
 	let new_cap = (cap.max(1) * 2).max(min_cap);
-	let new_data = alloc(new_cap * elem_size);
+	let new_data = buffer_alloc(new_cap * elem_size);
 	unsafe {
 		std::ptr::copy_nonoverlapping(data as *const u8, new_data, (len * elem_size) as usize);
 		(*header).data = new_data as i64;
@@ -260,7 +303,7 @@ pub unsafe extern "C" fn array_reserve(header: *mut Header, min_cap: i64, elem_s
 
 /// Append all elements of `src` to `dst`, growing dst's buffer as needed.
 /// # Safety
-/// `dst` and `src` must point to valid array headers (see `Header`).
+/// `dst` and `src` must point to valid array headers.
 pub unsafe extern "C" fn array_extend(dst: *mut Header, src: *const Header, elem_size: i64) {
 	let dst_len = unsafe { (*dst).len };
 	let Header {

@@ -32,6 +32,7 @@ impl<'a> Translator<'a> {
 						(None, Some(target)) => (self.zero(&target), target),
 						(None, None) => unreachable!("binding has neither a type nor a value"),
 					};
+					let val = self.copy_in(val, &typ);
 					let (final_val, cl) = match &typ {
 						Typ::Struct(_, fields) => (self.struct_copy(val, fields), self.int),
 						Typ::FixedArray(elem, n) => (self.fixed_copy(val, elem, *n), self.int),
@@ -58,6 +59,7 @@ impl<'a> Translator<'a> {
 					for (i, ((mutable, name), (_, ftyp))) in names.iter().zip(fields).enumerate() {
 						let cl = cl_type(&ftyp, self.int);
 						let val = self.b.ins().load(cl, MemFlags::new(), ptr, (i * 8) as i32);
+						let val = self.copy_in(val, &ftyp);
 						if *bind {
 							let var = self.b.declare_var(cl);
 							self.b.def_var(var, val);
@@ -91,6 +93,7 @@ impl<'a> Translator<'a> {
 						let dst = self.read_local(&local);
 						self.copy_fields(val, dst, &fields);
 					} else {
+						let val = self.copy_in(val, &typ);
 						self.write_local(&local, val);
 					}
 				}
@@ -123,6 +126,10 @@ impl<'a> Translator<'a> {
 						}
 					};
 					let ptr = self.read_local(&local);
+					// a shared buffer clones before the element write
+					if matches!(local.typ, Typ::Array(_)) {
+						self.cow_array(ptr, &elem);
+					}
 					let idx = self.int_value(index, "array index")?;
 					let idx = self.b.ins().sextend(self.int, idx);
 					let (val, vtyp) = self.expr(value)?;
@@ -133,6 +140,7 @@ impl<'a> Translator<'a> {
 						)
 						.with_label("type mismatch"));
 					}
+					let val = self.copy_in(val, &vtyp);
 					let (data, len) = self.array_parts(ptr, &local.typ);
 					self.store_index(data, len, &elem, idx, val);
 				}
@@ -163,6 +171,8 @@ impl<'a> Translator<'a> {
 					let stride = self.elem_stride(&elem);
 					let size = self.b.ins().iconst(self.int, stride);
 					let ptr = self.read_local(&local);
+					// a shared buffer clones before it grows
+					self.cow_array(ptr, &elem);
 
 					if vtyp == elem {
 						// grow if full, then write the new element and bump len
@@ -263,6 +273,7 @@ impl<'a> Translator<'a> {
 						)
 						.with_label("type mismatch"));
 					}
+					let val = self.copy_in(val, &vtyp);
 					let ptr = self.read_local(&local);
 					self.b.ins().store(MemFlags::new(), val, ptr, (idx * 8) as i32);
 				}
@@ -352,16 +363,13 @@ impl<'a> Translator<'a> {
 			}
 			return Ok(());
 		}
+		let val = self.copy_in(val, &typ);
 		// structs and fixed arrays live on the stack, so copy to heap before returning
 		let final_val = match &typ {
 			Typ::Struct(_, fields) => {
 				let fields = fields.clone();
 				let heap = self.call_alloc(fields.len());
-				for (i, f) in fields.iter().enumerate() {
-					let cl = cl_type(&f.typ, self.int);
-					let fv = self.b.ins().load(cl, MemFlags::new(), val, (i * 8) as i32);
-					self.b.ins().store(MemFlags::new(), fv, heap, (i * 8) as i32);
-				}
+				self.copy_fields(val, heap, &fields);
 				heap
 			}
 			Typ::FixedArray(elem, n) => {
