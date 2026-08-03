@@ -261,3 +261,21 @@ fn match_arm_chain_across_lines() {
 	"};
 	check(src, "9");
 }
+
+#[test]
+fn payload_bind_is_independent_copy() {
+	let src = indoc! {"
+		enum Box { empty has([]int) }
+		b := Box.has([1])
+		mut v := match b {
+			.has(x) => x,
+			.empty => [0],
+		}
+		v << 99
+		match b {
+			.has(x) => x,
+			.empty => [0],
+		}
+	"};
+	check(src, "[1]");
+}

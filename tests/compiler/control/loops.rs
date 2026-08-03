@@ -380,3 +380,17 @@ fn for_tuple_pattern_on_non_tuple() {
 fn for_tuple_pattern_wrong_field_count() {
 	fail_with("loop (x, y, z) in [(1, 2)] { x }", "fields");
 }
+
+#[test]
+fn for_each_bind_is_independent_copy() {
+	let src = indoc! {"
+		outer := [[1], [2]]
+		mut got := [0]
+		loop x in outer {
+			got = x
+		}
+		got << 99
+		outer[1]
+	"};
+	check(src, "[2]");
+}

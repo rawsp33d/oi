@@ -231,6 +231,7 @@ impl<'a> Translator<'a> {
 				let mut fields = Vec::with_capacity(elems.len());
 				for (i, (name, value)) in elems.iter().enumerate() {
 					let (val, typ) = self.expr(value)?;
+					let val = self.copy_in(val, &typ);
 					self.b.ins().store(MemFlags::new(), val, ptr, (i * 8) as i32);
 					fields.push((name.clone(), typ));
 				}

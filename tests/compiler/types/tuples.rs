@@ -189,3 +189,16 @@ fn field_names_are_hints() {
 		"7",
 	);
 }
+
+#[test]
+fn array_slot_is_independent_copy() {
+	check(
+		indoc! {"
+			mut a := [1]
+			t := (a, 0)
+			a << 2
+			t.0
+		"},
+		"[1]",
+	);
+}

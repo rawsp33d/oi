@@ -178,6 +178,7 @@ impl<'a> Translator<'a> {
 					self.cow_array(ptr, &elem);
 
 					if vtyp == elem {
+						let val = self.copy_in(val, &elem);
 						// grow if full, then write the new element and bump len
 						let len = self.array_len(ptr);
 						let cap = self.array_cap(ptr);

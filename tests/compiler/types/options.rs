@@ -159,3 +159,15 @@ fn long_form_matches_shorthand() {
 	"};
 	check(src, "-1");
 }
+
+#[test]
+fn array_payload_is_independent_copy() {
+	let src = indoc! {"
+		fn wrap(a []int) ?[]int { return a }
+		mut a := [1]
+		o := wrap(a)
+		a << 2
+		match o { .some(v) => v, .none => [0] }
+	"};
+	check(src, "[1]");
+}

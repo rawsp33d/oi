@@ -407,6 +407,20 @@ fn copy_is_independent_on_append() {
 }
 
 #[test]
+fn appended_element_is_independent_copy() {
+	check(
+		indoc! {"
+		mut inner := [1]
+		mut outer := [[9]]
+		outer << inner
+		inner << 2
+		outer[1]
+	"},
+		"[1]",
+	);
+}
+
+#[test]
 fn index_assign_copy_forward() {
 	check("mut a := [1, 2, 3]\nb := a\na[0] = 99\nb", "[1, 2, 3]");
 }

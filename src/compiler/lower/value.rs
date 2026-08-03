@@ -201,8 +201,17 @@ impl<'a> Translator<'a> {
 		let ptr = self.call_alloc(slots);
 		let tag = self.b.ins().iconst(self.int, disc);
 		self.b.ins().store(MemFlags::new(), tag, ptr, 0);
+		let payload = variants
+			.iter()
+			.find(|v| v.disc == disc)
+			.map(|v| v.payload.as_slice())
+			.unwrap_or(&[]);
 		for (i, fv) in fields.iter().enumerate() {
-			self.b.ins().store(MemFlags::new(), *fv, ptr, ((i + 1) * 8) as i32);
+			let fv = match payload.get(i) {
+				Some(t) => self.copy_in(*fv, t),
+				None => *fv,
+			};
+			self.b.ins().store(MemFlags::new(), fv, ptr, ((i + 1) * 8) as i32);
 		}
 		ptr
 	}

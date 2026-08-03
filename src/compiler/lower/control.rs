@@ -209,6 +209,7 @@ impl<'a> Translator<'a> {
 						Typ::Array(_) | Typ::FixedArray(..) => s.load_elem(base, *off, typ),
 						_ => s.b.ins().load(cl_type(typ, s.int), MemFlags::new(), base, *off),
 					};
+					let fv = s.copy_in(fv, typ);
 					let var = s.b.declare_var(cl_type(typ, s.int));
 					s.b.def_var(var, fv);
 					s.vars.insert(name.clone(), Local::plain(var, typ.clone(), false));
@@ -571,6 +572,7 @@ impl<'a> Translator<'a> {
 	pub(super) fn bind_pattern(&mut self, pat: &Pattern, val: Value, typ: &Typ, span: Span) -> Result<(), Diagnostic> {
 		match pat {
 			Pattern::Name(name) => {
+				let val = self.copy_in(val, typ);
 				let var = self.b.declare_var(cl_type(typ, self.int));
 				self.b.def_var(var, val);
 				self.vars.insert(name.clone(), Local::plain(var, typ.clone(), false));
@@ -596,6 +598,7 @@ impl<'a> Translator<'a> {
 				}
 				for (i, (name, (_, ftyp))) in names.iter().zip(fields).enumerate() {
 					let fv = self.b.ins().load(cl_type(ftyp, self.int), MemFlags::new(), val, (i * 8) as i32);
+					let fv = self.copy_in(fv, ftyp);
 					let var = self.b.declare_var(cl_type(ftyp, self.int));
 					self.b.def_var(var, fv);
 					self.vars.insert(name.clone(), Local::plain(var, ftyp.clone(), false));
