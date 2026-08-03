@@ -17,6 +17,7 @@ mod functions;
 mod interpolation;
 mod io;
 mod juxts;
+mod memory;
 mod methods;
 mod pipelines;
 mod statements;

@@ -13,12 +13,29 @@ pub fn oi_in(dir: &Path, args: &[&str], stdin: Option<&str>) -> Output {
 	run(Some(dir), args, stdin)
 }
 
+/// Spawn `oi` with env vars.
+#[allow(dead_code)]
+pub fn oi_env(envs: &[(&str, &str)], args: &[&str], stdin: Option<&str>) -> Output {
+	let mut cmd = command(args);
+	cmd.envs(envs.iter().copied());
+	spawn(cmd, stdin)
+}
+
 fn run(dir: Option<&Path>, args: &[&str], stdin: Option<&str>) -> Output {
-	let mut cmd = Command::new(env!("CARGO_BIN_EXE_oi"));
-	cmd.args(args).stdout(Stdio::piped()).stderr(Stdio::piped());
+	let mut cmd = command(args);
 	if let Some(dir) = dir {
 		cmd.current_dir(dir);
 	}
+	spawn(cmd, stdin)
+}
+
+fn command(args: &[&str]) -> Command {
+	let mut cmd = Command::new(env!("CARGO_BIN_EXE_oi"));
+	cmd.args(args).stdout(Stdio::piped()).stderr(Stdio::piped());
+	cmd
+}
+
+fn spawn(mut cmd: Command, stdin: Option<&str>) -> Output {
 	cmd.stdin(if stdin.is_some() { Stdio::piped() } else { Stdio::null() });
 	let mut child = cmd.spawn().unwrap();
 	if let Some(input) = stdin {

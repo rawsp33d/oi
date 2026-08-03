@@ -271,7 +271,10 @@ fn index_assign_variable_index() {
 
 #[test]
 fn index_assign_multiple() {
-	check(["mut a := [0, 0, 0]", "a[0] = 1", "a[1] = 2", "a[2] = 3", "a"], "[1, 2, 3]");
+	check(
+		["mut a := [0, 0, 0]", "a[0] = 1", "a[1] = 2", "a[2] = 3", "a"],
+		"[1, 2, 3]",
+	);
 }
 
 #[test]
@@ -337,7 +340,10 @@ fn append_strings() {
 #[test]
 fn append_grows_past_initial_cap() {
 	// initial cap == len == 2; force multiple doublings
-	check(["mut a := [1, 2]", "a << 3", "a << 4", "a << 5", "a"], "[1, 2, 3, 4, 5]");
+	check(
+		["mut a := [1, 2]", "a << 3", "a << 4", "a << 5", "a"],
+		"[1, 2, 3, 4, 5]",
+	);
 }
 
 #[test]

@@ -71,3 +71,26 @@ pub(crate) fn check(src: impl Lines, expected: impl Lines) {
 	let src = src.text();
 	assert_eq!(run(&src), expected.text(), "\nsrc:\n{src}");
 }
+
+/// Run under the leak checker, returning the live-allocation count at exit.
+pub(crate) fn leaks(src: impl Lines) -> i64 {
+	let src = src.text();
+	let out = crate::support::oi_env(&[("OI_LEAK_CHECK", "1")], &["exec"], Some(&src));
+	assert!(
+		out.status.success(),
+		"src:\n{src}\nstderr:\n{}",
+		String::from_utf8_lossy(&out.stderr)
+	);
+	let err = String::from_utf8_lossy(&out.stderr).to_string();
+	let count = err
+		.lines()
+		.find_map(|l| l.strip_prefix("leaked allocations: "))
+		.unwrap_or_else(|| panic!("no leak report\nsrc:\n{src}\nstderr:\n{err}"));
+	count.parse().unwrap()
+}
+
+/// Run and assert every allocation was freed.
+pub(crate) fn assert_clean(src: impl Lines) {
+	let src = src.text();
+	assert_eq!(leaks(&src), 0, "leaked\nsrc:\n{src}");
+}
