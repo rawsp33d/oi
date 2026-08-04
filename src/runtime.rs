@@ -18,6 +18,7 @@ pub const MAP_RELEASE: &str = "oi_map_release";
 pub const WRITE: &str = "oi_write";
 pub const WRITE_SEP: &str = "oi_write_sep";
 pub const SLICE: &str = "oi_slice";
+pub const ARRAY_WRITE_BACK: &str = "oi_array_write_back";
 pub const PANIC_OOB: &str = "oi_panic_oob";
 pub const ARRAY_RESERVE: &str = "oi_array_reserve";
 pub const ARRAY_EXTEND: &str = "oi_array_extend";
@@ -330,6 +331,21 @@ pub unsafe extern "C" fn slice(header: *const Header, start: i64, end: i64, elem
 		};
 	}
 	out
+}
+
+/// Write a `mut` slice projection back into its parent buffer at `lo`.
+/// # Safety
+/// `parent` and `src` must point to valid array headers.
+pub unsafe extern "C" fn array_write_back(parent: *mut Header, lo: i64, len: i64, src: *const Header, elem_size: i64) {
+	let Header { data, len: slen, .. } = unsafe { *src };
+	if slen != len {
+		eprintln!("projection changed length: expected {len} elements, got {slen}");
+		std::process::abort();
+	}
+	unsafe {
+		let dst = ((*parent).data + lo * elem_size) as *mut u8;
+		std::ptr::copy_nonoverlapping(data as *const u8, dst, (len * elem_size) as usize);
+	}
 }
 
 /// Ensure the array has capacity for at least `min_cap` elements.

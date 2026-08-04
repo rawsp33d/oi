@@ -357,38 +357,7 @@ impl<'a> Translator<'a> {
 			}
 
 			Expr::Slice { collection, start, end } => {
-				let (ptr, typ) = self.array_operand(collection, "slice")?;
-				if let Typ::FixedArray(..) = typ {
-					return Err(Diagnostic::new(
-						"slicing fixed arrays is not supported yet",
-						collection.1.into_range(),
-					)
-					.with_label("only dynamic arrays can be sliced for now"));
-				}
-				let elem = array_elem(&typ).clone();
-				let start = match start {
-					Some(e) => {
-						let v = self.int_value(e, "slice start")?;
-						self.b.ins().sextend(self.int, v)
-					}
-					None => self.b.ins().iconst(self.int, 0),
-				};
-				let end = match end {
-					Some(e) => {
-						let v = self.int_value(e, "slice end")?;
-						self.b.ins().sextend(self.int, v)
-					}
-					None => self.array_len(ptr),
-				};
-				let stride = self.elem_stride(&elem);
-				let size = self.b.ins().iconst(self.int, stride);
-				let func = self.import_fn(
-					runtime::SLICE,
-					&[self.int, self.int, self.int, self.int],
-					Some(self.int),
-				);
-				let call = self.b.ins().call(func, &[ptr, start, end, size]);
-				let out = self.b.inst_results(call)[0];
+				let (out, _, elem) = self.slice_copy(collection, start, end)?;
 				let typ = Typ::Array(Box::new(elem));
 				self.temp(out, &typ);
 				Ok((out, typ))

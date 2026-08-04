@@ -101,6 +101,42 @@ impl<'a> Translator<'a> {
 		}
 	}
 
+	// Evaluate slice into a fresh copy.
+	pub(super) fn slice_copy(
+		&mut self,
+		collection: &Spanned<Expr>,
+		start: &Option<Box<Spanned<Expr>>>,
+		end: &Option<Box<Spanned<Expr>>>,
+	) -> Result<(Value, Value, Typ), Diagnostic> {
+		let (ptr, typ) = self.array_operand(collection, "slice")?;
+		if let Typ::FixedArray(..) = typ {
+			return Err(
+				Diagnostic::new("slicing fixed arrays is not supported yet", collection.1.into_range())
+					.with_label("only dynamic arrays can be sliced for now"),
+			);
+		}
+		let elem = array_elem(&typ).clone();
+		let lo = match start {
+			Some(e) => {
+				let v = self.int_value(e, "slice start")?;
+				self.b.ins().sextend(self.int, v)
+			}
+			None => self.b.ins().iconst(self.int, 0),
+		};
+		let hi = match end {
+			Some(e) => {
+				let v = self.int_value(e, "slice end")?;
+				self.b.ins().sextend(self.int, v)
+			}
+			None => self.array_len(ptr),
+		};
+		let stride = self.elem_stride(&elem);
+		let size = self.b.ins().iconst(self.int, stride);
+		let func = self.import_fn(runtime::SLICE, &[self.int; 4], Some(self.int));
+		let call = self.b.ins().call(func, &[ptr, lo, hi, size]);
+		Ok((self.b.inst_results(call)[0], lo, elem))
+	}
+
 	// (data pointer, length) for an array.
 	pub(super) fn array_parts(&mut self, val: Value, typ: &Typ) -> (Value, Value) {
 		match typ {

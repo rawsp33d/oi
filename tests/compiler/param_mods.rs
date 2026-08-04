@@ -99,6 +99,30 @@ fn mut_self_on_mut_binding() {
 }
 
 #[test]
+fn slice_projection_element_write() {
+	check(
+		indoc! {"
+			fn set(mut a []int) { a[0] = 9 }
+			mut xs := [1, 2, 3, 4]
+			set(mut xs[1..3])
+			xs
+		"},
+		"[1, 9, 3, 4]",
+	);
+}
+
+#[test]
+fn slice_projection_is_leak_free() {
+	// the callee frees the copy, the caller frees its replacement
+	assert_clean(indoc! {"
+		fn swap(mut a []int) { a = [7, 8] }
+		mut xs := [1, 2, 3, 4]
+		swap(mut xs[1..3])
+		print(xs)
+	"});
+}
+
+#[test]
 fn inout_is_leak_free() {
 	assert_clean(indoc! {"
 		fn push9(mut xs []int) { xs << 9 }
@@ -185,6 +209,42 @@ fn mut_self_needs_mut_binding() {
 			c.bump()
 		"},
 		"needs a `mut` binding",
+	);
+}
+
+#[test]
+fn slice_projection_length_change_panics() {
+	fail_with(
+		indoc! {"
+			fn grow(mut a []int) { a = [7, 8, 9] }
+			mut xs := [1, 2, 3, 4]
+			grow(mut xs[1..3])
+		"},
+		"projection changed length",
+	);
+}
+
+#[test]
+fn slice_projection_exclusivity() {
+	fail_with(
+		indoc! {"
+			fn f(mut a []int, b int) {}
+			mut xs := [1, 2, 3]
+			f(mut xs[1..3], xs[0])
+		"},
+		"while it is lent `mut`",
+	);
+}
+
+#[test]
+fn slice_projection_immutable_base_rejected() {
+	fail_with(
+		indoc! {"
+			fn f(mut a []int) {}
+			xs := [1, 2, 3]
+			f(mut xs[1..3])
+		"},
+		"declared without `mut`",
 	);
 }
 

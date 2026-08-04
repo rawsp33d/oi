@@ -8,6 +8,12 @@ pub(super) fn mut_inner(arg: &Spanned<Expr>) -> &Spanned<Expr> {
 	}
 }
 
+// What a mut arg lends to a callee.
+pub(super) enum Lent {
+	Whole(Local),
+	Slice { parent: Local, lo: Value, len: Value },
+}
+
 impl<'a> Translator<'a> {
 	pub(super) fn import_fn(
 		&mut self,
@@ -59,9 +65,9 @@ impl<'a> Translator<'a> {
 		for (arg, &is_mut) in args.iter().zip(&sig.muts[self_n..]) {
 			let want = expected.next().unwrap();
 			let (val, typ) = if is_mut {
-				let (slot, local) = self.lend_mut(mut_inner(arg))?;
-				lent.push((local.clone(), slot));
-				(slot, local.typ)
+				let (slot, typ, entry) = self.lend_mut(mut_inner(arg))?;
+				lent.push((slot, entry));
+				(slot, typ)
 			} else {
 				self.check_expr(mut_inner(arg), want)?
 			};
@@ -78,22 +84,46 @@ impl<'a> Translator<'a> {
 		Ok(out)
 	}
 
-	// Pass the address of the caller's binding, reload after the call.
-	pub(super) fn lend_mut(&mut self, inner: &Spanned<Expr>) -> Result<(Value, Local), Diagnostic> {
-		let Expr::Ident(name) = &inner.0 else {
-			unreachable!("check_muts admits only idents")
+	// Pass the address of the caller's binding.
+	pub(super) fn lend_mut(&mut self, inner: &Spanned<Expr>) -> Result<(Value, Typ, Lent), Diagnostic> {
+		let (cur, typ, entry) = match &inner.0 {
+			Expr::Slice { collection, start, end } => {
+				let Expr::Ident(name) = &collection.0 else {
+					unreachable!("check_muts admits only ident-based slices")
+				};
+				let parent = self.local(name, collection.1.into_range())?;
+				let (copy, lo, elem) = self.slice_copy(collection, start, end)?;
+				let len = self.array_len(copy);
+				(copy, Typ::Array(Box::new(elem)), Lent::Slice { parent, lo, len })
+			}
+			Expr::Ident(name) => {
+				let local = self.local(name, inner.1.into_range())?;
+				(self.read_local(&local), local.typ.clone(), Lent::Whole(local))
+			}
+			_ => unreachable!("check_muts admits only idents and ident-based slices"),
 		};
-		let local = self.local(name, inner.1.into_range())?;
-		let cur = self.read_local(&local);
 		let slot = self.stack_slot(8);
 		self.b.ins().store(MemFlags::new(), cur, slot, 0);
-		Ok((slot, local))
+		Ok((slot, typ, entry))
 	}
 
-	pub(super) fn reload_lent(&mut self, lent: &[(Local, Value)]) {
-		for (local, slot) in lent {
+	// After a call, reload a binding.
+	pub(super) fn reload_lent(&mut self, lent: &[(Value, Lent)]) {
+		for (slot, entry) in lent {
 			let val = self.b.ins().load(self.int, MemFlags::new(), *slot, 0);
-			self.write_local(local, val);
+			match entry {
+				Lent::Whole(local) => self.write_local(local, val),
+				Lent::Slice { parent, lo, len } => {
+					let elem = array_elem(&parent.typ).clone();
+					let base = self.read_local(parent);
+					self.cow_array(base, &elem);
+					let stride = self.elem_stride(&elem);
+					let size = self.b.ins().iconst(self.int, stride);
+					let func = self.import_fn(runtime::ARRAY_WRITE_BACK, &[self.int; 5], None);
+					self.b.ins().call(func, &[base, *lo, *len, val, size]);
+					self.release_value(val, &parent.typ);
+				}
+			}
 		}
 	}
 
@@ -111,7 +141,12 @@ impl<'a> Translator<'a> {
 		}
 		for (i, (arg, &m)) in args.iter().zip(&muts[recv.is_some() as usize..]).enumerate() {
 			let name = match (&arg.0, m) {
-				(Expr::MutArg(inner), true) => self.mut_place(inner, "only a mutable binding can be lent `mut`")?,
+				(Expr::MutArg(inner), true) => match &inner.0 {
+					Expr::Slice { collection, .. } => {
+						self.mut_place(collection, "only a mutable binding can be lent `mut`")?
+					}
+					_ => self.mut_place(inner, "only a mutable binding can be lent `mut`")?,
+				},
 				(Expr::MutArg(_), false) => {
 					return Err(Diagnostic::new("this parameter is not `mut`", arg.1.into_range())
 						.with_label("remove `mut` here"));

@@ -183,6 +183,7 @@ impl Default for Compiler {
 		builder.symbol(runtime::WRITE, runtime::write as *const u8);
 		builder.symbol(runtime::WRITE_SEP, runtime::write_sep as *const u8);
 		builder.symbol(runtime::SLICE, runtime::slice as *const u8);
+		builder.symbol(runtime::ARRAY_WRITE_BACK, runtime::array_write_back as *const u8);
 		builder.symbol(runtime::PANIC_OOB, runtime::panic_oob as *const u8);
 		builder.symbol(runtime::ARRAY_RESERVE, runtime::array_reserve as *const u8);
 		builder.symbol(runtime::ARRAY_EXTEND, runtime::array_extend as *const u8);

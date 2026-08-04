@@ -106,9 +106,9 @@ impl<'a> Translator<'a> {
 		let mut lent = Vec::new();
 		for (arg, param) in args.iter().zip(declared) {
 			let (val, typ) = if param.mutable {
-				let (slot, local) = self.lend_mut(mut_inner(arg))?;
-				lent.push((local.clone(), slot));
-				(slot, local.typ)
+				let (slot, typ, entry) = self.lend_mut(mut_inner(arg))?;
+				lent.push((slot, entry));
+				(slot, typ)
 			} else {
 				self.expr(mut_inner(arg))?
 			};
