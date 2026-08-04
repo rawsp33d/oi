@@ -251,12 +251,60 @@ fn closure_cannot_be_stored_in_a_struct_field() {
 }
 
 #[test]
-fn move_capture_cannot_escape_yet() {
+fn move_capture_escapes_via_return() {
 	let src = indoc! {"
-		n := 10
-		arr := [fn [move n] () int { n }]
+		fn make() {
+			xs := [7]
+			return fn [move xs] () int { xs[0] }
+		}
+		f := make()
+		f()
 	"};
-	fail_with(src, "borrows its captures, so it can't be stored in an array");
+	check(src, "7");
+}
+
+#[test]
+fn move_capture_kills_the_name() {
+	let src = indoc! {"
+		xs := [7]
+		f := fn [move xs] () int { xs[0] }
+		print(xs)
+	"};
+	fail_with(src, "undefined variable");
+}
+
+#[test]
+fn mixed_move_and_read_only_capture_still_borrows() {
+	let src = indoc! {"
+		a := [1]
+		b := 2
+		arr := [fn [move a, b] () int { a[0] + b }]
+	"};
+	fail_with(src, "borrows its captures");
+}
+
+#[test]
+fn move_capture_of_fn_param_is_borrowed() {
+	let src = indoc! {"
+		fn make(xs []int) fn() int {
+			fn [move xs] () int { xs[0] }
+		}
+		make([1])
+	"};
+	fail_with(src, "cannot move `xs`, it is borrowed here");
+}
+
+#[test]
+fn move_capture_inside_loop_of_outer_binding() {
+	let src = indoc! {"
+		xs := [1]
+		mut i := 0
+		loop i < 2 {
+			f := fn [move xs] () int { xs[0] }
+			i = i + 1
+		}
+	"};
+	fail_with(src, "cannot move `xs` out of the enclosing loop");
 }
 
 #[test]

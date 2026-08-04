@@ -29,7 +29,7 @@ pub(crate) enum Typ {
 	Error,
 	Range,
 	Fn(Vec<Typ>, Box<Typ>),
-	Closure(Vec<Typ>, Box<Typ>),
+	Closure(Vec<Typ>, Box<Typ>, bool),
 	Map(Box<Typ>, Box<Typ>),
 	Mut(Box<Typ>),
 }
@@ -96,7 +96,7 @@ impl fmt::Display for Typ {
 			}
 			Typ::Error => write!(f, "Error"),
 			Typ::Range => write!(f, "range"),
-			Typ::Fn(params, ret) | Typ::Closure(params, ret) => {
+			Typ::Fn(params, ret) | Typ::Closure(params, ret, _) => {
 				write!(f, "fn(")?;
 				for (i, p) in params.iter().enumerate() {
 					if i > 0 {
@@ -133,7 +133,7 @@ impl PartialEq for Typ {
 			}
 			(Typ::FixedArray(a, n), Typ::FixedArray(b, m)) => a == b && n == m,
 			(Typ::Sum(a), Typ::Sum(b)) => a == b,
-			(Typ::Fn(p, r), Typ::Fn(q, s)) | (Typ::Closure(p, r), Typ::Closure(q, s)) => p == q && r == s,
+			(Typ::Fn(p, r), Typ::Fn(q, s)) | (Typ::Closure(p, r, _), Typ::Closure(q, s, _)) => p == q && r == s,
 			(Typ::Map(k, v), Typ::Map(l, w)) => k == l && v == w,
 			(Typ::Mut(a), Typ::Mut(b)) => a == b,
 			_ => std::mem::discriminant(self) == std::mem::discriminant(other),

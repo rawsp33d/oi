@@ -25,6 +25,7 @@ impl<'a> Translator<'a> {
 				&inferred
 			}
 		};
+		let owns = !captures.is_empty() && captures.iter().all(|c| matches!(c, Capture::Move(_)));
 		let mut resolved = Vec::with_capacity(captures.len());
 		for c in captures {
 			let (name, boxed) = match c {
@@ -32,10 +33,10 @@ impl<'a> Translator<'a> {
 				Capture::ReadOnly(name) | Capture::Move(name) => (name, false),
 			};
 			let local = self.local(name, span.into_range())?;
-			let val = if boxed {
-				self.box_local(name, &local, span.into_range())?
-			} else {
-				self.read_local(&local)
+			let val = match c {
+				Capture::Mut(_) => self.box_local(name, &local, span.into_range())?,
+				Capture::Move(_) => self.move_local(name, &local, span.into_range())?,
+				Capture::ReadOnly(_) => self.read_local(&local),
 			};
 			resolved.push((name.clone(), local.typ, boxed, val));
 		}
@@ -66,7 +67,7 @@ impl<'a> Translator<'a> {
 		for (i, (_, _, _, val)) in resolved.iter().enumerate() {
 			self.b.ins().store(MemFlags::new(), *val, env, ((i + 1) * 8) as i32);
 		}
-		Ok((env, Typ::Closure(params, Box::new(sig.ret))))
+		Ok((env, Typ::Closure(params, Box::new(sig.ret), owns)))
 	}
 }
 

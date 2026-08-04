@@ -58,8 +58,33 @@ impl<'a> Translator<'a> {
 		}
 	}
 
+	// Transfer ownership of a local binding into a closure that will own it.
+	pub(super) fn move_local(&mut self, name: &str, local: &Local, span: Range<usize>) -> Result<Value, Diagnostic> {
+		if releasable(&local.typ) {
+			let depth = self
+				.scopes
+				.iter()
+				.position(|s| s.iter().any(|(v, _)| *v == local.var))
+				.ok_or_else(|| {
+					Diagnostic::new(format!("cannot move `{name}`, it is borrowed here"), span.clone())
+						.with_label("only an owned binding can be moved")
+				})?;
+			if let Some(frame) = self.loops.last()
+				&& depth < frame.depth
+			{
+				return Err(
+					Diagnostic::new(format!("cannot move `{name}` out of the enclosing loop"), span)
+						.with_label("would be moved again on the next iteration"),
+				);
+			}
+			self.scopes[depth].retain(|(v, _)| *v != local.var);
+		}
+		self.vars.remove(name);
+		Ok(self.read_local(local))
+	}
+
 	// A bind takes its own copy.
-	// Structs deep-copy, handles bump.
+	// Structs deep-copy and handles bump.
 	pub(super) fn copy_bind(&mut self, val: Value, typ: &Typ) -> Value {
 		match typ {
 			Typ::Struct(_, fields) => {

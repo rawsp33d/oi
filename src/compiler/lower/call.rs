@@ -209,7 +209,7 @@ impl<'a> Translator<'a> {
 	) -> Result<TypedVal, Diagnostic> {
 		let (addr, env, params, ret) = match typ {
 			Typ::Fn(params, ret) => (callee, None, params, &**ret),
-			Typ::Closure(params, ret) => {
+			Typ::Closure(params, ret, _) => {
 				let addr = self.b.ins().load(self.int, MemFlags::new(), callee, 0);
 				(addr, Some(callee), params, &**ret)
 			}
