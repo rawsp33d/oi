@@ -759,7 +759,7 @@ impl<'a> Translator<'a> {
 	}
 
 	// A stack slot's base address.
-	fn stack_slot(&mut self, size: u32) -> Value {
+	pub(super) fn stack_slot(&mut self, size: u32) -> Value {
 		let slot = self
 			.b
 			.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, size, 0));

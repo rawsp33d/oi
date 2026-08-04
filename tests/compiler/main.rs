@@ -19,6 +19,7 @@ mod io;
 mod juxts;
 mod memory;
 mod methods;
+mod param_mods;
 mod pipelines;
 mod statements;
 mod str_method;

@@ -450,10 +450,14 @@ where
 			.then_ignore(just(Token::Colon))
 			.then(expr.clone())
 			.map(|(key, value)| (Some(key), value));
+		// arg mods
+		let mut_arg = just(Token::Mut)
+			.ignore_then(expr.clone())
+			.map_with(|e, ex| (Expr::MutArg(Box::new(e)), ex.span()));
 		// variable vs. call vs. struct literal
 		let args = paren(
 			named_arg
-				.or(expr.clone().map(|e| (None, e)))
+				.or(mut_arg.or(expr.clone()).map(|e| (None, e)))
 				.separated_by(just(Token::Comma))
 				.allow_trailing()
 				.collect::<Vec<_>>(),

@@ -417,7 +417,21 @@ impl TypeCtx<'_> {
 	pub fn resolve_params(&self, params: &[Param]) -> Result<Vec<(String, Typ, bool)>, Diagnostic> {
 		params
 			.iter()
-			.map(|p| Ok((p.name.clone(), self.resolve(&p.typ, p.span)?, p.mutable)))
+			.map(|p| {
+				let typ = self.resolve(&p.typ, p.span)?;
+				if p.mutable
+					&& !matches!(
+						typ,
+						Typ::Array(_) | Typ::FixedArray(..) | Typ::Map(..) | Typ::Struct(..) | Typ::TupleStruct(..)
+					) {
+					return Err(Diagnostic::new(
+						"`mut` parameters must be arrays, maps, or structs for now",
+						p.span.into_range(),
+					)
+					.with_label(format!("{typ} has no address to lend")));
+				}
+				Ok((p.name.clone(), typ, p.mutable))
+			})
 			.collect()
 	}
 

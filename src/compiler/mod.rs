@@ -34,6 +34,7 @@ type EnumItem<'a> = (&'a str, Option<&'a Spanned<TypeExpr>>, &'a [EnumVariant]);
 pub(crate) struct FnSig {
 	pub id: FuncId,
 	pub params: Vec<Typ>,
+	pub muts: Vec<bool>,
 	pub ret: Typ,
 }
 
@@ -487,6 +488,7 @@ impl Compiler {
 				FnSig {
 					id,
 					params: param_typs,
+					muts: item.params.iter().map(|p| p.mutable).collect(),
 					ret,
 				},
 			);
@@ -515,11 +517,13 @@ impl Compiler {
 			)?;
 			let id = self.finish_fn(&sym);
 			let param_typs = params.iter().map(|(_, t, _)| t.clone()).collect();
+			let muts = params.iter().map(|(_, _, m)| *m).collect();
 			funcs.insert(
 				item.key.clone(),
 				FnSig {
 					id,
 					params: param_typs,
+					muts,
 					ret,
 				},
 			);
@@ -718,7 +722,12 @@ impl Compiler {
 			let cl = trans.b.func.dfg.value_type(val);
 			let var = trans.b.declare_var(cl);
 			trans.b.def_var(var, val);
-			let local = Local::plain(var, typ.clone(), *mutable);
+			let local = Local {
+				var,
+				typ: typ.clone(),
+				mutable: *mutable,
+				boxed: *mutable && name != "self",
+			};
 			trans.vars.insert(name.clone(), local.clone());
 			trans.params.push(local);
 		}

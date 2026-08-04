@@ -78,6 +78,8 @@ pub enum Expr {
 		args: Vec<Spanned<Expr>>,
 	},
 
+	MutArg(Box<Spanned<Expr>>),
+
 	MethodCall {
 		recv: Box<Spanned<Expr>>,
 		method: String,

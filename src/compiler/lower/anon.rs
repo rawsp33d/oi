@@ -71,7 +71,7 @@ fn free_vars(body: &[Spanned<Expr>]) -> HashSet<String> {
 	out
 }
 
-fn collect(expr: &Expr, out: &mut HashSet<String>) {
+pub(super) fn collect(expr: &Expr, out: &mut HashSet<String>) {
 	use Expr::*;
 	if let Ident(name) = expr {
 		out.insert(name.clone());
@@ -101,7 +101,7 @@ fn collect(expr: &Expr, out: &mut HashSet<String>) {
 			child(recv);
 			args.iter().for_each(&mut child);
 		}
-		Return(Some(v)) | Negative(v) | Not(v) | Propagate(v) => child(v),
+		Return(Some(v)) | Negative(v) | Not(v) | Propagate(v) | MutArg(v) => child(v),
 		If { cond, then, els } => {
 			child(cond);
 			then.iter().for_each(&mut child);

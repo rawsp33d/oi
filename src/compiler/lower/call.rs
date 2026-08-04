@@ -1,5 +1,13 @@
 use super::*;
 
+// Unwrap a mutable call arg.
+pub(super) fn mut_inner(arg: &Spanned<Expr>) -> &Spanned<Expr> {
+	match &arg.0 {
+		Expr::MutArg(inner) => inner,
+		_ => arg,
+	}
+}
+
 impl<'a> Translator<'a> {
 	pub(super) fn import_fn(
 		&mut self,
@@ -24,6 +32,7 @@ impl<'a> Translator<'a> {
 		name: &str,
 		sig: FnSig,
 		recv: Option<Value>,
+		recv_expr: Option<&Spanned<Expr>>,
 		args: &[Spanned<Expr>],
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
@@ -39,15 +48,23 @@ impl<'a> Translator<'a> {
 			)
 			.with_label("wrong number of arguments"));
 		}
+		self.check_muts(&sig.muts, recv_expr, args)?;
 		let mut vals = Vec::with_capacity(args.len() + self_n);
+		let mut lent = Vec::new();
 		let mut expected = sig.params.iter();
 		if let Some(recv) = recv {
 			expected.next();
 			vals.push(recv);
 		}
-		for arg in args {
+		for (arg, &is_mut) in args.iter().zip(&sig.muts[self_n..]) {
 			let want = expected.next().unwrap();
-			let (val, typ) = self.check_expr(arg, want)?;
+			let (val, typ) = if is_mut {
+				let (slot, local) = self.lend_mut(mut_inner(arg))?;
+				lent.push((local.clone(), slot));
+				(slot, local.typ)
+			} else {
+				self.check_expr(mut_inner(arg), want)?
+			};
 			if &typ != want {
 				return Err(
 					Diagnostic::new(format!("expected {want} argument, got {typ}"), arg.1.into_range())
@@ -56,7 +73,80 @@ impl<'a> Translator<'a> {
 			}
 			vals.push(val);
 		}
-		Ok(self.emit_call(&sig, &vals))
+		let out = self.emit_call(&sig, &vals);
+		self.reload_lent(&lent);
+		Ok(out)
+	}
+
+	// Pass the address of the caller's binding, reload after the call.
+	pub(super) fn lend_mut(&mut self, inner: &Spanned<Expr>) -> Result<(Value, Local), Diagnostic> {
+		let Expr::Ident(name) = &inner.0 else {
+			unreachable!("check_muts admits only idents")
+		};
+		let local = self.local(name, inner.1.into_range())?;
+		let cur = self.read_local(&local);
+		let slot = self.stack_slot(8);
+		self.b.ins().store(MemFlags::new(), cur, slot, 0);
+		Ok((slot, local))
+	}
+
+	pub(super) fn reload_lent(&mut self, lent: &[(Local, Value)]) {
+		for (local, slot) in lent {
+			let val = self.b.ins().load(self.int, MemFlags::new(), *slot, 0);
+			self.write_local(local, val);
+		}
+	}
+
+	// Callsite mut checks.
+	pub(super) fn check_muts(
+		&self,
+		muts: &[bool],
+		recv: Option<&Spanned<Expr>>,
+		args: &[Spanned<Expr>],
+	) -> Result<(), Diagnostic> {
+		if let Some(re) = recv
+			&& muts[0]
+		{
+			self.mut_place(re, "calling a `mut self` method needs a `mut` binding")?;
+		}
+		for (i, (arg, &m)) in args.iter().zip(&muts[recv.is_some() as usize..]).enumerate() {
+			let name = match (&arg.0, m) {
+				(Expr::MutArg(inner), true) => self.mut_place(inner, "only a mutable binding can be lent `mut`")?,
+				(Expr::MutArg(_), false) => {
+					return Err(Diagnostic::new("this parameter is not `mut`", arg.1.into_range())
+						.with_label("remove `mut` here"));
+				}
+				(_, true) => {
+					return Err(Diagnostic::new(
+						"this parameter is `mut`, missing `mut` at the callsite",
+						arg.1.into_range(),
+					)
+					.with_label("wrap it, e.g. `f(mut x)`"));
+				}
+				_ => continue,
+			};
+			let mut touched = HashSet::new();
+			let others = args.iter().enumerate().filter(|&(j, _)| j != i).map(|(_, a)| a);
+			for e in recv.into_iter().chain(others) {
+				super::anon::collect(&e.0, &mut touched);
+			}
+			if touched.contains(name) {
+				let msg = format!("cannot use `{name}` while it is lent `mut`");
+				return Err(Diagnostic::new(msg, arg.1.into_range()).with_label("borrowed exclusively for this call"));
+			}
+		}
+		Ok(())
+	}
+
+	// Require a mutable binding place.
+	fn mut_place<'e>(&self, e: &'e Spanned<Expr>, msg: &str) -> Result<&'e String, Diagnostic> {
+		let Expr::Ident(name) = &e.0 else {
+			return Err(Diagnostic::new(msg, e.1.into_range()).with_label("not a binding"));
+		};
+		if !self.local(name, e.1.into_range())?.mutable {
+			return Err(Diagnostic::new(msg, e.1.into_range()).with_label("declared without `mut`"));
+		}
+		Ok(name)
 	}
 
 	// Emit the actual call instruction for a resolved fn signature.
@@ -82,6 +172,10 @@ impl<'a> Translator<'a> {
 		recv: Option<Value>,
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
+		if let Some(bad) = args.iter().find(|a| matches!(a.0, Expr::MutArg(_))) {
+			let msg = "`mut` arguments aren't supported through fn values yet";
+			return Err(Diagnostic::new(msg, bad.1.into_range()).with_label("no mutability info for this call"));
+		}
 		let (addr, env, params, ret) = match typ {
 			Typ::Fn(params, ret) => (callee, None, params, &**ret),
 			Typ::Closure(params, ret) => {

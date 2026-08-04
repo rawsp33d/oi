@@ -1,3 +1,4 @@
+use super::call::mut_inner;
 use super::*;
 use crate::ast::TypeParam;
 
@@ -62,7 +63,7 @@ impl<'a> Translator<'a> {
 		def: &GenericFnDef,
 		type_args: &[Spanned<TypeExpr>],
 		args: &[Spanned<Expr>],
-		recv: Option<TypedVal>,
+		recv: Option<(TypedVal, &Spanned<Expr>)>,
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
 		let self_n = recv.is_some() as usize;
@@ -77,6 +78,8 @@ impl<'a> Translator<'a> {
 			)
 			.with_label("wrong number of arguments"));
 		}
+		let muts: Vec<bool> = def.params.iter().map(|p| p.mutable).collect();
+		self.check_muts(&muts, recv.as_ref().map(|(_, e)| *e), args)?;
 		let mut subst = HashMap::new();
 		if !type_args.is_empty() && type_args.len() != def.type_params.len() {
 			return Err(Diagnostic::new(
@@ -94,14 +97,21 @@ impl<'a> Translator<'a> {
 		}
 		let mut vals = Vec::with_capacity(args.len() + self_n);
 		let mut declared = def.params.iter();
-		if let Some((rval, rtyp)) = &recv {
+		if let Some(((rval, rtyp), _)) = &recv {
 			let rparam = declared.next().unwrap();
 			unify(&rparam.typ, rtyp, &def.type_params, &mut subst, self.generics)
 				.map_err(|msg| Diagnostic::new(msg, span.into_range()).with_label("type mismatch"))?;
 			vals.push(*rval);
 		}
+		let mut lent = Vec::new();
 		for (arg, param) in args.iter().zip(declared) {
-			let (val, typ) = self.expr(arg)?;
+			let (val, typ) = if param.mutable {
+				let (slot, local) = self.lend_mut(mut_inner(arg))?;
+				lent.push((local.clone(), slot));
+				(slot, local.typ)
+			} else {
+				self.expr(mut_inner(arg))?
+			};
 			unify(&param.typ, &typ, &def.type_params, &mut subst, self.generics)
 				.map_err(|msg| Diagnostic::new(msg, arg.1.into_range()).with_label("type mismatch"))?;
 			vals.push(val);
@@ -114,7 +124,9 @@ impl<'a> Translator<'a> {
 			.with_label("not determined by any argument"));
 		}
 		let sig = self.declare_instance(name, def, subst, span)?;
-		Ok(self.emit_call(&sig, &vals))
+		let out = self.emit_call(&sig, &vals);
+		self.reload_lent(&lent);
+		Ok(out)
 	}
 
 	// Declare a monomorphed instance's signature, reusing a prior one if it exists.
@@ -163,6 +175,7 @@ impl<'a> Translator<'a> {
 			.expect("declare function");
 		let fn_sig = FnSig {
 			id,
+			muts: params.iter().map(|(_, _, m)| *m).collect(),
 			params: params.into_iter().map(|(_, t, _)| t).collect(),
 			ret,
 		};

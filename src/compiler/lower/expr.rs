@@ -28,6 +28,11 @@ impl<'a> Translator<'a> {
 					.with_note("qualify it (ex: `?int(none)`)"),
 			),
 
+			Expr::MutArg(_) => Err(
+				Diagnostic::new("`mut` is only allowed on call arguments", expr.1.into_range())
+					.with_label("not a call argument"),
+			),
+
 			Expr::OptionInit { inner: (te, span), arg } => {
 				let inner_typ = self.types().resolve(te, *span)?;
 				let variants = option_variants(&inner_typ);
@@ -130,7 +135,7 @@ impl<'a> Translator<'a> {
 				match self.builtin_call(name, args, expr.1)? {
 					Some(result) => Ok(result),
 					None => match self.funcs.get(name).cloned() {
-						Some(sig) => self.call_sig(name, sig, None, args, expr.1),
+						Some(sig) => self.call_sig(name, sig, None, None, args, expr.1),
 						None => match self.generic_fns.get(name).cloned() {
 							Some(def) => self.call_generic(name, &def, type_args, args, None, expr.1),
 							None if matches!(self.aliases.get(name.as_str()), Some(TypeExpr::TupleStruct(..))) => {
@@ -159,7 +164,7 @@ impl<'a> Translator<'a> {
 				}
 
 				// method call is static when `recv` names a struct
-				let (sname, recv) = if let Expr::Ident(name) = &recv.0
+				let (sname, bound) = if let Expr::Ident(name) = &recv.0
 					&& !self.vars.contains_key(name)
 					&& (self.structs.contains_key(name)
 						|| matches!(self.aliases.get(name.as_str()), Some(TypeExpr::TupleStruct(..))))
@@ -202,17 +207,18 @@ impl<'a> Translator<'a> {
 						}
 					}
 				};
+				let recv_expr = bound.is_some().then(|| recv.as_ref());
 				let key = format!("{sname}.{method}");
 				if let Some(sig) = self.funcs.get(&key).cloned() {
-					return self.call_sig(&key, sig, recv.map(|(v, _)| v), args, expr.1);
+					return self.call_sig(&key, sig, bound.map(|(v, _)| v), recv_expr, args, expr.1);
 				}
 				let gkey = format!("{}.{method}", sname.split('[').next().unwrap());
 				if let Some(def) = self.generic_fns.get(&gkey).cloned() {
-					return self.call_generic(&gkey, &def, &[], args, recv, expr.1);
+					return self.call_generic(&gkey, &def, &[], args, bound.zip(recv_expr), expr.1);
 				}
 				if method == "str"
 					&& args.is_empty()
-					&& let Some((v, t)) = recv
+					&& let Some((v, t)) = bound
 				{
 					return Ok((self.derived_str(v, &t), Typ::Str));
 				}

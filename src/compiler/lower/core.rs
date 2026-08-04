@@ -112,7 +112,7 @@ impl<'a> Translator<'a> {
 		let locals = self.params.clone();
 		let value = if !params_tuple {
 			let local = &locals[0];
-			(self.b.use_var(local.var), local.typ.clone())
+			(self.read_local(local), local.typ.clone())
 		} else if locals.is_empty() {
 			self.unit_value()
 		} else {
@@ -121,7 +121,7 @@ impl<'a> Translator<'a> {
 				.iter()
 				.enumerate()
 				.map(|(i, local)| {
-					let val = self.b.use_var(local.var);
+					let val = self.read_local(local);
 					self.b.ins().store(MemFlags::new(), val, ptr, (i * 8) as i32);
 					(None, local.typ.clone())
 				})
