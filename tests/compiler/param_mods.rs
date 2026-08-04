@@ -257,3 +257,76 @@ fn scalar_mut_param_rejected() {
 fn callee_cannot_mutate_plain_param() {
 	fail_with("fn f(xs []int) { xs << 1 }", "immutable");
 }
+
+#[test]
+fn mut_param_through_fn_value() {
+	check(
+		indoc! {"
+			f := fn(mut xs []int) int { xs[0] = 9
+				0
+			}
+			mut a := [1, 2]
+			f(mut a)
+			a
+		"},
+		"[9, 2]",
+	);
+}
+
+#[test]
+fn mut_param_through_fn_value_needs_mut_at_callsite() {
+	let src = indoc! {"
+		f := fn(mut xs []int) int { xs[0] = 9
+			0
+		}
+		mut a := [1, 2]
+		f(a)
+	"};
+	fail_with(src, "missing `mut` at the callsite");
+}
+
+#[test]
+fn non_mut_fn_value_rejects_mut_at_callsite() {
+	let src = indoc! {"
+		f := fn(xs []int) int { 0 }
+		mut a := [1, 2]
+		f(mut a)
+	"};
+	fail_with(src, "this parameter is not `mut`");
+}
+
+#[test]
+fn mut_param_through_fn_value_exclusivity() {
+	let src = indoc! {"
+		f := fn(mut xs []int, n int) int { 0 }
+		mut a := [1, 2]
+		f(mut a, a[0])
+	"};
+	fail_with(src, "while it is lent `mut`");
+}
+
+#[test]
+fn mut_fn_typed_param_lends_through_callback() {
+	check(
+		indoc! {"
+			fn apply(mut xs []int, f fn(mut []int) int) int { f(mut xs) }
+			g := fn(mut ys []int) int { ys[0] = 42
+				0
+			}
+			mut a := [1, 2]
+			apply(mut a, g)
+			a
+		"},
+		"[42, 2]",
+	);
+}
+
+#[test]
+fn mut_closure_rejected_for_plain_fn_param() {
+	let src = indoc! {"
+		h := fn(f fn([]int) int) int { 0 }
+		g := fn(mut ys []int) int { 0 }
+		h(g)
+	"};
+	fail_with(src, "wrong argument type");
+}

@@ -51,8 +51,14 @@ impl<'a> Translator<'a> {
 		let sig = self.declare_instance(&format!("anon${}", span.start), &def, HashMap::new(), span)?;
 		let func_ref = self.module.declare_func_in_func(sig.id, self.b.func);
 		let addr = self.b.ins().func_addr(self.int, func_ref);
+		let params: Vec<Typ> = sig
+			.params
+			.into_iter()
+			.zip(&sig.muts)
+			.map(|(t, &m)| if m { Typ::Mut(Box::new(t)) } else { t })
+			.collect();
 		if resolved.is_empty() {
-			return Ok((addr, Typ::Fn(sig.params, Box::new(sig.ret))));
+			return Ok((addr, Typ::Fn(params, Box::new(sig.ret))));
 		}
 
 		let env = self.call_alloc_bytes(((1 + resolved.len()) * 8) as i64);
@@ -60,7 +66,7 @@ impl<'a> Translator<'a> {
 		for (i, (_, _, _, val)) in resolved.iter().enumerate() {
 			self.b.ins().store(MemFlags::new(), *val, env, ((i + 1) * 8) as i32);
 		}
-		Ok((env, Typ::Closure(sig.params, Box::new(sig.ret))))
+		Ok((env, Typ::Closure(params, Box::new(sig.ret))))
 	}
 }
 

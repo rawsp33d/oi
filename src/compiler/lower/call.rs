@@ -207,10 +207,6 @@ impl<'a> Translator<'a> {
 		recv: Option<Value>,
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
-		if let Some(bad) = args.iter().find(|a| matches!(a.0, Expr::MutArg(_))) {
-			let msg = "`mut` arguments aren't supported through fn values yet";
-			return Err(Diagnostic::new(msg, bad.1.into_range()).with_label("no mutability info for this call"));
-		}
 		let (addr, env, params, ret) = match typ {
 			Typ::Fn(params, ret) => (callee, None, params, &**ret),
 			Typ::Closure(params, ret) => {
@@ -234,10 +230,25 @@ impl<'a> Translator<'a> {
 			)
 			.with_label("wrong number of arguments"));
 		}
+		let muts: Vec<bool> = params.iter().map(|p| matches!(p, Typ::Mut(_))).collect();
+		self.check_muts(&muts[self_n..], None, args)?;
 		let mut vals = Vec::with_capacity(args.len() + self_n + 1);
 		vals.extend(recv);
+		let mut lent = Vec::new();
 		for (arg, want) in args.iter().zip(&params[self_n..]) {
-			let (val, typ) = self.check_expr(arg, want)?;
+			let (val, typ) = match want {
+				Typ::Mut(_) => {
+					let (slot, typ, entry) = self.lend_mut(mut_inner(arg))?;
+					lent.push((slot, entry));
+					(slot, typ)
+				}
+				_ => self.check_expr(mut_inner(arg), want)?,
+			};
+			let want = if let Typ::Mut(inner) = want {
+				inner.as_ref()
+			} else {
+				want
+			};
 			if &typ != want {
 				return Err(
 					Diagnostic::new(format!("expected {want} argument, got {typ}"), arg.1.into_range())
@@ -263,6 +274,7 @@ impl<'a> Translator<'a> {
 		} else {
 			self.b.inst_results(call)[0]
 		};
+		self.reload_lent(&lent);
 		self.temp(ret_val, ret);
 		Ok((ret_val, ret.clone()))
 	}

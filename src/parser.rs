@@ -185,10 +185,15 @@ where
 					Some(n) => TypeExpr::FixedArray(Box::new(elem), n as usize),
 					None => TypeExpr::Array(Box::new(elem)),
 				});
-			let fn_type = just(Token::Fn)
-				.ignore_then(paren(loose_list(te.clone())))
-				.then(base.clone())
-				.map(|(params, ret)| TypeExpr::Fn(params, Box::new(ret)));
+			let fn_param = just(Token::Mut).or_not().then(te.clone());
+			let fn_type =
+				just(Token::Fn)
+					.ignore_then(paren(loose_list(fn_param)))
+					.then(base.clone())
+					.map(|(params, ret)| {
+						let (muts, params) = params.into_iter().map(|(m, t)| (m.is_some(), t)).unzip();
+						TypeExpr::Fn(params, muts, Box::new(ret))
+					});
 			// options
 			let option = just(Token::Question)
 				.ignore_then(base.clone())

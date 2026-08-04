@@ -192,8 +192,15 @@ impl TypeCtx<'_> {
 					.collect::<Result<_, Diagnostic>>()?;
 				Ok(Typ::TupleStruct(name.clone(), fields))
 			}
-			TypeExpr::Fn(params, ret) => {
-				let params = params.iter().map(|p| self.resolve(p, span)).collect::<Result<_, _>>()?;
+			TypeExpr::Fn(params, muts, ret) => {
+				let params = params
+					.iter()
+					.zip(muts)
+					.map(|(p, &m)| {
+						let t = self.resolve(p, span)?;
+						Ok(if m { Typ::Mut(Box::new(t)) } else { t })
+					})
+					.collect::<Result<_, Diagnostic>>()?;
 				Ok(Typ::Fn(params, Box::new(self.resolve(ret, span)?)))
 			}
 			TypeExpr::Map(k, v) => Ok(Typ::Map(

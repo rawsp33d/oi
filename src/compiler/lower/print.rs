@@ -239,7 +239,8 @@ impl<'a> Translator<'a> {
 					| Typ::Fn(..)
 					| Typ::Closure(..)
 					| Typ::Trait(_)
-					| Typ::Map(..) => {
+					| Typ::Map(..)
+					| Typ::Mut(_) => {
 						unreachable!("handled above")
 					}
 				};

@@ -299,7 +299,7 @@ pub enum TypeExpr {
 	Tuple(Vec<TypeExpr>),
 	Array(Box<TypeExpr>),
 	FixedArray(Box<TypeExpr>, usize),
-	Fn(Vec<TypeExpr>, Box<TypeExpr>),
+	Fn(Vec<TypeExpr>, Vec<bool>, Box<TypeExpr>),
 	Option(Box<TypeExpr>),
 	Result(Box<TypeExpr>, Option<Box<TypeExpr>>),
 	AtomSum(Vec<String>),

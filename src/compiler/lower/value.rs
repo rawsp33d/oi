@@ -53,6 +53,7 @@ impl<'a> Translator<'a> {
 			Typ::UInt(w) => self.b.ins().iconst(cl_type(&Typ::UInt(*w), self.int), 0),
 			Typ::Bool | Typ::ISize | Typ::USize => self.b.ins().iconst(self.int, 0),
 			Typ::Fn(..) | Typ::Closure(..) | Typ::Trait(_) => self.b.ins().iconst(self.int, 0),
+			Typ::Mut(_) => unreachable!("mut only marks params inside a fn/closure type"),
 			// default to first variant, with zero'd payload fields
 			Typ::Enum(_) | Typ::Option(_) | Typ::Result(_) | Typ::Sum(..) => {
 				let variants = self.variants_of(typ);
