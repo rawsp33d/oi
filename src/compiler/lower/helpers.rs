@@ -45,6 +45,19 @@ pub(super) fn struct_pattern(
 		.collect()
 }
 
+// Enforce a closure not outliving its captures.
+pub(super) fn closure_escape(typ: &Typ, span: Range<usize>, action: &str) -> Result<(), Diagnostic> {
+	if let Typ::Closure(..) = typ {
+		return Err(Diagnostic::new(
+			format!("this closure borrows its captures, so it can't be {action}"),
+			span,
+		)
+		.with_label("borrows its captures")
+		.with_note("`[move ...]` escape isn't implemented yet"));
+	}
+	Ok(())
+}
+
 // The element type of an array.
 pub(super) fn array_elem(typ: &Typ) -> &Typ {
 	match typ {

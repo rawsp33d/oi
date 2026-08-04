@@ -197,6 +197,69 @@ fn implicit_capture_ignores_for_loop_pattern() {
 }
 
 #[test]
+fn closure_cannot_be_returned() {
+	let src = indoc! {"
+		fn make() {
+			n := 10
+			return fn () int { n }
+		}
+		make()
+	"};
+	fail_with(src, "borrows its captures, so it can't be returned");
+}
+
+#[test]
+fn closure_cannot_be_stored_in_array_literal() {
+	let src = indoc! {"
+		n := 10
+		arr := [fn [n] () int { n }]
+	"};
+	fail_with(src, "borrows its captures, so it can't be stored in an array");
+}
+
+#[test]
+fn closure_cannot_be_smuggled_through_a_generic_store() {
+	let src = indoc! {"
+		fn smuggle[T](x T) []T {
+			mut a := []T{}
+			a << x
+			a
+		}
+		n := 10
+		smuggle(fn [n] () int { n })
+	"};
+	fail_with(src, "borrows its captures, so it can't be stored in an array");
+}
+
+#[test]
+fn closure_cannot_be_a_map_value() {
+	let src = indoc! {r#"
+		n := 10
+		{ "a": fn [n] () int { n } }
+	"#};
+	fail_with(src, "borrows its captures, so it can't be stored in a map");
+}
+
+#[test]
+fn closure_cannot_be_stored_in_a_struct_field() {
+	let src = indoc! {"
+		struct Box[T] { v T }
+		n := 10
+		Box{ v: fn [n] () int { n } }
+	"};
+	fail_with(src, "borrows its captures, so it can't be stored in a field");
+}
+
+#[test]
+fn move_capture_cannot_escape_yet() {
+	let src = indoc! {"
+		n := 10
+		arr := [fn [move n] () int { n }]
+	"};
+	fail_with(src, "borrows its captures, so it can't be stored in an array");
+}
+
+#[test]
 fn implicit_capture_ignores_match_bound_name() {
 	let src = indoc! {r#"
 		r := !int(7)

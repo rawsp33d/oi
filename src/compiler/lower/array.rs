@@ -38,6 +38,7 @@ impl<'a> Translator<'a> {
 				Some(t) => self.check_expr(e, t)?,
 				None => self.expr(e)?,
 			};
+			closure_escape(&typ, e.1.into_range(), "stored in an array")?;
 			match &elem {
 				Some(t) if t != &typ => {
 					let msg = format!("array elements must share a type: expected {t}, got {typ}");

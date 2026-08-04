@@ -111,6 +111,7 @@ impl<'a> Translator<'a> {
 							)
 							.with_label("type mismatch"));
 						}
+						closure_escape(&v, value.1.into_range(), "stored in a map")?;
 						let val = self.copy_in(val, &v);
 						let val_bits = self.map_bits(val);
 						let ptr = self.read_local(&local);
@@ -142,6 +143,7 @@ impl<'a> Translator<'a> {
 						)
 						.with_label("type mismatch"));
 					}
+					closure_escape(&vtyp, value.1.into_range(), "stored in an array")?;
 					let val = self.copy_in(val, &vtyp);
 					let (data, len) = self.array_parts(ptr, &local.typ);
 					self.store_index(data, len, &elem, idx, val);
@@ -178,6 +180,7 @@ impl<'a> Translator<'a> {
 					self.cow_array(ptr, &elem);
 
 					if vtyp == elem {
+						closure_escape(&vtyp, value.1.into_range(), "stored in an array")?;
 						let val = self.copy_in(val, &elem);
 						// grow if full, then write the new element and bump len
 						let len = self.array_len(ptr);
@@ -277,6 +280,7 @@ impl<'a> Translator<'a> {
 						)
 						.with_label("type mismatch"));
 					}
+					closure_escape(&vtyp, value.1.into_range(), "stored in a field")?;
 					let val = self.copy_in(val, &vtyp);
 					let ptr = self.read_local(&local);
 					if rc::releasable(&vtyp) {
@@ -359,6 +363,7 @@ impl<'a> Translator<'a> {
 	// The first return fixes the fn's type, and later returns must agree.
 	pub fn emit_return(&mut self, val: Value, typ: Typ, span: Span) -> Result<(), Diagnostic> {
 		let (val, typ) = self.autowrap_return(val, typ);
+		closure_escape(&typ, span.into_range(), "returned")?;
 		if let Some((declared, _)) = &self.ret
 			&& &typ != declared
 		{

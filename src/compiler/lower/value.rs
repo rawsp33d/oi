@@ -574,6 +574,7 @@ impl<'a> Translator<'a> {
 				Some(t) => (self.check_typed(value, t, "type mismatch")?, t.clone()),
 				None => self.expr(value)?,
 			};
+			closure_escape(&vt, value.1.into_range(), "stored in a map")?;
 			val_typ.get_or_insert(vt);
 			let bits = self.map_bits(val);
 			self.call_map_set(map, tag, key_bits, bits);
@@ -753,6 +754,7 @@ impl<'a> Translator<'a> {
 						.with_label("type mismatch"),
 				);
 			}
+			closure_escape(&vtyp, vspan.into_range(), "stored in a field")?;
 			self.b.ins().store(MemFlags::new(), val, ptr, (idx * 8) as i32);
 		}
 		Ok((ptr, typ))
