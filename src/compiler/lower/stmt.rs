@@ -359,7 +359,7 @@ impl<'a> Translator<'a> {
 	fn autowrap_return(&mut self, val: Value, typ: Typ) -> TypedVal {
 		match self.ret.as_ref().map(|(t, _)| t.clone()) {
 			Some(Typ::Option(inner)) if typ == *inner => {
-				let v = self.make_enum(&option_variants(&inner), 1, &[val]);
+				let v = self.make_option(&inner, Some(val));
 				(v, Typ::Option(inner))
 			}
 			Some(Typ::Result(inner)) if typ == *inner => {

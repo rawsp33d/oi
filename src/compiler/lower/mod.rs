@@ -6,7 +6,7 @@ use cranelift::codegen::ir::immediates::{Ieee16, Ieee128};
 use cranelift::codegen::ir::{StackSlotData, StackSlotKind};
 use cranelift::prelude::*;
 use cranelift_jit::JITModule;
-use cranelift_module::{DataDescription, Linkage, Module};
+use cranelift_module::{DataDescription, DataId, Linkage, Module};
 
 use super::{
 	FieldDef, FnSig, GenericFnDef, GenericStructDef, Generics, Local, LoopFrame, Pending, TraitItem, Typ, TypeCtx,
@@ -52,6 +52,7 @@ pub(super) struct Translator<'a> {
 	pub trait_impls: &'a HashSet<(String, String)>,
 	pub mono: &'a mut HashMap<String, FnSig>,
 	pub pending: &'a mut Vec<Pending>,
+	pub descs: &'a mut HashMap<String, DataId>,
 	pub string_idx: &'a mut usize,
 	pub atoms: &'a mut HashSet<String>,
 	pub ret: Option<(Typ, Span)>,

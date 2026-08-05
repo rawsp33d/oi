@@ -187,8 +187,7 @@ impl<'a> Translator<'a> {
 							.with_label("not an enum or sum"),
 					);
 				}
-				let variants = self.variants_of(&typ);
-				let tag = self.enum_tag(&variants, val);
+				let tag = self.enum_tag(&typ, val);
 				let out = if self.int == types::I32 {
 					tag
 				} else {

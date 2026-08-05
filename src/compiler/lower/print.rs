@@ -37,10 +37,11 @@ impl<'a> Translator<'a> {
 	}
 
 	// Enum `Display`.
-	pub(super) fn enum_name_str(&mut self, variants: &[VariantInfo], val: Value) -> Value {
-		let tag = self.enum_tag(variants, val);
+	pub(super) fn enum_name_str(&mut self, typ: &Typ, val: Value) -> Value {
+		let variants = self.variants_of(typ);
+		let tag = self.enum_tag(typ, val);
 		let mut ptr = self.str_const("");
-		for v in variants {
+		for v in &variants {
 			let s = self.str_const(&v.name);
 			let disc = self.b.ins().iconst(self.int, v.disc);
 			let hit = self.b.ins().icmp(IntCC::Equal, tag, disc);
@@ -50,10 +51,11 @@ impl<'a> Translator<'a> {
 	}
 
 	// Payload `Display`.
-	fn emit_variant(&mut self, variants: &[VariantInfo], val: Value, quote: bool, named: bool, sink: runtime::Sink) {
+	fn emit_variant(&mut self, typ: &Typ, val: Value, quote: bool, named: bool, sink: runtime::Sink) {
 		let done = self.b.create_block();
-		let tag = self.enum_tag(variants, val);
-		for v in variants {
+		let variants = self.variants_of(typ);
+		let tag = self.enum_tag(typ, val);
+		for v in &variants {
 			if v.payload.is_empty() {
 				continue;
 			}
@@ -77,10 +79,7 @@ impl<'a> Translator<'a> {
 					if braced {
 						self.write_lit(&format!("{}: ", v.names[i]), sink);
 					}
-					let pv = self
-						.b
-						.ins()
-						.load(cl_type(pt, self.int), MemFlags::new(), val, (8 + i * 8) as i32);
+					let pv = self.opt_payload(val, typ, pt, (8 + i * 8) as i32);
 					self.emit_print(pv, pt, true, sink);
 				}
 				self.write_lit(if braced { "}" } else { ")" }, sink);
@@ -89,7 +88,7 @@ impl<'a> Translator<'a> {
 			self.b.seal_block(next);
 			self.b.switch_to_block(next);
 		}
-		let ptr = self.enum_name_str(variants, val);
+		let ptr = self.enum_name_str(typ, val);
 		self.emit_frag(runtime::Tag::Raw, ptr, 0, false, sink);
 		self.b.ins().jump(done, &[]);
 		self.b.seal_block(done);
@@ -184,13 +183,11 @@ impl<'a> Translator<'a> {
 			}
 
 			Typ::Enum(_) | Typ::Option(_) | Typ::Result(_) => {
-				let variants = self.variants_of(typ);
-				self.emit_variant(&variants, val, quote, true, sink);
+				self.emit_variant(&typ.clone(), val, quote, true, sink);
 			}
 
-			Typ::Sum(variants) => {
-				let variants = variants.clone();
-				self.emit_variant(&variants, val, quote, false, sink);
+			Typ::Sum(_) => {
+				self.emit_variant(&typ.clone(), val, quote, false, sink);
 			}
 
 			Typ::Range => {

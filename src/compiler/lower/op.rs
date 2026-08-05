@@ -15,9 +15,10 @@ impl<'a> Translator<'a> {
 
 	// Compare two boxed enums.
 	// Checks that tags match, and for variants that every field matches
-	pub(super) fn emit_enum_eq(&mut self, a: Value, b: Value, variants: &[VariantInfo]) -> Value {
-		let ta = self.enum_tag(variants, a);
-		let tb = self.enum_tag(variants, b);
+	pub(super) fn emit_enum_eq(&mut self, a: Value, b: Value, typ: &Typ) -> Value {
+		let variants = self.variants_of(typ);
+		let ta = self.enum_tag(typ, a);
+		let tb = self.enum_tag(typ, b);
 		let tags_eq = self.b.ins().icmp(IntCC::Equal, ta, tb);
 		let eq = self.b.declare_var(types::I8);
 		self.b.def_var(eq, tags_eq);
@@ -240,11 +241,10 @@ impl<'a> Translator<'a> {
 			| (Typ::Bool, Typ::Bool)
 			| (Typ::Atom, Typ::Atom) => self.b.ins().icmp(icc, lv, rv),
 			(l, r) if l == r && l.is_enumish() => {
-				let variants = self.variants_of(l);
-				if !enum_boxed(&variants) {
+				if !enum_boxed(&self.variants_of(l)) || rc::opt_ref(l) {
 					self.b.ins().icmp(icc, lv, rv)
 				} else if let IntCC::Equal | IntCC::NotEqual = icc {
-					let eq = self.emit_enum_eq(lv, rv, &variants);
+					let eq = self.emit_enum_eq(lv, rv, l);
 					if icc == IntCC::Equal {
 						eq
 					} else {

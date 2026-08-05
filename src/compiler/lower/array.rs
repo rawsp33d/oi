@@ -72,13 +72,10 @@ impl<'a> Translator<'a> {
 	// RC bump.
 	// The underlying buffer clone waits for a write.
 	pub(super) fn copy_in(&mut self, val: Value, typ: &Typ) -> Value {
-		let sym = match typ {
-			Typ::Array(_) => runtime::ARRAY_SHARE,
-			Typ::Map(..) => runtime::MAP_SHARE,
-			Typ::Ref(_) => runtime::REF_SHARE,
-			_ => return val,
+		let Some((share, _)) = rc::handle_fns(typ) else {
+			return val;
 		};
-		let func = self.import_fn(sym, &[self.int], Some(self.int));
+		let func = self.import_fn(share, &[self.int], Some(self.int));
 		let call = self.b.ins().call(func, &[val]);
 		self.b.inst_results(call)[0]
 	}

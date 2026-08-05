@@ -35,13 +35,12 @@ impl<'a> Translator<'a> {
 
 			Expr::OptionInit { inner: (te, span), arg } => {
 				let inner_typ = self.types().resolve(te, *span)?;
-				let variants = option_variants(&inner_typ);
-				if matches!(arg.0, Expr::None) {
-					let val = self.make_enum(&variants, 0, &[]);
-					return Ok((val, Typ::Option(Box::new(inner_typ))));
-				}
-				let fv = self.check_typed(arg, &inner_typ, "type mismatch")?;
-				let val = self.make_enum(&variants, 1, &[fv]);
+				let val = if matches!(arg.0, Expr::None) {
+					self.make_option(&inner_typ, None)
+				} else {
+					let fv = self.check_typed(arg, &inner_typ, "type mismatch")?;
+					self.make_option(&inner_typ, Some(fv))
+				};
 				Ok((val, Typ::Option(Box::new(inner_typ))))
 			}
 
@@ -408,7 +407,7 @@ impl<'a> Translator<'a> {
 
 			Expr::Ref(inner) => {
 				let (ptr, typ) = self.expr(inner)?;
-				let Typ::Struct(_, fields) = &typ else {
+				let Typ::Struct(name, fields) = &typ else {
 					return Err(
 						Diagnostic::new("only a struct can be boxed into a reference", inner.1.into_range())
 							.with_label(format!("this is {typ}")),
@@ -416,10 +415,12 @@ impl<'a> Translator<'a> {
 				};
 				// move the literal's slots into a shared box
 				let n = fields.len();
-				let base = self.call_alloc_bytes((n * 8) as i64 + 8);
+				let base = self.call_alloc_bytes((n * 8) as i64 + 16);
+				let descv = self.trace_desc(name, fields);
+				self.b.ins().store(MemFlags::new(), descv, base, 0);
 				let one = self.b.ins().iconst(self.int, 1);
-				self.b.ins().store(MemFlags::new(), one, base, 0);
-				let boxp = self.b.ins().iadd_imm(base, 8);
+				self.b.ins().store(MemFlags::new(), one, base, 8);
+				let boxp = self.b.ins().iadd_imm(base, 16);
 				for i in 0..n {
 					let v = self.b.ins().load(self.int, MemFlags::new(), ptr, (i * 8) as i32);
 					self.b.ins().store(MemFlags::new(), v, boxp, (i * 8) as i32);

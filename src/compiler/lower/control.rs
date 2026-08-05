@@ -151,8 +151,7 @@ impl<'a> Translator<'a> {
 						binds = b;
 					}
 					let sv = self.b.use_var(sv_var);
-					let variants = self.variants_of(&st);
-					let tag = self.enum_tag(&variants, sv);
+					let tag = self.enum_tag(&st, sv);
 					let disc = self.b.ins().iconst(self.int, disc);
 					self.b.ins().icmp(IntCC::Equal, tag, disc)
 				} else if let (Typ::Tuple(fields), Expr::Tuple(elems)) = (&st, &pat.0) {
@@ -222,7 +221,7 @@ impl<'a> Translator<'a> {
 				for (name, typ, off) in cap.iter().chain(&binds) {
 					let fv = match &st {
 						Typ::Array(_) | Typ::FixedArray(..) => s.load_elem(base, *off, typ),
-						_ => s.b.ins().load(cl_type(typ, s.int), MemFlags::new(), base, *off),
+						_ => s.opt_payload(base, &st, typ, *off),
 					};
 					let fv = s.copy_bind(fv, typ);
 					s.bind_local(name, fv, typ.clone(), false);
@@ -303,8 +302,7 @@ impl<'a> Translator<'a> {
 			}
 		};
 
-		let variants = self.variants_of(&typ);
-		let tag = self.enum_tag(&variants, val);
+		let tag = self.enum_tag(&typ, val);
 		let happy_disc = self.b.ins().iconst(self.int, happy);
 		let is_happy = self.b.ins().icmp(IntCC::Equal, tag, happy_disc);
 
@@ -317,7 +315,7 @@ impl<'a> Translator<'a> {
 		let mut result = None;
 
 		self.b.switch_to_block(happy_block);
-		let payload = self.b.ins().load(cl_type(&inner, self.int), MemFlags::new(), val, 8);
+		let payload = self.opt_payload(val, &typ, &inner, 8);
 		let payload = self.copy_bind(payload, &inner);
 		self.contribute("or", (payload, inner), &mut result, merge, span)?;
 
@@ -362,13 +360,12 @@ impl<'a> Translator<'a> {
 			None => inner.clone(),
 		};
 		let target_typ = if is_result {
-			Typ::Result(Box::new(target))
+			Typ::Result(Box::new(target.clone()))
 		} else {
-			Typ::Option(Box::new(target))
+			Typ::Option(Box::new(target.clone()))
 		};
 
-		let variants = self.variants_of(&typ);
-		let tag = self.enum_tag(&variants, val);
+		let tag = self.enum_tag(&typ, val);
 		let happy: i64 = if is_result { 0 } else { 1 };
 		let happy_disc = self.b.ins().iconst(self.int, happy);
 		let is_happy = self.b.ins().icmp(IntCC::Equal, tag, happy_disc);
@@ -390,18 +387,17 @@ impl<'a> Translator<'a> {
 			self.b.ins().call(func, &[msg]);
 			self.b.ins().trap(TrapCode::HEAP_OUT_OF_BOUNDS);
 		} else {
-			let fields = if is_result {
-				vec![self.b.ins().load(self.int, MemFlags::new(), val, 8)]
+			let sad_val = if is_result {
+				let e = self.b.ins().load(self.int, MemFlags::new(), val, 8);
+				self.make_enum(&result_variants(&target), 1, &[e])
 			} else {
-				vec![]
+				self.make_option(&target, None)
 			};
-			let target_variants = self.variants_of(&target_typ);
-			let sad_val = self.make_enum(&target_variants, 1 - happy, &fields);
 			self.emit_return(sad_val, target_typ, span)?;
 		}
 
 		self.b.switch_to_block(happy_block);
-		let payload = self.b.ins().load(cl_type(&inner, self.int), MemFlags::new(), val, 8);
+		let payload = self.opt_payload(val, &typ, &inner, 8);
 		Ok((payload, inner))
 	}
 

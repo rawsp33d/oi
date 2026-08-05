@@ -1,5 +1,4 @@
-//! Functions a compiled Oi program calls at runtime.
-//! Backend-agnostic. The JIT registers them as symbols, and an object backend would link them in.
+//! Backend-agnostic functions a compiled Oi program calls at runtime.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -392,10 +391,36 @@ pub unsafe extern "C" fn array_extend(dst: *mut Header, src: *const Header, elem
 
 /// Share a `&T`, bumping its refcount.
 /// # Safety
-/// `ptr` must point to a valid boxed struct's field slots.
+/// `ptr` must point to a valid boxed struct's field slots (or be null).
 pub unsafe extern "C" fn ref_share(ptr: *mut u8) -> *mut u8 {
+	if ptr.is_null() {
+		return ptr;
+	}
 	unsafe { *(ptr.sub(8) as *mut i64) += 1 };
 	ptr
+}
+
+// Walk a box's trace descriptor, calling `visit` on each ref slot.
+unsafe fn trace(fields: *mut u8, desc: *const i64, visit: unsafe extern "C" fn(*mut u8)) {
+	if desc.is_null() {
+		return;
+	}
+	unsafe {
+		let mut p = desc.add(1);
+		for _ in 0..*desc {
+			let e = *p;
+			p = p.add(1);
+			let slot = *(fields.add((e >> 1) as usize) as *const *mut u8);
+			if e & 1 == 0 {
+				visit(slot);
+				continue;
+			}
+			if !slot.is_null() {
+				trace(slot, *p as *const i64, visit);
+			}
+			p = p.add(1);
+		}
+	}
 }
 
 /// Drop one ref to a boxed struct.
@@ -409,7 +434,9 @@ pub unsafe extern "C" fn ref_release(ptr: *mut u8) {
 		let rc = ptr.sub(8) as *mut i64;
 		*rc -= 1;
 		if *rc == 0 {
-			free(ptr.sub(8));
+			let desc = *(ptr.sub(16) as *const *const i64);
+			trace(ptr, desc, ref_release);
+			free(ptr.sub(16));
 		}
 	}
 }

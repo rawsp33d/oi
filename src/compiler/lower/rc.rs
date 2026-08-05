@@ -23,36 +23,75 @@ impl<'a> Translator<'a> {
 
 	// Emit one release for an owned value.
 	pub(super) fn release_value(&mut self, val: Value, typ: &Typ) {
-		match typ {
-			Typ::Array(_) => self.call_release(runtime::ARRAY_RELEASE, val),
-			Typ::Map(..) => self.call_release(runtime::MAP_RELEASE, val),
-			Typ::Ref(_) => self.call_release(runtime::REF_RELEASE, val),
-			Typ::Struct(name, fields) => {
-				if self.is_resource(typ)
-					&& let Some(sig) = self.funcs.get(&format!("{name}.drop")).cloned()
-				{
-					self.emit_call(&sig, &[val]);
-				}
-				for (i, f) in fields.clone().iter().enumerate() {
-					if releasable(&f.typ) {
-						let cl = cl_type(&f.typ, self.int);
-						let fv = self.b.ins().load(cl, MemFlags::new(), val, (i * 8) as i32);
-						self.release_value(fv, &f.typ);
-					}
+		if let Some((_, release)) = handle_fns(typ) {
+			let func = self.import_fn(release, &[self.int], None);
+			self.b.ins().call(func, &[val]);
+		} else if let Typ::Struct(name, fields) = typ {
+			if self.is_resource(typ)
+				&& let Some(sig) = self.funcs.get(&format!("{name}.drop")).cloned()
+			{
+				self.emit_call(&sig, &[val]);
+			}
+			for (i, f) in fields.clone().iter().enumerate() {
+				if releasable(&f.typ) {
+					let cl = cl_type(&f.typ, self.int);
+					let fv = self.b.ins().load(cl, MemFlags::new(), val, (i * 8) as i32);
+					self.release_value(fv, &f.typ);
 				}
 			}
-			_ => {}
 		}
 	}
 
-	fn call_release(&mut self, sym: &str, val: Value) {
-		let func = self.import_fn(sym, &[self.int], None);
-		self.b.ins().call(func, &[val]);
+	// The address of a struct's trace descriptor symbol.
+	pub(super) fn trace_desc(&mut self, name: &str, fields: &[FieldDef]) -> Value {
+		if self.desc_data(name, fields).is_none() {
+			return self.b.ins().iconst(self.int, 0);
+		}
+		self.data_addr(&oi_symbol(&format!("{name}#trace")))
+	}
+
+	// Define trace descriptor on first use.
+	fn desc_data(&mut self, name: &str, fields: &[FieldDef]) -> Option<DataId> {
+		if let Some(&id) = self.descs.get(name) {
+			return Some(id);
+		}
+		let mut words = vec![0i64];
+		let mut relocs = Vec::new();
+		for (i, f) in fields.iter().enumerate() {
+			let off = ((i * 8) as i64) << 1;
+			if ref_like(&f.typ) {
+				words.push(off);
+			} else if let Typ::Struct(n, sub) = &f.typ
+				&& let Some(child) = self.desc_data(n, sub)
+			{
+				words.push(off | 1);
+				relocs.push((words.len() * 8, child));
+				words.push(0);
+			}
+		}
+		words[0] = (words.len() - 1 - relocs.len()) as i64;
+		if words[0] == 0 {
+			return None;
+		}
+		let mut desc = DataDescription::new();
+		desc.define(words.iter().flat_map(|w| w.to_le_bytes()).collect());
+		for (off, child) in relocs {
+			let gv = self.module.declare_data_in_data(child, &mut desc);
+			desc.write_data_addr(off as u32, gv, 0);
+		}
+		let sym = oi_symbol(&format!("{name}#trace"));
+		let id = self
+			.module
+			.declare_data(&sym, Linkage::Local, false, false)
+			.expect("declare trace");
+		self.module.define_data(id, &desc).expect("define trace");
+		self.descs.insert(name.to_string(), id);
+		Some(id)
 	}
 
 	// Register a producer's fresh handle with the innermost scope.
 	pub(super) fn temp(&mut self, val: Value, typ: &Typ) {
-		if matches!(typ, Typ::Array(_) | Typ::Map(..) | Typ::Ref(_)) {
+		if handle_fns(typ).is_some() {
 			let var = self.b.declare_var(self.int);
 			self.b.def_var(var, val);
 			self.scopes.last_mut().expect("scope").push((var, typ.clone()));
@@ -120,8 +159,27 @@ impl<'a> Translator<'a> {
 
 pub(super) fn releasable(typ: &Typ) -> bool {
 	match typ {
-		Typ::Array(_) | Typ::Map(..) | Typ::Ref(_) => true,
 		Typ::Struct(_, fields) => fields.iter().any(|f| releasable(&f.typ)),
-		_ => false,
+		_ => handle_fns(typ).is_some(),
 	}
+}
+
+// The runtime share/release fns for rc'd types.
+pub(super) fn handle_fns(typ: &Typ) -> Option<(&'static str, &'static str)> {
+	match typ {
+		Typ::Array(_) => Some((runtime::ARRAY_SHARE, runtime::ARRAY_RELEASE)),
+		Typ::Map(..) => Some((runtime::MAP_SHARE, runtime::MAP_RELEASE)),
+		t if ref_like(t) => Some((runtime::REF_SHARE, runtime::REF_RELEASE)),
+		_ => None,
+	}
+}
+
+// Is `typ` a `?&T`?
+pub(super) fn opt_ref(typ: &Typ) -> bool {
+	matches!(typ, Typ::Option(i) if matches!(&**i, Typ::Ref(_)))
+}
+
+// Is type a ref pointer?
+pub(super) fn ref_like(typ: &Typ) -> bool {
+	matches!(typ, Typ::Ref(_)) || opt_ref(typ)
 }

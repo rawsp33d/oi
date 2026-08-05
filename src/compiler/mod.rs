@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use cranelift::codegen;
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{DataDescription, FuncId, Linkage, Module};
+use cranelift_module::{DataDescription, DataId, FuncId, Linkage, Module};
 
 use crate::ast::{EnumVariant, Expr, Param, Span, Spanned, TypeExpr, TypeParam};
 use crate::diagnostics::Diagnostic;
@@ -175,6 +175,7 @@ pub struct Compiler {
 	mono: HashMap<String, FnSig>,
 	pending: Vec<Pending>,
 	trait_impls: HashSet<(String, String)>,
+	descs: HashMap<String, DataId>,
 }
 
 impl Default for Compiler {
@@ -225,6 +226,7 @@ impl Default for Compiler {
 			mono: HashMap::new(),
 			pending: Vec::new(),
 			trait_impls: HashSet::new(),
+			descs: HashMap::new(),
 		}
 	}
 }
@@ -731,6 +733,7 @@ impl Compiler {
 			trait_impls: &self.trait_impls,
 			mono: &mut self.mono,
 			pending: &mut self.pending,
+			descs: &mut self.descs,
 			string_idx: &mut self.string_idx,
 			atoms: &mut self.atoms,
 			ret: def.ret.clone(),

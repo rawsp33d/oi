@@ -31,7 +31,7 @@ impl<'a> Translator<'a> {
 	}
 
 	// The address of a data symbol.
-	fn data_addr(&mut self, sym: &str) -> Value {
+	pub(super) fn data_addr(&mut self, sym: &str) -> Value {
 		let id = self.module.declare_data(sym, Linkage::Local, false, false).unwrap();
 		let gv = self.module.declare_data_in_func(id, self.b.func);
 		self.b.ins().symbol_value(self.int, gv)
@@ -52,11 +52,11 @@ impl<'a> Translator<'a> {
 			Typ::Int(w) => self.b.ins().iconst(cl_type(&Typ::Int(*w), self.int), 0),
 			Typ::UInt(w) => self.b.ins().iconst(cl_type(&Typ::UInt(*w), self.int), 0),
 			Typ::Bool | Typ::ISize | Typ::USize => self.b.ins().iconst(self.int, 0),
-			Typ::Fn(..) | Typ::Closure(..) | Typ::Trait(_) => self.b.ins().iconst(self.int, 0),
+			Typ::Fn(..) | Typ::Closure(..) | Typ::Trait(_) | Typ::Ref(_) => self.b.ins().iconst(self.int, 0),
 			Typ::Mut(_) => unreachable!("mut only marks params inside a fn/closure type"),
-			Typ::Ref(_) => self.b.ins().iconst(self.int, 0),
+			Typ::Option(inner) => self.make_option(inner, None),
 			// default to first variant, with zero'd payload fields
-			Typ::Enum(_) | Typ::Option(_) | Typ::Result(_) | Typ::Sum(..) => {
+			Typ::Enum(_) | Typ::Result(_) | Typ::Sum(..) => {
 				let variants = self.variants_of(typ);
 				let v = variants.first().cloned();
 				let disc = v.as_ref().map_or(0, |v| v.disc);
@@ -152,7 +152,7 @@ impl<'a> Translator<'a> {
 			(Expr::EnumShorthand { variant, args }, Typ::Enum(typ)) => {
 				self.construct_variant(typ, variant, args, value.1)?.0
 			}
-			(Expr::None, Typ::Option(inner)) => self.make_enum(&option_variants(inner), 0, &[]),
+			(Expr::None, Typ::Option(inner)) => self.make_option(inner, None),
 			(Expr::Atom(name), Typ::Sum(..)) => {
 				let variants = self.variants_of(target);
 				let Some(v) = variants.iter().find(|v| &v.name == name && v.payload.is_empty()) else {
@@ -199,11 +199,35 @@ impl<'a> Translator<'a> {
 	}
 
 	// The tag of an enum value.
-	pub(super) fn enum_tag(&mut self, variants: &[VariantInfo], val: Value) -> Value {
-		if enum_boxed(variants) {
+	pub(super) fn enum_tag(&mut self, typ: &Typ, val: Value) -> Value {
+		if rc::opt_ref(typ) {
+			let nz = self.b.ins().icmp_imm(IntCC::NotEqual, val, 0);
+			self.b.ins().uextend(self.int, nz)
+		} else if enum_boxed(&self.variants_of(typ)) {
 			self.b.ins().load(self.int, MemFlags::new(), val, 0)
 		} else {
 			val
+		}
+	}
+
+	// Build an Option value.
+	pub(super) fn make_option(&mut self, inner: &Typ, some: Option<Value>) -> Value {
+		if matches!(inner, Typ::Ref(_)) {
+			return some.unwrap_or_else(|| self.b.ins().iconst(self.int, 0));
+		}
+		let variants = option_variants(inner);
+		match some {
+			Some(v) => self.make_enum(&variants, 1, &[v]),
+			None => self.make_enum(&variants, 0, &[]),
+		}
+	}
+
+	// A payload slot of a variant.
+	pub(super) fn opt_payload(&mut self, val: Value, typ: &Typ, inner: &Typ, off: i32) -> Value {
+		if rc::opt_ref(typ) {
+			val
+		} else {
+			self.b.ins().load(cl_type(inner, self.int), MemFlags::new(), val, off)
 		}
 	}
 
@@ -485,7 +509,7 @@ impl<'a> Translator<'a> {
 				if let (Typ::Sum(src), Typ::Sum(dst)) = (&vt, target)
 					&& src != dst && let Some(map) = sum_remap(src, dst)
 				{
-					let old = self.enum_tag(src, val);
+					let old = self.enum_tag(&vt, val);
 					let mut tag = self.b.ins().iconst(self.int, map[0].1);
 					for &(s, d) in &map[1..] {
 						let hit = self.b.ins().icmp_imm(IntCC::Equal, old, s);
