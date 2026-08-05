@@ -172,6 +172,7 @@ impl<'a> Translator<'a> {
 					(name.clone(), None)
 				} else {
 					let (recv_val, recv_typ) = self.expr(recv)?;
+					let recv_typ = peel(&recv_typ).clone();
 					if method == "str" && args.is_empty() && !matches!(recv_typ, Typ::Struct(..) | Typ::TupleStruct(..))
 					{
 						return Ok((self.derived_str(recv_val, &recv_typ), Typ::Str));
@@ -254,6 +255,7 @@ impl<'a> Translator<'a> {
 				}
 
 				let (ptr, typ) = self.expr(tuple)?;
+				let typ = peel(&typ).clone();
 
 				if let Typ::Trait(tn) = &typ {
 					return self.trait_field(ptr, tn, field, expr.1);
@@ -403,6 +405,29 @@ impl<'a> Translator<'a> {
 			Expr::For { pat, iter, body } => self.for_loop(pat, iter, body, expr.1),
 
 			Expr::StructLit { name, fields } => self.struct_lit(name, fields, expr.1, None),
+
+			Expr::Ref(inner) => {
+				let (ptr, typ) = self.expr(inner)?;
+				let Typ::Struct(_, fields) = &typ else {
+					return Err(
+						Diagnostic::new("only a struct can be boxed into a reference", inner.1.into_range())
+							.with_label(format!("this is {typ}")),
+					);
+				};
+				// move the literal's slots into a shared box
+				let n = fields.len();
+				let base = self.call_alloc_bytes((n * 8) as i64 + 8);
+				let one = self.b.ins().iconst(self.int, 1);
+				self.b.ins().store(MemFlags::new(), one, base, 0);
+				let boxp = self.b.ins().iadd_imm(base, 8);
+				for i in 0..n {
+					let v = self.b.ins().load(self.int, MemFlags::new(), ptr, (i * 8) as i32);
+					self.b.ins().store(MemFlags::new(), v, boxp, (i * 8) as i32);
+				}
+				let typ = Typ::Ref(Box::new(typ.clone()));
+				self.temp(boxp, &typ);
+				Ok((boxp, typ))
+			}
 
 			Expr::Record(entries) => self.record_lit(entries, expr.1, None),
 

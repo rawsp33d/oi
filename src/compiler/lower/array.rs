@@ -75,6 +75,7 @@ impl<'a> Translator<'a> {
 		let sym = match typ {
 			Typ::Array(_) => runtime::ARRAY_SHARE,
 			Typ::Map(..) => runtime::MAP_SHARE,
+			Typ::Ref(_) => runtime::REF_SHARE,
 			_ => return val,
 		};
 		let func = self.import_fn(sym, &[self.int], Some(self.int));

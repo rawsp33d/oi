@@ -26,6 +26,7 @@ impl<'a> Translator<'a> {
 		match typ {
 			Typ::Array(_) => self.call_release(runtime::ARRAY_RELEASE, val),
 			Typ::Map(..) => self.call_release(runtime::MAP_RELEASE, val),
+			Typ::Ref(_) => self.call_release(runtime::REF_RELEASE, val),
 			Typ::Struct(name, fields) => {
 				if self.is_resource(typ)
 					&& let Some(sig) = self.funcs.get(&format!("{name}.drop")).cloned()
@@ -51,7 +52,7 @@ impl<'a> Translator<'a> {
 
 	// Register a producer's fresh handle with the innermost scope.
 	pub(super) fn temp(&mut self, val: Value, typ: &Typ) {
-		if matches!(typ, Typ::Array(_) | Typ::Map(..)) {
+		if matches!(typ, Typ::Array(_) | Typ::Map(..) | Typ::Ref(_)) {
 			let var = self.b.declare_var(self.int);
 			self.b.def_var(var, val);
 			self.scopes.last_mut().expect("scope").push((var, typ.clone()));
@@ -119,7 +120,7 @@ impl<'a> Translator<'a> {
 
 pub(super) fn releasable(typ: &Typ) -> bool {
 	match typ {
-		Typ::Array(_) | Typ::Map(..) => true,
+		Typ::Array(_) | Typ::Map(..) | Typ::Ref(_) => true,
 		Typ::Struct(_, fields) => fields.iter().any(|f| releasable(&f.typ)),
 		_ => false,
 	}

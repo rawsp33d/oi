@@ -99,6 +99,7 @@ fn mentions(te: &TypeExpr, name: &str) -> bool {
 		TypeExpr::Fn(ps, _, r) => ps.iter().any(|p| mentions(p, name)) || mentions(r, name),
 		TypeExpr::TupleStruct(_, fs) => fs.iter().any(|(_, t)| mentions(t, name)),
 		TypeExpr::Map(k, v) => mentions(k, name) || mentions(v, name),
+		TypeExpr::Ref(e) => mentions(e, name),
 		TypeExpr::AtomSum(_) => false,
 	}
 }
@@ -197,6 +198,8 @@ impl Default for Compiler {
 		builder.symbol(runtime::MAP_SET, runtime::map_set as *const u8);
 		builder.symbol(runtime::MAP_DELETE, runtime::map_delete as *const u8);
 		builder.symbol(runtime::MAP_SHARE, runtime::map_share as *const u8);
+		builder.symbol(runtime::REF_SHARE, runtime::ref_share as *const u8);
+		builder.symbol(runtime::REF_RELEASE, runtime::ref_release as *const u8);
 
 		let module = JITModule::new(builder);
 		Self {
@@ -409,6 +412,10 @@ impl Compiler {
 			pending.retain(|(name, fields)| {
 				let field = |p: &Param| {
 					let typ = types.resolve(&p.typ, p.span)?;
+					if matches!(typ, Typ::Ref(_)) && p.default.is_none() {
+						let msg = "a reference field must be optional (`?&T`) or have a default";
+						return Err(Diagnostic::new(msg, p.span.into_range()).with_label("no zero value for `&T`"));
+					}
 					Ok(FieldDef {
 						name: p.name.clone(),
 						typ,

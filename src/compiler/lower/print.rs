@@ -205,6 +205,8 @@ impl<'a> Translator<'a> {
 			Typ::Fn(..) | Typ::Closure(..) => self.write_lit("<fn>", sink),
 			Typ::Map(..) => self.write_lit("<map>", sink),
 
+			Typ::Ref(inner) => self.emit_print(val, inner, quote, sink),
+
 			Typ::Trait(tn) => {
 				let (_, tfields, tmethods) = self.traits[tn.as_str()];
 				let slot = (trait_fns(tmethods).count() + tfields.len()) * 8;
@@ -240,7 +242,8 @@ impl<'a> Translator<'a> {
 					| Typ::Closure(..)
 					| Typ::Trait(_)
 					| Typ::Map(..)
-					| Typ::Mut(_) => {
+					| Typ::Mut(_)
+					| Typ::Ref(_) => {
 						unreachable!("handled above")
 					}
 				};

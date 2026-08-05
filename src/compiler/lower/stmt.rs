@@ -29,7 +29,15 @@ impl<'a> Translator<'a> {
 							}
 						},
 						(Some(value), None) => self.expr(value)?,
-						(None, Some(target)) => (self.zero(&target), target),
+						(None, Some(target)) => {
+							if matches!(target, Typ::Ref(_)) {
+								let msg = "a reference must be initialized (`?&T` for an optional one)";
+								return Err(
+									Diagnostic::new(msg, stmt.1.into_range()).with_label("no zero value for `&T`")
+								);
+							}
+							(self.zero(&target), target)
+						}
 						(None, None) => unreachable!("binding has neither a type nor a value"),
 					};
 					if let Some(v) = value {
@@ -265,7 +273,7 @@ impl<'a> Translator<'a> {
 
 				Expr::FieldAssign { name, field, value } => {
 					let local = self.mutable_local(name, stmt.1.into_range(), Mutation::FieldAssign)?;
-					let fields = match &local.typ {
+					let fields = match peel(&local.typ) {
 						Typ::Struct(_, fields) => fields.clone(),
 						_ => {
 							return Err(

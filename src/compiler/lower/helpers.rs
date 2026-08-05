@@ -58,6 +58,14 @@ pub(super) fn closure_escape(typ: &Typ, span: Range<usize>, action: &str) -> Res
 	Ok(())
 }
 
+// Unwrap one level of `&T` so things can see throughva ref.
+pub(super) fn peel(typ: &Typ) -> &Typ {
+	match typ {
+		Typ::Ref(inner) => inner,
+		other => other,
+	}
+}
+
 // The element type of an array.
 pub(super) fn array_elem(typ: &Typ) -> &Typ {
 	match typ {

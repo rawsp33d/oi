@@ -32,6 +32,7 @@ pub(crate) enum Typ {
 	Closure(Vec<Typ>, Box<Typ>, bool),
 	Map(Box<Typ>, Box<Typ>),
 	Mut(Box<Typ>),
+	Ref(Box<Typ>),
 }
 
 // A struct field definition.
@@ -108,6 +109,7 @@ impl fmt::Display for Typ {
 			}
 			Typ::Map(k, v) => write!(f, "Map[{k}, {v}]"),
 			Typ::Mut(inner) => write!(f, "mut {inner}"),
+			Typ::Ref(inner) => write!(f, "&{inner}"),
 		}
 	}
 }
@@ -135,7 +137,7 @@ impl PartialEq for Typ {
 			(Typ::Sum(a), Typ::Sum(b)) => a == b,
 			(Typ::Fn(p, r), Typ::Fn(q, s)) | (Typ::Closure(p, r, _), Typ::Closure(q, s, _)) => p == q && r == s,
 			(Typ::Map(k, v), Typ::Map(l, w)) => k == l && v == w,
-			(Typ::Mut(a), Typ::Mut(b)) => a == b,
+			(Typ::Mut(a), Typ::Mut(b)) | (Typ::Ref(a), Typ::Ref(b)) => a == b,
 			_ => std::mem::discriminant(self) == std::mem::discriminant(other),
 		}
 	}

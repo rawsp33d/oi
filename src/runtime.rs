@@ -31,6 +31,8 @@ pub const MAP_GET: &str = "oi_map_get";
 pub const MAP_SET: &str = "oi_map_set";
 pub const MAP_DELETE: &str = "oi_map_delete";
 pub const MAP_SHARE: &str = "oi_map_share";
+pub const REF_SHARE: &str = "oi_ref_share";
+pub const REF_RELEASE: &str = "oi_ref_release";
 
 // Type tag shared with the compiler.
 #[repr(i64)]
@@ -385,6 +387,30 @@ pub unsafe extern "C" fn array_extend(dst: *mut Header, src: *const Header, elem
 		let dst_tail = dst_data.add((dst_len * elem_size) as usize);
 		std::ptr::copy_nonoverlapping(src_data as *const u8, dst_tail, (src_len * elem_size) as usize);
 		(*dst).len = dst_len + src_len;
+	}
+}
+
+/// Share a `&T`, bumping its refcount.
+/// # Safety
+/// `ptr` must point to a valid boxed struct's field slots.
+pub unsafe extern "C" fn ref_share(ptr: *mut u8) -> *mut u8 {
+	unsafe { *(ptr.sub(8) as *mut i64) += 1 };
+	ptr
+}
+
+/// Drop one ref to a boxed struct.
+/// # Safety
+/// `ptr` must be null or point to a valid boxed struct's field slots.
+pub unsafe extern "C" fn ref_release(ptr: *mut u8) {
+	if ptr.is_null() {
+		return;
+	}
+	unsafe {
+		let rc = ptr.sub(8) as *mut i64;
+		*rc -= 1;
+		if *rc == 0 {
+			free(ptr.sub(8));
+		}
 	}
 }
 

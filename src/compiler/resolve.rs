@@ -163,6 +163,17 @@ impl TypeCtx<'_> {
 			TypeExpr::Array(elem) => Ok(Typ::Array(Box::new(self.resolve(elem, span)?))),
 			TypeExpr::FixedArray(elem, n) => Ok(Typ::FixedArray(Box::new(self.resolve(elem, span)?), *n)),
 			TypeExpr::Option(inner) => Ok(Typ::Option(Box::new(self.resolve(inner, span)?))),
+			TypeExpr::Ref(inner) => {
+				let it = self.resolve(inner, span)?;
+				if !matches!(it, Typ::Struct(..)) {
+					return Err(Diagnostic::new(
+						format!("references to {it} aren't supported yet, only structs"),
+						span.into_range(),
+					)
+					.with_label("not a struct"));
+				}
+				Ok(Typ::Ref(Box::new(it)))
+			}
 			TypeExpr::Result(inner, err) => {
 				if let Some(e) = err
 					&& !matches!(e.as_ref(), TypeExpr::Name(n) if n == "Error")

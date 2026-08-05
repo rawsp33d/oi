@@ -184,6 +184,8 @@ pub enum Expr {
 		name: String,
 		fields: Vec<(Option<String>, Spanned<Expr>)>,
 	},
+	// `&Name {}`
+	Ref(Box<Spanned<Expr>>),
 	// `{ k: v }`
 	Record(Vec<(Spanned<Expr>, Spanned<Expr>)>),
 	// `name.field = value`
@@ -307,6 +309,7 @@ pub enum TypeExpr {
 	TupleStruct(String, Vec<(Option<String>, TypeExpr)>),
 	Map(Box<TypeExpr>, Box<TypeExpr>),
 	Generic(String, Vec<TypeExpr>),
+	Ref(Box<TypeExpr>),
 }
 
 #[derive(Debug, Clone)]

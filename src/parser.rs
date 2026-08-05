@@ -202,6 +202,8 @@ where
 			let result = just(Token::Not)
 				.ignore_then(base.clone())
 				.map(|t| TypeExpr::Result(Box::new(t), None));
+			// shared refs
+			let ref_type = just(Token::Amp).ignore_then(base.clone()).map(|t| TypeExpr::Ref(Box::new(t)));
 			// atom(s)
 			let atom = select! { Token::Atom(a) => TypeExpr::AtomSum(vec![a]) };
 
@@ -236,6 +238,7 @@ where
 				tuple,
 				array,
 			))
+			.or(ref_type)
 		});
 
 		base.separated_by(just(Token::Pipe))
@@ -494,6 +497,14 @@ where
 			.then(struct_body)
 			.map(|(name, fields)| Expr::StructLit { name, fields });
 
+		let ref_lit = just(Token::Amp).ignore_then(expr.clone()).try_map(|e, span| match &e.0 {
+			Expr::StructLit { .. } => Ok(Expr::Ref(Box::new(e))),
+			_ => Err(Rich::custom(
+				span,
+				"only a struct literal can be boxed into a reference yet",
+			)),
+		});
+
 		// explicit generic types
 		let call_type_args = bracket(
 			spanned(type_expr.clone())
@@ -514,7 +525,7 @@ where
 			});
 
 		// leaf atoms pair themselves with their span
-		let leaf = spanned(literal.or(struct_lit).or(var_or_call)).boxed();
+		let leaf = spanned(literal.or(ref_lit).or(struct_lit).or(var_or_call)).boxed();
 
 		// record entries
 		let key = select! {
