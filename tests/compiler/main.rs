@@ -21,6 +21,7 @@ mod memory;
 mod methods;
 mod param_mods;
 mod pipelines;
+mod resources;
 mod statements;
 mod str_method;
 mod traits;

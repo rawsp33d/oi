@@ -5,12 +5,33 @@ use super::*;
 // Owned values register in the innermost scope and release when it exits.
 
 impl<'a> Translator<'a> {
+	// Check whether a struct has Drop trait.
+	pub(super) fn is_resource(&self, typ: &Typ) -> bool {
+		matches!(typ, Typ::Struct(name, _) if self.trait_impls.contains(&(name.clone(), "Drop".into())))
+	}
+
+	// Transfer ownership of a resource.
+	pub fn move_resource(&mut self, e: &Spanned<Expr>, typ: &Typ) -> Result<(), Diagnostic> {
+		if self.is_resource(typ)
+			&& let Expr::Ident(n) = &e.0
+		{
+			let local = self.local(n, e.1.into_range())?;
+			self.move_local(n, &local, e.1.into_range())?;
+		}
+		Ok(())
+	}
+
 	// Emit one release for an owned value.
 	pub(super) fn release_value(&mut self, val: Value, typ: &Typ) {
 		match typ {
 			Typ::Array(_) => self.call_release(runtime::ARRAY_RELEASE, val),
 			Typ::Map(..) => self.call_release(runtime::MAP_RELEASE, val),
-			Typ::Struct(_, fields) => {
+			Typ::Struct(name, fields) => {
+				if self.is_resource(typ)
+					&& let Some(sig) = self.funcs.get(&format!("{name}.drop")).cloned()
+				{
+					self.emit_call(&sig, &[val]);
+				}
 				for (i, f) in fields.clone().iter().enumerate() {
 					if releasable(&f.typ) {
 						let cl = cl_type(&f.typ, self.int);
@@ -41,7 +62,7 @@ impl<'a> Translator<'a> {
 	pub(super) fn bind_local(&mut self, name: &str, val: Value, typ: Typ, mutable: bool) {
 		let var = self.b.declare_var(self.b.func.dfg.value_type(val));
 		self.b.def_var(var, val);
-		if releasable(&typ) {
+		if releasable(&typ) || self.is_resource(&typ) {
 			self.scopes.last_mut().expect("scope").push((var, typ.clone()));
 		}
 		self.vars.insert(name.to_string(), Local::plain(var, typ, mutable));
@@ -58,9 +79,9 @@ impl<'a> Translator<'a> {
 		}
 	}
 
-	// Transfer ownership of a local binding into a closure that will own it.
-	pub(super) fn move_local(&mut self, name: &str, local: &Local, span: Range<usize>) -> Result<Value, Diagnostic> {
-		if releasable(&local.typ) {
+	// Transfer ownership of a local binding.
+	pub fn move_local(&mut self, name: &str, local: &Local, span: Range<usize>) -> Result<Value, Diagnostic> {
+		if releasable(&local.typ) || self.is_resource(&local.typ) {
 			let depth = self
 				.scopes
 				.iter()

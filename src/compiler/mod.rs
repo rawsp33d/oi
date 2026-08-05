@@ -554,6 +554,9 @@ impl Compiler {
 
 		// define vtables now that every concrete method has a FuncId
 		for (typ, tn) in &self.trait_impls {
+			if tn == "Drop" {
+				continue;
+			}
 			let (_, tfields, tmethods) = traits[tn.as_str()];
 			let methods: Vec<&str> = trait_fns(tmethods).map(|(n, ..)| n).collect();
 			let m = methods.len();
@@ -755,6 +758,9 @@ impl Compiler {
 		let tail_target = trans.ret.as_ref().map(|(t, _)| t.clone());
 		if let Some((val, typ)) = trans.block_tail(def.body, tail_target.as_ref())? {
 			let span = def.body.last().map(|s| s.1).or(decl_span).unwrap_or((0..0).into());
+			if let Some(e) = def.body.last() {
+				trans.move_resource(e, &typ)?;
+			}
 			trans.emit_return(val, typ, span)?;
 		}
 		trans.b.finalize();

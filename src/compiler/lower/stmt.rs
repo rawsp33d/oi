@@ -32,6 +32,9 @@ impl<'a> Translator<'a> {
 						(None, Some(target)) => (self.zero(&target), target),
 						(None, None) => unreachable!("binding has neither a type nor a value"),
 					};
+					if let Some(v) = value {
+						self.move_resource(v, &typ)?;
+					}
 					let val = self.copy_in(val, &typ);
 					let final_val = match &typ {
 						Typ::Struct(_, fields) => self.struct_copy(val, fields),
@@ -229,6 +232,9 @@ impl<'a> Translator<'a> {
 							(self.zero(&typ), typ)
 						}
 					};
+					if let Some(e) = value {
+						self.move_resource(e, &typ)?;
+					}
 					self.emit_return(val, typ, stmt.1)?;
 					return Ok(None);
 				}

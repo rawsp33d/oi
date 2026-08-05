@@ -25,6 +25,17 @@ pub(super) fn check_impls<'p>(
 	others: &mut Vec<FnItem<'p>>,
 ) -> Result<(), Diagnostic> {
 	for (span, typ, tn, methods) in trait_bodies {
+		if tn == "Drop" {
+			let well_formed = methods.iter().any(|m| {
+				matches!(&m.0, Expr::Fn { name, params, .. }
+					if name == "drop" && params.len() == 1 && params[0].name == "self" && params[0].mutable)
+			});
+			if !well_formed {
+				let msg = format!("`impl Drop for {typ}` must define `fn drop(mut self)`");
+				return Err(Diagnostic::new(msg, span.into_range()).with_label("missing or wrong `drop` method"));
+			}
+			continue;
+		}
 		let Some((supers, tfields, tmethods)) = traits.get(tn) else {
 			return Err(Diagnostic::new(format!("unknown trait `{tn}`"), span.into_range()).with_label("no such trait"));
 		};
