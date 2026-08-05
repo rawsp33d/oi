@@ -273,8 +273,8 @@ impl<'a> Translator<'a> {
 
 				Expr::FieldAssign { name, field, value } => {
 					let local = self.mutable_local(name, stmt.1.into_range(), Mutation::FieldAssign)?;
-					let fields = match peel(&local.typ) {
-						Typ::Struct(_, fields) => fields.clone(),
+					let fields = match self.peeled(&local.typ) {
+						Typ::Struct(_, fields) => fields,
 						_ => {
 							return Err(
 								Diagnostic::new(format!("`{name}` is not a struct"), stmt.1.into_range())

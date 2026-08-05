@@ -104,6 +104,19 @@ fn mentions(te: &TypeExpr, name: &str) -> bool {
 	}
 }
 
+// No placeholder struct may appear outside a `&T`.
+fn ref_guarded(typ: &Typ, placeholders: &HashSet<String>) -> bool {
+	match typ {
+		Typ::Ref(_) => true,
+		Typ::Struct(n, fs) => !placeholders.contains(n) && fs.iter().all(|f| ref_guarded(&f.typ, placeholders)),
+		Typ::Option(i) | Typ::Result(i) | Typ::Array(i) | Typ::FixedArray(i, _) => ref_guarded(i, placeholders),
+		Typ::Map(k, v) => ref_guarded(k, placeholders) && ref_guarded(v, placeholders),
+		Typ::Tuple(fs) | Typ::TupleStruct(_, fs) => fs.iter().all(|(_, t)| ref_guarded(t, placeholders)),
+		Typ::Sum(vs) => vs.iter().all(|v| v.payload.iter().all(|t| ref_guarded(t, placeholders))),
+		_ => true,
+	}
+}
+
 // Rewrite `Self` type refs to the owning type.
 fn replace_self(te: &TypeExpr, self_ty: &TypeExpr) -> TypeExpr {
 	match te {
@@ -406,23 +419,37 @@ impl Compiler {
 		let no_type_params: HashMap<String, Typ> = HashMap::new();
 		let mut structs: HashMap<String, Vec<FieldDef>> = HashMap::new();
 		let mut pending = struct_items;
+		let mut placeholders: HashSet<String> = HashSet::new();
+		let field = |types: &TypeCtx, p: &Param| {
+			let typ = types.resolve(&p.typ, p.span)?;
+			if matches!(typ, Typ::Ref(_)) && p.default.is_none() {
+				let msg = "a reference field must be optional (`?&T`) or have a default";
+				return Err(Diagnostic::new(msg, p.span.into_range()).with_label("no zero value for `&T`"));
+			}
+			Ok(FieldDef {
+				name: p.name.clone(),
+				typ,
+				default: p.default.clone(),
+			})
+		};
 		while !pending.is_empty() {
 			let types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits);
 			let (mut done, mut err) = (vec![], None);
 			pending.retain(|(name, fields)| {
-				let field = |p: &Param| {
-					let typ = types.resolve(&p.typ, p.span)?;
-					if matches!(typ, Typ::Ref(_)) && p.default.is_none() {
-						let msg = "a reference field must be optional (`?&T`) or have a default";
-						return Err(Diagnostic::new(msg, p.span.into_range()).with_label("no zero value for `&T`"));
+				let resolve = || {
+					let fs: Vec<FieldDef> = fields.iter().map(|p| field(&types, p)).collect::<Result<_, _>>()?;
+					for (p, f) in fields.iter().zip(&fs) {
+						if !ref_guarded(&f.typ, &placeholders) {
+							return Err(Diagnostic::new(
+								format!("`{name}` recurses for ever ever"),
+								p.span.into_range(),
+							)
+							.with_label("would require infinitely nested fields"));
+						}
 					}
-					Ok(FieldDef {
-						name: p.name.clone(),
-						typ,
-						default: p.default.clone(),
-					})
+					Ok(fs)
 				};
-				match fields.iter().map(field).collect::<Result<Vec<_>, Diagnostic>>() {
+				match resolve() {
 					Ok(fs) => {
 						done.push((name.to_string(), fs));
 						false
@@ -434,20 +461,11 @@ impl Compiler {
 				}
 			});
 			if done.is_empty() {
-				// detect recursion
-				let cycle = pending.iter().find_map(|(name, fields)| {
-					Some((
-						*name,
-						fields.iter().find(|p| pending.iter().any(|(n, _)| mentions(&p.typ, n)))?.span,
-					))
-				});
-				let Some((name, span)) = cycle else {
+				if !placeholders.is_empty() {
 					return Err(err.unwrap());
-				};
-				return Err(
-					Diagnostic::new(format!("`{name}` recurses for ever ever"), span.into_range())
-						.with_label("would require infinitely nested fields"),
-				);
+				}
+				placeholders.extend(pending.iter().map(|(n, _)| n.to_string()));
+				structs.extend(placeholders.iter().map(|n| (n.clone(), vec![])));
 			}
 			structs.extend(done);
 		}

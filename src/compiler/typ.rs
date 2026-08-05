@@ -137,7 +137,11 @@ impl PartialEq for Typ {
 			(Typ::Sum(a), Typ::Sum(b)) => a == b,
 			(Typ::Fn(p, r), Typ::Fn(q, s)) | (Typ::Closure(p, r, _), Typ::Closure(q, s, _)) => p == q && r == s,
 			(Typ::Map(k, v), Typ::Map(l, w)) => k == l && v == w,
-			(Typ::Mut(a), Typ::Mut(b)) | (Typ::Ref(a), Typ::Ref(b)) => a == b,
+			(Typ::Mut(a), Typ::Mut(b)) => a == b,
+			(Typ::Ref(a), Typ::Ref(b)) => match (&**a, &**b) {
+				(Typ::Struct(n, _), Typ::Struct(m, _)) => n == m,
+				_ => a == b,
+			},
 			_ => std::mem::discriminant(self) == std::mem::discriminant(other),
 		}
 	}

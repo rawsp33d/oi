@@ -177,6 +177,16 @@ impl<'a> Translator<'a> {
 			.unwrap_or_default()
 	}
 
+	// See through `&T`.
+	pub(super) fn peeled(&self, typ: &Typ) -> Typ {
+		match peel(typ) {
+			Typ::Struct(n, f) if f.is_empty() => {
+				Typ::Struct(n.clone(), self.structs.get(n).cloned().unwrap_or_default())
+			}
+			t => t.clone(),
+		}
+	}
+
 	// Variant table for any type that carries variants.
 	pub(super) fn variants_of(&self, typ: &Typ) -> Vec<VariantInfo> {
 		match typ {

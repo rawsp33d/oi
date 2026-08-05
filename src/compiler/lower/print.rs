@@ -205,7 +205,10 @@ impl<'a> Translator<'a> {
 			Typ::Fn(..) | Typ::Closure(..) => self.write_lit("<fn>", sink),
 			Typ::Map(..) => self.write_lit("<map>", sink),
 
-			Typ::Ref(inner) => self.emit_print(val, inner, quote, sink),
+			Typ::Ref(_) => {
+				let inner = self.peeled(typ);
+				self.emit_print(val, &inner, quote, sink)
+			}
 
 			Typ::Trait(tn) => {
 				let (_, tfields, tmethods) = self.traits[tn.as_str()];

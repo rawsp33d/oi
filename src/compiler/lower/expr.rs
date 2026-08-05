@@ -172,7 +172,7 @@ impl<'a> Translator<'a> {
 					(name.clone(), None)
 				} else {
 					let (recv_val, recv_typ) = self.expr(recv)?;
-					let recv_typ = peel(&recv_typ).clone();
+					let recv_typ = self.peeled(&recv_typ);
 					if method == "str" && args.is_empty() && !matches!(recv_typ, Typ::Struct(..) | Typ::TupleStruct(..))
 					{
 						return Ok((self.derived_str(recv_val, &recv_typ), Typ::Str));
@@ -255,7 +255,7 @@ impl<'a> Translator<'a> {
 				}
 
 				let (ptr, typ) = self.expr(tuple)?;
-				let typ = peel(&typ).clone();
+				let typ = self.peeled(&typ);
 
 				if let Typ::Trait(tn) = &typ {
 					return self.trait_field(ptr, tn, field, expr.1);

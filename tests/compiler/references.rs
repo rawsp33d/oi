@@ -17,14 +17,14 @@ fn aliasing_shares_identity() {
 #[test]
 fn bare_ref_without_value_errors() {
 	fail_with(
-		"struct Node { value int }\nmut n &Node",
+		["struct Node { value int }", "mut n &Node"],
 		"a reference must be initialized (`?&T` for an optional one)",
 	);
 }
 
 #[test]
 fn optional_ref_zero_value_assign_unwrap() {
-	check("struct Node { value int }\nmut o ?&Node\no", "none");
+	check(["struct Node { value int }", "mut o ?&Node", "o"], "none");
 	check(
 		indoc! {"
 			struct Node { value int }
@@ -57,4 +57,28 @@ fn bare_ref_field_rejected() {
 		struct List { head &Node }
 	"};
 	fail_with(src, "must be optional (`?&T`)");
+}
+
+#[test]
+fn linked_nodes() {
+	check(
+		indoc! {r#"
+			struct Node { value int, next ?&Node }
+			tail := &Node{ value: 2 }
+			head := &Node{ value: 1, next: ?&Node(tail) }
+			match head.next {
+				.some(n) => print("{head.value} -> {n.value}"),
+				.none => print("lonely"),
+			}
+		"#},
+		"1 -> 2",
+	);
+}
+
+#[test]
+fn value_recursion_still_errors() {
+	fail_with(
+		["struct A { b B }", "struct B { a A }"],
+		"would require infinitely nested fields",
+	);
 }
