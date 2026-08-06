@@ -75,6 +75,12 @@ pub enum Token {
 	For,
 	#[token("is")]
 	Is,
+	#[token("module")]
+	Module,
+	#[token("import")]
+	Import,
+	#[token("pub")]
+	Pub,
 
 	// control flow
 	#[token("if")]
@@ -216,6 +222,9 @@ impl fmt::Display for Token {
 			Token::Trait => write!(f, "trait"),
 			Token::For => write!(f, "for"),
 			Token::Is => write!(f, "is"),
+			Token::Module => write!(f, "module"),
+			Token::Import => write!(f, "import"),
+			Token::Pub => write!(f, "pub"),
 			Token::If => write!(f, "if"),
 			Token::Else => write!(f, "else"),
 			Token::Loop => write!(f, "loop"),

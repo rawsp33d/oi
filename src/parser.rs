@@ -1175,12 +1175,36 @@ where
 		})
 		.boxed();
 
-	tuple_struct_def
+	let def = tuple_struct_def
 		.or(struct_def)
 		.or(enum_def)
 		.or(type_alias)
-		.or(func)
+		.or(func.clone())
 		.or(trait_def)
+		.boxed();
+	let public = just(Token::Pub)
+		.ignore_then(def.clone())
+		.map_with(|d, ex| (Expr::Pub(Box::new(d)), ex.span()));
+	let module_decl = just(Token::Module)
+		.ignore_then(ident())
+		.map_with(|name, ex| (Expr::Module(name), ex.span()));
+	let alias = select! { Token::Ident(s) if s == "as" => () }.ignore_then(ident());
+	let import_decl = just(Token::Import)
+		.ignore_then(ident())
+		.then(
+			brace(loose_list(spanned(ident())))
+				.map(|names| (None, names))
+				.or(alias.map(|a| (Some(a), vec![])))
+				.or_not(),
+		)
+		.map_with(|(module, tail), ex| {
+			let (alias, names) = tail.unwrap_or_default();
+			(Expr::Import { module, alias, names }, ex.span())
+		});
+
+	def.or(public)
+		.or(module_decl)
+		.or(import_decl)
 		.or(impl_block)
 		.or(stmt)
 		.repeated()

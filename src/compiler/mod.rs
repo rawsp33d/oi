@@ -242,8 +242,24 @@ impl Compiler {
 		let mut loose_refs: Vec<&Spanned<Expr>> = vec![];
 		let mut trait_bodies: Vec<(Span, &str, &str, &[Spanned<Expr>])> = vec![];
 
+		fn peel(item: &Spanned<Expr>) -> &Spanned<Expr> {
+			match &item.0 {
+				Expr::Pub(inner) => inner,
+				_ => item,
+			}
+		}
+		let program = match program {
+			[(Expr::Module(name), _), rest @ ..] if name == "main" => rest,
+			[(Expr::Module(_), span), ..] => {
+				let msg = "the entry file is module `main`";
+				return Err(Diagnostic::new(msg, span.into_range()).with_label("rename it to `main`"));
+			}
+			_ => program,
+		};
+
 		let mut traits: HashMap<&str, TraitItem> = HashMap::new();
-		for (e, span) in program {
+		for item in program {
+			let (e, span) = peel(item);
 			let Expr::TraitDef {
 				name,
 				supers,
@@ -260,7 +276,16 @@ impl Compiler {
 			}
 		}
 		for item in program {
+			let item = peel(item);
 			match &item.0 {
+				Expr::Module(_) => {
+					let msg = "`module` must come first";
+					return Err(Diagnostic::new(msg, item.1.into_range()).with_label("move it to the top"));
+				}
+				Expr::Import { module, .. } => {
+					let msg = format!("cannot find module `{module}`");
+					return Err(Diagnostic::new(msg, item.1.into_range()).with_label("no such module"));
+				}
 				Expr::StructDef {
 					name,
 					type_params,

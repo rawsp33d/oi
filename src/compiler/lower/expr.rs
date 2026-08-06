@@ -490,7 +490,7 @@ impl<'a> Translator<'a> {
 			Expr::Break | Expr::Continue => unreachable!("break/continue in expression position"),
 			Expr::Append { .. } => unreachable!("append in expression position"),
 			Expr::MapDelete { .. } => unreachable!("map delete in expression position"),
-			Expr::Doc(_) => unreachable!("doc comment in expression position"),
+			Expr::Doc(_) | Expr::Module(_) | Expr::Import { .. } | Expr::Pub(_) => unreachable!("not an expression"),
 		}
 	}
 }

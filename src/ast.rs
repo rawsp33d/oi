@@ -235,6 +235,19 @@ pub enum Expr {
 		args: Vec<Spanned<Expr>>,
 	},
 
+	// modules
+
+	// `module name`
+	Module(String),
+	// `import module { names }` or `import module as alias`
+	Import {
+		module: String,
+		alias: Option<String>,
+		names: Vec<Spanned<String>>,
+	},
+	// `pub expr`
+	Pub(Box<Spanned<Expr>>),
+
 	// operators
 
 	// `T is not? Trait`
