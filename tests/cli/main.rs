@@ -1,5 +1,5 @@
-#[path = "../support/mod.rs"]
-mod support;
+#[path = "../common/mod.rs"]
+mod common;
 
 mod exec;
 mod run;

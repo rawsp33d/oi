@@ -80,6 +80,7 @@ tags: []
 # TODO
 - immediate
 	- [x] backport these obsidian notes into the Oi repo
+- [ ] `comp assert`
 - [x] pipeline examples with `!` postfix collide with macros
 - [x] revisit needing `print`, `assert`, et al to be macros
 	- V allows this without macros: `error('User ${id} not found')`

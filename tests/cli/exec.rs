@@ -1,4 +1,4 @@
-use crate::support::{oi, stdout_ok};
+use crate::common::{oi, stdout_ok};
 
 fn exec_arg(src: &str) -> String {
 	stdout_ok(oi(&["exec", src], None))

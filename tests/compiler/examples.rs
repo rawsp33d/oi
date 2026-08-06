@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::support::{oi, stdout_ok};
+use crate::common::{oi, stdout_ok};
 
 /// Expected stdout for every file in `examples/`.
 const EXPECTED: &[(&str, &str)] = &[

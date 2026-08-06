@@ -1,4 +1,4 @@
-use crate::support::{oi, oi_in};
+use crate::common::{oi, oi_in};
 
 #[test]
 fn missing_file_errors() {

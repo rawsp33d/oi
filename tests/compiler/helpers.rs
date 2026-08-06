@@ -3,7 +3,7 @@ use std::process::Output;
 pub(crate) use indoc::indoc;
 use pretty_assertions::assert_eq;
 
-use crate::support::{oi, stdout_ok, trim_trailing_newline};
+use crate::common::{oi, stdout_ok, trim_trailing_newline};
 
 /// Run `src` through `oi exec`.
 fn exec(src: &str) -> Output {
@@ -75,7 +75,7 @@ pub(crate) fn check(src: impl Lines, expected: impl Lines) {
 /// Run under the leak checker, returning the live-allocation count at exit.
 pub(crate) fn leaks(src: impl Lines) -> i64 {
 	let src = src.text();
-	let out = crate::support::oi_env(&[("OI_LEAK_CHECK", "1")], &["exec"], Some(&src));
+	let out = crate::common::oi_env(&[("OI_LEAK_CHECK", "1")], &["exec"], Some(&src));
 	assert!(
 		out.status.success(),
 		"src:\n{src}\nstderr:\n{}",
