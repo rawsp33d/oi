@@ -15,6 +15,10 @@ fn module_decl() {
 #[test]
 fn import_missing() {
 	fail_with("import os", "cannot find module `os`");
-	fail_with("import os { input }", "cannot find module `os`");
-	fail_with("import os as system", "cannot find module `os`");
+}
+
+#[test]
+fn import_forms_not_supported_yet() {
+	fail_with("import os { input }", "selective imports aren't supported yet");
+	fail_with("import os as system", "import aliases aren't supported yet");
 }

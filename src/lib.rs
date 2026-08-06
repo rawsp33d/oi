@@ -4,6 +4,7 @@ pub mod compiler;
 pub mod diagnostics;
 pub mod driver;
 pub mod lexer;
+pub mod loader;
 pub mod parser;
 pub mod runtime;
 

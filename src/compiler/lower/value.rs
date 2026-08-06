@@ -636,7 +636,7 @@ impl<'a> Translator<'a> {
 				Diagnostic::new("`Self` is only valid in an impl block", span.into_range())
 					.with_label("no enclosing impl")
 			})?,
-			_ => name.to_string(),
+			_ => self.qualify(name).to_string(),
 		};
 		if self.enums.contains_key(name.as_str()) {
 			if !fields.is_empty() {

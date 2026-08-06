@@ -11,6 +11,12 @@ impl<'a> Translator<'a> {
 			self.generics,
 			self.traits,
 		)
+		.with_scope(self.scope)
+	}
+
+	// Qualify a bare top-level name against the module's own items.
+	pub(super) fn qualify<'n>(&'n self, name: &'n str) -> &'n str {
+		self.scope.env.get(name).map_or(name, String::as_str)
 	}
 
 	// Look up the binding that a mutation targets.

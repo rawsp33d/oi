@@ -353,6 +353,14 @@ fn expand_string(s: &str, span: SimpleSpan, src: &str) -> Vec<(Token, SimpleSpan
 	toks
 }
 
+// Lex `src`, shifting every span by `base` so a file lexed in isolation lands at its offset in the `Program`.
+pub fn lex_at(src: &str, base: usize) -> Vec<(Token, SimpleSpan)> {
+	lex(src)
+		.into_iter()
+		.map(|(t, s)| (t, (s.start + base..s.end + base).into()))
+		.collect()
+}
+
 // Lex `src`.
 // Converts errors into tokens so parsing stays recoverable.
 // Inserts `DocBreak` between consecutive `Doc` tokens separated by at least one newline.

@@ -6,6 +6,39 @@ use chumsky::error::{Rich, RichReason};
 
 use crate::lexer::Token;
 
+// A source file at its program-wide byte offset.
+struct File {
+	base: usize,
+	name: String,
+	src: String,
+}
+
+// Source files laid out at increasing byte offsets so one span space covers the whole program.
+#[derive(Default)]
+pub struct SourceMap {
+	files: Vec<File>,
+}
+
+impl SourceMap {
+	// Append a file, returning its base offset.
+	pub fn push(&mut self, name: String, src: String) -> usize {
+		let base = self.files.last().map_or(0, |f| f.base + f.src.len() + 1);
+		self.files.push(File { base, name, src });
+		base
+	}
+
+	pub fn last_src(&self) -> &str {
+		&self.files.last().unwrap().src
+	}
+
+	// Map a program-wide span back to its file and local range.
+	fn locate(&self, span: &Range<usize>) -> (&File, Range<usize>) {
+		let i = self.files.partition_point(|f| f.base <= span.start).saturating_sub(1);
+		let f = &self.files[i];
+		(f, span.start - f.base..span.end - f.base)
+	}
+}
+
 // A user-facing error rendered with ariadne.
 pub struct Diagnostic {
 	message: String,
@@ -42,6 +75,18 @@ impl Diagnostic {
 			RichReason::ExpectedFound { .. } => "unexpected token",
 		};
 		Self::new(err.reason().to_string(), err.span().into_range()).with_label(label)
+	}
+
+	// Render through a source map, rebasing the span into its owning file.
+	pub fn report_mapped(&self, map: &SourceMap) {
+		let (file, span) = map.locate(&self.span);
+		Diagnostic {
+			message: self.message.clone(),
+			span,
+			label: self.label.clone(),
+			note: self.note.clone(),
+		}
+		.report(&file.name, &file.src);
 	}
 
 	// Render span to stderr.

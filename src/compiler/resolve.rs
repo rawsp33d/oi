@@ -1,6 +1,7 @@
 //! Type resolution.
 
 use super::*;
+use crate::loader::Scope;
 
 // resolved params with an optional return annotation
 type ParamsRet = (Vec<(String, Typ, bool)>, Option<(Typ, Span)>);
@@ -91,6 +92,8 @@ pub(super) fn apply_backing(
 	Ok(())
 }
 
+static NO_SCOPE: std::sync::LazyLock<Scope> = std::sync::LazyLock::new(Scope::default);
+
 // The named types in scope for resolution.
 #[derive(Clone, Copy)]
 pub(crate) struct TypeCtx<'a> {
@@ -100,6 +103,7 @@ pub(crate) struct TypeCtx<'a> {
 	pub type_params: &'a HashMap<String, Typ>,
 	pub generics: &'a Generics,
 	pub traits: &'a HashMap<&'a str, TraitItem<'a>>,
+	pub scope: &'a Scope,
 	// keep track of generic instantiations to catch recursion
 	depth: usize,
 }
@@ -120,8 +124,14 @@ impl<'a> TypeCtx<'a> {
 			type_params,
 			generics,
 			traits,
+			scope: &NO_SCOPE,
 			depth: 0,
 		}
+	}
+
+	// Resolve names through a module's scope.
+	pub fn with_scope(self, scope: &'a Scope) -> Self {
+		TypeCtx { scope, ..self }
 	}
 }
 
@@ -348,6 +358,7 @@ impl TypeCtx<'_> {
 		if let Some(typ) = self.type_params.get(name) {
 			return Ok(typ.clone());
 		}
+		let name = self.scope.env.get(name).map_or(name, String::as_str);
 		match name {
 			"int" => return Ok(Typ::Int(32)),
 			"isize" => return Ok(Typ::ISize),

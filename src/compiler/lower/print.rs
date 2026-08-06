@@ -153,7 +153,7 @@ impl<'a> Translator<'a> {
 				if let Some(s) = self.str_impl(sname, val) {
 					return self.emit_frag(runtime::Tag::Raw, s, 0, false, sink);
 				}
-				let sname = sname.clone();
+				let sname = display_name(sname).to_string();
 				let fields = fields.clone();
 				self.write_lit(&format!("{sname}{{"), sink);
 				for (i, f) in fields.iter().enumerate() {
@@ -172,7 +172,7 @@ impl<'a> Translator<'a> {
 				if let Some(s) = self.str_impl(name, val) {
 					return self.emit_frag(runtime::Tag::Raw, s, 0, false, sink);
 				}
-				let name = name.clone();
+				let name = display_name(name).to_string();
 				let body = Typ::Tuple(fields.clone());
 				self.write_lit(&name, sink);
 				self.emit_print(val, &body, quote, sink);

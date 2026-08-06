@@ -32,6 +32,40 @@ impl<'a> Translator<'a> {
 		self.module.declare_func_in_func(id, self.b.func)
 	}
 
+	// Call a `pub` function of an imported module.
+	pub(super) fn module_call(
+		&mut self,
+		module: &str,
+		method: &str,
+		args: &[Spanned<Expr>],
+		span: Span,
+	) -> Result<TypedVal, Diagnostic> {
+		let key = format!("{module}::{method}");
+		let known = self.funcs.contains_key(&key) || self.generic_fns.contains_key(&key);
+		if !self.publics.contains(&key) {
+			let (msg, label) = if known {
+				(format!("`{method}` is private to module `{module}`"), "not public")
+			} else {
+				(
+					format!("module `{module}` has no function `{method}`"),
+					"no such function",
+				)
+			};
+			return Err(Diagnostic::new(msg, span.into_range()).with_label(label));
+		}
+		if let Some(sig) = self.funcs.get(&key).cloned() {
+			return self.call_sig(method, sig, None, None, args, span);
+		}
+		if let Some(def) = self.generic_fns.get(&key).cloned() {
+			return self.call_generic(&key, &def, &[], args, None, span);
+		}
+		Err(Diagnostic::new(
+			format!("module `{module}` has no function `{method}`"),
+			span.into_range(),
+		)
+		.with_label("no such function"))
+	}
+
 	// Emit a call to a resolved fn.
 	pub(super) fn call_sig(
 		&mut self,

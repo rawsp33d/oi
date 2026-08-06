@@ -1,40 +1,28 @@
-use chumsky::{input::Stream, prelude::*};
+use std::path::Path;
 
 use crate::Reported;
 use crate::compiler::Compiler;
-use crate::diagnostics::Diagnostic;
-use crate::lexer::lex;
-use crate::parser::parser;
+use crate::loader;
 
 /// Compile and run a program from its source text.
 ///
 /// `name` labels the source in diagnostics (a file path, or `<exec>` / `<stdin>`).
+/// `root` anchors module lookups.
 /// On failure the diagnostic is rendered to stderr.
-pub fn run_source(name: &str, src: &str, debug_ast: bool) -> Result<(), Reported> {
-	// lex
-	let tokens = lex(src);
-	let stream = Stream::from_iter(tokens).map((src.len()..src.len()).into(), |(t, s)| (t, s));
-	// parse
-	let ast = match parser().parse(stream).into_result() {
-		Ok(ast) => ast,
-		Err(errors) => {
-			for e in &errors {
-				Diagnostic::from_rich(e).report(name, src);
-			}
-			return Err(Reported);
-		}
-	};
+pub fn run_source(name: &str, src: &str, root: &Path, debug_ast: bool) -> Result<(), Reported> {
+	let program = loader::load(name, src.to_string(), root)?;
 
 	if debug_ast {
-		eprintln!("{ast:#?}");
+		for m in &program.modules {
+			eprintln!("{:#?}", m.items);
+		}
 	}
 
-	// compile
 	let mut compiler = Compiler::default();
-	let code = match compiler.compile(&ast) {
+	let code = match compiler.compile(&program) {
 		Ok(code) => code,
 		Err(error) => {
-			error.report(name, src);
+			error.report_mapped(&program.map);
 			return Err(Reported);
 		}
 	};

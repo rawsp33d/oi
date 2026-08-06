@@ -44,6 +44,22 @@ fn spawn(mut cmd: Command, stdin: Option<&str>) -> Output {
 	child.wait_with_output().unwrap()
 }
 
+/// Write `files` under a fresh temp dir and return it.
+/// Files are (path, contents) twoples.
+#[allow(dead_code)]
+pub fn project(files: &[(&str, &str)]) -> std::path::PathBuf {
+	use std::sync::atomic::{AtomicUsize, Ordering};
+	static N: AtomicUsize = AtomicUsize::new(0);
+	let n = N.fetch_add(1, Ordering::Relaxed);
+	let dir = std::env::temp_dir().join(format!("oi_proj_{}_{n}", std::process::id()));
+	for (path, content) in files {
+		let full = dir.join(path);
+		std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+		std::fs::write(full, content).unwrap();
+	}
+	dir
+}
+
 /// Strip a single trailing newline.
 pub fn trim_trailing_newline(bytes: &[u8]) -> String {
 	let s = String::from_utf8(bytes.to_vec()).unwrap();

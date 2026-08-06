@@ -9,5 +9,6 @@ pub fn run(file: &Path, debug_ast: bool) -> Result<(), Reported> {
 		eprintln!("oi: cannot read {}: {e}", file.display());
 		Reported
 	})?;
-	run_source(&file.display().to_string(), &src, debug_ast)
+	let root = file.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."));
+	run_source(&file.display().to_string(), &src, root, debug_ast)
 }

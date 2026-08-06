@@ -123,7 +123,8 @@ impl<'a> Translator<'a> {
 			}
 
 			Expr::Call { name, type_args, args } => {
-				if !type_args.is_empty() && !self.generic_fns.contains_key(name) {
+				let qn = self.qualify(name).to_string();
+				if !type_args.is_empty() && !self.generic_fns.contains_key(&qn) {
 					return Err(Diagnostic::new(format!("`{name}` is not generic"), expr.1.into_range())
 						.with_label("unexpected type arguments"));
 				}
@@ -133,12 +134,12 @@ impl<'a> Translator<'a> {
 				}
 				match self.builtin_call(name, args, expr.1)? {
 					Some(result) => Ok(result),
-					None => match self.funcs.get(name).cloned() {
+					None => match self.funcs.get(&qn).cloned() {
 						Some(sig) => self.call_sig(name, sig, None, None, args, expr.1),
-						None => match self.generic_fns.get(name).cloned() {
-							Some(def) => self.call_generic(name, &def, type_args, args, None, expr.1),
-							None if matches!(self.aliases.get(name.as_str()), Some(TypeExpr::TupleStruct(..))) => {
-								self.construct_tuple_struct(name, args, expr.1)
+						None => match self.generic_fns.get(&qn).cloned() {
+							Some(def) => self.call_generic(&qn, &def, type_args, args, None, expr.1),
+							None if matches!(self.aliases.get(&qn), Some(TypeExpr::TupleStruct(..))) => {
+								self.construct_tuple_struct(&qn, args, expr.1)
 							}
 							None => Err(
 								Diagnostic::new(format!("undefined function `{name}`"), expr.1.into_range())
@@ -150,25 +151,34 @@ impl<'a> Translator<'a> {
 			}
 
 			Expr::MethodCall { recv, method, args } => {
+				// qualified access to an imported module's function
+				if let Expr::Ident(m) = &recv.0
+					&& !self.vars.contains_key(m)
+					&& self.scope.visible.contains(m)
+				{
+					return self.module_call(m, method, args, expr.1);
+				}
+
 				// enum payload
 				if let Expr::Ident(name) = &recv.0
 					&& !self.vars.contains_key(name)
-					&& self.enums.contains_key(name)
+					&& self.enums.contains_key(self.qualify(name))
 				{
+					let name = self.qualify(name).to_string();
 					return if method == "from" {
-						self.enum_from(name, args, expr.1)
+						self.enum_from(&name, args, expr.1)
 					} else {
-						self.construct_variant(name, method, args, expr.1)
+						self.construct_variant(&name, method, args, expr.1)
 					};
 				}
 
 				// method call is static when `recv` names a struct
 				let (sname, bound) = if let Expr::Ident(name) = &recv.0
 					&& !self.vars.contains_key(name)
-					&& (self.structs.contains_key(name)
-						|| matches!(self.aliases.get(name.as_str()), Some(TypeExpr::TupleStruct(..))))
+					&& (self.structs.contains_key(self.qualify(name))
+						|| matches!(self.aliases.get(self.qualify(name)), Some(TypeExpr::TupleStruct(..))))
 				{
-					(name.clone(), None)
+					(self.qualify(name).to_string(), None)
 				} else {
 					let (recv_val, recv_typ) = self.expr(recv)?;
 					let recv_typ = self.peeled(&recv_typ);
@@ -248,9 +258,10 @@ impl<'a> Translator<'a> {
 				// enum variants
 				if let Expr::Ident(name) = &tuple.0
 					&& !self.vars.contains_key(name)
-					&& self.enums.contains_key(name)
+					&& self.enums.contains_key(self.qualify(name))
 				{
-					return self.construct_variant(name, field, &[], expr.1);
+					let name = self.qualify(name).to_string();
+					return self.construct_variant(&name, field, &[], expr.1);
 				}
 
 				let (ptr, typ) = self.expr(tuple)?;

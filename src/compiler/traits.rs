@@ -8,6 +8,15 @@ pub(crate) type TraitItem<'a> = (&'a [String], &'a [Param], &'a [Spanned<Expr>])
 // A trait method's name, params, and return annotation.
 pub(crate) type TraitFn<'a> = (&'a str, &'a [Param], &'a Option<Spanned<TypeExpr>>);
 
+// A trait impl body.
+pub(crate) struct TraitBody<'a> {
+	pub span: Span,
+	pub typ: &'a str,
+	pub trait_name: &'a str,
+	pub methods: &'a [Spanned<Expr>],
+	pub scope: &'a Scope,
+}
+
 pub(crate) fn trait_fns(methods: &[Spanned<Expr>]) -> impl Iterator<Item = TraitFn<'_>> {
 	methods.iter().filter_map(|m| match &m.0 {
 		Expr::Fn { name, params, ret, .. } => Some((name.as_str(), params.as_slice(), ret)),
@@ -18,13 +27,20 @@ pub(crate) fn trait_fns(methods: &[Spanned<Expr>]) -> impl Iterator<Item = Trait
 // Check trait impl bodies.
 // Validates supertraits, required fields, method sigs.
 pub(super) fn check_impls<'p>(
-	trait_bodies: Vec<(Span, &'p str, &'p str, &'p [Spanned<Expr>])>,
+	trait_bodies: Vec<TraitBody<'p>>,
 	traits: &HashMap<&'p str, TraitItem<'p>>,
 	trait_impls: &HashSet<(String, String)>,
 	types: TypeCtx,
 	others: &mut Vec<FnItem<'p>>,
 ) -> Result<(), Diagnostic> {
-	for (span, typ, tn, methods) in trait_bodies {
+	for TraitBody {
+		span,
+		typ,
+		trait_name: tn,
+		methods,
+		scope,
+	} in trait_bodies
+	{
 		if tn == "Drop" {
 			let well_formed = methods.iter().any(|m| {
 				matches!(&m.0, Expr::Fn { name, params, .. }
@@ -65,7 +81,8 @@ pub(super) fn check_impls<'p>(
 			types.type_params,
 			types.generics,
 			types.traits,
-		);
+		)
+		.with_scope(scope);
 		let sig = |ps: &[Param], ret: &Option<Spanned<TypeExpr>>| -> Result<Typ, Diagnostic> {
 			let params = ps.iter().map(|p| sig_types.resolve(&p.typ, p.span)).collect::<Result<_, _>>()?;
 			let ret = match ret {
@@ -109,6 +126,7 @@ pub(super) fn check_impls<'p>(
 			}
 			others.push(FnItem {
 				key: format!("{typ}.{name}"),
+				scope,
 				params,
 				params_tuple: *params_tuple,
 				ret,

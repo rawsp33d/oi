@@ -148,7 +148,12 @@ impl PartialEq for Typ {
 }
 
 pub(crate) fn oi_symbol(name: &str) -> String {
-	format!("oi_{}", name.replace('.', "__"))
+	format!("oi_{}", name.replace('.', "__").replace("::", "$"))
+}
+
+// Strip qualifiers like `module::`.
+pub(crate) fn display_name(name: &str) -> &str {
+	name.split_once("::").map_or(name, |(_, rest)| rest)
 }
 
 pub(crate) fn cl_int_for_width(w: u16) -> types::Type {

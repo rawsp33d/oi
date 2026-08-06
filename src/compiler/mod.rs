@@ -8,6 +8,7 @@ use cranelift_module::{DataDescription, DataId, FuncId, Linkage, Module};
 
 use crate::ast::{EnumVariant, Expr, Param, Span, Spanned, TypeExpr, TypeParam};
 use crate::diagnostics::Diagnostic;
+use crate::loader::{Program, Scope};
 use crate::runtime;
 
 mod lower;
@@ -22,6 +23,7 @@ pub(crate) use typ::*;
 
 struct FnItem<'a> {
 	key: String,
+	scope: &'a Scope,
 	params: &'a [Param],
 	params_tuple: bool,
 	ret: &'a Option<Spanned<TypeExpr>>,
@@ -176,6 +178,7 @@ pub struct Compiler {
 	pending: Vec<Pending>,
 	trait_impls: HashSet<(String, String)>,
 	descs: HashMap<String, DataId>,
+	publics: HashSet<String>,
 }
 
 impl Default for Compiler {
@@ -227,12 +230,13 @@ impl Default for Compiler {
 			pending: Vec::new(),
 			trait_impls: HashSet::new(),
 			descs: HashMap::new(),
+			publics: HashSet::new(),
 		}
 	}
 }
 
 impl Compiler {
-	pub fn compile(&mut self, program: &[Spanned<Expr>]) -> Result<*const u8, Diagnostic> {
+	pub fn compile(&mut self, program: &Program) -> Result<*const u8, Diagnostic> {
 		let mut struct_items: Vec<(&str, &[Param])> = vec![];
 		let mut generics = Generics::default();
 		let mut enum_items: Vec<EnumItem> = vec![];
@@ -240,26 +244,15 @@ impl Compiler {
 		let mut main_body: Option<&[Spanned<Expr>]> = None;
 		let mut others: Vec<FnItem> = vec![];
 		let mut loose_refs: Vec<&Spanned<Expr>> = vec![];
-		let mut trait_bodies: Vec<(Span, &str, &str, &[Spanned<Expr>])> = vec![];
+		let mut trait_bodies: Vec<TraitBody> = vec![];
 
-		fn peel(item: &Spanned<Expr>) -> &Spanned<Expr> {
-			match &item.0 {
-				Expr::Pub(inner) => inner,
-				_ => item,
-			}
-		}
-		let program = match program {
-			[(Expr::Module(name), _), rest @ ..] if name == "main" => rest,
-			[(Expr::Module(_), span), ..] => {
-				let msg = "the entry file is module `main`";
-				return Err(Diagnostic::new(msg, span.into_range()).with_label("rename it to `main`"));
-			}
-			_ => program,
-		};
+		self.publics = program.publics.clone();
+		let scopes: HashMap<&str, &Scope> = program.modules.iter().map(|m| (m.name.as_str(), &m.scope)).collect();
+		let scope_of = |key: &str| scopes[key.split_once("::").map_or("main", |(m, _)| m)];
 
 		let mut traits: HashMap<&str, TraitItem> = HashMap::new();
-		for item in program {
-			let (e, span) = peel(item);
+		for (_, item) in program.items() {
+			let (e, span) = item;
 			let Expr::TraitDef {
 				name,
 				supers,
@@ -275,17 +268,8 @@ impl Compiler {
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("already defined"));
 			}
 		}
-		for item in program {
-			let item = peel(item);
+		for (scope, item) in program.items() {
 			match &item.0 {
-				Expr::Module(_) => {
-					let msg = "`module` must come first";
-					return Err(Diagnostic::new(msg, item.1.into_range()).with_label("move it to the top"));
-				}
-				Expr::Import { module, .. } => {
-					let msg = format!("cannot find module `{module}`");
-					return Err(Diagnostic::new(msg, item.1.into_range()).with_label("no such module"));
-				}
 				Expr::StructDef {
 					name,
 					type_params,
@@ -341,7 +325,13 @@ impl Compiler {
 								Diagnostic::new(msg, item.1.into_range()).with_label("remove the type parameters")
 							);
 						}
-						trait_bodies.push((item.1, typ.as_str(), tn.as_str(), methods.as_slice()));
+						trait_bodies.push(TraitBody {
+							span: item.1,
+							typ,
+							trait_name: tn,
+							methods,
+							scope,
+						});
 						self.trait_impls.insert((typ.clone(), tn.clone()));
 					}
 					for m in methods {
@@ -359,6 +349,7 @@ impl Compiler {
 						if type_params.is_empty() && mtp.is_empty() {
 							others.push(FnItem {
 								key: format!("{typ}.{name}"),
+								scope,
 								params,
 								params_tuple: *params_tuple,
 								ret,
@@ -425,6 +416,7 @@ impl Compiler {
 					..
 				} => others.push(FnItem {
 					key: name.clone(),
+					scope,
 					params,
 					params_tuple: *params_tuple,
 					ret,
@@ -460,9 +452,10 @@ impl Compiler {
 			})
 		};
 		while !pending.is_empty() {
-			let types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits);
 			let (mut done, mut err) = (vec![], None);
 			pending.retain(|(name, fields)| {
+				let types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits)
+					.with_scope(scope_of(name));
 				let resolve = || {
 					let fs: Vec<FieldDef> = fields.iter().map(|p| field(&types, p)).collect::<Result<_, _>>()?;
 					for (p, f) in fields.iter().zip(&fs) {
@@ -499,13 +492,14 @@ impl Compiler {
 		let field_types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits);
 		check_impls(trait_bodies, &traits, &self.trait_impls, field_types, &mut others)?;
 
-		let variant_types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits);
 		let enums: HashMap<String, Vec<VariantInfo>> = enum_items
 			.iter()
 			.map(|(name, backing, variants)| {
-				let mut vs = build_variants(variants, variant_types)?;
+				let types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits)
+					.with_scope(scope_of(name));
+				let mut vs = build_variants(variants, types)?;
 				if let Some(bt) = backing {
-					apply_backing(bt, &mut vs, variants, variant_types)?;
+					apply_backing(bt, &mut vs, variants, types)?;
 				}
 				Ok((name.to_string(), vs))
 			})
@@ -520,7 +514,8 @@ impl Compiler {
 			if let Some(t) = item.key.rsplit_once('.').map(|(t, _)| t) {
 				aliases.insert("Self".into(), TypeExpr::Name(t.into()));
 			}
-			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits);
+			let types =
+				TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits).with_scope(item.scope);
 			let param_typs: Vec<Typ> = item
 				.params
 				.iter()
@@ -554,7 +549,8 @@ impl Compiler {
 			if let Some(t) = self_type {
 				aliases.insert("Self".into(), TypeExpr::Name(t.into()));
 			}
-			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits);
+			let types =
+				TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits).with_scope(item.scope);
 			let (params, ret) = types.resolve_params_ret(item.params, item.ret)?;
 			let sym = oi_symbol(&item.key);
 			let ret = self.translate(
@@ -658,7 +654,8 @@ impl Compiler {
 			}
 		};
 
-		let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits);
+		let types =
+			TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits).with_scope(scopes["main"]);
 		let typ = self.translate(
 			FnDef {
 				params_tuple: true,
@@ -756,6 +753,8 @@ impl Compiler {
 			traits: types.traits,
 			generic_fns: &self.generics,
 			trait_impls: &self.trait_impls,
+			scope: types.scope,
+			publics: &self.publics,
 			mono: &mut self.mono,
 			pending: &mut self.pending,
 			descs: &mut self.descs,

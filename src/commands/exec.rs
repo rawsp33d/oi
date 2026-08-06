@@ -22,7 +22,7 @@ pub fn run(source: Option<String>) -> Result<(), Reported> {
 		}
 		src.push_str(&arg);
 	}
-	run_source(name, &src, false)
+	run_source(name, &src, std::path::Path::new("."), false)
 }
 
 /// Whether stdin has bytes waiting.
