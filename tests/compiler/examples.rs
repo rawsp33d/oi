@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::common::{oi, stdout_ok};
+use crate::common::{Run, oi, ok};
 
 /// Expected stdout for every file in `examples/`.
 const EXPECTED: &[(&str, &str)] = &[
@@ -24,7 +24,7 @@ fn examples_dir() -> PathBuf {
 fn run_examples() {
 	for (name, expected) in EXPECTED {
 		let path = examples_dir().join(format!("{name}.oi"));
-		let out = stdout_ok(oi(&["run", path.to_str().unwrap()], None));
+		let out = ok(oi(&["run", path.to_str().unwrap()]).run(None));
 		assert_eq!(&out, expected, "examples/{name}.oi");
 	}
 }

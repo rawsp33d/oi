@@ -1,11 +1,11 @@
-use crate::common::{oi, stdout_ok};
+use crate::common::{Run, oi, ok};
 
 fn exec_arg(src: &str) -> String {
-	stdout_ok(oi(&["exec", src], None))
+	ok(oi(&["exec", src]).run(None))
 }
 
 fn exec_stdin(src: &str) -> String {
-	stdout_ok(oi(&["exec"], Some(src)))
+	ok(oi(&["exec"]).run(Some(src)))
 }
 
 #[test]
@@ -31,12 +31,12 @@ fn stdin_arithmetic() {
 
 #[test]
 fn stdin_and_arg_concatenate() {
-	assert_eq!(stdout_ok(oi(&["exec", "x + 1"], Some("x := 41"))), "42");
+	assert_eq!(ok(oi(&["exec", "x + 1"]).run(Some("x := 41"))), "42");
 }
 
 #[test]
 fn error_names_exec_source() {
-	let out = oi(&["exec", "2 +"], None);
+	let out = oi(&["exec", "2 +"]).run(None);
 	assert!(!out.status.success());
 	let stderr = String::from_utf8_lossy(&out.stderr);
 	assert!(stderr.contains("<exec>"), "stderr was:\n{stderr}");

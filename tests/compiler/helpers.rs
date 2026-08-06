@@ -3,22 +3,22 @@ use std::process::Output;
 pub(crate) use indoc::indoc;
 use pretty_assertions::assert_eq;
 
-use crate::common::{oi, stdout_ok, trim_trailing_newline};
+use crate::common::{Run, oi, ok, trim};
 
 /// Run `src` through `oi exec`.
 fn exec(src: &str) -> Output {
-	oi(&["exec"], Some(src))
+	oi(&["exec"]).run(Some(src))
 }
 
 /// Run provided source, returning trimmed stdout.
 pub(crate) fn run(src: &str) -> String {
-	stdout_ok(exec(src))
+	ok(exec(src))
 }
 
 /// Run provided source, returning (trimmed stdout, raw stderr).
 pub(crate) fn run_streams(src: &str) -> (String, String) {
 	let out = exec(src);
-	(trim_trailing_newline(&out.stdout), trim_trailing_newline(&out.stderr))
+	(trim(&out.stdout), trim(&out.stderr))
 }
 
 /// Run provided source expecting a compilation error.
@@ -30,7 +30,7 @@ pub(crate) fn fail(src: impl Lines) -> String {
 		"expected failure but compiler succeeded\nsrc:\n{src}\nstdout:\n{}",
 		String::from_utf8_lossy(&out.stdout)
 	);
-	trim_trailing_newline(&out.stderr)
+	trim(&out.stderr)
 }
 
 /// Text joined by newlines.
@@ -75,7 +75,7 @@ pub(crate) fn check(src: impl Lines, expected: impl Lines) {
 /// Run under the leak checker, returning the live-allocation count at exit.
 pub(crate) fn leaks(src: impl Lines) -> i64 {
 	let src = src.text();
-	let out = crate::common::oi_env(&[("OI_LEAK_CHECK", "1")], &["exec"], Some(&src));
+	let out = oi(&["exec"]).env("OI_LEAK_CHECK", "1").run(Some(&src));
 	assert!(
 		out.status.success(),
 		"src:\n{src}\nstderr:\n{}",
