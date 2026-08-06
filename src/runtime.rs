@@ -1,7 +1,7 @@
 //! Backend-agnostic functions a compiled Oi program calls at runtime.
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::{CStr, c_char};
 use std::mem::size_of;
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -400,8 +400,8 @@ pub unsafe extern "C" fn ref_share(ptr: *mut u8) -> *mut u8 {
 	ptr
 }
 
-// Walk a box's trace descriptor, calling `visit` on each ref slot.
-unsafe fn trace(fields: *mut u8, desc: *const i64, visit: unsafe extern "C" fn(*mut u8)) {
+// Walk a box's trace descriptor, calling `visit` on each live ref slot.
+unsafe fn trace(fields: *mut u8, desc: *const i64, visit: &mut dyn FnMut(*mut u8)) {
 	if desc.is_null() {
 		return;
 	}
@@ -411,16 +411,28 @@ unsafe fn trace(fields: *mut u8, desc: *const i64, visit: unsafe extern "C" fn(*
 			let e = *p;
 			p = p.add(1);
 			let slot = *(fields.add((e >> 1) as usize) as *const *mut u8);
-			if e & 1 == 0 {
-				visit(slot);
+			if slot.is_null() {
+				p = p.add((e & 1) as usize);
 				continue;
 			}
-			if !slot.is_null() {
-				trace(slot, *p as *const i64, visit);
+			if e & 1 == 0 {
+				visit(slot);
+			} else {
+				trace(slot, *p as *const i64, &mut *visit);
+				p = p.add(1);
 			}
-			p = p.add(1);
 		}
 	}
+}
+
+// Boxes whose non-zero release marked them as possible cycle roots.
+thread_local! {
+	static ROOTS: RefCell<HashSet<usize>> = RefCell::new(HashSet::new());
+}
+
+// The descriptor (box[-16]).
+unsafe fn desc(s: *mut u8) -> *const i64 {
+	unsafe { *(s.sub(16) as *const *const i64) }
 }
 
 /// Drop one ref to a boxed struct.
@@ -434,10 +446,87 @@ pub unsafe extern "C" fn ref_release(ptr: *mut u8) {
 		let rc = ptr.sub(8) as *mut i64;
 		*rc -= 1;
 		if *rc == 0 {
-			let desc = *(ptr.sub(16) as *const *const i64);
-			trace(ptr, desc, ref_release);
+			// remove freed boxes to avoid `collect_cycles` walking freed memory
+			ROOTS.with(|r| r.borrow_mut().remove(&(ptr as usize)));
+			trace(ptr, desc(ptr), &mut |c| ref_release(c));
 			free(ptr.sub(16));
+		} else if !desc(ptr).is_null() {
+			// still alive and holding refs
+			// NOTE: possible cycle root
+			ROOTS.with(|r| r.borrow_mut().insert(ptr as usize));
 		}
+	}
+}
+
+#[derive(PartialEq)]
+enum Color {
+	Gray,
+	White,
+	Black,
+}
+
+/// Bacon-Rajan synchronous trial deletion over the buffered cyclic roots.
+pub fn collect_cycles() {
+	let roots: Vec<usize> = ROOTS.with(|r| r.borrow_mut().drain().collect());
+	let mut c = HashMap::new();
+	for &s in &roots {
+		mark_gray(s as *mut u8, &mut c);
+	}
+	for &s in &roots {
+		scan(s as *mut u8, &mut c);
+	}
+	for &s in &roots {
+		collect_white(s as *mut u8, &mut c);
+	}
+}
+
+// Attempt to decrement children, painting the candidate subgraph gray.
+fn mark_gray(s: *mut u8, c: &mut HashMap<usize, Color>) {
+	if c.insert(s as usize, Color::Gray) == Some(Color::Gray) {
+		return;
+	}
+	unsafe {
+		trace(s, desc(s), &mut |t| {
+			*(t.sub(8) as *mut i64) -= 1;
+			mark_gray(t, c);
+		})
+	};
+}
+
+// Scan and repaint nodes based on refcounts.
+fn scan(s: *mut u8, c: &mut HashMap<usize, Color>) {
+	if c.get(&(s as usize)) != Some(&Color::Gray) {
+		return;
+	}
+	if unsafe { *(s.sub(8) as *const i64) } > 0 {
+		scan_black(s, c);
+	} else {
+		c.insert(s as usize, Color::White);
+		unsafe { trace(s, desc(s), &mut |t| scan(t, c)) };
+	}
+}
+
+fn scan_black(s: *mut u8, c: &mut HashMap<usize, Color>) {
+	c.insert(s as usize, Color::Black);
+	unsafe {
+		trace(s, desc(s), &mut |t| {
+			*(t.sub(8) as *mut i64) += 1;
+			if c.get(&(t as usize)) != Some(&Color::Black) {
+				scan_black(t, c);
+			}
+		})
+	};
+}
+
+// Free the white subgraph.
+fn collect_white(s: *mut u8, c: &mut HashMap<usize, Color>) {
+	if c.get(&(s as usize)) != Some(&Color::White) {
+		return;
+	}
+	c.insert(s as usize, Color::Black);
+	unsafe {
+		trace(s, desc(s), &mut |t| collect_white(t, c));
+		free(s.sub(16));
 	}
 }
 

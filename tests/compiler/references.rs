@@ -146,3 +146,36 @@ fn value_recursion_still_errors() {
 		"would require infinitely nested fields",
 	);
 }
+
+#[test]
+fn two_node_cycle_reclaimed() {
+	assert_clean(indoc! {r#"
+		struct Node { value int, next ?&Node }
+		mut a := &Node{ value: 1 }
+		b := &Node{ value: 2, next: ?&Node(a) }
+		a.next = ?&Node(b)
+		print(a.value)
+	"#});
+}
+
+#[test]
+fn self_cycle_reclaimed() {
+	assert_clean(indoc! {r#"
+		struct Node { value int, next ?&Node }
+		mut n := &Node{ value: 1 }
+		n.next = ?&Node(n)
+		print(n.value)
+	"#});
+}
+
+#[test]
+fn cycle_with_acyclic_hangoff_reclaimed() {
+	assert_clean(indoc! {r#"
+		struct Leaf { v int }
+		struct Node { value int, leaf ?&Leaf, next ?&Node }
+		mut a := &Node{ value: 1, leaf: ?&Leaf(&Leaf{ v: 9 }) }
+		b := &Node{ value: 2, next: ?&Node(a) }
+		a.next = ?&Node(b)
+		print(a.value)
+	"#});
+}
