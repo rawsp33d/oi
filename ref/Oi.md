@@ -80,6 +80,8 @@ tags: []
 # TODO
 - immediate
 	- [x] backport these obsidian notes into the Oi repo
+	- [ ] `import` -> `use`
+	- [ ] V-like `mut ` -> Capy-ish `::` sandwich
 - [ ] `comp assert`
 - [x] pipeline examples with `!` postfix collide with macros
 - [x] revisit needing `print`, `assert`, et al to be macros

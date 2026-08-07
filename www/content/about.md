@@ -95,7 +95,7 @@ But even at the time I was writing in enough different languages and contexts th
 
 For example a lot of people see that Lua has 1-based indexes, or global variables, or `do/end` kind of blocks, or no `+=`/`-=`/`++`/`--` operators and are immediately and understandably put off.
 But those people never see just how elegant Lua's tables are, how impressive its metatables are for very basic metaprogramming.
-And then, because they aren't really using it, they don't see the real underlying problems past the surface-level grime: the stdlib is too barren, there's no support for basic things like POSIX or PCRE regex, it lacks classes or traits or anything of the sort, it has no switch/match statements or alternative, the ecosystem is atrocious and fragmented, modules are a joke compared to more modern languages, and there still isn't an official package management story.
+And then, because they aren't really using it, they don't see the real underlying problems past the surface-level grime: the stdlib is too barren, there's no support for basic things like POSIX or PCRE regex, it lacks classes or traits or anything of the sort, it has no switch/match statements or alternative, the ecosystem is atrocious and fragmented, modules are a joke compared to more modern languages, and there _still_ isn't an official package management story.
 
 And so throughout my journey I naturally began working on my own language.
 Initially just a set of things I liked and didn't like, which naturally changed over time.
@@ -125,7 +125,7 @@ At some point I started designing what has become Oi.
 
 ## goals & non-goals
 
-Oi isn't trying to be:
+Oi is not trying to be:
 - the smallest
 - the fastest
 - the most academically perfect
