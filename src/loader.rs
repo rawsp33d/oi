@@ -24,7 +24,7 @@ pub struct Module {
 #[derive(Default)]
 pub struct Scope {
 	pub env: HashMap<String, String>,
-	pub visible: HashSet<String>,
+	pub visible: HashMap<String, String>,
 }
 
 // A whole program, with its source files and modules and pubs, oh my.
@@ -135,19 +135,23 @@ impl Loader<'_> {
 			match &item.0 {
 				Expr::Module(_) => return Err(err("`module` must come first", item.1, "move it to the top")),
 				Expr::Import { module, alias, names } => {
-					if alias.is_some() || !names.is_empty() {
-						let what = if alias.is_some() {
-							"import aliases"
-						} else {
-							"selective imports"
-						};
+					if !names.is_empty() {
 						return Err(err(
-							format!("{what} aren't supported yet"),
+							"selective imports aren't supported yet",
 							item.1,
 							"import the whole module",
 						));
 					}
-					m.scope.visible.insert(module.clone());
+					let local = alias.clone().unwrap_or_else(|| module.clone());
+					if let Some(prev) = m.scope.visible.insert(local.clone(), module.clone())
+						&& prev != *module
+					{
+						return Err(err(
+							format!("`{local}` already names module `{prev}`"),
+							item.1,
+							"conflicting import",
+						));
+					}
 					imports.push((module.clone(), item.1));
 					continue;
 				}

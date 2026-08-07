@@ -65,6 +65,20 @@ fn duplicate_name_across_files_rejected() {
 }
 
 #[test]
+fn import_alias() {
+	let p = Project::new()
+		.file("main.oi", ["module main", "import foo as f", "print(f.hi())"])
+		.file("foo/lib.oi", ["module foo", "pub fn hi() int { 7 }"]);
+	assert_eq!(ok(run_main(p)), "7");
+
+	let p = Project::new()
+		.file("main.oi", ["module main", "import foo as f", "print(foo.hi())"])
+		.file("foo/lib.oi", ["module foo", "pub fn hi() int { 7 }"]);
+	let out = err(run_main(p));
+	assert!(out.contains("foo"), "{out}");
+}
+
+#[test]
 fn exec_resolves_imports_against_cwd() {
 	let p = Project::new().file("foo/lib.oi", ["module foo", "pub fn hi() int { 99 }"]);
 	let out = ok(oi(&["exec", "import foo\nprint(foo.hi())"]).current_dir(&p).run(None));

@@ -154,9 +154,9 @@ impl<'a> Translator<'a> {
 				// qualified access to an imported module's function
 				if let Expr::Ident(m) = &recv.0
 					&& !self.vars.contains_key(m)
-					&& self.scope.visible.contains(m)
+					&& let Some(real) = self.scope.visible.get(m).cloned()
 				{
-					return self.module_call(m, method, args, expr.1);
+					return self.module_call(&real, method, args, expr.1);
 				}
 
 				// enum payload

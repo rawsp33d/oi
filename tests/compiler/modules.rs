@@ -20,5 +20,4 @@ fn import_missing() {
 #[test]
 fn import_forms_not_supported_yet() {
 	fail_with("import os { input }", "selective imports aren't supported yet");
-	fail_with("import os as system", "import aliases aren't supported yet");
 }
