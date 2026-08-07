@@ -11,7 +11,7 @@ fn missing_file_errors() {
 #[test]
 fn default_file_is_main_oi_in_cwd() {
 	// with no path, `run` runs ./main.oi in the current directory
-	let dir = Project::new(&[("main.oi", "1 + 2")]);
+	let dir = Project::new().file("main.oi", "1 + 2");
 	assert_eq!(ok(oi(&["run"]).current_dir(&dir).run(None)), "3");
 }
 

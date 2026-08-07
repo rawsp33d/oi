@@ -3,7 +3,7 @@ use std::process::Output;
 pub(crate) use indoc::indoc;
 use pretty_assertions::assert_eq;
 
-use crate::common::{Run, oi, ok, trim};
+use crate::common::{Lines, Run, oi, ok, trim};
 
 /// Run `src` through `oi exec`.
 fn exec(src: &str) -> Output {
@@ -31,29 +31,6 @@ pub(crate) fn fail(src: impl Lines) -> String {
 		String::from_utf8_lossy(&out.stdout)
 	);
 	trim(&out.stderr)
-}
-
-/// Text joined by newlines.
-pub(crate) trait Lines {
-	fn text(&self) -> String;
-}
-
-impl Lines for &str {
-	fn text(&self) -> String {
-		(*self).to_string()
-	}
-}
-
-impl Lines for &String {
-	fn text(&self) -> String {
-		(*self).clone()
-	}
-}
-
-impl<const N: usize> Lines for [&str; N] {
-	fn text(&self) -> String {
-		self.join("\n")
-	}
 }
 
 /// Run provided source expecting a compilation error containing `expected`.

@@ -36,6 +36,7 @@ pub fn ok(out: Output) -> String {
 }
 
 /// Assert failure and return trimmed stderr.
+#[allow(dead_code)]
 pub fn err(out: Output) -> String {
 	assert!(
 		!out.status.success(),
@@ -51,21 +52,55 @@ pub fn trim(bytes: &[u8]) -> String {
 	s.strip_suffix('\n').unwrap_or(&s).to_string()
 }
 
+/// Text joined by newlines.
+pub trait Lines {
+	fn text(&self) -> String;
+}
+
+impl Lines for &str {
+	fn text(&self) -> String {
+		(*self).to_string()
+	}
+}
+
+impl Lines for &String {
+	fn text(&self) -> String {
+		(*self).clone()
+	}
+}
+
+impl<const N: usize> Lines for [&str; N] {
+	fn text(&self) -> String {
+		self.join("\n")
+	}
+}
+
 /// A project written under a fresh temp dir, deleted on drop.
+#[allow(dead_code)]
 pub struct Project(PathBuf);
 
+#[allow(dead_code)]
 impl Project {
-	pub fn new(files: &[(&str, &str)]) -> Self {
+	pub fn new() -> Self {
 		use std::sync::atomic::{AtomicUsize, Ordering};
 		static N: AtomicUsize = AtomicUsize::new(0);
 		let n = N.fetch_add(1, Ordering::Relaxed);
 		let dir = std::env::temp_dir().join(format!("oi_{}_{n}", std::process::id()));
-		for (path, content) in files {
-			let full = dir.join(path);
-			std::fs::create_dir_all(full.parent().unwrap()).unwrap();
-			std::fs::write(full, content).unwrap();
-		}
+		std::fs::create_dir_all(&dir).unwrap();
 		Project(dir)
+	}
+
+	pub fn file(self, path: &str, content: impl Lines) -> Self {
+		let full = self.0.join(path);
+		std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+		std::fs::write(full, content.text()).unwrap();
+		self
+	}
+}
+
+impl Default for Project {
+	fn default() -> Self {
+		Self::new()
 	}
 }
 
