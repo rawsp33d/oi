@@ -135,7 +135,7 @@ impl Loader<'_> {
 		for item in file {
 			match &item.0 {
 				Expr::Module(_) => return Err(err("`module` must come first", item.1, "move it to the top")),
-				Expr::Import { module, alias, names } => {
+				Expr::Use { module, alias, names } => {
 					let local = alias.clone().unwrap_or_else(|| module.clone());
 					if let Some(prev) = m.scope.visible.insert(local.clone(), module.clone())
 						&& prev != *module

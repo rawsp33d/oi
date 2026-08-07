@@ -30,14 +30,14 @@
 module module_name
 
 # imports
-import os
+use os
 
 # selective imports
-import os { input }
+use os { input }
 
 # import aliases
-import crypto.sha256
-import mymod.sha256 as mysha256
+use crypto.sha256
+use mymod.sha256 as mysha256
 
 ## functions
 

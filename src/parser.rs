@@ -1189,7 +1189,7 @@ where
 		.ignore_then(ident())
 		.map_with(|name, ex| (Expr::Module(name), ex.span()));
 	let alias = select! { Token::Ident(s) if s == "as" => () }.ignore_then(ident());
-	let import_decl = just(Token::Import)
+	let use_decl = just(Token::Use)
 		.ignore_then(ident())
 		.then(
 			brace(loose_list(spanned(ident())))
@@ -1199,12 +1199,12 @@ where
 		)
 		.map_with(|(module, tail), ex| {
 			let (alias, names) = tail.unwrap_or_default();
-			(Expr::Import { module, alias, names }, ex.span())
+			(Expr::Use { module, alias, names }, ex.span())
 		});
 
 	def.or(public)
 		.or(module_decl)
-		.or(import_decl)
+		.or(use_decl)
 		.or(impl_block)
 		.or(stmt)
 		.repeated()

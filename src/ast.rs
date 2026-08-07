@@ -239,8 +239,8 @@ pub enum Expr {
 
 	// `module name`
 	Module(String),
-	// `import module { names }` or `import module as alias`
-	Import {
+	// `use module { names }` or `use module as alias`
+	Use {
 		module: String,
 		alias: Option<String>,
 		names: Vec<Spanned<String>>,

@@ -77,8 +77,8 @@ pub enum Token {
 	Is,
 	#[token("module")]
 	Module,
-	#[token("import")]
-	Import,
+	#[token("use")]
+	Use,
 	#[token("pub")]
 	Pub,
 
@@ -223,7 +223,7 @@ impl fmt::Display for Token {
 			Token::For => write!(f, "for"),
 			Token::Is => write!(f, "is"),
 			Token::Module => write!(f, "module"),
-			Token::Import => write!(f, "import"),
+			Token::Use => write!(f, "use"),
 			Token::Pub => write!(f, "pub"),
 			Token::If => write!(f, "if"),
 			Token::Else => write!(f, "else"),
