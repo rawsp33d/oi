@@ -7,12 +7,12 @@ fn variable() {
 
 #[test]
 fn assign() {
-	check("mut x := 1\nx = 2\nx", "2");
+	check(["mut x := 1", "x = 2", "x"], "2");
 }
 
 #[test]
 fn assign_from_self() {
-	check("mut x := 10\nx = x + 5\nx", "15");
+	check(["mut x := 10", "x = x + 5", "x"], "15");
 }
 
 #[test]
@@ -32,16 +32,18 @@ fn declare_zero_string() {
 
 #[test]
 fn declare_zero_then_assign() {
-	check("mut n int\nn = 7\nn", "7");
+	check(["mut n int", "n = 7", "n"], "7");
 }
 
 #[test]
 fn declare_zero_struct() {
 	check(
-		"struct Point { x int, y int }
-		mut p Point
-		p.x = 5
-		p.x",
+		indoc! {"
+			struct Point { x int, y int }
+			mut p Point
+			p.x = 5
+			p.x
+		"},
 		"5",
 	);
 }
