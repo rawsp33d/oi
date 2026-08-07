@@ -68,6 +68,7 @@ struct Loader<'a> {
 	publics: HashSet<String>,
 	// import stack
 	loading: Vec<String>,
+	selected: Vec<(String, String, Span)>,
 }
 
 impl Loader<'_> {
@@ -135,13 +136,6 @@ impl Loader<'_> {
 			match &item.0 {
 				Expr::Module(_) => return Err(err("`module` must come first", item.1, "move it to the top")),
 				Expr::Import { module, alias, names } => {
-					if !names.is_empty() {
-						return Err(err(
-							"selective imports aren't supported yet",
-							item.1,
-							"import the whole module",
-						));
-					}
 					let local = alias.clone().unwrap_or_else(|| module.clone());
 					if let Some(prev) = m.scope.visible.insert(local.clone(), module.clone())
 						&& prev != *module
@@ -151,6 +145,13 @@ impl Loader<'_> {
 							item.1,
 							"conflicting import",
 						));
+					}
+					for (name, span) in names {
+						if m.scope.env.insert(name.clone(), format!("{module}::{name}")).is_some() {
+							let msg = format!("`{name}` is already defined in module `{}`", m.name);
+							return Err(err(msg, *span, "conflicting import"));
+						}
+						self.selected.push((module.clone(), name.clone(), *span));
 					}
 					imports.push((module.clone(), item.1));
 					continue;
@@ -231,6 +232,27 @@ impl Loader<'_> {
 		}
 		self.seal(module, imports)
 	}
+
+	// Ensure selected names are pub fns of their module.
+	fn check_selected(&self) -> Result<(), Reported> {
+		for (module, name, span) in &self.selected {
+			let m = self.modules.iter().find(|m| &m.name == module).unwrap();
+			let is_fn = |q: &String| m.items.iter().any(|i| matches!(&i.0, Expr::Fn { name, .. } if name == q));
+			let (msg, label) = match m.scope.env.get(name) {
+				None => (
+					format!("module `{module}` has no function `{name}`"),
+					"no such function",
+				),
+				Some(q) if !is_fn(q) => (format!("`{name}` is not a function"), "only fns can be imported for now"),
+				Some(q) if !self.publics.contains(q) => {
+					(format!("`{name}` is private to module `{module}`"), "not public")
+				}
+				_ => continue,
+			};
+			return Err(self.report(err(msg, *span, label)));
+		}
+		Ok(())
+	}
 }
 
 // Load the whole program starting from the entry source.
@@ -242,6 +264,7 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 		modules: vec![],
 		publics: HashSet::new(),
 		loading: vec![],
+		selected: vec![],
 	};
 	let base = loader.map.push(entry_name.to_string(), entry_src);
 	let items = parse_file(&loader.map, base)?;
@@ -253,6 +276,7 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 	let mut imports = vec![];
 	loader.add_file(&mut main, &mut imports, items).map_err(|d| loader.report(d))?;
 	loader.seal(main, imports)?;
+	loader.check_selected()?;
 	Ok(Program {
 		map: loader.map,
 		modules: loader.modules,

@@ -16,8 +16,3 @@ fn module_decl() {
 fn import_missing() {
 	fail_with("import os", "cannot find module `os`");
 }
-
-#[test]
-fn import_forms_not_supported_yet() {
-	fail_with("import os { input }", "selective imports aren't supported yet");
-}

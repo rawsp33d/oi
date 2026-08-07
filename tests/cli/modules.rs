@@ -79,6 +79,38 @@ fn import_alias() {
 }
 
 #[test]
+fn selective_import() {
+	let p = Project::new()
+		.file(
+			"main.oi",
+			["module main", "import foo { hi }", "print(hi() + foo.hi())"],
+		)
+		.file("foo/lib.oi", ["module foo", "pub fn hi() int { 7 }"]);
+	assert_eq!(ok(run_main(p)), "14");
+}
+
+#[test]
+fn selective_import_fails() {
+	let p = Project::new()
+		.file("main.oi", ["module main", "import foo { nope }", "print(nope())"])
+		.file("foo/lib.oi", ["module foo", "pub fn hi() int { 7 }"]);
+	let out = err(run_main(p));
+	assert!(out.contains("has no function `nope`"), "{out}");
+
+	let p = Project::new()
+		.file("main.oi", ["module main", "import foo { secret }", "print(secret())"])
+		.file("foo/lib.oi", ["module foo", "fn secret() int { 1 }"]);
+	let out = err(run_main(p));
+	assert!(out.contains("private to module `foo`"), "{out}");
+
+	let p = Project::new()
+		.file("main.oi", ["module main", "import foo { P }", "print(1)"])
+		.file("foo/lib.oi", ["module foo", "pub struct P { x int }"]);
+	let out = err(run_main(p));
+	assert!(out.contains("is not a function"), "{out}");
+}
+
+#[test]
 fn exec_resolves_imports_against_cwd() {
 	let p = Project::new().file("foo/lib.oi", ["module foo", "pub fn hi() int { 99 }"]);
 	let out = ok(oi(&["exec", "import foo\nprint(foo.hi())"]).current_dir(&p).run(None));

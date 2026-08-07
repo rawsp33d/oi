@@ -410,7 +410,7 @@ impl TypeCtx<'_> {
 			for (m, ps, ret) in trait_fns(tmethods) {
 				let in_ret = matches!(ret, Some((te, _)) if mentions(te, "Self"));
 				if in_ret || ps.iter().skip(1).any(|p| mentions(&p.typ, "Self")) {
-					let msg = format!("trait `{name}` isn't object-safe: `{m}` uses `Self` beyond the receiver");
+					let msg = format!("trait `{name}` is not object-safe: `{m}` uses `Self` beyond the receiver");
 					return Err(Diagnostic::new(msg, span.into_range()).with_label("can't be a trait object"));
 				}
 			}
