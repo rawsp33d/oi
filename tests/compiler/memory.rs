@@ -5,15 +5,15 @@ use crate::helpers::*;
 
 #[test]
 fn bind_append_drop() {
-	assert_clean(["mut a := [1, 2, 3]", "a << 4", "print(a)"]);
+	assert_clean(["a := [1, 2, 3]", "a << 4", "print(a)"]);
 }
 
 #[test]
 fn copies_and_cow() {
 	assert_clean(indoc! {"
-		mut a := [1, 2, 3]
-		b := a
-		c := b
+		a := [1, 2, 3]
+		b :: a
+		c :: b
 		a << 4
 		print(a)
 		print(c)
@@ -22,7 +22,7 @@ fn copies_and_cow() {
 
 #[test]
 fn slices() {
-	assert_clean(["a := [1, 2, 3, 4]", "b := a[1..3]", "print(b)"]);
+	assert_clean(["a :: [1, 2, 3, 4]", "b :: a[1..3]", "print(b)"]);
 }
 
 #[test]
@@ -30,7 +30,7 @@ fn fn_call_and_return() {
 	assert_clean(indoc! {"
 		fn make() []int { [1, 2] }
 		fn id(a []int) []int { a }
-		x := id(make())
+		x :: id(make())
 		print(x)
 	"});
 }
@@ -38,9 +38,9 @@ fn fn_call_and_return() {
 #[test]
 fn loop_temp_per_iteration() {
 	assert_clean(indoc! {"
-		mut i := 0
+		i := 0
 		loop i < 100 {
-			t := [i, i]
+			t :: [i, i]
 			i = t[1] + 1
 		}
 		print(i)
@@ -51,7 +51,7 @@ fn loop_temp_per_iteration() {
 fn early_return() {
 	assert_clean(indoc! {"
 		fn f(n int) int {
-			a := [1, 2, 3]
+			a :: [1, 2, 3]
 			if n > 1 { return a[0] }
 			a[1]
 		}
@@ -62,11 +62,11 @@ fn early_return() {
 #[test]
 fn break_and_continue() {
 	assert_clean(indoc! {"
-		mut i := 0
+		i := 0
 		loop {
 			i = i + 1
 			if i == 3 { continue }
-			xs := [i]
+			xs :: [i]
 			if xs[0] > 5 { break }
 		}
 		print(i)
@@ -76,8 +76,8 @@ fn break_and_continue() {
 #[test]
 fn map_set_delete_copy() {
 	assert_clean(indoc! {r#"
-		mut m := {a: 1}
-		n := m
+		m := {a: 1}
+		n :: m
 		m["b"] = 2
 		m.delete["a"]
 		print(n["a"])
@@ -87,10 +87,10 @@ fn map_set_delete_copy() {
 #[test]
 fn reassign_and_shadow() {
 	assert_clean(indoc! {"
-		mut a := [1]
+		a := [1]
 		a = [2, 3]
-		b := [4]
-		b := [5]
+		b :: [4]
+		b :: [5]
 		print(a)
 		print(b)
 	"});
@@ -99,8 +99,8 @@ fn reassign_and_shadow() {
 #[test]
 fn branch_merges() {
 	assert_clean(indoc! {"
-		x := if true { [1] } else { [2] }
-		y := match 2 { 1 => [9], 2 => [4, 5], else => [0] }
+		x :: if true { [1] } else { [2] }
+		y :: match 2 { 1 => [9], 2 => [4, 5], else => [0] }
 		print(x)
 		print(y)
 	"});
@@ -109,7 +109,7 @@ fn branch_merges() {
 #[test]
 fn for_loop_element_binds() {
 	assert_clean(indoc! {"
-		mut total := 0
+		total := 0
 		loop e in [10, 20, 30] {
 			total = total + e
 		}
@@ -120,14 +120,14 @@ fn for_loop_element_binds() {
 #[test]
 fn nested_elements_still_leak() {
 	// TODO: revisit
-	assert!(leaks("a := [[1], [2]]\nprint(a[0])") > 0);
+	assert!(leaks("a :: [[1], [2]]\nprint(a[0])") > 0);
 }
 
 #[test]
 fn struct_field_leak_is_bounded() {
 	let src = indoc! {"
 		struct Bag { items []int }
-		s := Bag{ items: [1, 2] }
+		s :: Bag{ items: [1, 2] }
 		print(s.items[0])
 	"};
 	// TODO: revisit

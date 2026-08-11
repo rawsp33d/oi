@@ -3,7 +3,7 @@ use crate::helpers::*;
 #[test]
 fn call_via_var() {
 	let src = indoc! {"
-		mul := fn [] (x int, y int) int { x * y }
+		mul :: fn [] (x int, y int) int { x * y }
 		mul(6, 7)
 	"};
 	check(src, "42");
@@ -12,7 +12,7 @@ fn call_via_var() {
 #[test]
 fn call_via_var_no_args() {
 	let src = indoc! {"
-		answer := fn [] () int { 42 }
+		answer :: fn [] () int { 42 }
 		answer()
 	"};
 	check(src, "42");
@@ -22,7 +22,7 @@ fn call_via_var_no_args() {
 fn call_via_var_passed_to_fn() {
 	let src = indoc! {"
 		fn apply(f fn(int) int, x int) int { f(x) }
-		double := fn [] (n int) int { n * 2 }
+		double :: fn [] (n int) int { n * 2 }
 		apply(double, 21)
 	"};
 	check(src, "42");
@@ -31,7 +31,7 @@ fn call_via_var_passed_to_fn() {
 #[test]
 fn wrong_arg_count() {
 	let src = indoc! {"
-		add := fn [] (x int, y int) int { x + y }
+		add :: fn [] (x int, y int) int { x + y }
 		add(1)
 	"};
 	fail_with(src, "expects 2 argument");
@@ -40,7 +40,7 @@ fn wrong_arg_count() {
 #[test]
 fn wrong_arg_type() {
 	let src = indoc! {"
-		add := fn [] (x int, y int) int { x + y }
+		add :: fn [] (x int, y int) int { x + y }
 		add(1, 2.0)
 	"};
 	fail_with(src, "wrong argument type");
@@ -49,7 +49,7 @@ fn wrong_arg_type() {
 #[test]
 fn not_callable() {
 	let src = indoc! {"
-		x := 5
+		x :: 5
 		x()
 	"};
 	fail_with(src, "not callable");
@@ -58,8 +58,8 @@ fn not_callable() {
 #[test]
 fn capture_read_only() {
 	let src = indoc! {"
-		factor := 3
-		triple := fn [factor] (x int) int { x * factor }
+		factor :: 3
+		triple :: fn [factor] (x int) int { x * factor }
 		triple(4)
 	"};
 	check(src, "12");
@@ -68,9 +68,9 @@ fn capture_read_only() {
 #[test]
 fn capture_multiple() {
 	let src = indoc! {"
-		a := 10
-		b := 32
-		add := fn [a, b] () int { a + b }
+		a :: 10
+		b :: 32
+		add :: fn [a, b] () int { a + b }
 		add()
 	"};
 	check(src, "42");
@@ -79,8 +79,8 @@ fn capture_multiple() {
 #[test]
 fn capture_move() {
 	let src = indoc! {"
-		factor := 3
-		triple := fn [move factor] (x int) int { x * factor }
+		factor :: 3
+		triple :: fn [move factor] (x int) int { x * factor }
 		triple(4)
 	"};
 	check(src, "12");
@@ -89,7 +89,7 @@ fn capture_move() {
 #[test]
 fn capture_undefined() {
 	let src = indoc! {"
-		f := fn [missing] () int { 0 }
+		f :: fn [missing] () int { 0 }
 		f()
 	"};
 	fail_with(src, "undefined variable");
@@ -98,8 +98,8 @@ fn capture_undefined() {
 #[test]
 fn capture_mut_writes_visible_outside() {
 	let src = indoc! {"
-		mut counter := 0
-		inc := fn [mut counter] () int { counter = counter + 1; counter }
+		counter := 0
+		inc :: fn [mut counter] () int { counter = counter + 1; counter }
 		inc()
 		inc()
 		counter
@@ -110,8 +110,8 @@ fn capture_mut_writes_visible_outside() {
 #[test]
 fn capture_mut_sees_outer_writes() {
 	let src = indoc! {"
-		mut x := 1
-		bump := fn [mut x] () int { x = x + 10; x }
+		x := 1
+		bump :: fn [mut x] () int { x = x + 10; x }
 		x = 5
 		bump()
 	"};
@@ -121,8 +121,8 @@ fn capture_mut_sees_outer_writes() {
 #[test]
 fn capture_mut_requires_mut_binding() {
 	let src = indoc! {"
-		x := 3
-		f := fn [mut x] () int { x }
+		x :: 3
+		f :: fn [mut x] () int { x }
 		f()
 	"};
 	fail_with(src, "cannot capture `x` as `mut`");
@@ -132,8 +132,8 @@ fn capture_mut_requires_mut_binding() {
 fn capturing_closure_rejected_as_plain_fn_param() {
 	let src = indoc! {"
 		fn apply(f fn(int) int, x int) int { f(x) }
-		factor := 2
-		scale := fn [factor] (n int) int { n * factor }
+		factor :: 2
+		scale :: fn [factor] (n int) int { n * factor }
 		apply(scale, 21)
 	"};
 	fail_with(src, "wrong argument type");
@@ -142,8 +142,8 @@ fn capturing_closure_rejected_as_plain_fn_param() {
 #[test]
 fn implicit_capture_read_only() {
 	let src = indoc! {"
-		n := 10
-		scale := fn (x int) int { x * n }
+		n :: 10
+		scale :: fn (x int) int { x * n }
 		scale(5)
 	"};
 	check(src, "50");
@@ -152,9 +152,9 @@ fn implicit_capture_read_only() {
 #[test]
 fn implicit_capture_multiple() {
 	let src = indoc! {"
-		a := 10
-		b := 32
-		add := fn () int { a + b }
+		a :: 10
+		b :: 32
+		add :: fn () int { a + b }
 		add()
 	"};
 	check(src, "42");
@@ -163,8 +163,8 @@ fn implicit_capture_multiple() {
 #[test]
 fn implicit_capture_ignores_shadowed_inner_binding() {
 	let src = indoc! {"
-		n := 10
-		f := fn () int { n := 5; n }
+		n :: 10
+		f :: fn () int { n :: 5; n }
 		f() + n
 	"};
 	check(src, "15");
@@ -173,8 +173,8 @@ fn implicit_capture_ignores_shadowed_inner_binding() {
 #[test]
 fn implicit_capture_ignores_param_shadowing_outer() {
 	let src = indoc! {"
-		n := 10
-		f := fn (n int) int { n * 2 }
+		n :: 10
+		f :: fn (n int) int { n * 2 }
 		f(4) + n
 	"};
 	check(src, "18");
@@ -183,10 +183,10 @@ fn implicit_capture_ignores_param_shadowing_outer() {
 #[test]
 fn implicit_capture_ignores_for_loop_pattern() {
 	let src = indoc! {"
-		nums := [1, 2, 3]
-		mut total := 0
-		f := fn () int {
-			mut sum := 0
+		nums :: [1, 2, 3]
+		total := 0
+		f :: fn () int {
+			sum := 0
 			loop n in nums { sum = sum + n }
 			sum
 		}
@@ -200,7 +200,7 @@ fn implicit_capture_ignores_for_loop_pattern() {
 fn closure_cannot_be_returned() {
 	let src = indoc! {"
 		fn make() {
-			n := 10
+			n :: 10
 			return fn () int { n }
 		}
 		make()
@@ -211,8 +211,8 @@ fn closure_cannot_be_returned() {
 #[test]
 fn closure_cannot_be_stored_in_array_literal() {
 	let src = indoc! {"
-		n := 10
-		arr := [fn [n] () int { n }]
+		n :: 10
+		arr :: [fn [n] () int { n }]
 	"};
 	fail_with(src, "borrows its captures, so it can't be stored in an array");
 }
@@ -221,11 +221,11 @@ fn closure_cannot_be_stored_in_array_literal() {
 fn closure_cannot_be_smuggled_through_a_generic_store() {
 	let src = indoc! {"
 		fn smuggle[T](x T) []T {
-			mut a := []T{}
+			a := []T{}
 			a << x
 			a
 		}
-		n := 10
+		n :: 10
 		smuggle(fn [n] () int { n })
 	"};
 	fail_with(src, "borrows its captures, so it can't be stored in an array");
@@ -234,7 +234,7 @@ fn closure_cannot_be_smuggled_through_a_generic_store() {
 #[test]
 fn closure_cannot_be_a_map_value() {
 	let src = indoc! {r#"
-		n := 10
+		n :: 10
 		{ "a": fn [n] () int { n } }
 	"#};
 	fail_with(src, "borrows its captures, so it can't be stored in a map");
@@ -244,7 +244,7 @@ fn closure_cannot_be_a_map_value() {
 fn closure_cannot_be_stored_in_a_struct_field() {
 	let src = indoc! {"
 		struct Box[T] { v T }
-		n := 10
+		n :: 10
 		Box{ v: fn [n] () int { n } }
 	"};
 	fail_with(src, "borrows its captures, so it can't be stored in a field");
@@ -254,10 +254,10 @@ fn closure_cannot_be_stored_in_a_struct_field() {
 fn move_capture_escapes_via_return() {
 	let src = indoc! {"
 		fn make() {
-			xs := [7]
+			xs :: [7]
 			return fn [move xs] () int { xs[0] }
 		}
-		f := make()
+		f :: make()
 		f()
 	"};
 	check(src, "7");
@@ -266,8 +266,8 @@ fn move_capture_escapes_via_return() {
 #[test]
 fn move_capture_kills_the_name() {
 	let src = indoc! {"
-		xs := [7]
-		f := fn [move xs] () int { xs[0] }
+		xs :: [7]
+		f :: fn [move xs] () int { xs[0] }
 		print(xs)
 	"};
 	fail_with(src, "undefined variable");
@@ -276,9 +276,9 @@ fn move_capture_kills_the_name() {
 #[test]
 fn mixed_move_and_read_only_capture_still_borrows() {
 	let src = indoc! {"
-		a := [1]
-		b := 2
-		arr := [fn [move a, b] () int { a[0] + b }]
+		a :: [1]
+		b :: 2
+		arr :: [fn [move a, b] () int { a[0] + b }]
 	"};
 	fail_with(src, "borrows its captures");
 }
@@ -297,10 +297,10 @@ fn move_capture_of_fn_param_is_borrowed() {
 #[test]
 fn move_capture_inside_loop_of_outer_binding() {
 	let src = indoc! {"
-		xs := [1]
-		mut i := 0
+		xs :: [1]
+		i := 0
 		loop i < 2 {
-			f := fn [move xs] () int { xs[0] }
+			f :: fn [move xs] () int { xs[0] }
 			i = i + 1
 		}
 	"};
@@ -310,8 +310,8 @@ fn move_capture_inside_loop_of_outer_binding() {
 #[test]
 fn implicit_capture_ignores_match_bound_name() {
 	let src = indoc! {r#"
-		r := !int(7)
-		f := fn () int {
+		r :: !int(7)
+		f :: fn () int {
 			match r {
 				.ok(n) => n * 2,
 				.err(e) => -1,

@@ -17,8 +17,8 @@ fn composites() {
 #[test]
 fn variants() {
 	check("enum Color { Red, Green }\nColor.Red.str()", "Red");
-	check("o := ?int(none)\no.str()", "none");
-	check("r := !int(42)\nr.str()", "ok(42)");
+	check("o :: ?int(none)\no.str()", "none");
+	check("r :: !int(42)\nr.str()", "ok(42)");
 }
 
 #[test]
@@ -45,7 +45,7 @@ fn print_uses_user_str() {
 	let src = indoc! {r#"
 		struct Money { n int }
 		impl Money { fn str(self) string { "$" + self.n.str() } }
-		m := Money{5}
+		m :: Money{5}
 		print(m)
 		print([m, m])
 	"#};

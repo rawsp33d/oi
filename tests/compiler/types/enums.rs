@@ -13,7 +13,7 @@ fn oneliner() {
 
 #[test]
 fn bind() {
-	check("enum Color { red green blue }\nc := Color.green\nc", "green");
+	check("enum Color { red green blue }\nc :: Color.green\nc", "green");
 }
 
 #[test]
@@ -21,7 +21,7 @@ fn reassign() {
 	check(
 		indoc! {"
 			enum Color { red green blue }
-			mut c := Color.red
+			c := Color.red
 			c = Color.blue
 			c
 		"},
@@ -31,7 +31,7 @@ fn reassign() {
 
 #[test]
 fn first_variant_is_default() {
-	check("enum Color { red green blue }\nmut c Color\nc", "red");
+	check("enum Color { red green blue }\nc: Color\nc", "red");
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn struct_field() {
 	check(
 		"enum Stat { health mana stamina }
 		struct User { s Stat }
-		u := User{ s: Stat.mana }
+		u :: User{ s: Stat.mana }
 		u.s",
 		"mana",
 	);
@@ -83,7 +83,7 @@ fn in_match() {
 	check(
 		indoc! {r#"
 			enum Color { red green blue }
-			c := Color.green
+			c :: Color.green
 			match c {
 				Color.red => "r",
 				Color.green => "g",
@@ -104,7 +104,7 @@ fn shorthand_in_assignment() {
 	check(
 		indoc! {"
 			enum Color { red green blue }
-			mut c := Color.green
+			c := Color.green
 			c = .red
 			c
 		"},
@@ -114,13 +114,13 @@ fn shorthand_in_assignment() {
 
 #[test]
 fn shorthand_in_annotated_binding() {
-	check("enum Color { red green blue }\nc Color := .blue\nc", "blue");
+	check("enum Color { red green blue }\nc : Color : .blue\nc", "blue");
 }
 
 #[test]
 fn shorthand_in_comparison() {
-	check("enum Color { red green blue }\nc := Color.red\nc == .red", "true");
-	check("enum Color { red green blue }\nc := Color.red\nc != .blue", "true");
+	check("enum Color { red green blue }\nc :: Color.red\nc == .red", "true");
+	check("enum Color { red green blue }\nc :: Color.red\nc != .blue", "true");
 }
 
 #[test]
@@ -128,7 +128,7 @@ fn shorthand_in_match() {
 	check(
 		indoc! {r#"
 			enum Color { red green blue }
-			c := Color.green
+			c :: Color.green
 			match c {
 				.red => "r",
 				.green => "g",
@@ -144,14 +144,14 @@ fn shorthand_in_struct_field() {
 	check(
 		"enum Stat { health mana stamina }
 		struct User { s Stat }
-		u := User{ s: .mana }
+		u :: User{ s: .mana }
 		u.s",
 		"mana",
 	);
 	check(
 		"enum Stat { health mana stamina }
 		struct User { s Stat }
-		u := User{ .stamina }
+		u :: User{ .stamina }
 		u.s",
 		"stamina",
 	);
@@ -160,7 +160,7 @@ fn shorthand_in_struct_field() {
 #[test]
 fn shorthand_unknown_variant() {
 	fail_with(
-		"enum Color { red green blue }\nc := Color.red\nc == .purple",
+		"enum Color { red green blue }\nc :: Color.red\nc == .purple",
 		"no variant `purple`",
 	);
 }
@@ -196,12 +196,12 @@ fn payload_construct() {
 #[test]
 fn payloadless_variant_of_boxed_enum() {
 	check("enum Opt { nope some(int) }\nOpt.nope", "nope");
-	check("enum Opt { nope some(int) }\no Opt := .nope\no", "nope");
+	check("enum Opt { nope some(int) }\no : Opt : .nope\no", "nope");
 }
 
 #[test]
 fn payload_enum_default_is_first() {
-	check("enum Opt { nope some(int) }\nmut o Opt\no", "nope");
+	check("enum Opt { nope some(int) }\no: Opt\no", "nope");
 }
 
 #[test]
@@ -229,7 +229,7 @@ fn payload_match_binds_fields() {
 	check(
 		indoc! {r#"
 			enum Opt { nope some(int) }
-			o := Opt.some(7)
+			o :: Opt.some(7)
 			match o {
 				.some(n) => n,
 				.nope => -1,
@@ -244,7 +244,7 @@ fn payload_match_fieldless_arm() {
 	check(
 		indoc! {r#"
 			enum Opt { nope some(int) }
-			o Opt := .nope
+			o : Opt : .nope
 			match o {
 				.some(n) => n,
 				.nope => -1,
@@ -259,7 +259,7 @@ fn payload_match_multiple_fields() {
 	check(
 		indoc! {r#"
 			enum Shape { rect(int, int) tri(int, int, int) }
-			s := Shape.rect(3, 4)
+			s :: Shape.rect(3, 4)
 			match s {
 				.rect(w, h) => w * h,
 				.tri(a, b, c) => a + b + c,
@@ -272,7 +272,7 @@ fn payload_match_multiple_fields() {
 #[test]
 fn shorthand_payload_construct() {
 	check(
-		"enum Opt { nope some(int) }\no Opt := .some(5)\nmatch o { .some(n) => n, .nope => 0 }",
+		"enum Opt { nope some(int) }\no : Opt : .some(5)\nmatch o { .some(n) => n, .nope => 0 }",
 		"5",
 	);
 }
@@ -317,7 +317,7 @@ fn struct_payload() {
 		indoc! {r#"
 			struct Point { x int, y int }
 			enum Shape { dot rect(Point) }
-			s := Shape.rect(Point{ x: 3, y: 4 })
+			s :: Shape.rect(Point{ x: 3, y: 4 })
 			match s {
 				.rect(p) => print(p),
 				.dot => {}
@@ -333,7 +333,7 @@ fn enum_payload() {
 		indoc! {r#"
 			enum A { one two }
 			enum B { wrap(A) empty }
-			b := B.wrap(A.two)
+			b :: B.wrap(A.two)
 			match b {
 				.wrap(a) => match a {
 					.one => "one",
@@ -356,7 +356,7 @@ fn struct_form_construct_and_match() {
 				triangle(f64, f64, f64)
 				point
 			}
-			s := Shape.circle { radius: 5.0 }
+			s :: Shape.circle { radius: 5.0 }
 			match s {
 				.circle { radius } => radius * 2.0,
 				.rectangle { width, height } => width * height,
@@ -404,7 +404,7 @@ fn struct_form_omitted_field_zeroes() {
 	check(
 		indoc! {r#"
 			enum S { rect { w f64, h f64 } }
-			s := S.rect { h: 2.0 }
+			s :: S.rect { h: 2.0 }
 			match s { .rect { w, h } => w + h }
 		"#},
 		"2.0",
@@ -427,7 +427,7 @@ fn alias_payload() {
 		indoc! {"
 			type Meters = f64
 			enum Dist { unknown known(Meters) }
-			d := Dist.known(5.0)
+			d :: Dist.known(5.0)
 			match d {
 				.known(m) => m,
 				.unknown => 0.0,
@@ -444,12 +444,12 @@ fn payload_unknown_type_rejected() {
 
 #[test]
 fn explicit_disc_default_is_first() {
-	check("enum E { a = 5, b c }\nmut x E\nx", "a");
+	check("enum E { a = 5, b c }\nx: E\nx", "a");
 }
 
 #[test]
 fn atom_coerces_in_annotated_binding() {
-	check("enum Color { red green blue }\nc Color := :blue\nc", "blue");
+	check("enum Color { red green blue }\nc : Color : :blue\nc", "blue");
 }
 
 #[test]
@@ -457,7 +457,7 @@ fn atom_coerces_in_assignment() {
 	check(
 		indoc! {"
 			enum Color { red green blue }
-			mut c := Color.green
+			c := Color.green
 			c = :red
 			c
 		"},
@@ -467,7 +467,7 @@ fn atom_coerces_in_assignment() {
 
 #[test]
 fn atom_coerces_in_comparison() {
-	check("enum Color { red green blue }\nc := Color.red\nc == :red", "true");
+	check("enum Color { red green blue }\nc :: Color.red\nc == :red", "true");
 	check("enum Color { red green blue }\nColor.blue == :blue", "true");
 }
 
@@ -477,7 +477,7 @@ fn atom_coerces_in_struct_field() {
 		indoc! {"
 			enum Stat { health mana stamina }
 			struct User { s Stat }
-			u := User{ s: :mana }
+			u :: User{ s: :mana }
 			u.s
 		"},
 		"mana",
@@ -487,7 +487,7 @@ fn atom_coerces_in_struct_field() {
 #[test]
 fn atom_unknown_variant() {
 	fail_with(
-		"enum Color { red green blue }\nc Color := :purple",
+		"enum Color { red green blue }\nc : Color : :purple",
 		"no variant `purple`",
 	);
 }
@@ -682,7 +682,7 @@ fn shorthand_coerces_in_if_expr() {
 	check(
 		indoc! {"
 			enum Color { red green blue }
-			c Color := if false { .red } else { .blue }
+			c : Color : if false { .red } else { .blue }
 			c
 		"},
 		"blue",
@@ -694,8 +694,8 @@ fn shorthand_coerces_in_match_expr() {
 	check(
 		indoc! {r#"
 			enum Color { red green blue }
-			n := 9
-			c Color := match n {
+			n :: 9
+			c : Color : match n {
 				1 => .red,
 				else => .blue,
 			}
@@ -726,14 +726,14 @@ fn backed_arrays_pack() {
 	check(
 		indoc! {"
 			enum Status: u8 { ok = 200, err = 250 }
-			mut a := [Status.ok, Status.err]
+			a := [Status.ok, Status.err]
 			a[0] = Status.err
 			a << Status.ok
 			print(a)
 			loop s in a { print(s) }
 			print(Status.err in a)
 			print(match a { [x, y, z] => z, else => Status.err })
-			mut f [3]Status
+			f: [3]Status
 			f[1] = Status.err
 			print(f[1])
 			f[0] == Status.ok
@@ -752,7 +752,7 @@ fn string_backed_raws() {
 			print(Suit.spades.str())
 			print(ord(Suit.spades))
 			print(Suit.hearts == Suit.hearts)
-			a := [Suit.spades, Suit.hearts]
+			a :: [Suit.spades, Suit.hearts]
 			print(str(a[1]))
 			match Suit.spades { .spades => "s", else => "?" }
 		"#},
@@ -775,8 +775,8 @@ fn backed_array_signed_sextends() {
 	check(
 		indoc! {r#"
 			enum Delta: i8 { down = -3, up = 4 }
-			a := [Delta.up, Delta.down]
-			d := a[1]
+			a :: [Delta.up, Delta.down]
+			d :: a[1]
 			print(int(d))
 			print(match d { Delta.down => "yes", else => "no" })
 			d == Delta.down

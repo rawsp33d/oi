@@ -8,7 +8,7 @@ fn question_unwraps_some() {
 			return none
 		}
 		fn display(id int) ?int {
-			v := find(id)?
+			v :: find(id)?
 			v + 1
 		}
 		display(7) or { -1 }
@@ -24,7 +24,7 @@ fn question_propagates_none() {
 			return none
 		}
 		fn display(id int) ?int {
-			v := find(id)?
+			v :: find(id)?
 			v + 1
 		}
 		display(1) or { -1 }
@@ -40,7 +40,7 @@ fn bang_unwraps_ok() {
 			return error("missing")
 		}
 		fn double(path string) !int {
-			v := load(path)?
+			v :: load(path)?
 			v * 2
 		}
 		double("ok") or { -1 }
@@ -56,7 +56,7 @@ fn bang_propagates_error() {
 			return error("missing")
 		}
 		fn double(path string) !int {
-			v := load(path)?
+			v :: load(path)?
 			v * 2
 		}
 		double("nope") or {
@@ -75,7 +75,7 @@ fn question_infers_enclosing_return_type() {
 			return none
 		}
 		fn display(id int) {
-			v := find(id)?
+			v :: find(id)?
 			v + 1
 		}
 		display(7) or { -1 }

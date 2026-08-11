@@ -18,7 +18,7 @@ fn max_float_instantiation_is_independent() {
 		fn max[T](a T, b T) T {
 			if a > b { a } else { b }
 		}
-		mut a := max(3, 7)
+		a := max(3, 7)
 		max(3.5, 1.2)
 	"};
 	check(src, "3.5");

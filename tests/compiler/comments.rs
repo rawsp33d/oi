@@ -75,7 +75,7 @@ fn doc_inside_fn() {
 	let src = indoc! {"
 		fn compute() {
 			## intermediate step
-			x := 6
+			x :: 6
 			x * 7
 		}
 		compute()

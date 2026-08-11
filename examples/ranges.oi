@@ -1,4 +1,4 @@
-mut total := 0
+total := 0
 
 loop i in 1..10 {
 	total = total + i

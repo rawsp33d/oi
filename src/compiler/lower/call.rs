@@ -213,7 +213,7 @@ impl<'a> Translator<'a> {
 			return Err(Diagnostic::new(msg, e.1.into_range()).with_label("not a binding"));
 		};
 		if !self.local(name, e.1.into_range())?.mutable {
-			return Err(Diagnostic::new(msg, e.1.into_range()).with_label("declared without `mut`"));
+			return Err(Diagnostic::new(msg, e.1.into_range()).with_label("immutably bound"));
 		}
 		Ok(name)
 	}

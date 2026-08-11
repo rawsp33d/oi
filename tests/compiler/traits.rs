@@ -233,7 +233,7 @@ fn dyn_dispatch_zoo() {
 	let src = indoc! {r#"
 		struct Cat { legs int, kind string }
 		impl Animal for Cat { fn speak(self) string { "meow" } }
-		zoo []Animal := [ Dog{ "collie" }, Cat{ 4, "mau" } ]
+		zoo : []Animal : [ Dog{ "collie" }, Cat{ 4, "mau" } ]
 		loop a in zoo { print("a " + a.kind + " says " + a.speak()) }
 	"#};
 	check([ANIMAL_KIND, src], ["a collie says woof", "a mau says meow"]);
@@ -244,7 +244,7 @@ fn trait_object_array_literal() {
 	let src = indoc! {r#"
 		struct Cat { kind string }
 		impl Animal for Cat { fn speak(self) string { "meow" } }
-		animals := []Animal{ Dog{ "collie" }, Cat{ "mau" } }
+		animals :: []Animal{ Dog{ "collie" }, Cat{ "mau" } }
 		loop a in animals { print("{a.kind}: {a.speak()}") }
 	"#};
 	check([ANIMAL_KIND, src], ["collie: woof", "mau: meow"]);
@@ -273,7 +273,7 @@ fn dyn_trait_param_and_default() {
 fn trait_typed_struct_field() {
 	let src = indoc! {r#"
 		struct Pen { pet Animal }
-		p := Pen{ pet: Dog{} }
+		p :: Pen{ pet: Dog{} }
 		print(p.pet.speak())
 	"#};
 	check([ANIMAL_DOG, src], "woof");
@@ -285,7 +285,7 @@ fn self_sig_static_dispatch_ok() {
 		trait Cloner { fn dup(self) Self }
 		struct Dog {}
 		impl Cloner for Dog { fn dup(self) Self { Dog{} } }
-		d := Dog{}.dup()
+		d :: Dog{}.dup()
 		print("cloned")
 	"#};
 	check(src, "cloned");
@@ -303,14 +303,14 @@ fn rejects_non_object_safe_trait() {
 		trait Eater { fn eat(self, other Self) string }
 		struct Dog {}
 		impl Eater for Dog { fn eat(self, other Self) string { "ate" } }
-		pack := []Eater{ Dog{} }
+		pack :: []Eater{ Dog{} }
 	"#});
 }
 
 #[test]
 fn trait_object_renders_concrete_struct() {
 	let src = indoc! {r#"
-		a Animal := Dog{ "collie" }
+		a : Animal : Dog{ "collie" }
 		print(a)
 		print("says {a}")
 		print(a.str())
@@ -329,7 +329,7 @@ fn trait_object_renders_concrete_struct() {
 fn trait_object_uses_str_override() {
 	let src = indoc! {r#"
 		impl Dog { fn str(self) string { "a " + self.kind + " dog" } }
-		a Animal := Dog{ "collie" }
+		a : Animal : Dog{ "collie" }
 		print(a)
 	"#};
 	check([ANIMAL_DOG_KIND, src], "a collie dog");
@@ -351,7 +351,7 @@ fn trait_declared_str_dyn_dispatches() {
 		trait Animal { fn str(self) string }
 		struct Dog { kind string }
 		impl Animal for Dog { fn str(self) string { "custom-" + self.kind } }
-		a Animal := Dog{ "collie" }
+		a : Animal : Dog{ "collie" }
 		print(a)
 		print(a.str())
 	"#};
@@ -362,7 +362,7 @@ fn trait_declared_str_dyn_dispatches() {
 fn rejects_non_implementing_trait_object() {
 	let src = indoc! {"
 		struct Rock {}
-		a Animal := Rock{}
+		a : Animal : Rock{}
 	"};
 	fail([ANIMAL_DOG, src]);
 }

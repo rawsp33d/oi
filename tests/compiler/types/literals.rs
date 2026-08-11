@@ -65,7 +65,7 @@ fn range_negative_start() {
 #[test]
 fn range_in_binding() {
 	let src = indoc! {"
-		r := 1..10
+		r :: 1..10
 		r
 	"};
 	check(src, "1..10");
@@ -88,7 +88,7 @@ fn range_as_fn_return() {
 #[test]
 fn range_in_for_loop() {
 	let src = indoc! {"
-		mut sum := 0
+		sum := 0
 		loop i in 1..5 {
 			sum = sum + i
 		}
@@ -100,9 +100,9 @@ fn range_in_for_loop() {
 #[test]
 fn range_variable_in_for_loop() {
 	let src = indoc! {"
-		lo := 2
-		hi := 6
-		mut sum := 0
+		lo :: 2
+		hi :: 6
+		sum := 0
 		loop i in lo..hi {
 			sum = sum + i
 		}
@@ -114,8 +114,8 @@ fn range_variable_in_for_loop() {
 #[test]
 fn range_stored_then_iterated() {
 	let src = indoc! {"
-		r := 0..4
-		mut sum := 0
+		r :: 0..4
+		sum := 0
 		loop i in r {
 			sum = sum + i
 		}

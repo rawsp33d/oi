@@ -5,7 +5,7 @@ fn zero_value_positional_access() {
 	check(
 		indoc! {"
 			struct Money(int)
-			mut m Money
+			m: Money
 			m.0
 		"},
 		"0",
@@ -17,7 +17,7 @@ fn named_and_positional_agree() {
 	check(
 		indoc! {"
 			struct Point(x: float, y: float)
-			mut p Point
+			p: Point
 			p.x
 		"},
 		"0.0",
@@ -29,7 +29,7 @@ fn partial_naming() {
 	check(
 		indoc! {"
 			struct Foo(int, y: bool)
-			mut f Foo
+			f: Foo
 			f.y
 		"},
 		"false",
@@ -41,7 +41,7 @@ fn print_unnamed() {
 	check(
 		indoc! {"
 			struct Money(int)
-			mut m Money
+			m: Money
 			m
 		"},
 		"Money(0)",
@@ -53,7 +53,7 @@ fn print_named() {
 	check(
 		indoc! {"
 			struct Point(x: float, y: float)
-			mut p Point
+			p: Point
 			p
 		"},
 		"Point(x: 0.0, y: 0.0)",
@@ -64,7 +64,7 @@ fn print_named() {
 fn index_out_of_range() {
 	fail(indoc! {"
 		struct Money(int)
-		mut m Money
+		m: Money
 		m.1
 	"});
 }
@@ -73,7 +73,7 @@ fn index_out_of_range() {
 fn no_such_field() {
 	fail(indoc! {"
 		struct Point(x: float, y: float)
-		mut p Point
+		p: Point
 		p.z
 	"});
 }
@@ -84,7 +84,7 @@ fn field_type_from_alias() {
 		indoc! {"
 			type Id = int
 			struct W(Id)
-			mut w W
+			w: W
 			w.0
 		"},
 		"0",
@@ -96,7 +96,7 @@ fn wraps_anonymous_sum() {
 	check(
 		indoc! {"
 			struct UserId(int | string)
-			mut u UserId
+			u: UserId
 			u.0
 		"},
 		"0",
@@ -126,7 +126,7 @@ fn construct_named() {
 	check(
 		indoc! {"
 			struct Point(x: float, y: float)
-			p := Point(x: 1.0, y: 2.0)
+			p :: Point(x: 1.0, y: 2.0)
 			p.0 == p.x
 		"},
 		"true",

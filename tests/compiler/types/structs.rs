@@ -5,13 +5,13 @@ use indoc::indoc;
 fn field_access() {
 	check(
 		"struct Point { x int, y int }
-		point := Point{ x: 1, y: 2 }
+		point :: Point{ x: 1, y: 2 }
 		point.x",
 		"1",
 	);
 	check(
 		"struct Point { x int, y int }
-		point := Point{ x: 1, y: 2 }
+		point :: Point{ x: 1, y: 2 }
 		point.y",
 		"2",
 	);
@@ -21,13 +21,13 @@ fn field_access() {
 fn zero_value() {
 	check(
 		"struct Point { x int, y int }
-		origin := Point{}
+		origin :: Point{}
 		origin.x",
 		"0",
 	);
 	check(
 		"struct User { name string, age int }
-		u := User{}
+		u :: User{}
 		u.age",
 		"0",
 	);
@@ -37,13 +37,13 @@ fn zero_value() {
 fn positional_literal() {
 	check(
 		"struct Point { x int, y int }
-		p := Point{3, 4}
+		p :: Point{3, 4}
 		p.x",
 		"3",
 	);
 	check(
 		"struct Point { x int, y int }
-		p := Point{3, 4}
+		p :: Point{3, 4}
 		p.y",
 		"4",
 	);
@@ -53,14 +53,14 @@ fn positional_literal() {
 fn field_mutation() {
 	check(
 		"struct Point { x int, y int }
-		mut p := Point{}
+		p := Point{}
 		p.x = 5
 		p.x",
 		"5",
 	);
 	check(
 		"struct Point { x int, y int }
-		mut p := Point{ x: 10, y: 20 }
+		p := Point{ x: 10, y: 20 }
 		p.y = 99
 		p.y",
 		"99",
@@ -71,8 +71,8 @@ fn field_mutation() {
 fn copy_semantics() {
 	check(
 		"struct Point { x int, y int }
-		a := Point{ x: 1, y: 2 }
-		mut b := a
+		a :: Point{ x: 1, y: 2 }
+		b := a
 		b.x = 99
 		a.x",
 		"1",
@@ -83,8 +83,8 @@ fn copy_semantics() {
 fn copy_of_array_field_is_independent() {
 	check(
 		"struct Bag { items []int }
-		s := Bag{ items: [1, 2, 3] }
-		mut b := s.items
+		s :: Bag{ items: [1, 2, 3] }
+		b := s.items
 		b << 4
 		s.items",
 		"[1, 2, 3]",
@@ -95,8 +95,8 @@ fn copy_of_array_field_is_independent() {
 fn struct_lit_copies_array_field() {
 	check(
 		"struct Bag { items []int }
-		mut a := [1]
-		bags := [Bag{ items: a }]
+		a := [1]
+		bags :: [Bag{ items: a }]
 		a << 2
 		bags[0].items",
 		"[1]",
@@ -121,13 +121,13 @@ fn print_struct() {
 fn mixed_field_types() {
 	check(
 		r#"struct Foo { n int, s string, f float }
-		v := Foo{ n: 42, s: "hi", f: 1.5 }
+		v :: Foo{ n: 42, s: "hi", f: 1.5 }
 		v.n"#,
 		"42",
 	);
 	check(
 		r#"struct Foo { n int, s string }
-		v := Foo{ n: 7, s: "world" }
+		v :: Foo{ n: 7, s: "world" }
 		v.s"#,
 		"world",
 	);
@@ -177,7 +177,7 @@ fn fn_param_struct_type() {
 fn if_no_else_struct_zero() {
 	let src = indoc! {"
 		struct Point { x int, y int }
-		p := if false { Point{ x: 1, y: 2 } }
+		p :: if false { Point{ x: 1, y: 2 } }
 		p.x
 	"};
 	check(src, "0");
@@ -187,7 +187,7 @@ fn if_no_else_struct_zero() {
 fn immutable_field_assign_error() {
 	fail_with(
 		"struct Point { x int, y int }
-		p := Point{}
+		p :: Point{}
 		p.x = 5",
 		"immutable",
 	);
@@ -197,7 +197,7 @@ fn immutable_field_assign_error() {
 fn struct_positional_field_access() {
 	let src = indoc! {"
 		struct Point { x int, y int }
-		p := Point{ 2 4 }
+		p :: Point{ 2 4 }
 		p.1 == p.y
 	"};
 	check(src, "true");
@@ -207,15 +207,15 @@ fn struct_positional_field_access() {
 fn record_coerces_to_struct() {
 	check(
 		"struct Point { x int, y int }
-		p Point := { x: 2, y: 1 }
+		p : Point : { x: 2, y: 1 }
 		p.x + p.y",
 		"3",
 	);
 	check(
 		"struct Point { x int, y int }
-		x := 5
-		y := 7
-		p Point := { x, y }
+		x :: 5
+		y :: 7
+		p : Point : { x, y }
 		p.y",
 		"7",
 	);
@@ -245,7 +245,7 @@ fn record_in_return_position() {
 fn empty_record_defaults_struct() {
 	check(
 		"struct User { age int, swag int = 5 }
-		u User := {}
+		u : User : {}
 		u.swag",
 		"5",
 	);
@@ -255,7 +255,7 @@ fn empty_record_defaults_struct() {
 fn record_unknown_field_error() {
 	fail_with(
 		"struct Point { x int, y int }
-		p Point := { z: 1 }",
+		p : Point : { z: 1 }",
 		"no field `z`",
 	);
 }
@@ -264,7 +264,7 @@ fn record_unknown_field_error() {
 fn record_non_ident_key_error() {
 	fail_with(
 		r#"struct Point { x int, y int }
-		p Point := { "x": 1 }"#,
+		p : Point : { "x": 1 }"#,
 		"named by idents",
 	);
 }
@@ -274,28 +274,28 @@ fn default_field_value() {
 	// empty literal uses the default
 	check(
 		"struct User { age int, name string, swag int = 5 }
-		u := User{}
+		u :: User{}
 		u.swag",
 		"5",
 	);
 	// partial named literal
 	check(
 		"struct User { age int, swag int = 5 }
-		u := User{ age: 30 }
+		u :: User{ age: 30 }
 		u.swag",
 		"5",
 	);
 	// explicit value overrides the default
 	check(
 		"struct User { age int, swag int = 5 }
-		u := User{ swag: 99 }
+		u :: User{ swag: 99 }
 		u.swag",
 		"99",
 	);
 	// non-defaulted fields still zero-init
 	check(
 		"struct User { age int, swag int = 5 }
-		u := User{}
+		u :: User{}
 		u.age",
 		"0",
 	);
@@ -319,7 +319,7 @@ fn named_method_args() {
 		impl User {
 			fn with_options(self, opt Options) { print(opt.bar) }
 		}
-		user := User{}
+		user :: User{}
 		user.with_options(bar: true, foo: 4)",
 		"true",
 	);
@@ -350,7 +350,7 @@ fn struct_typed_field() {
 	let src = indoc! {"
 		struct Money { amount int }
 		struct Wallet { cash Money }
-		w := Wallet{ cash: Money{ amount: 5 } }
+		w :: Wallet{ cash: Money{ amount: 5 } }
 		print(w.cash.amount)
 		print(w)
 	"};
@@ -372,7 +372,7 @@ fn struct_typed_field_reassign() {
 	let src = indoc! {"
 		struct Money { amount int }
 		struct Wallet { cash Money }
-		mut w := Wallet{ cash: Money{ amount: 5 } }
+		w := Wallet{ cash: Money{ amount: 5 } }
 		w.cash = Money{ amount: 9 }
 		w.cash.amount
 	"};

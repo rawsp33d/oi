@@ -13,7 +13,7 @@ fn ternary_false() {
 #[test]
 fn else_if_first() {
 	let src = indoc! {r#"
-		i := 0
+		i :: 0
 		if i == 0 { "zero" } else if i == 1 { "one" } else { "idk" }
 	"#};
 	check(src, "zero");
@@ -22,7 +22,7 @@ fn else_if_first() {
 #[test]
 fn else_if_middle() {
 	let src = indoc! {r#"
-		i := 1
+		i :: 1
 		if i == 0 { "zero" } else if i == 1 { "one" } else { "idk" }
 	"#};
 	check(src, "one");
@@ -31,7 +31,7 @@ fn else_if_middle() {
 #[test]
 fn else_if_last() {
 	let src = indoc! {r#"
-		i := 2
+		i :: 2
 		if i == 0 { "zero" } else if i == 1 { "one" } else { "idk" }
 	"#};
 	check(src, "idk");
@@ -55,7 +55,7 @@ fn no_else_false_string() {
 #[test]
 fn if_as_binding() {
 	let src = indoc! {"
-		x := if true { 10 } else { 20 }
+		x :: if true { 10 } else { 20 }
 		x
 	"};
 	check(src, "10");
@@ -69,7 +69,7 @@ fn if_in_arithmetic() {
 #[test]
 fn nested_if() {
 	let src = indoc! {"
-		x := if true { if false { 1 } else { 2 } } else { 3 }
+		x :: if true { if false { 1 } else { 2 } } else { 3 }
 		x
 	"};
 	check(src, "2");
@@ -88,9 +88,9 @@ fn bool_branches() {
 #[test]
 fn branch_binding_is_local() {
 	let src = indoc! {"
-		mut x := 1
+		x := 1
 		if true {
-			y := 5
+			y :: 5
 			x = y
 		}
 		x
@@ -101,7 +101,7 @@ fn branch_binding_is_local() {
 #[test]
 fn branch_binding_does_not_leak() {
 	let src = indoc! {"
-		if true { y := 5 }
+		if true { y :: 5 }
 		y
 	"};
 	fail_with(src, "undefined variable");

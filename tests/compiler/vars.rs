@@ -2,37 +2,37 @@ use crate::helpers::*;
 
 #[test]
 fn variable() {
-	check("x := 42\nx", "42");
+	check("x :: 42\nx", "42");
 }
 
 #[test]
 fn assign() {
-	check(["mut x := 1", "x = 2", "x"], "2");
+	check(["x := 1", "x = 2", "x"], "2");
 }
 
 #[test]
 fn assign_from_self() {
-	check(["mut x := 10", "x = x + 5", "x"], "15");
+	check(["x := 10", "x = x + 5", "x"], "15");
 }
 
 #[test]
 fn assign_string() {
-	check(r#"mut s := "old"; s = "new"; s"#, "new");
+	check(r#"s := "old"; s = "new"; s"#, "new");
 }
 
 #[test]
 fn declare_zero_int() {
-	check("mut n int\nn", "0");
+	check("n: int\nn", "0");
 }
 
 #[test]
 fn declare_zero_string() {
-	check("mut s string\ns", "");
+	check("s: string\ns", "");
 }
 
 #[test]
 fn declare_zero_then_assign() {
-	check(["mut n int", "n = 7", "n"], "7");
+	check(["n: int", "n = 7", "n"], "7");
 }
 
 #[test]
@@ -40,7 +40,7 @@ fn declare_zero_struct() {
 	check(
 		indoc! {"
 			struct Point { x int, y int }
-			mut p Point
+			p: Point
 			p.x = 5
 			p.x
 		"},
@@ -50,28 +50,28 @@ fn declare_zero_struct() {
 
 #[test]
 fn annotated_binding() {
-	check("a int := 2\na", "2");
-	check(r#"b string := "hi"; b"#, "hi");
+	check("a : int : 2\na", "2");
+	check(r#"b : string : "hi"; b"#, "hi");
 }
 
 #[test]
 fn annotation_type_mismatch() {
-	fail_with(r#"x int := "hi""#, "expected int, got str");
+	fail_with(r#"x : int : "hi""#, "expected int, got str");
 }
 
 #[test]
 fn annotation_pins_width() {
 	// the literal fits an i32, but the annotation widens it to i64
-	check("mut big i64 := 50_000\nbig", "50000");
+	check("big : i64 : 50_000\nbig", "50000");
 }
 
 #[test]
 fn annotation_coerces_float() {
-	check("f f32 := 1.5\nf", "1.5");
-	check("x f64 := 5\nx", "5.0");
+	check("f : f32 : 1.5\nf", "1.5");
+	check("x : f64 : 5\nx", "5.0");
 }
 
 #[test]
 fn annotation_out_of_range() {
-	fail_with("mut x i8 := 9999\nx", "out of range for i8");
+	fail_with("x : i8 : 9999\nx", "out of range for i8");
 }

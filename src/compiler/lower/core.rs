@@ -22,7 +22,7 @@ impl<'a> Translator<'a> {
 	// Look up the binding that a mutation targets.
 	pub(super) fn mutable_local(&self, name: &str, span: Range<usize>, op: Mutation) -> Result<Local, Diagnostic> {
 		// how the mutation reads in errors
-		// (verb, verb when immutable, noun for the `mut` hint, suggest `:=`?)
+		// (verb, verb when immutable, noun for the `:=` hint, suggest `:=`?)
 		let (verb, immutable_verb, allow, suggest_declare) = match op {
 			Mutation::Assign => ("assign to", "assign to", "assignment", true),
 			Mutation::IndexAssign => ("assign to", "assign to element of", "assignment", true),
@@ -41,8 +41,8 @@ impl<'a> Translator<'a> {
 		if !local.mutable {
 			return Err(
 				Diagnostic::new(format!("cannot {immutable_verb} immutable `{name}`"), span)
-					.with_label("declared without `mut`")
-					.with_note(format!("use `mut {name} := ...` to allow {allow}")),
+					.with_label("immutably bound")
+					.with_note(format!("use `{name} := ...` to allow {allow}")),
 			);
 		}
 		Ok(local)
@@ -62,8 +62,8 @@ impl<'a> Translator<'a> {
 		}
 		if !local.mutable {
 			return Err(Diagnostic::new(format!("cannot capture `{name}` as `mut`"), span)
-				.with_label("declared without `mut`")
-				.with_note(format!("use `mut {name} := ...` to allow mutation")));
+				.with_label("immutably bound")
+				.with_note(format!("use `{name} := ...` to allow mutation")));
 		}
 		let cell = self.call_alloc_bytes(8);
 		let cur = self.read_local(local);

@@ -36,7 +36,7 @@ fn alias_tuple_in_param_and_return() {
 	let src = indoc! {"
 		type Point = (int, int)
 		fn make(x int, y int) Point { (x, y) }
-		p := make(3, 4)
+		p :: make(3, 4)
 		print(p.0, p.1)
 	"};
 	check(src, "3 4");
@@ -57,7 +57,7 @@ fn alias_in_struct_field() {
 	let src = indoc! {"
 		type Hp = int
 		struct Unit { hp Hp }
-		u := Unit { hp: 100 }
+		u :: Unit { hp: 100 }
 		u.hp
 	"};
 	check(src, "100");

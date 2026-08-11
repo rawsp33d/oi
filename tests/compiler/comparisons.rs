@@ -53,7 +53,7 @@ fn bool_ne() {
 #[test]
 fn compares_variable() {
 	let src = indoc! {"
-		x := 5
+		x :: 5
 		x > 3
 	"};
 	check(src, "true");

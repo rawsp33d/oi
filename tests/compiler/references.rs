@@ -5,8 +5,8 @@ fn aliasing_shares_identity() {
 	check(
 		indoc! {r#"
 			struct Node { value int }
-			mut list := &Node{ value: 5 }
-			head := list
+			list := &Node{ value: 5 }
+			head :: list
 			list.value = 9
 			print("head is {head}")
 		"#},
@@ -17,18 +17,18 @@ fn aliasing_shares_identity() {
 #[test]
 fn bare_ref_without_value_errors() {
 	fail_with(
-		["struct Node { value int }", "mut n &Node"],
+		["struct Node { value int }", "n: &Node"],
 		"a reference must be initialized (`?&T` for an optional one)",
 	);
 }
 
 #[test]
 fn optional_ref_zero_value_assign_unwrap() {
-	check(["struct Node { value int }", "mut o ?&Node", "o"], "none");
+	check(["struct Node { value int }", "o: ?&Node", "o"], "none");
 	check(
 		indoc! {"
 			struct Node { value int }
-			mut o ?&Node
+			o: ?&Node
 			o = ?&Node(&Node{ value: 7 })
 			match o {
 				.some(n) => n.value,
@@ -43,8 +43,8 @@ fn optional_ref_zero_value_assign_unwrap() {
 fn no_leaks_on_share_and_release() {
 	assert_clean(indoc! {"
 		struct Node { value int }
-		mut list := &Node{ value: 5 }
-		head := list
+		list := &Node{ value: 5 }
+		head :: list
 		list.value = 9
 		print(head.value)
 	"});
@@ -64,8 +64,8 @@ fn linked_nodes() {
 	check(
 		indoc! {r#"
 			struct Node { value int, next ?&Node }
-			tail := &Node{ value: 2 }
-			head := &Node{ value: 1, next: ?&Node(tail) }
+			tail :: &Node{ value: 2 }
+			head :: &Node{ value: 1, next: ?&Node(tail) }
 			match head.next {
 				.some(n) => print("{head.value} -> {n.value}"),
 				.none => print("lonely"),
@@ -79,7 +79,7 @@ fn linked_nodes() {
 fn interior_ref_frees_on_release() {
 	assert_clean(indoc! {"
 		struct Node { value int, next ?&Node }
-		head := &Node{ value: 1, next: ?&Node(&Node{ value: 2 }) }
+		head :: &Node{ value: 1, next: ?&Node(&Node{ value: 2 }) }
 		print(head.value)
 	"});
 }
@@ -88,10 +88,10 @@ fn interior_ref_frees_on_release() {
 fn shared_option_ref_stays_clean() {
 	assert_clean(indoc! {"
 		struct Node { value int, next ?&Node }
-		t := &Node{ value: 2 }
-		o := ?&Node(t)
-		a := &Node{ value: 1, next: o }
-		b := &Node{ value: 3, next: o }
+		t :: &Node{ value: 2 }
+		o :: ?&Node(t)
+		a :: &Node{ value: 1, next: o }
+		b :: &Node{ value: 3, next: o }
 		print(t.value)
 	"});
 }
@@ -101,7 +101,7 @@ fn returned_box_keeps_zeroed_field() {
 	let src = indoc! {r#"
 		struct Node { value int, next ?&Node }
 		fn make() &Node { &Node{ value: 1 } }
-		n := make()
+		n :: make()
 		match n.next {
 			.some(x) => print(x.value),
 			.none => print("ok"),
@@ -115,7 +115,7 @@ fn returned_box_keeps_zeroed_field() {
 fn rebind_releases_old_target() {
 	assert_clean(indoc! {r#"
 		struct Node { value int }
-		mut o ?&Node
+		o: ?&Node
 		o = ?&Node(&Node{ value: 1 })
 		o = ?&Node(&Node{ value: 2 })
 		print("done")
@@ -128,7 +128,7 @@ fn user_enum_with_ref_payload_stays_boxed() {
 		indoc! {r#"
 			struct Node { value int }
 			enum E { empty, full(&Node) }
-			e := E.full(&Node{ value: 7 })
+			e :: E.full(&Node{ value: 7 })
 			print(e)
 			match e {
 				.full(n) => print(n.value),
@@ -151,8 +151,8 @@ fn value_recursion_still_errors() {
 fn two_node_cycle_reclaimed() {
 	assert_clean(indoc! {r#"
 		struct Node { value int, next ?&Node }
-		mut a := &Node{ value: 1 }
-		b := &Node{ value: 2, next: ?&Node(a) }
+		a := &Node{ value: 1 }
+		b :: &Node{ value: 2, next: ?&Node(a) }
 		a.next = ?&Node(b)
 		print(a.value)
 	"#});
@@ -162,7 +162,7 @@ fn two_node_cycle_reclaimed() {
 fn self_cycle_reclaimed() {
 	assert_clean(indoc! {r#"
 		struct Node { value int, next ?&Node }
-		mut n := &Node{ value: 1 }
+		n := &Node{ value: 1 }
 		n.next = ?&Node(n)
 		print(n.value)
 	"#});
@@ -173,8 +173,8 @@ fn cycle_with_acyclic_hangoff_reclaimed() {
 	assert_clean(indoc! {r#"
 		struct Leaf { v int }
 		struct Node { value int, leaf ?&Leaf, next ?&Node }
-		mut a := &Node{ value: 1, leaf: ?&Leaf(&Leaf{ v: 9 }) }
-		b := &Node{ value: 2, next: ?&Node(a) }
+		a := &Node{ value: 1, leaf: ?&Leaf(&Leaf{ v: 9 }) }
+		b :: &Node{ value: 2, next: ?&Node(a) }
 		a.next = ?&Node(b)
 		print(a.value)
 	"#});

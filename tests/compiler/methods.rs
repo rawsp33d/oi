@@ -7,7 +7,7 @@ fn instance_method() {
 		impl Point {
 			fn sum(self) int { self.x + self.y }
 		}
-		p := Point{3, 4}
+		p :: Point{3, 4}
 		p.sum()
 	"};
 	check(src, "7");
@@ -108,7 +108,7 @@ fn mut_self_mutates_receiver() {
 			fn bump(mut self) { self.n = self.n + 1 }
 			fn get(self) int { self.n }
 		}
-		mut c := Counter{0}
+		c := Counter{0}
 		c.bump()
 		c.bump()
 		c.get()
@@ -124,7 +124,7 @@ fn immutable_self_rejects_field_assign() {
 			impl P { fn bad(self) { self.x = 9 } }
 			P{1}.bad()
 		"},
-		"without `mut`",
+		"immutably bound",
 	);
 }
 
@@ -133,7 +133,7 @@ fn no_such_method() {
 	fail_with(
 		indoc! {"
 			struct P { x int }
-			p := P{1}
+			p :: P{1}
 			p.nope()
 		"},
 		"no method `nope`",

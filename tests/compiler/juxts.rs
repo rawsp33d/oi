@@ -35,7 +35,7 @@ fn method_trailing_fn() {
 			fn with(self, f fn() int) int { self.n + f() }
 			fn m(self, k int, f fn() int) int { self.n + k + f() }
 		}
-		b := Box{ n: 10 }
+		b :: Box{ n: 10 }
 		print(b.with fn() int { 5 })
 		b.m(1) fn() int { 5 }
 	"};
@@ -68,12 +68,12 @@ fn literal_and_trailing_fn() {
 #[test]
 fn headers_stay_juxt_free() {
 	let src = indoc! {"
-		cond := true
+		cond :: true
 		if cond { print(1) }
-		mut i := 0
+		i := 0
 		loop i < 3 { i = i + 1 }
 		print(i)
-		x := 5
+		x :: 5
 		match x { 5 => print(9), else => print(0) }
 	"};
 	check(src, "1\n3\n9");
@@ -92,7 +92,7 @@ fn call_then_literal_return() {
 fn bind_rhs_trailing_fn() {
 	let src = indoc! {"
 		fn twice(f fn() int) int { f() + f() }
-		x := twice fn() int { 21 }
+		x :: twice fn() int { 21 }
 		x
 	"};
 	check(src, "42");
@@ -102,7 +102,7 @@ fn bind_rhs_trailing_fn() {
 fn array_elem_juxt() {
 	let src = indoc! {"
 		fn double(n int) int { n * 2 }
-		a := [double 3]
+		a :: [double 3]
 		a.len
 	"};
 	check(src, "1");

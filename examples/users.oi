@@ -32,7 +32,7 @@ impl User {
 	}
 }
 
-mut user := User.create(
+user := User.create(
 	"ur_mom_lolol"
 )
 # TODO: this should work...

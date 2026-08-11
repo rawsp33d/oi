@@ -46,7 +46,7 @@ fn question_step_unwraps_some() {
 			return none
 		}
 		fn display(id int) {
-			v := id |> find?
+			v :: id |> find?
 			v + 1
 		}
 		display(7) or { -1 }
@@ -62,7 +62,7 @@ fn question_step_propagates_none() {
 			return none
 		}
 		fn display(id int) {
-			v := id |> find?
+			v :: id |> find?
 			v + 1
 		}
 		display(1) or { -1 }
@@ -78,7 +78,7 @@ fn bang_step_unwraps_ok() {
 			return error("missing")
 		}
 		fn double(path string) !int {
-			v := path |> load?
+			v :: path |> load?
 			v * 2
 		}
 		double("ok") or { -1 }
@@ -94,7 +94,7 @@ fn bang_step_propagates_error() {
 			return error("missing")
 		}
 		fn double(path string) !int {
-			v := path |> load?
+			v :: path |> load?
 			v * 2
 		}
 		double("nope") or {

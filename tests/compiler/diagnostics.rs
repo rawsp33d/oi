@@ -74,7 +74,7 @@ fn invalid_token() {
 
 #[test]
 fn assign_to_immutable() {
-	fail_with("x := 1\nx = 2", "cannot assign to immutable");
+	fail_with("x :: 1\nx = 2", "cannot assign to immutable");
 }
 
 #[test]
@@ -84,7 +84,7 @@ fn assign_to_undefined() {
 
 #[test]
 fn assign_wrong_type() {
-	fail_with("mut x := 1\nx = 2.0", "cannot assign float");
+	fail_with("x := 1\nx = 2.0", "cannot assign float");
 }
 
 #[test]

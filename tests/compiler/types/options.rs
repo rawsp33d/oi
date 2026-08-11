@@ -13,7 +13,7 @@ fn construct_none() {
 
 #[test]
 fn zero_value_is_none() {
-	check("mut o ?int\no", "none");
+	check("o: ?int\no", "none");
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn ordering_rejected() {
 fn match_binds_some() {
 	check(
 		indoc! {r#"
-			o := ?int(42)
+			o :: ?int(42)
 			match o {
 				.some(n) => n,
 				.none => -1,
@@ -76,7 +76,7 @@ fn match_binds_some() {
 fn match_none_arm() {
 	check(
 		indoc! {r#"
-			o := ?int(none)
+			o :: ?int(none)
 			match o {
 				.some(n) => n,
 				.none => -1,
@@ -90,7 +90,7 @@ fn match_none_arm() {
 fn match_non_exhaustive_errors() {
 	fail_with(
 		indoc! {r"
-			o := ?int(42)
+			o :: ?int(42)
 			match o {
 				.some(n) => n,
 			}
@@ -103,7 +103,7 @@ fn match_non_exhaustive_errors() {
 fn struct_field_type() {
 	check(
 		"struct Box { val ?int }
-		b := Box{ val: ?int(42) }
+		b :: Box{ val: ?int(42) }
 		b.val",
 		"some(42)",
 	);
@@ -169,8 +169,8 @@ fn long_form_matches_shorthand() {
 fn array_payload_is_independent_copy() {
 	let src = indoc! {"
 		fn wrap(a []int) ?[]int { return a }
-		mut a := [1]
-		o := wrap(a)
+		a := [1]
+		o :: wrap(a)
 		a << 2
 		match o { .some(v) => v, .none => [0] }
 	"};

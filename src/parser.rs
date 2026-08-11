@@ -297,23 +297,37 @@ where
 
 	// bindings
 	let annot = spanned(type_expr.clone());
-	let bind = just(Token::Mut)
-		.or_not()
-		.then(ident())
-		.then(annot.clone().or_not())
-		.then(just(Token::Bind).ignore_then(expr.clone()).or_not())
-		.try_map(|(((mutable, name), typ), value), span| {
-			if value.is_none() && (typ.is_none() || mutable.is_none()) {
-				return Err(Rich::custom(span, "expected `:=` value, or `mut name type`"));
-			}
-			Ok(Expr::Bind {
-				mutable: mutable.is_some(),
-				name,
-				typ,
-				value: value.map(Box::new),
-			})
-		})
-		.map_with(|e, ex| (e, ex.span()));
+	let value_tail = just(Token::Bind)
+		.to(true)
+		.or(just(Token::DoubleColon).to(false))
+		.then(expr.clone())
+		.map(|(mutable, value)| (mutable, None, Some(value)));
+	let sandwich_tail = just(Token::Colon)
+		.ignore_then(annot.clone())
+		.then(
+			just(Token::Assign)
+				.to(true)
+				.or(just(Token::Colon).to(false))
+				.then(expr.clone())
+				.or_not(),
+		)
+		.map(|(typ, tail)| match tail {
+			Some((mutable, value)) => (mutable, Some(typ), Some(value)),
+			None => (true, Some(typ), None),
+		});
+	let bind = ident()
+		.then(value_tail.or(sandwich_tail))
+		.map_with(|(name, (mutable, typ, value)), ex| {
+			(
+				Expr::Bind {
+					mutable,
+					name,
+					typ,
+					value: value.map(Box::new),
+				},
+				ex.span(),
+			)
+		});
 
 	// assignment
 	let assign = ident()
@@ -397,22 +411,22 @@ where
 		});
 
 	// tuple destructuring
-	let modded = list(just(Token::Mut).or_not().map(|m| m.is_some()).then(ident()));
-	let plain = loose_list(ident().map(|n| (false, n)));
-	let destructure = paren(modded)
-		.or(paren(plain))
-		.then(just(Token::Bind).to(true).or(just(Token::Assign).to(false)))
+	let destructure = paren(loose_list(ident()))
+		.then(
+			just(Token::Bind)
+				.to(Some(true))
+				.or(just(Token::DoubleColon).to(Some(false)))
+				.or(just(Token::Assign).to(None)),
+		)
 		.then(expr.clone())
-		.try_map(|((names, bind), value), span| {
+		.try_map(|((names, op), value), span| {
 			if names.len() < 2 {
 				return Err(Rich::custom(span, "tuple destructuring needs at least 2 names"));
 			}
-			if !bind && names.iter().any(|&(m, _)| m) {
-				return Err(Rich::custom(span, "`mut` only applies to `:=` bindings"));
-			}
+			let mutable = op == Some(true);
 			Ok(Expr::Destructure {
-				names,
-				bind,
+				names: names.into_iter().map(|n| (mutable, n)).collect(),
+				bind: op.is_some(),
 				value: Box::new(value),
 			})
 		})

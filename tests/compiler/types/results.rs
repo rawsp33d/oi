@@ -13,7 +13,7 @@ fn construct_err() {
 
 #[test]
 fn zero_value_is_ok() {
-	check("mut r !int; r", "ok(0)");
+	check("r: !int; r", "ok(0)");
 }
 
 #[test]
@@ -57,7 +57,7 @@ fn ordering_rejected() {
 fn match_binds_ok() {
 	check(
 		indoc! {r#"
-			r := !int(42)
+			r :: !int(42)
 			match r {
 				.ok(n) => n,
 				.err(e) => -1,
@@ -71,7 +71,7 @@ fn match_binds_ok() {
 fn match_err_arm() {
 	check(
 		indoc! {r#"
-			r := !int(error("oops"))
+			r :: !int(error("oops"))
 			match r {
 				.ok(n) => n,
 				.err(e) => -1,
@@ -85,7 +85,7 @@ fn match_err_arm() {
 fn match_non_exhaustive_errors() {
 	fail_with(
 		indoc! {r"
-			r := !int(42)
+			r :: !int(42)
 			match r {
 				.ok(n) => n,
 			}
@@ -98,7 +98,7 @@ fn match_non_exhaustive_errors() {
 fn struct_field_type() {
 	check(
 		"struct Box { val !int }
-		b := Box{ val: !int(42) }
+		b :: Box{ val: !int(42) }
 		b.val",
 		"ok(42)",
 	);
@@ -169,7 +169,7 @@ fn long_form_matches_shorthand() {
 			return error("missing")
 		}
 		fn double(path string) Result[int, Error] {
-			v := load(path)?
+			v :: load(path)?
 			v * 2
 		}
 		double("ok") or { -1 }
@@ -181,7 +181,7 @@ fn long_form_matches_shorthand() {
 			return error("missing")
 		}
 		fn double(path string) Result[int, Error] {
-			v := load(path)?
+			v :: load(path)?
 			v * 2
 		}
 		double("nope") or {

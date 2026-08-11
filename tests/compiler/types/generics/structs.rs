@@ -5,7 +5,7 @@ use indoc::indoc;
 fn infer_from_literal() {
 	let src = indoc! {"
 		struct Pair[T] { a T, b T }
-		p := Pair{ a: 3, b: 4 }
+		p :: Pair{ a: 3, b: 4 }
 		p.a + p.b
 	"};
 	check(src, "7");
@@ -57,7 +57,7 @@ fn empty_lit_infers_from_annotation() {
 	check(
 		indoc! {"
 			struct Box[T] { v T }
-			b Box[int] := Box{}
+			b : Box[int] : Box{}
 			b.v
 		"},
 		"0",
@@ -69,7 +69,7 @@ fn partial_lit_infers_from_annotation() {
 	check(
 		indoc! {r#"
 			struct Pair[A, B] { a A, b B }
-			p Pair[int, string] := Pair{ a: 7 }
+			p : Pair[int, string] : Pair{ a: 7 }
 			p.a
 		"#},
 		"7",

@@ -9,7 +9,7 @@ fn pub_fn_runs() {
 fn module_decl() {
 	check(["module main", r#"print("ok")"#], "ok");
 	fail_with("module other", "the entry file is module `main`");
-	fail_with(["x := 1", "module main"], "`module` must come first");
+	fail_with(["x :: 1", "module main"], "`module` must come first");
 }
 
 #[test]

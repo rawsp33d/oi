@@ -17,7 +17,7 @@ fn unit_inequality() {
 
 #[test]
 fn unit_in_binding() {
-	check("x := ()\nx", "");
+	check("x :: ()\nx", "");
 }
 
 #[test]
