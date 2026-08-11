@@ -56,5 +56,5 @@ match x {
 
 #[test]
 fn atom_return() {
-	check("fn f() :ok { :ok }\nf()", "ok");
+	check("f :: fn() :ok { :ok }\nf()", "ok");
 }

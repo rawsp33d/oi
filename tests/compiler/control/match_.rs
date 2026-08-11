@@ -130,7 +130,7 @@ fn match_true_as_if_chain() {
 fn match_wildcard() {
 	check(r#"match 5 { 1 => "one", _ => "other" }"#, "other");
 	let src = indoc! {r#"
-		enum Color { red green blue }
+		Color :: enum { red green blue }
 		match Color.blue {
 			.red => 1,
 			_ => 9,
@@ -175,7 +175,7 @@ fn match_tuple_arity_mismatch() {
 #[test]
 fn match_struct_destructure() {
 	let src = indoc! {r#"
-		struct Point { x: int, y: int }
+		Point :: struct { x: int, y: int }
 		p :: Point{ x: 3, y: 4 }
 		match p {
 			Point{ y: b, x } => x + b,
@@ -187,7 +187,7 @@ fn match_struct_destructure() {
 #[test]
 fn match_struct_unknown_field() {
 	let src = indoc! {r#"
-		struct Point { x: int, y: int }
+		Point :: struct { x: int, y: int }
 		match Point{ x: 1, y: 2 } {
 			Point { z } => z,
 		}
@@ -221,7 +221,7 @@ fn match_array_length_guard() {
 #[test]
 fn match_enum_non_exhaustive() {
 	let src = indoc! {r#"
-		enum Color { red green blue }
+		Color :: enum { red green blue }
 		c :: Color.red
 		match c {
 			.red => 1,
@@ -244,8 +244,8 @@ fn match_pattern_type_mismatch() {
 #[test]
 fn match_arm_chain_across_lines() {
 	let src = indoc! {"
-		struct C { r: int }
-		impl C { fn area(self) int { self.r * self.r } }
+		C :: struct { r: int }
+		impl C { area :: fn(self) int { self.r * self.r } }
 		c :: C{r: 3}
 		match true {
 			true => c
@@ -259,7 +259,7 @@ fn match_arm_chain_across_lines() {
 #[test]
 fn payload_bind_is_independent_copy() {
 	let src = indoc! {"
-		enum Box { empty has([]int) }
+		Box :: enum { empty has([]int) }
 		b :: Box.has([1])
 		v := match b {
 			.has(x) => x,

@@ -19,7 +19,7 @@ fn arithmetic_expr() {
 #[test]
 fn field_and_method() {
 	let src = indoc! {r#"
-		struct P { x: int }
+		P :: struct { x: int }
 		p :: P{7}
 		print("x is {p.x}, doubled {(p.x * 2).str()}")
 	"#};
@@ -54,8 +54,8 @@ fn multiline() {
 #[test]
 fn user_str_impl() {
 	let src = indoc! {r#"
-		struct Money { n: int }
-		impl Money { fn str(self) string { "$" + self.n.str() } }
+		Money :: struct { n: int }
+		impl Money { str :: fn(self) string { "$" + self.n.str() } }
 		m :: Money{5}
 		print("cost: {m}")
 	"#};

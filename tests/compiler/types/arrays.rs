@@ -9,7 +9,7 @@ fn array_literal() {
 #[test]
 fn fn_param_type() {
 	let src = indoc! {"
-		fn first(xs: []int) int {
+		first :: fn(xs: []int) int {
 			xs.0
 		}
 		first([9, 8, 7])
@@ -464,7 +464,7 @@ fn parent_independent_from_slice() {
 fn returned_param_independent_from_arg() {
 	check(
 		indoc! {"
-		fn id(a: []int) []int { a }
+		id :: fn(a: []int) []int { a }
 		a :: [1, 2, 3]
 		r := id(a)
 		r << 4
@@ -524,7 +524,7 @@ fn in_type_mismatch_error() {
 #[test]
 fn fn_returns_array_annotation() {
 	let src = indoc! {"
-		fn nums() []int { [1, 2, 3] }
+		nums :: fn() []int { [1, 2, 3] }
 		nums()
 	"};
 	check(src, "[1, 2, 3]");
@@ -533,7 +533,7 @@ fn fn_returns_array_annotation() {
 #[test]
 fn fn_returns_array_field() {
 	let src = indoc! {"
-		fn nums() []int { [10, 20, 30] }
+		nums :: fn() []int { [10, 20, 30] }
 		a :: nums()
 		a[1]
 	"};
@@ -543,7 +543,7 @@ fn fn_returns_array_field() {
 #[test]
 fn fn_return_type_mismatch_array() {
 	let src = indoc! {"
-		fn bad() []int { 42 }
+		bad :: fn() []int { 42 }
 		bad()
 	"};
 	fail_with(src, "wrong return type");

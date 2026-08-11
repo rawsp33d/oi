@@ -4,7 +4,7 @@ use crate::helpers::*;
 fn zero_value_positional_access() {
 	check(
 		indoc! {"
-			struct Money(int)
+			Money :: struct (int)
 			m: Money
 			m.0
 		"},
@@ -16,7 +16,7 @@ fn zero_value_positional_access() {
 fn named_and_positional_agree() {
 	check(
 		indoc! {"
-			struct Point(x: float, y: float)
+			Point :: struct (x: float, y: float)
 			p: Point
 			p.x
 		"},
@@ -28,7 +28,7 @@ fn named_and_positional_agree() {
 fn partial_naming() {
 	check(
 		indoc! {"
-			struct Foo(int, y: bool)
+			Foo :: struct (int, y: bool)
 			f: Foo
 			f.y
 		"},
@@ -40,7 +40,7 @@ fn partial_naming() {
 fn print_unnamed() {
 	check(
 		indoc! {"
-			struct Money(int)
+			Money :: struct (int)
 			m: Money
 			m
 		"},
@@ -52,7 +52,7 @@ fn print_unnamed() {
 fn print_named() {
 	check(
 		indoc! {"
-			struct Point(x: float, y: float)
+			Point :: struct (x: float, y: float)
 			p: Point
 			p
 		"},
@@ -63,7 +63,7 @@ fn print_named() {
 #[test]
 fn index_out_of_range() {
 	fail(indoc! {"
-		struct Money(int)
+		Money :: struct (int)
 		m: Money
 		m.1
 	"});
@@ -72,7 +72,7 @@ fn index_out_of_range() {
 #[test]
 fn no_such_field() {
 	fail(indoc! {"
-		struct Point(x: float, y: float)
+		Point :: struct (x: float, y: float)
 		p: Point
 		p.z
 	"});
@@ -82,8 +82,8 @@ fn no_such_field() {
 fn field_type_from_alias() {
 	check(
 		indoc! {"
-			type Id = int
-			struct W(Id)
+			Id :: int
+			W :: struct (Id)
 			w: W
 			w.0
 		"},
@@ -95,7 +95,7 @@ fn field_type_from_alias() {
 fn wraps_anonymous_sum() {
 	check(
 		indoc! {"
-			struct UserId(int | string)
+			UserId :: struct (int | string)
 			u: UserId
 			u.0
 		"},
@@ -107,14 +107,14 @@ fn wraps_anonymous_sum() {
 fn construct_positional() {
 	check(
 		indoc! {"
-			struct Money(int)
+			Money :: struct (int)
 			Money(500).0
 		"},
 		"500",
 	);
 	check(
 		indoc! {"
-			struct Point(x: float, y: float)
+			Point :: struct (x: float, y: float)
 			Point(1.0, 2.0).y
 		"},
 		"2.0",
@@ -125,7 +125,7 @@ fn construct_positional() {
 fn construct_named() {
 	check(
 		indoc! {"
-			struct Point(x: float, y: float)
+			Point :: struct (x: float, y: float)
 			p :: Point(x: 1.0, y: 2.0)
 			p.0 == p.x
 		"},
@@ -137,7 +137,7 @@ fn construct_named() {
 fn construct_print() {
 	check(
 		indoc! {"
-			struct Point(x: float, y: float)
+			Point :: struct (x: float, y: float)
 			Point(1.0, 2.0)
 		"},
 		"Point(x: 1.0, y: 2.0)",
@@ -148,15 +148,15 @@ fn construct_print() {
 fn nominal_in_signatures() {
 	check(
 		indoc! {"
-			struct Money(int)
-			fn pay(m: Money) int { m.0 }
+			Money :: struct (int)
+			pay :: fn(m: Money) int { m.0 }
 			pay(Money(500))
 		"},
 		"500",
 	);
 	fail(indoc! {"
-		struct Money(int)
-		fn pay(m: Money) int { m.0 }
+		Money :: struct (int)
+		pay :: fn(m: Money) int { m.0 }
 		pay(500)
 	"});
 }
@@ -165,9 +165,9 @@ fn nominal_in_signatures() {
 fn methods_and_self() {
 	check(
 		indoc! {"
-			struct Money(int)
+			Money :: struct (int)
 			impl Money {
-				fn double(self) Self {
+				double :: fn(self) Self {
 					Money(self.0 * 2)
 				}
 			}
@@ -181,9 +181,9 @@ fn methods_and_self() {
 fn str_override() {
 	check(
 		indoc! {r#"
-			struct Money(int)
+			Money :: struct (int)
 			impl Money {
-				fn str(self) str {
+				str :: fn(self) str {
 					"money!"
 				}
 			}
@@ -198,7 +198,7 @@ fn str_override() {
 fn construct_into_sum_member() {
 	check(
 		indoc! {r#"
-			struct UserId(int | string)
+			UserId :: struct (int | string)
 			UserId("abc").0
 		"#},
 		"abc",
@@ -208,17 +208,17 @@ fn construct_into_sum_member() {
 #[test]
 fn wrong_arity_and_type() {
 	fail(indoc! {"
-		struct Money(int)
+		Money :: struct (int)
 		Money(1, 2)
 	"});
 	fail(indoc! {r#"
-		struct Money(int)
+		Money :: struct (int)
 		Money("x")
 	"#});
 }
 
 #[test]
 fn builtin_name_errors_at_def() {
-	fail_with("struct int(bool)", "is a builtin type");
-	fail_with("struct f32(float)", "is a builtin type");
+	fail_with("int :: struct (bool)", "is a builtin type");
+	fail_with("f32 :: struct (float)", "is a builtin type");
 }

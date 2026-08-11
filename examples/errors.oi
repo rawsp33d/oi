@@ -1,4 +1,4 @@
-fn find(id: int) ?int {
+find :: fn(id: int) ?int {
 	if id == 7 { return 42 }
 	return none
 }

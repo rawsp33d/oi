@@ -16,7 +16,7 @@ fn composites() {
 
 #[test]
 fn variants() {
-	check("enum Color { Red, Green }\nColor.Red.str()", "Red");
+	check("Color :: enum { Red, Green }\nColor.Red.str()", "Red");
 	check("o :: ?int(none)\no.str()", "none");
 	check("r :: !int(42)\nr.str()", "ok(42)");
 }
@@ -24,7 +24,7 @@ fn variants() {
 #[test]
 fn derived_struct() {
 	let src = indoc! {"
-		struct Bag { items: []int }
+		Bag :: struct { items: []int }
 		Bag{[1, 2, 3]}.str()
 	"};
 	check(src, "Bag{items: [1, 2, 3]}");
@@ -33,8 +33,8 @@ fn derived_struct() {
 #[test]
 fn user_str_wins() {
 	let src = indoc! {r#"
-		struct Money { n: int }
-		impl Money { fn str(self) string { "$" } }
+		Money :: struct { n: int }
+		impl Money { str :: fn(self) string { "$" } }
 		Money{5}.str()
 	"#};
 	check(src, "$");
@@ -43,8 +43,8 @@ fn user_str_wins() {
 #[test]
 fn print_uses_user_str() {
 	let src = indoc! {r#"
-		struct Money { n: int }
-		impl Money { fn str(self) string { "$" + self.n.str() } }
+		Money :: struct { n: int }
+		impl Money { str :: fn(self) string { "$" + self.n.str() } }
 		m :: Money{5}
 		print(m)
 		print([m, m])
@@ -55,8 +55,8 @@ fn print_uses_user_str() {
 #[test]
 fn user_str_nested_in_derived_render() {
 	let src = indoc! {r#"
-		struct Money { n: int }
-		impl Money { fn str(self) string { "$" + self.n.str() } }
+		Money :: struct { n: int }
+		impl Money { str :: fn(self) string { "$" + self.n.str() } }
 		[Money{5}, Money{7}].str()
 	"#};
 	check(src, "[$5, $7]");

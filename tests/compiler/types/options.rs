@@ -102,7 +102,7 @@ fn match_non_exhaustive_errors() {
 #[test]
 fn struct_field_type() {
 	check(
-		"struct Box { val: ?int }
+		"Box :: struct { val: ?int }
 		b :: Box{ val: ?int(42) }
 		b.val",
 		"some(42)",
@@ -112,7 +112,7 @@ fn struct_field_type() {
 #[test]
 fn fn_param_type() {
 	let src = indoc! {"
-		fn unwrap_or(o: ?int, fallback: int) int {
+		unwrap_or :: fn(o: ?int, fallback: int) int {
 			match o {
 				.some(n) => n,
 				.none => fallback,
@@ -126,7 +126,7 @@ fn fn_param_type() {
 #[test]
 fn bare_value_return_wraps_some() {
 	let src = indoc! {"
-		fn find(x: int) ?int {
+		find :: fn(x: int) ?int {
 			return x
 		}
 		find(5)
@@ -137,7 +137,7 @@ fn bare_value_return_wraps_some() {
 #[test]
 fn bare_none_return_wraps() {
 	let src = indoc! {"
-		fn find(x: int) ?int {
+		find :: fn(x: int) ?int {
 			return none
 		}
 		find(5)
@@ -148,7 +148,7 @@ fn bare_none_return_wraps() {
 #[test]
 fn long_form_matches_shorthand() {
 	let src = indoc! {"
-		fn find(id: int) Option[int] {
+		find :: fn(id: int) Option[int] {
 			if id == 7 { return 42 }
 			return none
 		}
@@ -156,7 +156,7 @@ fn long_form_matches_shorthand() {
 	"};
 	check(src, "42");
 	let src = indoc! {"
-		fn find(id: int) Option[int] {
+		find :: fn(id: int) Option[int] {
 			if id == 7 { return 42 }
 			return none
 		}
@@ -168,7 +168,7 @@ fn long_form_matches_shorthand() {
 #[test]
 fn array_payload_is_independent_copy() {
 	let src = indoc! {"
-		fn wrap(a: []int) ?[]int { return a }
+		wrap :: fn(a: []int) ?[]int { return a }
 		a := [1]
 		o :: wrap(a)
 		a << 2

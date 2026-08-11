@@ -107,7 +107,7 @@ fn tuple_keys_fail_for_now() {
 	// TODO: actually implement complex keys and fix test
 	assert!(
 		fail(indoc! {"
-			type Point = (int, int)
+			Point :: (int, int)
 			m: Map[Point, int]
 			m[(1, 2)] = 6
 			m[(2, 1)] = 9
@@ -290,7 +290,7 @@ fn init_with_elements_fails() {
 fn delete_on_immutable_map_fails() {
 	fail_with(
 		indoc! {r#"
-			fn f(m: Map[string, int]) int {
+			f :: fn(m: Map[string, int]) int {
 				m.delete["one"]
 				m["one"]
 			}
@@ -357,7 +357,7 @@ fn independent_copies() {
 	// returned param vs arg
 	check(
 		indoc! {r#"
-			fn id(m: Map[string, int]) Map[string, int] { m }
+			id :: fn(m: Map[string, int]) Map[string, int] { m }
 			a: Map[string, int]
 			a["a"] = 1
 			r := id(a)

@@ -9,7 +9,7 @@ fn bind_basic() {
 #[test]
 fn bind_from_fn() {
 	let src = indoc! {"
-		fn pair() (int, int) { (10, 20) }
+		pair :: fn() (int, int) { (10, 20) }
 		(a, b) :: pair()
 		a + b
 	"};
@@ -39,7 +39,7 @@ fn swap() {
 #[test]
 fn loose_commas() {
 	let src = indoc! {r#"
-		fn get_coords() (int, int) { (7, 2) }
+		get_coords :: fn() (int, int) { (7, 2) }
 		(lat long) :: get_coords()
 		(a, b) := (lat long)
 		(a b) = (b a)

@@ -3,8 +3,8 @@ use crate::helpers::*;
 #[test]
 fn alias_primitive_in_param() {
 	let src = indoc! {"
-		type Score = int
-		fn double(s: Score) Score { s * 2 }
+		Score :: int
+		double :: fn(s: Score) Score { s * 2 }
 		double(21)
 	"};
 	check(src, "42");
@@ -13,8 +13,8 @@ fn alias_primitive_in_param() {
 #[test]
 fn alias_primitive_in_return() {
 	let src = indoc! {r#"
-		type Name = str
-		fn greet() Name { "hello" }
+		Name :: str
+		greet :: fn() Name { "hello" }
 		greet()
 	"#};
 	check(src, "hello");
@@ -23,9 +23,9 @@ fn alias_primitive_in_return() {
 #[test]
 fn alias_chains() {
 	let src = indoc! {"
-		type Meters = int
-		type Distance = Meters
-		fn add(a: Distance, b: Distance) Distance { a + b }
+		Meters :: int
+		Distance :: Meters
+		add :: fn(a: Distance, b: Distance) Distance { a + b }
 		add(3, 4)
 	"};
 	check(src, "7");
@@ -34,8 +34,8 @@ fn alias_chains() {
 #[test]
 fn alias_tuple_in_param_and_return() {
 	let src = indoc! {"
-		type Point = (int, int)
-		fn make(x: int, y: int) Point { (x, y) }
+		Point :: (int, int)
+		make :: fn(x: int, y: int) Point { (x, y) }
 		p :: make(3, 4)
 		print(p.0, p.1)
 	"};
@@ -45,8 +45,8 @@ fn alias_tuple_in_param_and_return() {
 #[test]
 fn alias_array_in_param() {
 	let src = indoc! {"
-		type Row = []int
-		fn first(r: Row) int { r[0] }
+		Row :: []int
+		first :: fn(r: Row) int { r[0] }
 		first([10 20 30])
 	"};
 	check(src, "10");
@@ -55,8 +55,8 @@ fn alias_array_in_param() {
 #[test]
 fn alias_in_struct_field() {
 	let src = indoc! {"
-		type Hp = int
-		struct Unit { hp: Hp }
+		Hp :: int
+		Unit :: struct { hp: Hp }
 		u :: Unit { hp: 100 }
 		u.hp
 	"};
@@ -66,15 +66,15 @@ fn alias_in_struct_field() {
 #[test]
 fn fn_type_alias_parses() {
 	// NOTE: function type aliases are not yet supported, but for now they parse
-	let src = "type Op = fn (int) int";
+	let src = "Op :: fn (int) int";
 	run(src);
 }
 
 #[test]
 fn alias_of_result_long_form() {
 	let src = indoc! {r#"
-		type Found = Result[int, Error]
-		fn find(x: int) Found {
+		Found :: Result[int, Error]
+		find :: fn(x: int) Found {
 			if x > 0 { return x }
 			return error("negative")
 		}
@@ -86,8 +86,8 @@ fn alias_of_result_long_form() {
 #[test]
 fn unknown_alias_target_errors() {
 	let src = indoc! {"
-		type Foo = Nope
-		fn f(x: Foo) Foo { x }
+		Foo :: Nope
+		f :: fn(x: Foo) Foo { x }
 		f(1)
 	"};
 	fail_with(src, "unknown type");

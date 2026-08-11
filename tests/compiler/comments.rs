@@ -31,7 +31,7 @@ fn comment_inline() {
 fn doc_before_fn() {
 	let src = indoc! {"
 		## Adds two numbers.
-		fn add(a: int, b: int) { a + b }
+		add :: fn(a: int, b: int) { a + b }
 		add(3, 4)
 	"};
 	check(src, "7");
@@ -44,7 +44,7 @@ fn doc_multiline() {
 		## Second line.
 		##
 		## Paragraph after blank.
-		fn greet() { 1 }
+		greet :: fn() { 1 }
 		greet()
 	"};
 	check(src, "1");
@@ -64,7 +64,7 @@ fn doc_markdown() {
 		## 1. one
 		## 1. two
 		## 1. three
-		fn greet() { 1 }
+		greet :: fn() { 1 }
 		greet()
 	"};
 	check(src, "1");
@@ -73,7 +73,7 @@ fn doc_markdown() {
 #[test]
 fn doc_inside_fn() {
 	let src = indoc! {"
-		fn compute() {
+		compute :: fn() {
 			## intermediate step
 			x :: 6
 			x * 7

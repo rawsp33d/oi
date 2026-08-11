@@ -1,6 +1,6 @@
-struct Box[T] { v: T }
+Box[T] :: struct { v: T }
 impl Box[T] {
-	fn get(self) T { self.v }
+	get :: fn(self) T { self.v }
 }
 
 b := Box{ v: 21 }

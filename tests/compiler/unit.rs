@@ -23,7 +23,7 @@ fn unit_in_binding() {
 #[test]
 fn empty_fn_returns_unit() {
 	let src = indoc! {"
-		fn nada() {}
+		nada :: fn() {}
 		nada()
 	"};
 	check(src, "");
@@ -32,7 +32,7 @@ fn empty_fn_returns_unit() {
 #[test]
 fn fn_explicit_unit_return() {
 	let src = indoc! {"
-		fn nope() {
+		nope :: fn() {
 			()
 		}
 		nope()
@@ -43,7 +43,7 @@ fn fn_explicit_unit_return() {
 #[test]
 fn fn_return_unit_keyword() {
 	let src = indoc! {"
-		fn no_way() {
+		no_way :: fn() {
 			return ()
 		}
 		no_way()
@@ -54,7 +54,7 @@ fn fn_return_unit_keyword() {
 #[test]
 fn fn_bare_return_is_unit() {
 	let src = indoc! {"
-		fn nuh_uh() {
+		nuh_uh :: fn() {
 			return
 		}
 		nuh_uh()
@@ -65,7 +65,7 @@ fn fn_bare_return_is_unit() {
 #[test]
 fn fn_explicit_unit_ret_annotation() {
 	let src = indoc! {"
-		fn zilch() () {}
+		zilch :: fn() () {}
 		zilch()
 	"};
 	check(src, "");
@@ -74,8 +74,8 @@ fn fn_explicit_unit_ret_annotation() {
 #[test]
 fn unit_fns_compare_equal() {
 	let src = indoc! {"
-		fn nada() {}
-		fn zilch() () {}
+		nada :: fn() {}
+		zilch :: fn() () {}
 		assert(nada() == zilch())
 	"};
 	check(src, "true");
@@ -84,7 +84,7 @@ fn unit_fns_compare_equal() {
 #[test]
 fn unit_fns_equal_unit_literal() {
 	let src = indoc! {"
-		fn nada() {}
+		nada :: fn() {}
 		assert(nada() == ())
 	"};
 	check(src, "true");
@@ -93,7 +93,7 @@ fn unit_fns_equal_unit_literal() {
 #[test]
 fn empty_main_prints_nothing() {
 	let src = indoc! {"
-		fn main() {}
+		main :: fn() {}
 	"};
 	check(src, "");
 }

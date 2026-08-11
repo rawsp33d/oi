@@ -999,16 +999,21 @@ where
 	};
 	expr.define(definition);
 
+	// item bindings
+	let item_head = ident().then(type_params.clone()).then_ignore(just(Token::DoubleColon));
+
 	// fn defs
-	let fn_head = just(Token::Fn).ignore_then(ident()).then(type_params.clone());
-	let func = fn_head
+	let func = item_head
 		.clone()
+		.then_ignore(just(Token::Fn))
 		.then(params.clone())
 		.then(ret.clone())
 		.then(block.clone())
 		.map_with(|(((head, params), ret), body), ex| fn_def(head, Some(params), ret, body, ex.span()))
 		// pipeline shorthand
-		.or(fn_head
+		.or(item_head
+			.clone()
+			.then_ignore(just(Token::Fn))
 			.then(params.clone().or_not())
 			.then(ret.clone())
 			.then_ignore(just(Token::Assign))
@@ -1031,9 +1036,9 @@ where
 			mutable: false,
 		})
 		.boxed();
-	let struct_def = just(Token::Struct)
-		.ignore_then(ident())
-		.then(type_params.clone())
+	let struct_def = item_head
+		.clone()
+		.then_ignore(just(Token::Struct))
 		.then(brace(loose_list(struct_field.clone())))
 		.map_with(|((name, type_params), fields), ex| {
 			(
@@ -1053,8 +1058,9 @@ where
 		.then(type_expr.clone())
 		.map(|(n, t)| (Some(n), t))
 		.or(type_expr.clone().map(|t| (None, t)));
-	let tuple_struct_def = just(Token::Struct)
-		.ignore_then(ident())
+	let tuple_struct_def = ident()
+		.then_ignore(just(Token::DoubleColon))
+		.then_ignore(just(Token::Struct))
 		.then(paren(
 			ts_field
 				.separated_by(just(Token::Comma))
@@ -1075,7 +1081,10 @@ where
 		.map(|(neg, n)| (Some(if neg.is_some() { -n } else { n }), None));
 	let disc = just(Token::Assign).ignore_then(disc_int.or(select! { Token::String(s) => (None, Some(s)) }));
 	let fields = brace(loose_list(ident().then_ignore(just(Token::Colon)).then(annot.clone())));
-	let backing = just(Token::Colon).ignore_then(annot.clone()).or_not();
+	let backing = just(Token::DoubleColon).to(None).or(just(Token::Colon)
+		.ignore_then(annot.clone())
+		.then_ignore(just(Token::Colon))
+		.map(Some));
 	let payload = paren(annot.separated_by(just(Token::Comma)).allow_trailing().collect::<Vec<_>>());
 	let variant = ident()
 		.then(
@@ -1096,27 +1105,27 @@ where
 				names,
 			}
 		});
-	let enum_def = just(Token::Enum)
-		.ignore_then(ident())
+	let enum_def = ident()
 		.then(type_params.clone())
 		.then(backing)
+		.then_ignore(just(Token::Enum))
 		.then(brace(loose_list(variant)))
-		.try_map_with(|(((name, type_params), backing), variants), ex| {
+		.validate(|(((name, type_params), backing), variants), ex, emitter| {
 			let mut next = 0;
 			let mut seen = Vec::new();
 			for v in &variants {
 				let d = v.disc.unwrap_or(next);
 				if seen.contains(&d) {
 					let msg = format!("discriminant value `{d}` assigned more than once");
-					return Err(Rich::custom(ex.span(), msg));
+					emitter.emit(Rich::custom(ex.span(), msg));
 				}
 				seen.push(d);
 				next = d + 1;
 			}
 			if backing.is_none() && variants.iter().any(|v| v.raw.is_some()) {
-				return Err(Rich::custom(ex.span(), "a raw value needs a string backing"));
+				emitter.emit(Rich::custom(ex.span(), "a raw value needs a string backing"));
 			}
-			Ok((
+			(
 				Expr::EnumDef {
 					name,
 					backing,
@@ -1124,15 +1133,27 @@ where
 					variants,
 				},
 				ex.span(),
-			))
+			)
 		})
 		.boxed();
 
 	// type aliases
-	let type_alias = just(Token::Type)
-		.ignore_then(ident())
-		.then_ignore(just(Token::Assign))
+	let type_alias = ident()
+		.filter(|name| name.starts_with(char::is_uppercase))
+		.then_ignore(just(Token::DoubleColon))
 		.then(type_expr.clone())
+		.then_ignore(
+			one_of([
+				Token::LBrace,
+				Token::LParen,
+				Token::LBracket,
+				Token::Dot,
+				Token::DotDot,
+				Token::Question,
+				Token::Pipeline,
+			])
+			.not(),
+		)
 		.map_with(|(name, typ), ex| (Expr::TypeAlias { name, typ }, ex.span()));
 
 	// trait definitions
@@ -1144,14 +1165,12 @@ where
 		.map_with(|(((name, params), ret), body), ex| {
 			fn_def((name, vec![]), Some(params), ret, body.unwrap_or_default(), ex.span())
 		});
-	let trait_def = just(Token::Trait)
-		.ignore_then(ident())
-		.then(
-			just(Token::Is)
-				.ignore_then(list(ident()))
-				.or_not()
-				.map(Option::unwrap_or_default),
-		)
+	let supers = just(Token::DoubleColon)
+		.to(vec![])
+		.or(just(Token::Colon).ignore_then(list(ident())).then_ignore(just(Token::Colon)));
+	let trait_def = ident()
+		.then(supers)
+		.then_ignore(just(Token::Trait))
 		.then(brace(
 			loose_list(struct_field.clone()).then(trait_method.repeated().collect::<Vec<_>>()),
 		))
@@ -1190,12 +1209,13 @@ where
 		})
 		.boxed();
 
-	let def = tuple_struct_def
+	let def = func
+		.clone()
+		.or(tuple_struct_def)
 		.or(struct_def)
 		.or(enum_def)
-		.or(type_alias)
-		.or(func.clone())
 		.or(trait_def)
+		.or(type_alias)
 		.boxed();
 	let public = just(Token::Pub)
 		.ignore_then(def.clone())

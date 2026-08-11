@@ -97,7 +97,7 @@ fn match_non_exhaustive_errors() {
 #[test]
 fn struct_field_type() {
 	check(
-		"struct Box { val: !int }
+		"Box :: struct { val: !int }
 		b :: Box{ val: !int(42) }
 		b.val",
 		"ok(42)",
@@ -107,7 +107,7 @@ fn struct_field_type() {
 #[test]
 fn fn_param_type() {
 	let src = indoc! {"
-		fn unwrap_or(r: !int, fallback: int) int {
+		unwrap_or :: fn(r: !int, fallback: int) int {
 			match r {
 				.ok(n) => n,
 				.err(e) => fallback,
@@ -121,7 +121,7 @@ fn fn_param_type() {
 #[test]
 fn bare_value_return_wraps_ok() {
 	let src = indoc! {"
-		fn find(x: int) !int {
+		find :: fn(x: int) !int {
 			return x
 		}
 		find(5)
@@ -132,7 +132,7 @@ fn bare_value_return_wraps_ok() {
 #[test]
 fn bare_error_return_wraps_err() {
 	let src = indoc! {r#"
-		fn find(x: int) !int {
+		find :: fn(x: int) !int {
 			return error("not found")
 		}
 		find(5)
@@ -164,11 +164,11 @@ fn error_unknown_method() {
 #[test]
 fn long_form_matches_shorthand() {
 	let src = indoc! {r#"
-		fn load(path: string) Result[int, Error] {
+		load :: fn(path: string) Result[int, Error] {
 			if path == "ok" { return 42 }
 			return error("missing")
 		}
-		fn double(path: string) Result[int, Error] {
+		double :: fn(path: string) Result[int, Error] {
 			v :: load(path)?
 			v * 2
 		}
@@ -176,11 +176,11 @@ fn long_form_matches_shorthand() {
 	"#};
 	check(src, "84");
 	let src = indoc! {r#"
-		fn load(path: string) Result[int, Error] {
+		load :: fn(path: string) Result[int, Error] {
 			if path == "ok" { return 42 }
 			return error("missing")
 		}
-		fn double(path: string) Result[int, Error] {
+		double :: fn(path: string) Result[int, Error] {
 			v :: load(path)?
 			v * 2
 		}
@@ -195,7 +195,7 @@ fn long_form_matches_shorthand() {
 #[test]
 fn long_form_nested() {
 	let src = indoc! {r#"
-		fn load() Result[[]int, Error] {
+		load :: fn() Result[[]int, Error] {
 			return [1, 2, 3]
 		}
 		load() or { [-1] }
@@ -206,7 +206,7 @@ fn long_form_nested() {
 #[test]
 fn long_form_rejects_custom_error() {
 	fail_with(
-		"fn load() Result[int, MyError] { 42 }; load()",
+		"load :: fn() Result[int, MyError] { 42 }; load()",
 		"custom error types aren't supported yet",
 	);
 }

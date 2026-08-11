@@ -1,4 +1,4 @@
-struct Point {
+Point :: struct {
 	x: int
 	y: int
 }

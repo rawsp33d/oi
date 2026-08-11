@@ -1,8 +1,8 @@
 use crate::helpers::*;
 
 const FILE: &str = indoc! {r#"
-	struct File { fd: int }
-	impl Drop for File { fn drop(mut self) { print("drop", self.fd) } }
+	File :: struct { fd: int }
+	impl Drop for File { drop :: fn(mut self) { print("drop", self.fd) } }
 "#};
 
 #[test]
@@ -20,7 +20,7 @@ fn arg_borrows_and_drops_once() {
 	check(
 		[
 			FILE,
-			"fn look(f: File) {}",
+			"look :: fn(f: File) {}",
 			"f :: File{fd: 1}",
 			"look(f)",
 			r#"print("marker")"#,
@@ -32,7 +32,7 @@ fn arg_borrows_and_drops_once() {
 #[test]
 fn callee_cannot_steal_a_borrowed_arg() {
 	fail_with(
-		[FILE, "fn steal(f: File) { g :: f }", "f :: File{fd: 1}", "steal(f)"],
+		[FILE, "steal :: fn(f: File) { g :: f }", "f :: File{fd: 1}", "steal(f)"],
 		"it is borrowed here",
 	);
 }
@@ -42,7 +42,7 @@ fn returned_resource_drops_once() {
 	check(
 		[
 			FILE,
-			"fn open(n: int) File { File{fd: n} }",
+			"open :: fn(n: int) File { File{fd: n} }",
 			"f :: open(3)",
 			r#"print("before")"#,
 		],

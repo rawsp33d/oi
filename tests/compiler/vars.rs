@@ -39,7 +39,7 @@ fn declare_zero_then_assign() {
 fn declare_zero_struct() {
 	check(
 		indoc! {"
-			struct Point { x: int, y: int }
+			Point :: struct { x: int, y: int }
 			p: Point
 			p.x = 5
 			p.x

@@ -105,7 +105,7 @@ fn field_of_non_tuple() {
 #[test]
 fn fn_returns_tuple() {
 	let src = indoc! {"
-		fn pair() { (1, 2) }
+		pair :: fn() { (1, 2) }
 		pair()
 	"};
 	check(src, "(1, 2)");
@@ -114,7 +114,7 @@ fn fn_returns_tuple() {
 #[test]
 fn fn_returns_tuple_field() {
 	let src = indoc! {"
-		fn pair() { (10, 20) }
+		pair :: fn() { (10, 20) }
 		t :: pair()
 		t.1
 	"};
@@ -124,7 +124,7 @@ fn fn_returns_tuple_field() {
 #[test]
 fn fn_return_type_annotation_tuple() {
 	let src = indoc! {"
-		fn pair() (int, int) { (3, 4) }
+		pair :: fn() (int, int) { (3, 4) }
 		pair()
 	"};
 	check(src, "(3, 4)");
@@ -133,7 +133,7 @@ fn fn_return_type_annotation_tuple() {
 #[test]
 fn fn_return_type_annotation_tuple_no_comma() {
 	let src = indoc! {"
-		fn pair() (int int) { (3, 4) }
+		pair :: fn() (int int) { (3, 4) }
 		pair()
 	"};
 	check(src, "(3, 4)");
@@ -142,7 +142,7 @@ fn fn_return_type_annotation_tuple_no_comma() {
 #[test]
 fn fn_return_type_mismatch_tuple() {
 	let src = indoc! {"
-		fn bad() (int, int) { 42 }
+		bad :: fn() (int, int) { 42 }
 		bad()
 	"};
 	fail_with(src, "wrong return type");
@@ -151,7 +151,7 @@ fn fn_return_type_mismatch_tuple() {
 #[test]
 fn fn_tuple_return_composing() {
 	let src = indoc! {"
-		fn swap(x: int, y: int) (int, int) { (y, x) }
+		swap :: fn(x: int, y: int) (int, int) { (y, x) }
 		t :: swap(1, 2)
 		t.0
 	"};
@@ -178,7 +178,7 @@ fn field_names_are_hints() {
 	);
 	check(
 		indoc! {"
-			fn f(t: (int, int)) int { t.0 }
+			f :: fn(t: (int, int)) int { t.0 }
 			f((x: 7, y: 8))
 		"},
 		"7",

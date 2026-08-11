@@ -3,7 +3,7 @@ use crate::helpers::*;
 #[test]
 fn threads_through_bare_fn_step() {
 	let src = indoc! {"
-		fn double(x: int) int { x * 2 }
+		double :: fn(x: int) int { x * 2 }
 		3 |> double
 	"};
 	check(src, "6");
@@ -12,8 +12,8 @@ fn threads_through_bare_fn_step() {
 #[test]
 fn threads_through_multiple_steps() {
 	let src = indoc! {"
-		fn double(x: int) int { x * 2 }
-		fn inc(x: int) int { x + 1 }
+		double :: fn(x: int) int { x * 2 }
+		inc :: fn(x: int) int { x + 1 }
 		3 |> double |> inc |> double
 	"};
 	check(src, "14");
@@ -27,7 +27,7 @@ fn dollar_expression_step() {
 #[test]
 fn pipe_is_loosest() {
 	let src = indoc! {"
-		fn double(x: int) int { x * 2 }
+		double :: fn(x: int) int { x * 2 }
 		1 + 1 |> double
 	"};
 	check(src, "4");
@@ -41,11 +41,11 @@ fn if_expression_step() {
 #[test]
 fn question_step_unwraps_some() {
 	let src = indoc! {"
-		fn find(id: int) ?int {
+		find :: fn(id: int) ?int {
 			if id == 7 { return 42 }
 			return none
 		}
-		fn display(id: int) {
+		display :: fn(id: int) {
 			v :: id |> find?
 			v + 1
 		}
@@ -57,11 +57,11 @@ fn question_step_unwraps_some() {
 #[test]
 fn question_step_propagates_none() {
 	let src = indoc! {"
-		fn find(id: int) ?int {
+		find :: fn(id: int) ?int {
 			if id == 7 { return 42 }
 			return none
 		}
-		fn display(id: int) {
+		display :: fn(id: int) {
 			v :: id |> find?
 			v + 1
 		}
@@ -73,11 +73,11 @@ fn question_step_propagates_none() {
 #[test]
 fn bang_step_unwraps_ok() {
 	let src = indoc! {r#"
-		fn load(path: string) !int {
+		load :: fn(path: string) !int {
 			if path == "ok" { return 42 }
 			return error("missing")
 		}
-		fn double(path: string) !int {
+		double :: fn(path: string) !int {
 			v :: path |> load?
 			v * 2
 		}
@@ -89,11 +89,11 @@ fn bang_step_unwraps_ok() {
 #[test]
 fn bang_step_propagates_error() {
 	let src = indoc! {r#"
-		fn load(path: string) !int {
+		load :: fn(path: string) !int {
 			if path == "ok" { return 42 }
 			return error("missing")
 		}
-		fn double(path: string) !int {
+		double :: fn(path: string) !int {
 			v :: path |> load?
 			v * 2
 		}
@@ -108,7 +108,7 @@ fn bang_step_propagates_error() {
 #[test]
 fn or_tail_after_chain() {
 	let src = indoc! {"
-		fn find(id: int) ?int {
+		find :: fn(id: int) ?int {
 			if id == 7 { return 42 }
 			return none
 		}
@@ -120,7 +120,7 @@ fn or_tail_after_chain() {
 #[test]
 fn or_tail_after_chain_fallback() {
 	let src = indoc! {"
-		fn find(id: int) ?int {
+		find :: fn(id: int) ?int {
 			if id == 7 { return 42 }
 			return none
 		}
@@ -132,7 +132,7 @@ fn or_tail_after_chain_fallback() {
 #[test]
 fn or_tail_bare_literal() {
 	let src = indoc! {r#"
-		fn find(id: int) ?string {
+		find :: fn(id: int) ?string {
 			if id == 7 { return "found" }
 			return none
 		}
@@ -144,11 +144,11 @@ fn or_tail_bare_literal() {
 #[test]
 fn or_tail_bare_ident_calls_with_dollar() {
 	let src = indoc! {r#"
-		fn find(id: int) !int {
+		find :: fn(id: int) !int {
 			if id == 7 { return 42 }
 			return error("missing")
 		}
-		fn handler[E](e: E) int {
+		handler[E] :: fn(e: E) int {
 			print(e.message())
 			0
 		}
@@ -160,9 +160,9 @@ fn or_tail_bare_ident_calls_with_dollar() {
 #[test]
 fn pipeline_fn_shorthand_annotated() {
 	let src = indoc! {"
-		fn double(x: int) int { x * 2 }
-		fn inc(x: int) int { x + 1 }
-		fn f(x: int) int = double |> inc
+		double :: fn(x: int) int { x * 2 }
+		inc :: fn(x: int) int { x + 1 }
+		f :: fn(x: int) int = double |> inc
 		print(f(20))
 	"};
 	check(src, "41");
@@ -171,9 +171,9 @@ fn pipeline_fn_shorthand_annotated() {
 #[test]
 fn pipeline_fn_shorthand_inferred_ret() {
 	let src = indoc! {"
-		fn double(x: int) int { x * 2 }
-		fn inc(x: int) int { x + 1 }
-		fn f(x: int) = double |> inc
+		double :: fn(x: int) int { x * 2 }
+		inc :: fn(x: int) int { x + 1 }
+		f :: fn(x: int) = double |> inc
 		print(f(20))
 	"};
 	check(src, "41");
@@ -182,8 +182,8 @@ fn pipeline_fn_shorthand_inferred_ret() {
 #[test]
 fn pipeline_fn_shorthand_named_param_mid_pipe() {
 	let src = indoc! {"
-		fn double(x: int) int { x * 2 }
-		fn f(x: int) int = double |> ($ + x)
+		double :: fn(x: int) int { x * 2 }
+		f :: fn(x: int) int = double |> ($ + x)
 		print(f(3))
 	"};
 	check(src, "9");
@@ -192,7 +192,7 @@ fn pipeline_fn_shorthand_named_param_mid_pipe() {
 #[test]
 fn pipeline_fn_shorthand_non_pipe_body() {
 	let src = indoc! {"
-		fn inc2(x: int) int = $ + 1
+		inc2 :: fn(x: int) int = $ + 1
 		print(inc2(5))
 	"};
 	check(src, "6");
@@ -201,8 +201,8 @@ fn pipeline_fn_shorthand_non_pipe_body() {
 #[test]
 fn pipeline_fn_shorthand_zero_param_explicit_ret() {
 	let src = indoc! {"
-		fn double(x: int) int { x * 2 }
-		fn quad int = double |> double
+		double :: fn(x: int) int { x * 2 }
+		quad :: fn int = double |> double
 		print(quad(3))
 	"};
 	check(src, "12");
@@ -211,8 +211,8 @@ fn pipeline_fn_shorthand_zero_param_explicit_ret() {
 #[test]
 fn pipeline_fn_shorthand_bare_needs_ret() {
 	let src = indoc! {"
-		fn double(x: int) int { x * 2 }
-		fn quad = double |> double
+		double :: fn(x: int) int { x * 2 }
+		quad :: fn = double |> double
 		quad(3)
 	"};
 	fail_with(src, "explicit return type");

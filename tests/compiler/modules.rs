@@ -2,7 +2,7 @@ use crate::helpers::{check, fail_with};
 
 #[test]
 fn pub_fn_runs() {
-	check(r#"pub fn foo() { print("hi") } foo()"#, "hi");
+	check(r#"pub foo :: fn() { print("hi") } foo()"#, "hi");
 }
 
 #[test]

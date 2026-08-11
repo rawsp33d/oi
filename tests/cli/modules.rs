@@ -16,12 +16,12 @@ fn imports_work() {
 			[
 				"module foo",
 				"use bar",
-				"struct P { x: int, y: int }",
-				"fn sum(p: P) int { p.x + p.y }",
-				"pub fn total() int { bar.twice(sum(P{x: 2, y: 5})) }",
+				"P :: struct { x: int, y: int }",
+				"sum :: fn(p: P) int { p.x + p.y }",
+				"pub total :: fn() int { bar.twice(sum(P{x: 2, y: 5})) }",
 			],
 		)
-		.file("bar/lib.oi", ["module bar", "pub fn twice(n: int) int { n * 2 }"]);
+		.file("bar/lib.oi", ["module bar", "pub twice :: fn(n: int) int { n * 2 }"]);
 	assert_eq!(ok(run_main(p)), "14");
 }
 
@@ -29,7 +29,7 @@ fn imports_work() {
 fn private_fn_rejected() {
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo", "print(foo.secret())"])
-		.file("foo/lib.oi", ["module foo", "fn secret() int { 1 }"]);
+		.file("foo/lib.oi", ["module foo", "secret :: fn() int { 1 }"]);
 	let out = err(run_main(p));
 	assert!(out.contains("private to module `foo`"), "{out}");
 }
@@ -38,7 +38,7 @@ fn private_fn_rejected() {
 fn wrong_module_decl_names_the_file() {
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo", "print(foo.hi())"])
-		.file("foo/lib.oi", ["module bar", "pub fn hi() int { 1 }"]);
+		.file("foo/lib.oi", ["module bar", "pub hi :: fn() int { 1 }"]);
 	let out = err(run_main(p));
 	assert!(out.contains("foo/lib.oi"), "{out}");
 	assert!(out.contains("module foo"), "{out}");
@@ -48,8 +48,8 @@ fn wrong_module_decl_names_the_file() {
 fn import_cycle_rejected() {
 	let p = Project::new()
 		.file("main.oi", ["module main", "use a", "print(a.v())"])
-		.file("a/m.oi", ["module a", "use b", "pub fn v() int { b.v() }"])
-		.file("b/m.oi", ["module b", "use a", "pub fn v() int { a.v() }"]);
+		.file("a/m.oi", ["module a", "use b", "pub v :: fn() int { b.v() }"])
+		.file("b/m.oi", ["module b", "use a", "pub v :: fn() int { a.v() }"]);
 	let out = err(run_main(p));
 	assert!(out.contains("import cycle"), "{out}");
 }
@@ -58,8 +58,8 @@ fn import_cycle_rejected() {
 fn duplicate_name_across_files_rejected() {
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo", "print(foo.hi())"])
-		.file("foo/a.oi", ["module foo", "pub fn hi() int { 1 }"])
-		.file("foo/b.oi", ["module foo", "fn hi() int { 2 }"]);
+		.file("foo/a.oi", ["module foo", "pub hi :: fn() int { 1 }"])
+		.file("foo/b.oi", ["module foo", "hi :: fn() int { 2 }"]);
 	let out = err(run_main(p));
 	assert!(out.contains("defined twice"), "{out}");
 }
@@ -68,12 +68,12 @@ fn duplicate_name_across_files_rejected() {
 fn import_alias() {
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo as f", "print(f.hi())"])
-		.file("foo/lib.oi", ["module foo", "pub fn hi() int { 7 }"]);
+		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
 	assert_eq!(ok(run_main(p)), "7");
 
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo as f", "print(foo.hi())"])
-		.file("foo/lib.oi", ["module foo", "pub fn hi() int { 7 }"]);
+		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
 	let out = err(run_main(p));
 	assert!(out.contains("foo"), "{out}");
 }
@@ -85,7 +85,7 @@ fn selective_import() {
 			"main.oi",
 			["module main", "use foo { hi }", "print(hi() + foo.hi())"],
 		)
-		.file("foo/lib.oi", ["module foo", "pub fn hi() int { 7 }"]);
+		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
 	assert_eq!(ok(run_main(p)), "14");
 }
 
@@ -93,26 +93,26 @@ fn selective_import() {
 fn selective_import_fails() {
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo { nope }", "print(nope())"])
-		.file("foo/lib.oi", ["module foo", "pub fn hi() int { 7 }"]);
+		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
 	let out = err(run_main(p));
 	assert!(out.contains("has no function `nope`"), "{out}");
 
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo { secret }", "print(secret())"])
-		.file("foo/lib.oi", ["module foo", "fn secret() int { 1 }"]);
+		.file("foo/lib.oi", ["module foo", "secret :: fn() int { 1 }"]);
 	let out = err(run_main(p));
 	assert!(out.contains("private to module `foo`"), "{out}");
 
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo { P }", "print(1)"])
-		.file("foo/lib.oi", ["module foo", "pub struct P { x: int }"]);
+		.file("foo/lib.oi", ["module foo", "pub P :: struct { x: int }"]);
 	let out = err(run_main(p));
 	assert!(out.contains("is not a function"), "{out}");
 }
 
 #[test]
 fn exec_resolves_imports_against_cwd() {
-	let p = Project::new().file("foo/lib.oi", ["module foo", "pub fn hi() int { 99 }"]);
+	let p = Project::new().file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 99 }"]);
 	let out = ok(oi(&["exec", "use foo\nprint(foo.hi())"]).current_dir(&p).run(None));
 	assert_eq!(out, "99");
 }

@@ -63,8 +63,6 @@ pub enum Token {
 	Enum,
 	#[token("impl")]
 	Impl,
-	#[token("type")]
-	Type,
 	#[token("return")]
 	Return,
 	#[token("match")]
@@ -218,7 +216,6 @@ impl fmt::Display for Token {
 			Token::Struct => write!(f, "struct"),
 			Token::Enum => write!(f, "enum"),
 			Token::Impl => write!(f, "impl"),
-			Token::Type => write!(f, "type"),
 			Token::Return => write!(f, "return"),
 			Token::Match => write!(f, "match"),
 			Token::Trait => write!(f, "trait"),
