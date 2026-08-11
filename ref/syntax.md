@@ -241,7 +241,7 @@ pay :: fn(m: Money) {}
 pay(Money(500))
 
 # can receive methods
-Money :< {
+Money :{
 	str :: fn(self) string {
 		"${self.0}"
 	}
@@ -287,7 +287,7 @@ Options :: struct {
 	foo: int
 	bar: bool
 }
-User :< {
+User :{
 	with_options :: fn(self, opt: Options) {
 		print(opt)
 	}
@@ -303,7 +303,7 @@ user.with_options(bar: true, foo: 4)
 Settings :: struct {
 	idk: int
 }
-User :< {
+User :{
 	with_settings :: fn(self, settings: Settings) {
 		print(settings)
 	}
@@ -342,7 +342,7 @@ pear := Food{
 }
 
 # static struct methods
-User :< {
+User :{
 	new :: fn() Self {
 		Self {}
 	}
@@ -350,7 +350,7 @@ User :< {
 user :: User.new()
 
 # struct methods
-User :< {
+User :{
 	can_register :: fn(self) bool {
 		self.age > 16
 	}
@@ -388,11 +388,11 @@ Point :: struct {
 	y: int
 }
 
-Point :< {
+Point :{
 	zero :: fn() Self { Point{0, 0} }
 }
 
-Point : Add < {
+Point : Add {
 	add :: fn(self, other: Self) Self {
 		Self{ self.x + other.x, self.y + other.y }
 	}
@@ -423,9 +423,9 @@ Person :: struct {
 }
 
 # traits are satisfied by an explicit implementation
-Dog : Animal < { speak :: fn(self) string { "woof" } }
-Cat : Animal < { speak :: fn(self) string { "meow" } }
-Person : Animal < {
+Dog : Animal { speak :: fn(self) string { "woof" } }
+Cat : Animal { speak :: fn(self) string { "meow" } }
+Person : Animal {
 	speak :: fn(self) string { "Lorem ipsum..." }
 }
 
@@ -435,7 +435,7 @@ Enemy :: struct {
 	Meta
 	hp: int
 }
-Enemy : Animal < { speak :: fn(self) string { "rawr" } }
+Enemy : Animal { speak :: fn(self) string { "rawr" } }
 
 demo_traits :: fn() {
 	dog :: Dog{"Collie"}
@@ -492,7 +492,7 @@ Iterator :: trait {
 	next: fn(mut self) ?Item
 }
 Range :: struct { cur: int, end: int }
-Range : Iterator < {
+Range : Iterator {
 	Item :: int
 	next :: fn(mut self) ?int {
 		if self.cur >= self.end { return none }
@@ -518,7 +518,7 @@ Bounded :: trait {
 	min: Self
 	max: Self
 }
-i8 : Bounded < {
+i8 : Bounded {
 	min :: -128
 	max :: 127
 }
@@ -530,7 +530,7 @@ i8 : Bounded < {
 ToString :: trait {
 	to_string: fn(self) string
 }
-[T: Display] T : ToString < {
+[T: Display] T : ToString {
 	to_string :: fn(self) string { self.display() }
 }
 }#
@@ -545,7 +545,7 @@ Point : Copy
 
 # `via` routes a claim through an embedded field that already satisfies it
 Horn :: struct { kind: string }
-Horn : Animal < {
+Horn : Animal {
 	speak :: fn(self) string { "honk" }
 }
 Car :: struct {
@@ -554,7 +554,7 @@ Car :: struct {
 Car : Animal via Horn
 
 # a `via` claim may override individual methods, routing the rest through the stated field
-Car : Animal via Horn < { speak :: fn(self) string { "HONK HONK" } }
+Car : Animal via Horn { speak :: fn(self) string { "HONK HONK" } }
 
 ## composite types
 
@@ -1092,7 +1092,7 @@ main :: fn() {
 		cached_name ?string # zero value is `none`
 	}
 
-	Repo :< {
+	Repo :{
 		# !T returns a value or an error
 		find_user :: fn(id: int) !User {
 			loop user in self.users {
@@ -1159,7 +1159,7 @@ main :: fn() {
 		line: int
 		col: int
 	}
-	ParseError :< {
+	ParseError :{
 		message :: fn(self) string { "parse error at {self.line}:{self.col}" }
 		code :: fn(self) int { 1 }
 	}
@@ -1177,7 +1177,7 @@ main :: fn() {
 		msg: string
 		inner: Error
 	}
-	WrappedError :< {
+	WrappedError :{
 		message :: fn(self) string { self.msg }
 		cause :: fn(self) ?Error { self.inner }
 	}
@@ -1245,7 +1245,7 @@ main :: fn() {
 		blue
 	}
 
-	Color :< {
+	Color :{
 		hex :: fn(self) string {
 			match self {
 				.red => "#ff0000",
@@ -1265,7 +1265,7 @@ main :: fn() {
 	}
 
 	# Display is auto-derived for enums, but can be overridden
-	Color : Display < {
+	Color : Display {
 		display :: fn(self) string {
 			match self {
 				.red => "🔴",
@@ -1720,11 +1720,11 @@ main :: fn() {
 			match t.name() {
 				"Eq" => {
 					checks := fields.map(fn (f) { `self.%f == other.%f` })
-					`%name : Eq < {
+					`%name : Eq {
 						eq :: fn(self, other Self) bool { %{checks.reduce(fn (a, b) { `%a && %b` })} }
 					}`
 				}
-				"Debug" => `%name : Debug < { ... }`,
+				"Debug" => `%name : Debug { ... }`,
 			}
 		})
 		`%{...impls}`
