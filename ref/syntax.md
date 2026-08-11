@@ -407,7 +407,7 @@ Animal :: trait {
 	kind: string
 
 	# method requirement
-	speak : fn(self) string
+	speak: fn(self) string
 
 	# default methods build on the requirements
 	# may be overridden
@@ -776,9 +776,9 @@ main :: fn() {
 
 	# ident keys are string sugar
 	# with no expected type this infers Map[string, int]
-	num_map := {
-		one: 1
-		two: 2
+	num_map := Map{
+		one = 1
+		two = 2
 	}
 	print(num_map["one"])
 	typed_map: Map[string, int]
@@ -786,8 +786,8 @@ main :: fn() {
 	typed_map.delete["three"]
 
 	# literals as keys
-	by_id := { 1: "one", 2: "two" }
-	by_status := { :ok: 200, :not_found: 404 }
+	by_id := Map{ 1 = "one", 2 = "two" }
+	by_status := Map{ :ok = 200, :not_found = 404 }
 
 	# `{}` resolves against the expected type
 	empty Map[string, int] := {}
@@ -823,8 +823,8 @@ main :: fn() {
 	## But they can also optionally be given names.
 	## This should remind the reader of tables in Lua (and Revo <3).
 
-	t := (a: 1, b: 2)
-	print(t) # (a: 1, b: 2)
+	t := (a = 1, b = 2)
+	print(t) # (a = 1, b = 2)
 	assert!(t.a == t.0)
 	assert!(t.b == t.1)
 
@@ -835,12 +835,12 @@ main :: fn() {
 		I've never been great with analogies.
 		Anyway don't abuse this. The field names are for convenience, not as a replacement for structs.
 	}#
-	assert!((x: 4, y: 2) == (4, 2))
-	assert!((x: 4, y: 2) == (4, z: 2))
+	assert!((x = 4, y = 2) == (4, 2))
+	assert!((x = 4, y = 2) == (4, z = 2))
 
 	# names do not need to be given to all indices
-	t := (1, b: 2)
-	print(t) # (1, b: 2)
+	t := (1, b = 2)
+	print(t) # (1, b = 2)
 	assert!(t.b == t.1)
 
 	# can be used in function return signatures
@@ -858,7 +858,7 @@ main :: fn() {
 		(a / b, a % b)
 	}
 	result := divmod(10, 3)
-	print(result) # (q: 3, r: 1)
+	print(result) # (q = 3, r = 1)
 	assert!(result == (3, 1))
 	assert!(result.0 == 3)
 	assert!(result.1 == 1)
@@ -876,7 +876,7 @@ main :: fn() {
 		(200, "the body", [])
 	}
 	result := http_get("/health")
-	print(result) # (200, body: "the body", [])
+	print(result) # (200, body = "the body", [])
 	assert!(result.body == result.1)
 
 	## unit type
@@ -1198,8 +1198,8 @@ main :: fn() {
 
 	# variants with payloads
 	Shape :: enum {
-		circle { radius f64 }
-		rectangle { width f64, height f64 }
+		circle { radius: f64 }
+		rectangle { width: f64, height: f64 }
 		triangle(f64, f64, f64)
 		point
 	}
@@ -1256,7 +1256,6 @@ main :: fn() {
 
 		is_warm :: fn(self) bool {
 			self == .red
-			dwea :: pdl
 		}
 
 		# Associated function (no self)
@@ -1632,23 +1631,23 @@ main :: fn() {
 	# compile-time eval with comp
 
 	# takes any expression
-	const PI = comp 22.0 / 7.0
-	const VERSION = comp git.current_sha()
+	PI :: comp 22.0 / 7.0
+	VERSION :: comp git.current_sha()
 
 	# including if and match expressions
-	const PLATFORM_DEFAULT = comp if BUILD_OS == :windows { "\\r\\n" } else { "\\n" }
+	PLATFORM_DEFAULT :: comp if BUILD_OS == :windows { "\\r\\n" } else { "\\n" }
 
 	# embedded resources
-	const image = comp fs.read_bytes("assets/cats.png")?
-	const shader = comp fs.read("shaders/urmom.glsl")?
+	image :: comp fs.read_bytes("assets/cats.png")?
+	shader :: comp fs.read("shaders/urmom.glsl")?
 
 	# or block expressions
-	const VERSION_INFO = comp {
+	VERSION_INFO :: comp {
 		sha := git.head_sha()
 		branch := git.current_branch()
 		"{branch}@{sha[0..7]}"
 	}
-	const CONFIG = comp {
+	CONFIG :: comp {
 		raw := fs.read("build.toml")?
 		toml.parse(raw)?
 	}
