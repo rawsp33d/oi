@@ -109,6 +109,8 @@ pub enum Token {
 	Ident(String),
 	#[token(":=")]
 	Bind,
+	#[token("::")]
+	DoubleColon,
 	#[token("=")]
 	Assign,
 	#[token("=>")]
@@ -237,6 +239,7 @@ impl fmt::Display for Token {
 			Token::Or => write!(f, "or"),
 			Token::Ident(name) => write!(f, "{name}"),
 			Token::Bind => write!(f, ":="),
+			Token::DoubleColon => write!(f, "::"),
 			Token::Assign => write!(f, "="),
 			Token::FatArrow => write!(f, "=>"),
 			Token::Atom(name) => write!(f, ":{name}"),
