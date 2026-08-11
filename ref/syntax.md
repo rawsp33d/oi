@@ -1,3 +1,8 @@
+---
+id: syntax
+aliases: []
+tags: []
+---
 # [[Oi|../]]
 > NOTE: I wrote this file in Obsidian. It craps out and looks like poo in Neovim because of comments with markdown.
 
@@ -42,28 +47,28 @@ use mymod.sha256 as mysha256
 ## functions
 
 # private within module by default
-fn foo() {
+foo :: fn() {
 	print("foo")
 }
 
 # use `pub` modifier to make visible to outside modules
 # TODO: likely `pub(scope)` a la Rust
-pub fn bar() {
+pub bar :: fn() {
 	print("bar")
 }
 
 # param modifiers
-pub fn baz(mut i int) {
+pub baz :: fn(mut i: int) {
 	i += 2
 }
 
 # implicit return
 
-fn add(x int, y int) int {
+add :: fn(x: int, y: int) int {
 	x + y
 }
 
-fn random_user() User {
+random_user :: fn() User {
 	user := User{}
 	user.name = "I Dunno"
 	user
@@ -75,13 +80,13 @@ fn random_user() User {
 # `$` inherits mutability from the fn signature
 
 # `$` directly matches the call signature, so it is strongly typed and enforceable by the compiler
-fn single_val(x int) {
+single_val :: fn(x: int) {
 	assert!(x == $)
 }
-fn one_tuple(x int,) {
+oneple :: fn(x: int,) {
 	assert!(x == $.0)
 }
-fn two_tuple(x int, y int) {
+twople :: fn(x: int, y: int) {
 	assert!(x == $.0)
 	assert!(y == $.1)
 }
@@ -98,23 +103,28 @@ fn two_tuple(x int, y int) {
 ## Nim's `result` is great, but I don't like that it's magic.
 ## So I opted to make you opt-in by naming it explicitly.
 
-# building on what Go does, a bare `return` updates the bound values
-fn two() result int {
+# building on what Go/Odin do, a bare `return` updates the bound values
+two :: fn() result: int {
 	assert!(result == 0)
 	result = 2
 	return
 }
 assert!(two() == 2)
 
-fn random_user() u User {
+random_user :: fn() u: User {
 	print(u) # User{}
 	u.name = "I Dunno"
 }
-ru := random_user()
+ru :: random_user()
 assert!(ru.name == "I Dunno")
 
+# default values
+three :: fn() r := 2 {
+	r = 3
+}
+
 # this really just skips the step of explicitly initializing a zeroed var
-fn divmod(a int, b int) out (int, int) {
+divmod :: fn(a: int, b: int) out: (int, int) {
 	out.0 = a / b
 	out.1 = a % b
 	return
@@ -128,10 +138,10 @@ fn divmod(a int, b int) out (int, int) {
 # Can be applied to both named and anonymous functions.
 
 @pure
-fn add(x int, y int) int { x + y }
+add :: fn(x: int, y: int) int { x + y }
 
 @pure
-fn clamp(value f64, low f64, high f64) f64 {
+clamp :: (value: f64, low: f64, high: f64) f64 {
 	match true {
 		value < low => low,
 		value > high => high,
@@ -141,14 +151,14 @@ fn clamp(value f64, low f64, high f64) f64 {
 
 # @pure fns may call other @pure fns
 @pure
-fn sum_of_squares(a int, b int) int {
+sum_of_squares :: fn(a: int, b: int) int {
 	add(square(a), square(b))
 }
 
 # anon @pure
 # useful when passing to a higher-order fn that requires a purity guarantee
 # (or for theoretically possible optimization from the theoreticl compiler)
-result := data.map(@pure fn (x int) int { x * x })
+result :: data.map(@pure fn (x: int) int { x * x })
 
 ## leading literals
 
@@ -166,27 +176,27 @@ hook .startup { ... }
 
 ## structs
 
-struct Point {
-	x int
-	y int
+Point :: struct {
+	x: int
+	y: int
 }
 
-point := Point{
+point :: Point{
 	x: 19
 	y: 90
 }
 
 # one line
-point := Point{ x: 19, y: 88 }
+point :: Point{ x: 19, y: 88 }
 
 # zero values when unspecified
-origin := Point{}
+origin :: Point{}
 
 # support default field values
-struct User {
-	age int
-	name string
-	swag int = 5
+User :: struct {
+	age: int
+	name: string
+	swag: int = 5
 }
 
 # heap structs
@@ -195,47 +205,47 @@ struct User {
 u := &User{}
 
 # required fields
-struct Foo {
-	n int @required
+Foo :: struct {
+	n: int @required
 }
 
 # short struct literals
-normal := Point{
+normal :: Point{
 	x: 2
 	y: 1
 }
-short := Point{3, 2}
+short :: Point{3, 2}
 
 # the type name can be dropped when it's known from context (typed decl, call arg, return, field value)
-p Point := { x: 2, y: 1 }
+p : Point = { x: 2, y: 1 }
 
 # `{x, y}` is sugar for `{x: x, y: y}` (punning)
-x := 2
-y := 1
-q := Point{x, y}
+x :: 2
+y :: 1
+q :: Point{x, y}
 
 # tuple structs
 
 # a struct can take a tuple body instead of a record body
-struct Money(int)
-struct Point(x: float, y: float)
-m := Money(500)
-p := Point(1.0, 2.0)
-p := Point(x: 1.0, y: 2.0) # named call args work too
+Money :: struct (int)
+Point :: struct (x: float, y: float)
+m :: Money(500)
+p :: Point(1.0, 2.0)
+p :: Point(x: 1.0, y: 2.0) # named call args work too
 assert!(p.0 == p.x)
 print(m.0) # 500
 
 # these types are distinct, unlike type aliases
-fn pay(m Money) {}
+pay :: fn(m: Money) {}
 # pay(500) # error: expected Money, got int
 pay(Money(500))
 
 # can receive methods
-impl Money {
-	fn str(self) string {
+Money :< {
+	str :: fn(self) string {
 		"${self.0}"
 	}
-	fn double(self) Self {
+	double :: fn(self) Self {
 		self * 2
 	}
 }
@@ -244,28 +254,28 @@ print(Money(5).double()) # $10
 
 # tuple structs are nominal step-bros of type aliases
 # transparent types
-type Money = float
-type UserId = int | string
+Money :: float
+UserId :: int | string
 # distinct types
-struct Money(float)
-struct UserId(int | string)
+Money :: struct (float)
+UserId :: struct (int | string)
 
 # struct update
 
-struct User {
-	name string
-	age int
-	is_registered bool
+User :: struct {
+	name: string
+	age: int
+	is_registered: bool
 }
 
-fn register(u User) User {
+register :: fn(u: User) User {
 	return User{
 		...u
 		is_registered: true
 	}
 }
 
-mut user := User{
+user := User{
 	name: "abc"
 	age: 23
 }
@@ -273,16 +283,16 @@ user = register(user)
 
 # trailing records
 
-struct Options {
-	foo int
-	bar bool
+Options :: struct {
+	foo: int
+	bar: bool
 }
-impl User {
-	fn with_options(self, opt Options) {
+User :< {
+	with_options :: fn(self, opt: Options) {
 		print(opt)
 	}
 }
-user := User{}
+user :: User{}
 user.with_options(bar: true, foo: 4)
 # same record literal as `Options{ bar: true, foo: 4 }`, just braceless, coerced against the last param's struct type
 
@@ -290,50 +300,31 @@ user.with_options(bar: true, foo: 4)
 # otherwise you need to specify at least one field or the compiler will error
 # (@params means the empty record `{}` is allowed too)
 @params
-struct Settings {
-	idk int
+Settings :: struct {
+	idk: int
 }
-impl User {
-	fn with_settings(self, settings Settings) {
+User :< {
+	with_settings :: fn(self, settings: Settings) {
 		print(settings)
 	}
 }
 user.with_settings()
 
-# access modifiers
+# visibility
 
-struct User {
-	# fields are private and immutable by default
-	name string
-	age int
-	
-	# `pub` and `mut` modifiers can be used per definition, just like in normal declarations
-	a bool
-	mut b bool
-	pub c bool
-	pub mut d bool
-
-	# these modifiers also have block forms for when grouping is desired
-	mut {
-		status Status
-		retries int
-	}
-	pub {
-		email string
-		phone string
-	}
-	pub mut {
-		last_login Time
-		session_id UUID
-	}
+User :: struct {
+	# fields are private by default
+	name: string
+	# `pub` modifier can alter the visibility
+	pub email: string
 }
 
 # anonymous structs
 
-struct Food {
-	name string
-	nutrition struct {
-		calories int
+Food :: struct {
+	name: string
+	nutrition: struct {
+		calories: int
 	}
 }
 
@@ -351,31 +342,31 @@ pear := Food{
 }
 
 # static struct methods
-impl User {
-	fn new() Self {
+User :< {
+	new :: fn() Self {
 		Self {}
 	}
 }
-user := User.new()
+user :: User.new()
 
 # struct methods
-impl User {
-	fn can_register(self) bool {
+User :< {
+	can_register :: fn(self) bool {
 		self.age > 16
 	}
-	fn set_age(mut self, age int) {
+	set_age :: fn(mut self, age: int) {
 		self.age = age
 	}
 }
 
 # embedded structs
 
-struct Profile {
+Profile :: struct {
 	Options
-	name string
+	name: string
 }
 
-profile := Profile{
+profile :: Profile{
 	foo: 4
 	name: "one cool dude"
 }
@@ -392,13 +383,18 @@ profile.Options = Options{}
 
 # operator overloading
 
-struct Point {
-	x int
-	y int
+Point :: struct {
+	x: int
+	y: int
 }
-impl Add for Point {
-	fn add(self, other: Self) Self {
-		Self{self.x + other.x, self.y + other.y}
+
+Point :< {
+	zero :: fn() Self { Point{0, 0} }
+}
+
+Point : Add < {
+	add :: fn(self, other: Self) Self {
+		Self{ self.x + other.x, self.y + other.y }
 	}
 }
 assert!(Point{1, 0} + Point{2, 3} == Point{3, 3})
@@ -406,45 +402,45 @@ assert!(Point{1, 0} + Point{2, 3} == Point{3, 3})
 ## traits
 
 # a trait is a set of behaviors and/or data
-trait Animal {
+Animal :: trait {
 	# field requirement
-	kind string
+	kind: string
 
 	# method requirement
-	fn speak(self) string
+	speak : fn(self) string
 
 	# default methods build on the requirements
 	# may be overridden
-	fn shout(self) string {
+	shout :: fn(self) string {
 		self.speak().upper()
 	}
 }
 
-struct Dog { kind string }
-struct Cat { kind string }
-struct Person {
-	kind string = "Human"
+Dog :: struct { kind: string }
+Cat :: struct { kind: string }
+Person :: struct {
+	kind := "Human"
 }
 
-# traits are satisfied by an explicit `impl`
-impl Animal for Dog { fn speak(self) string { "woof" } }
-impl Animal for Cat { fn speak(self) string { "meow" } }
-impl Animal for Person {
-	fn speak(self) string { "Lorem ipsum..." }
+# traits are satisfied by an explicit implementation
+Dog : Animal < { speak :: fn(self) string { "woof" } }
+Cat : Animal < { speak :: fn(self) string { "meow" } }
+Person : Animal < {
+	speak :: fn(self) string { "Lorem ipsum..." }
 }
 
 # an embedded struct can satisfy requirements too
-struct Meta { kind string, id int }
-struct Enemy {
+Meta :: struct { kind: string, id: int }
+Enemy :: struct {
 	Meta
-	hp int
+	hp: int
 }
-impl Animal for Enemy { fn speak(self) string { "rawr" } }
+Enemy : Animal < { speak :: fn(self) string { "rawr" } }
 
-fn demo_traits() {
-	dog := Dog{"Collie"}
-	cat := Cat{"Egyptian Mau"}
-	animals := []Animal{ dog, cat }
+demo_traits :: fn() {
+	dog :: Dog{"Collie"}
+	cat :: Cat{"Egyptian Mau"}
+	animals :: []Animal{ dog, cat }
 	
 	loop animal in animals {
 		print "a {animal.kind} says: {animal.speak()}"
@@ -455,25 +451,25 @@ fn demo_traits() {
 assert!(Person is Animal)
 
 # traits can use `@implicit` to opt-in to structural / duck typing
-# any type with the right shape satisfies it even without an impl block
+# any type with the right shape satisfies it even without an implementation block
 @implicit
-trait Fruit {
-	seeds bool
-	color Color
+Fruit :: trait {
+	seeds: bool
+	color: Color
 }
-struct Kiwi {
-	seeds bool = true
-	color Color = :green
+Kiwi :: struct {
+	seeds := true
+	color: Color = :green
 }
-struct Apple {
-	seeds bool = true
-	color Color = :red
+Apple :: struct {
+	seeds := true
+	color: Color = :red
 }
-struct Bike {
-	color Color = :purple
+Bike :: struct {
+	color: Color = :purple
 }
 # a bare claim needs no body when the shape is already satisfied
-impl Fruit for Apple
+Apple : Fruit
 assert!(Kiwi is Fruit)
 assert!(Apple is Fruit)
 assert!(Bike is not Fruit)
@@ -482,7 +478,7 @@ assert!(Bike is not Fruit)
 
 # A trait used as a bound is static: monomorphized per concrete type.
 # no vtable, no indirection, no allocation
-fn greet[A Animal](a A) { print(a.shout()) }
+greet[A: Animal] :: fn(a: A) { print(a.shout()) }
 
 # A trait used directly as a type is dynamic: a trait object behind a vtable.
 zoo := []Animal{ Dog{"collie"}, Cat{"mau"}, Enemy{ kind: "boss", hp: 9 } }
@@ -490,15 +486,15 @@ loop a in zoo { print "a {a.kind} says {a.speak()}" }
 
 ## associated types
 
-# a related type chosen per impl
-trait Iterator {
-	type Item
-	fn next(mut self) ?Item
+# an associated type is just a slot whose type is `type`, filled per claim
+Iterator :: trait {
+	Item: type
+	next: fn(mut self) ?Item
 }
-struct Range { mut cur int, end int }
-impl Iterator for Range {
-	type Item = int
-	fn next(mut self) ?int {
+Range :: struct { cur: int, end: int }
+Range : Iterator < {
+	Item :: int
+	next :: fn(mut self) ?int {
 		if self.cur >= self.end { return none }
 		defer self.cur += 1
 		self.cur
@@ -509,54 +505,56 @@ impl Iterator for Range {
 
 # require another trait alongside this one
 # every Ord is also an Eq
-trait Ord is Eq {
-	fn cmp(self, other Self) Ordering
+Ord : Eq : trait {
+	cmp: fn(self, other: Self) Ordering
 }
-fn max[T Ord](a T, b T) T {
+max[T: Ord] :: fn(a: T, b: T) T {
 	if a.cmp(b) == .greater { a } else { b }
 }
 
 ## associated constants
 
-trait Bounded {
-	const min Self
-	const max Self
+Bounded :: trait {
+	min: Self
+	max: Self
 }
-impl Bounded for i8 {
-	const min = -128
-	const max = 127
+i8 : Bounded < {
+	min :: -128
+	max :: 127
 }
 
-## blanket impls
+## blanket claims
 
-# implement a trait for every type that already meets a bound
-trait ToString {
-	fn to_string(self) string
+# claim a trait for every type that already meets a bound
+#{ TODO: this worked better before I made a big redesign pass. doesn't fit well anymore
+ToString :: trait {
+	to_string: fn(self) string
 }
-impl[T Display] ToString for T {
-	fn to_string(self) string { self.display() }
+[T: Display] T : ToString < {
+	to_string :: fn(self) string { self.display() }
 }
+}#
 
 ## marker traits
 
 # traits don't have to have methods or fields or anything
-trait Copy {}
-impl Copy for Point
+Copy :: trait {}
+Point : Copy
 
 ## delegation
 
-# `via` routes a trait impl through an embedded field that already implements it
-struct Horn { kind string }
-impl Animal for Horn {
-	fn speak(self) string { "honk" }
+# `via` routes a claim through an embedded field that already satisfies it
+Horn :: struct { kind: string }
+Horn : Animal < {
+	speak :: fn(self) string { "honk" }
 }
-struct Car {
+Car :: struct {
 	Horn
 }
-impl Animal for Car via Horn
+Car : Animal via Horn
 
-# a `via` impl may override individual methods, routing the rest through the field
-# impl Animal for Car via Horn { fn speak(self) string { "HONK HONK" } }
+# a `via` claim may override individual methods, routing the rest through the stated field
+Car : Animal via Horn < { speak :: fn(self) string { "HONK HONK" } }
 
 ## composite types
 
@@ -581,76 +579,76 @@ impl Animal for Car via Horn
 }#
 
 # nests to any depth
-type Parsed = Result[[]?Token, ParseError]
+Parsed :: Result[[]?Token, ParseError]
 
 # order matters. these are different types
 # `?[]int` -> `Option[[]int]` -> the whole list may be absent
 # `[]?int` -> `[]Option[int]` -> each slot may be absent
 
-struct World {
-	entities []Entity
-	sessions Map[UserId, []Session]
-	cache Map[string, ?[]u8]
-	handlers []fn (Request) !Response
-	grid [16][16]Tile
+World :: struct {
+	entities: []Entity
+	sessions: Map[UserId, []Session]
+	cache: Map[string, ?[]u8]
+	handlers: []fn (Request) !Response
+	grid: [16][16]Tile
 }
 
 # ?T and !T are shorthands
 # `?T` -> `Option[T]`
 # `!T` -> `Result[T, Error]`
-# the long form may be used to naming / constraining the error, or clearer nesting
-fn read(path string) Result[[]u8, io.Error] { ... } # error pinned
-fn slurp(path string) ![]u8 { ... } # error left open
+# the long form may be used for naming / constraining the error, or clearer nesting
+read :: fn(path: string) Result[[]u8, io.Error] { ... } # error pinned
+slurp :: fn(path: string) ![]u8 { ... } # error left open
 
-# user generics nest exactly like the built-ins
-type Grid[T] = [][]T
-type Lookup[V] = Map[string, ?V]
+# generics may nest
+Grid[T] :: [][]T
+Lookup[V] :: Map[string, ?V]
 
 # in expression position a bracket is always an index
 grid[x][y] = 0
 
-# types may be specified when there's nothing to infer from
-empty Stack[int] := Stack{}
-meters Tagged[Meters] := Tagged{ value: 5.0 }
+# the sandwich middle names the type when there's nothing to infer from
+empty : Stack[int] = Stack{}
+meters : Tagged[Meters] = Tagged{ value: 5.0 }
 
 ## main entrypoint
 
-fn main() {
+main :: fn() {
 	## variables
 	
 	# assignment
 	
 	# declaration without assignment
-	mut foo int # 0
-	mut bar string # ""
-	mut p Point # Point{}
-	mut grid [3]string # ["", "", ""]
+	foo: int # 0
+	bar: string # ""
+	p: Point # Point{}
+	grid: [3]string # ["", "", ""]
 	
 	# declaration with assignment
-	a int := 2
-	b string := "hi"
-	c Car := Car{}
-	m Map[int, string] := Map{}
+	a: int = 2
+	b: string = "hi"
+	c: Car = Car{}
+	m: Map[int, string] = Map{}
 
 	# inferred
-	no_mute := "immutable"
-	mut mute := "mutable"
+	no_mute :: "immutable"
+	mute := "mutable"
 	mute = "trololololol"
 	
 	# muliple assignment
-	(foo, bar) := ("food", "bard")
-	(lat long) := get_coords()
+	(foo, bar) :: ("food", "bard")
+	(lat long) :: get_coords()
 	
 	# swap
-	(mut baz, mut qux) := ("bazd", "quxd")
+	(baz, qux) := ("bazd", "quxd")
 	(baz, qux) = (qux, baz)
 	
 	## primatives
 	
-	bull := true
-	str := "string"
-	integer := 1337
-	flt := 69.420
+	bull :: true
+	str :: "string"
+	integer :: 1337
+	flt :: 69.420
 	
 	# ranges
 	# TODO: are until/after possible outside array slices?
@@ -746,7 +744,7 @@ fn main() {
 	assert!(names.2 == "jingleheimerschmidt")
 	
 	# append with `<<`
-	mut odd := [1, 3, 5]
+	odd := [1, 3, 5]
 	odd << 7
 	assert!(odd.3 == 7)
 	# entire arrays can be appended too
@@ -765,11 +763,11 @@ fn main() {
 	assert!(even.len == 3)
 	
 	# array init
-	mut arr := []int{}
+	arr := []int{}
 	arr << 3
 	
 	# fixed size arrays
-	mut three := [3]string{}
+	three := [3]string{}
 	three.0 = "larry"
 	three.1 = "curly"
 	three.2 = "moe"
@@ -783,7 +781,7 @@ fn main() {
 		two: 2
 	}
 	print(num_map["one"])
-	mut typed_map Map[string, int]
+	typed_map: Map[string, int]
 	typed_map["three"] = 4
 	typed_map.delete["three"]
 
@@ -809,7 +807,7 @@ fn main() {
 	# function input params are [planned to be] treated as tuples in the compiler
 	
 	# the `$` var you've seen in other places makes this really clear
-	fn its_all_tuples_man(a bool, b int, c string) (bool, int, string) {
+	its_all_tuples_man :: fn(a: bool, b: int, c: string) (bool, int, string) {
 		$
 	}
 	result := its_all_tuples_man(true, 2, "lol")
@@ -846,7 +844,7 @@ fn main() {
 	assert!(t.b == t.1)
 	
 	# can be used in function return signatures
-	fn split(value string) (left string, right string) {
+	split :: fn(value: string) (left: string, right: string) {
 		split_once(value, "|") # returns a 2-tuple (a twople? anyone?)
 	}
 	splat := split("hi|mom")
@@ -856,7 +854,7 @@ fn main() {
 	assert!(splat == (l, r))
 	
 	# another example with a common divmod method
-	fn divmod(a int, b int) (q int, r int) {
+	divmod :: fn(a: int, b: int) (q: int, r: int) {
 		(a / b, a % b)
 	}
 	result := divmod(10, 3)
@@ -868,13 +866,13 @@ fn main() {
 	assert!(result.r == 1)
 
 	# this can be used alongside the named return feature, as they are different systems
-	fn divmod(a int, b int) out (q int, r int) {
+	divmod :: fn(a: int, b: int) out (q: int, r: int) {
 		out.q = a / b
 		out.r = a % b
 		return
 	}
 	
-	fn http_get(url string) (int, body string, []Header) {
+	http_get :: fn(url: string) (int, body string, []Header) {
 		(200, "the body", [])
 	}
 	result := http_get("/health")
@@ -888,15 +886,15 @@ fn main() {
 	assert!(() == ())
 	
 	# these are all equivalent:
-	fn nada() {}
-	fn zilch() () {}
-	fn nope() {
+	nada :: fn() {}
+	zilch :: fn() () {}
+	nope :: fn() {
 		()
 	}
-	fn no_way() {
+	no_way :: fn() {
 		return ()
 	}
-	fn nuh_uh() {
+	nuh_uh :: fn() {
 		return
 	}
 	assert!(nada() == zilch())
@@ -908,7 +906,7 @@ fn main() {
 	## never
 	
 	# `never` indicates that a fn should not return
-	fn foo() never {
+	foo :: fn() never {
 		loop {}
 	}
 	foo()
@@ -924,16 +922,16 @@ fn main() {
 	
 	# atoms coerce to enum variants when the type is known from context
 	# NOTE: atoms by definition cannot carry payloads
-	enum Color { red blue }
-	mut c := Color.red # fully qualified
+	Color :: enum { red blue }
+	c := Color.red # fully qualified
 	c = .red # type inferred from declaration
 	c = :blue # type inferred from declaration and coerced
 	assert!(c == Color.blue)
 	assert!(Color.blue == :blue)
 	
-	enum Stat { health mana stamina }
-	struct User {
-		mut stat Stat
+	Stat :: enum { health mana stamina }
+	User :: struct {
+		stat: Stat
 	}
 	user1 := User{ stat: .mana }
 	user2 := User{ stat: :mana }
@@ -944,15 +942,15 @@ fn main() {
 	# NOTE: TBH I might remove this feature or make it a compiler warning when a typed enum exists.
 	
 	# prototype code
-	mut state := :loading
+	state := :loading
 	state = :ready
 	
 	# on a later pass, despite nothing at the callsites changing, adding this enum definition would add strong typing and copiler checking
 	# STYLE: if an enum exists, prefer `.foo`
-	enum State { loading ready error }
+	State :: enum { loading ready error }
 
 	# atoms work in type position
-	fn status() :ok { :ok }
+	status :: fn() :ok { :ok }
 
 	## types
 	
@@ -962,10 +960,10 @@ fn main() {
 	
 	# function signatures can be aliased
 	type Operation = fn (int) int
-	fn op(n int, f Operation) int {
+	op :: fn(n: int, f: Operation) int {
 		return f(n)
 	}
-	fn double(n int) int {
+	double :: fn(n: int) int {
 		return 2 * n
 	}
 	# explicit cast
@@ -1011,7 +1009,7 @@ fn main() {
 	# evaluated in order, first match wins if multiple satisfy the condition
 
 	# comma can be used to test multiple values
-	fn is_red_or_blue(c Color) bool {
+	is_red_or_blue :: fn(c: Color) bool {
 		return match c {
 			.red, .blue => true,
 			.green => false,
@@ -1033,27 +1031,27 @@ fn main() {
 	
 	# forever
 	loop {
-	  print("are we there yet?")
+		print("are we there yet?")
 	}
 	
 	# while
-	mut i := 0
+	i := 0
 	loop i <= 3 {
-	  print("are we there yet?")
+		print("are we there yet?")
 		i += 1
 	}
 	
 	# for
 	loop i in 0..5 {
-	  print(i)
+		print(i)
 	}
 	
 	# foreach
 	loop x in [2 4 6 8] {
-	  print(x)
+		print(x)
 	}
 	loop (x, y) in [(0, 0) (1, 2)] {
-	  print((y, x))
+		print((y, x))
 	}
 	
 	# TODO: custom iterators
@@ -1089,14 +1087,14 @@ fn main() {
 	# bare return values are auto-wrapped
 	# there is no need for an explicit `ok()` or `some()` un/wrapper like there is in Rust
 	
-	struct Repo {
+	Repo :: struct {
 		users []User
 		cached_name ?string # zero value is `none`
 	}
 	
-	impl Repo {
+	Repo :< {
 		# !T returns a value or an error
-		fn find_user(id int) !User {
+		find_user :: fn(id: int) !User {
 			loop user in self.users {
 				if user.id == id { return user }
 			}
@@ -1104,7 +1102,7 @@ fn main() {
 		}
 	
 		# ?T returns a value or `none`
-		fn find_user_if_exists(id int) ?User {
+		find_user_if_exists :: fn(id: int) ?User {
 			loop user in self.users {
 				if user.id == id { return user }
 			}
@@ -1115,7 +1113,7 @@ fn main() {
 	# ?T and !T must be handled, and the or block is required to unwrap
 	# $ is the Error value (!T) or none (?T)
 	user := repo.find_user(7) or {
-		print($.message())  # "User 7 not found"
+		print($.message()) # "User 7 not found"
 		return
 	}
 	
@@ -1130,24 +1128,24 @@ fn main() {
 	
 	# postfix `?` propagates up to the caller: error out of a !T fn, none out of a ?T fn
 	# panics if used in main()
-	fn load_config(path string) !Config {
+	load_config :: fn(path: string) !Config {
 		raw := fs.read(path)?
 		parse(raw)?
 	}
 	
-	fn display_name(id int) ?string {
+	display_name :: fn(id: int) ?string {
 		user := repo.find_user_if_exists(id)?
 		user.name
 	}
 	
 	# creating option/result values directly
-	nope   := ?int(none)
-	maybe  := ?int(42)
-	ok	 := !int(7)
-	broken := !int(error("oops"))
+	nope :: ?int(none)
+	maybe :: ?int(42)
+	ok :: !int(7)
+	broken :: !int(error("oops"))
 	
 	# ?T / !T wrap the whole tuple in multi-return
-	fn checked_divmod(a int, b int) !(int, int) {
+	checked_divmod :: fn(a: int, b: int) !(int, int) {
 		if b == 0 { return error("division by zero") }
 		(a / b, a % b)
 	}
@@ -1156,50 +1154,50 @@ fn main() {
 	# custom error types
 	# embed Error for default impls, only override what you need
 	
-	struct ParseError {
+	ParseError :: struct {
 		Error
-		line int
-		col  int
+		line: int
+		col: int
 	}
-	impl ParseError {
-		fn message(self) string { "parse error at {self.line}:{self.col}" }
-		fn code(self) int { 1 }
+	ParseError :< {
+		message :: fn(self) string { "parse error at {self.line}:{self.col}" }
+		code :: fn(self) int { 1 }
 	}
 	
-	fn parse(src string) !Ast {
+	parse :: fn(src: string) !Ast {
 		...
-		return ParseError{ line: 4, col: 2 }  # auto-cast to Error
+		return ParseError{ line: 4, col: 2 } # auto-cast to Error
 	}
 	
 	parse(src) or { panic!($.message()) }
 	
 	# error chaining via cause()
-	struct WrappedError {
+	WrappedError :: struct {
 		Error
-		msg   string
-		inner Error
+		msg: string
+		inner: Error
 	}
-	impl WrappedError {
-		fn message(self) string { self.msg }
-		fn cause(self) ?Error  { self.inner }
+	WrappedError :< {
+		message :: fn(self) string { self.msg }
+		cause :: fn(self) ?Error { self.inner }
 	}
 
 	
 	## enums
 	
 	# plain
-	enum Color {
+	Color :: enum {
 		red
 		green
 		blue
 	}
 	# fully-qualified enum, for when inference can't help
-	mut c := Color.green
+	c := Color.green
 	# shorthand enum when the type is known from context
 	c = .red
 	
 	# variants with payloads
-	enum Shape {
+	Shape :: enum {
 		circle { radius f64 }
 		rectangle { width f64, height f64 }
 		triangle(f64, f64, f64)
@@ -1219,18 +1217,18 @@ fn main() {
 	}
 	
 	# specified values
-	enum Status {
+	Status :: enum {
 		ok = 200
 		not_found = 404
 		server_error = 500
 	}
 	
 	# ?T and !T are syntax suger for these:
-	enum Option[T] {
+	Option[T] :: enum {
 		some(T)
 		none
 	}
-	enum Result[T, E] {
+	Result[T, E] :: enum {
 		ok(T)
 		err(E)
 	}
@@ -1241,14 +1239,14 @@ fn main() {
 			
 	# methods
 	
-	enum Color {
+	Color :: enum {
 		red
 		green
 		blue
 	}
 	
-	impl Color {
-		fn hex(self) string {
+	Color :< {
+		hex :: fn(self) string {
 			match self {
 				.red => "#ff0000",
 				.green => "#00ff00",
@@ -1256,19 +1254,20 @@ fn main() {
 			}
 		}
 		
-		fn is_warm(self) bool {
+		is_warm :: fn(self) bool {
 			self == .red
+			dwea :: pdl
 		}
 		
 		# Associated function (no self)
-		fn primary() Color {
+		primary :: fn() Color {
 			.red
 		}
 	}
 	
 	# Display is auto-derived for enums, but can be overridden
-	impl Display for Color {
-		fn display(self) string {
+	Color : Display < {
+		display :: fn(self) string {
 			match self {
 				.red => "🔴",
 				.green => "🟢",
@@ -1283,7 +1282,7 @@ fn main() {
 	
 	# enums can be created from string or integer value and converted into string
 	
-	enum Cycle {
+	Cycle :: enum {
 		one
 		two = 2
 		three
@@ -1298,7 +1297,7 @@ fn main() {
 	print(Cycle.one.str())
 	
 	# the newlines are optional
-	enum Fruit { apple orange grape }
+	Fruit :: enum { apple orange grape }
 
 	## sum types
 	
@@ -1306,18 +1305,18 @@ fn main() {
 	type Json = :null | bool | f64 | string | []Json | Map[string, Json]
 	
 	# member values coerce when the type is known from context
-	mut id Id := 7
+	id: Id = 7
 	id = "abc123"
 	
 	# sum types may be used in type signatures
-	fn lookup(id Id) User | :missing { :missing }
+	lookup :: fn(id: Id) User | :missing { :missing }
 	
 	# nested sum aliases splice in place
 	type Num = int | f64
 	type Value = Num | string # = int | f64 | string
 	
 	# matching is exhaustive
-	fn describe(id Id) string {
+	describe :: fn(id: Id) string {
 		match id {
 			n @ int => "numeric: {n}",
 			s @ string => "named: {s}",
@@ -1328,37 +1327,37 @@ fn main() {
 	# type Bad = int | int # error: duplicate member
 	
 	# the zero value is the first member's zero
-	mut blank Id # 0
+	blank: Id # 0
 	
 	# sum types are interchangeable
 	# NOTE: except for containers like []Id and []Handle
-	type Handle = string | int
+	Handle :: string | int
 	h Handle := blank
 	
 	# member order is defined by each type, which determines zero values
-	mut new Id
-	mut fresh Handle
+	new: Id
+	fresh: Handle
 	assert!(new != fresh)
 	assert!(new == 0)
 	assert!(fresh == "")
 	
 	# atoms make great sum types
-	type Status = :ok | :err
+	Status :: :ok | :err
 	
 	# to make distinct types, wrap sum type in tuple structs
-	struct UserId(int | string)
+	UserId :: struct (int | string)
 
 	## errors
 	
 	# built-in Error trait
 	trait Error {
-		fn message(self) string
-		fn code(self) int
-		fn cause(self) ?Error { none }
+		message :: fn(self) string
+		code :: fn(self) int
+		cause :: fn(self) ?Error { none }
 	}
 	
 	# `!T` means: `T` or some value implementing `Error`
-	fn read_config() !Config { ... }
+	read_config :: fn() !Config { ... }
 	
 	# crash out
 	if false {
@@ -1382,7 +1381,7 @@ fn main() {
 	# they can fully read and mutate the enclosing scope
 	{ x }
 	# if you want a map with shorthand keys, add a trailing comma
-	{ x, }  # `{ x: x }`
+	{ x, } # `{ x: x }`
 
 	# in conditionals a top-level `{` always opens the body, so a record or `Name{}` literal there needs parens
 	if p == (Point{}) { ... }
@@ -1401,7 +1400,7 @@ fn main() {
 		- captures: optional capture spec
 			- omitted: fn implicitly captures any enclosing locals it references, read-only by reference
 			- []: non-capturing. holds no closure environment, so it coerces to a plain function-pointer type and can be stored freely.
-			  can still call named functions and read module-level consts/types
+				can still call named functions and read module-level consts/types
 			- [x]: captures `x` read-only (by reference), and nothing else
 			- [mut x, y]: captures `x` mutably, `y` read-only, and nothing else
 			- [move x]: moves/owns `x` so it can escape the enclosing scope, and nothing else
@@ -1412,20 +1411,20 @@ fn main() {
 
 	# implicit capture
 	n := 10
-	scale := fn (x int) int { x * n }
+	scale := fn (x: int) int { x * n }
 
 	# non-capturing
 	# NOTE: This does not mean pure. See [pure functions](#pure-functions)).
-	mul := fn [] (x int, y int) int { x * y }
+	mul := fn [] (x: int, y: int) int { x * y }
 	nums.map(fn [] { $ * 2 })
 
 	# explicit read-only capture
 	factor := 3
-	triple := fn [factor] (x int) int { x * factor }
+	triple := fn [factor] (x: int) int { x * factor }
 
 	# explicit mutable capture
-	mut counter := 0
-	increment := fn [mut counter] (x int) int {
+	counter := 0
+	increment :: fn [mut counter] (x: int) int {
 		counter += x
 		counter
 	}
@@ -1481,7 +1480,7 @@ fn main() {
 	# defer
 	
 	# defer takes an expression
-	mut f := os.create("out.log")?
+	f := os.create("out.log")?
 	defer f.close()
 	
 	# blocks are expressions too
@@ -1491,7 +1490,7 @@ fn main() {
 	}
 	
 	# defer gets the return values if relevant
-	fn do_stuff() bool {
+	do_stuff :: fn() bool {
 		defer {
 			if !$ {
 				print("uh oh...")
@@ -1530,8 +1529,8 @@ fn main() {
 	# Any other expression (a call using `$`, an `if`, a block) # is evaluated in place with `$` bound.
 	# This lets us do clojure-like threading.
 	"threading"
-	  |> wrap("[", $, "]")
-	  or log_errors("foo", $)
+		|> wrap("[", $, "]")
+		or log_errors("foo", $)
 	"hello" |> $ + " world"
 	[2 4 6 8] |> if $.len() > 0 { print(true) }
 	
@@ -1571,7 +1570,7 @@ fn main() {
 	"err binding" |> raise_err |> or { log.error($) }
 	
 	# you can specify params
-	#  to a name when nesting to avoid ambiguity
+	# to a name when nesting to avoid ambiguity
 	"foo" |> fn (outer) {
 		outer |> fn (inner) {
 			log.debug("inner: {inner}, outer: {outer}")
@@ -1611,17 +1610,17 @@ fn main() {
 
 	# there is a shorthand for creating methods that are just made up of a pipeline
 	# the following function:
-	fn slugify(s string) string {
+	slugify :: fn(s: string) string {
 		s |> trim |> lower |> replace(" ", "-")
 	}
 	# may be written like this:
 	fn slugify = trim |> lower |> replace(" ", "-")
 	# type annotations may be provided for clarity, but are inferred from the pipeline
-	fn slugify(s string) string = trim |> lower |> replace(" ", "-")
+	slugify :: fn(s: string) string = trim |> lower |> replace(" ", "-")
 	
 	# this lets any bound values be used directly throughout the pipeline,
 	# rather than each stage only having access to the return of the prior stage
-	fn count_letters(s string) int =
+	count_letters :: fn(s: string) int =
 		lower |> uniq |> replace("[^A-Za-z]", "") |> len |> {
 			log.info("called count_letters with {s}, and it has {$} unique letters")
 			$
@@ -1659,20 +1658,20 @@ fn main() {
 	}
 	
 	# function calls can have comptime args
-	fn open_typed(comp T type, path string) !T {
+	open_typed :: fn(comp T: type, path: string) !T {
 		raw := open(path)?
 		deserialize(T, raw)
 	}
 	
 	# generics are sugar for comp type params
-	fn first[T](xs []T) ?T {
+	first[T] :: fn(xs []T) ?T {
 		if xs.len() == 0 { none } else { Some(xs[0]) }
 	}
 	# generics can have trait guards
-	fn max[T Ord](a T, b T) T {
+	max[T Ord] :: fn(a: T, b: T) T {
 		if a > b { a } else { b }
 	}
-	fn max(comp T type, a T, b T) T where T is Ord { ... }
+	max :: fn(comp T: type, a: T, b: T) T where T is Ord { ... }
 
 	## annotations
 	
@@ -1680,13 +1679,13 @@ fn main() {
 	# they don't do anything on their own but may be read back through reflection
 	# @pure/@params/@required are builtin annotations, defined in the prelude and consumed by the compiler
 
-	struct awesome {}
+	awesome :: struct {}
 	@awesome
-	fn kickflip() {}
+	kickflip :: fn() {}
 	
-	struct deprecated { reason string }
+	deprecated :: struct { reason: string }
 	@deprecated("use speak()")
-	fn yell() string { ... }
+	yell :: fn() string { ... }
 	# TODO: the comp and reflection stuff not fleshed out yet
 	comp for note in typeinfo(yell).annotations { ... }
 	
@@ -1714,7 +1713,7 @@ fn main() {
 		_ => expr,
 	}
 	
-	fn derive!(input Ast, traits Ast) Ast {
+	fn derive!(input: Ast, traits: Ast) Ast {
 		# input is the parsed struct, traits is the list passed to @derive!()
 		name := input.type_name()
 		fields := input.struct_fields()
@@ -1722,11 +1721,11 @@ fn main() {
 			match t.name() {
 				"Eq" => {
 					checks := fields.map(fn (f) { `self.%f == other.%f` })
-					`impl Eq for %name {
-						fn eq(self, other Self) bool { %{checks.reduce(fn (a, b) { `%a && %b` })} }
+					`%name : Eq < {
+						eq :: fn(self, other Self) bool { %{checks.reduce(fn (a, b) { `%a && %b` })} }
 					}`
 				}
-				"Debug" => `impl Debug for %name { ... }`,
+				"Debug" => `%name : Debug < { ... }`,
 			}
 		})
 		`%{...impls}`
@@ -1734,7 +1733,7 @@ fn main() {
 	
 	# `@name!` runs a macro on the following expression
 	@derive!(Eq, Debug)
-	struct Point { x int, y int }
+	Point :: struct { x: int, y: int }
 
 	# inline calls
 	dbg!(count_letters("hi, mom!"))
@@ -1743,18 +1742,18 @@ fn main() {
 	assert! foo.bar() == 5
 
 	# a Tokens param opts a macro into the raw stream, for embedded DSLs whose bodies aren't valid Oi
-	fn sql!(body Tokens) Ast { ... }
+	fn sql!(body: Tokens) Ast { ... }
 	sql! { SELECT * FROM users WHERE id = {id} }
 
 	# reflection in `comp`
-	fn debug_print[T](value T) {
+	debug_print[T] :: fn(value: T) {
 		comp for field in type_info(T).fields {
 			println("{field.name} = {value.(field.name)}")
 		}
 	}
 	
 	# conditional compilation
-	fn log(msg string) {
+	log :: fn(msg: string) {
 		comp if BUILD_MODE == :debug {
 			eprintln(msg)
 		}
@@ -1763,7 +1762,7 @@ fn main() {
 
 ## prelude
 
-fn print[T Display](value T)
+print[T: Display] :: fn(value: T)
 
 # these are plain fns, interpolation happens in the lexer
 print(value) # stdout, with newline
@@ -1772,12 +1771,12 @@ eprint(value) # stderr, with newline
 ewrite(value) # stderr, no newline
 
 # these need source text or the AST, so they are macros
-fn dbg!(expr)
-fn assert!(expr, msg string?)
-fn panic!(msg string?)
-fn todo!()
-fn unimplemented!()
-fn unreachable!(msg string?)
+dbg! :: fn(expr)
+assert! :: fn(expr, msg: string?)
+panic! :: fn(msg: string?)
+todo! :: fn()
+unimplemented! :: fn()
+unreachable! :: fn(msg: string?)
 
 ## stdlib
 ```
