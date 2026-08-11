@@ -149,14 +149,14 @@ fn nominal_in_signatures() {
 	check(
 		indoc! {"
 			struct Money(int)
-			fn pay(m Money) int { m.0 }
+			fn pay(m: Money) int { m.0 }
 			pay(Money(500))
 		"},
 		"500",
 	);
 	fail(indoc! {"
 		struct Money(int)
-		fn pay(m Money) int { m.0 }
+		fn pay(m: Money) int { m.0 }
 		pay(500)
 	"});
 }

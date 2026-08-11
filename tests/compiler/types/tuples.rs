@@ -151,7 +151,7 @@ fn fn_return_type_mismatch_tuple() {
 #[test]
 fn fn_tuple_return_composing() {
 	let src = indoc! {"
-		fn swap(x int, y int) (int, int) { (y, x) }
+		fn swap(x: int, y: int) (int, int) { (y, x) }
 		t :: swap(1, 2)
 		t.0
 	"};
@@ -178,7 +178,7 @@ fn field_names_are_hints() {
 	);
 	check(
 		indoc! {"
-			fn f(t (int, int)) int { t.0 }
+			fn f(t: (int, int)) int { t.0 }
 			f((x: 7, y: 8))
 		"},
 		"7",

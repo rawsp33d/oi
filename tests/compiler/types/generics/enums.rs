@@ -30,7 +30,7 @@ fn nope_arm() {
 fn generic_fn_round_trip() {
 	let src = indoc! {"
 		enum Opt[T] { nope, some(T) }
-		fn wrap[T](v T) Opt[T] { .some(v) }
+		fn wrap[T](v: T) Opt[T] { .some(v) }
 		match wrap(9) {
 			.some(n) => n,
 			.nope => -1,
@@ -56,7 +56,7 @@ fn bare_name_needs_type_arguments() {
 	fail_with(
 		indoc! {"
 			enum Opt[T] { nope, some(T) }
-			fn f(o Opt) int { 0 }
+			fn f(o: Opt) int { 0 }
 			0
 		"},
 		"needs type arguments",

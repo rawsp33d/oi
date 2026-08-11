@@ -13,7 +13,7 @@ fn undefined_function() {
 #[test]
 fn wrong_arg_count() {
 	let src = indoc! {"
-		fn add(x int, y int) { x + y }
+		fn add(x: int, y: int) { x + y }
 		add(1)
 	"};
 	fail_with(src, "expects 2 argument");
@@ -22,7 +22,7 @@ fn wrong_arg_count() {
 #[test]
 fn wrong_arg_type() {
 	let src = indoc! {r#"
-		fn double(x int) { x + x }
+		fn double(x: int) { x + x }
 		double("nope")
 	"#};
 	fail_with(src, "expected int argument");

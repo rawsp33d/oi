@@ -29,7 +29,7 @@ fn slices() {
 fn fn_call_and_return() {
 	assert_clean(indoc! {"
 		fn make() []int { [1, 2] }
-		fn id(a []int) []int { a }
+		fn id(a: []int) []int { a }
 		x :: id(make())
 		print(x)
 	"});
@@ -50,7 +50,7 @@ fn loop_temp_per_iteration() {
 #[test]
 fn early_return() {
 	assert_clean(indoc! {"
-		fn f(n int) int {
+		fn f(n: int) int {
 			a :: [1, 2, 3]
 			if n > 1 { return a[0] }
 			a[1]
@@ -126,7 +126,7 @@ fn nested_elements_still_leak() {
 #[test]
 fn struct_field_leak_is_bounded() {
 	let src = indoc! {"
-		struct Bag { items []int }
+		struct Bag { items: []int }
 		s :: Bag{ items: [1, 2] }
 		print(s.items[0])
 	"};

@@ -151,7 +151,7 @@ fn struct_field_type() {
 	check(
 		indoc! {"
 			type Status = :ok | :err
-			struct Res { s Status }
+			struct Res { s: Status }
 			r :: Res{ s: :err }
 			r.s
 		"},
@@ -185,7 +185,7 @@ fn anonymous_sum_in_bind() {
 fn anonymous_sum_param_and_return() {
 	check(
 		indoc! {"
-			fn f(v int | string) int | string { v }
+			fn f(v: int | string) int | string { v }
 			match f(7) {
 				n @ int => n + 1,
 				string => 0,
@@ -195,7 +195,7 @@ fn anonymous_sum_param_and_return() {
 	);
 	check(
 		indoc! {r#"
-			fn f(v int | string) int | string { v }
+			fn f(v: int | string) int | string { v }
 			match f("hi") {
 				int => "no",
 				s @ string => s,
@@ -273,7 +273,7 @@ fn general_fn_return_and_field() {
 	check(
 		indoc! {r#"
 			type Id = int | string
-			struct Box { id Id }
+			struct Box { id: Id }
 			Box{ id: "hey" }.id
 		"#},
 		"hey",

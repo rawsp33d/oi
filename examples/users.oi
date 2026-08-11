@@ -5,11 +5,11 @@ enum Status {
 }
 
 struct User {
-	name string
-	status Status
+	name: string
+	status: Status
 }
 
-fn badge(u User) {
+fn badge(u: User) {
 	match u.status {
 		.online => "🟢 {u.name}",
 		.away => "🟡 {u.name}",
@@ -18,7 +18,7 @@ fn badge(u User) {
 }
 
 impl User {
-	fn create(name string) Self {
+	fn create(name: string) Self {
 		# TODO: this should let you create without all fields, zeroing the rest
 		return User{ name, status: .offline }
 	}

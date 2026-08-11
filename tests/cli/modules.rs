@@ -16,12 +16,12 @@ fn imports_work() {
 			[
 				"module foo",
 				"use bar",
-				"struct P { x int, y int }",
-				"fn sum(p P) int { p.x + p.y }",
+				"struct P { x: int, y: int }",
+				"fn sum(p: P) int { p.x + p.y }",
 				"pub fn total() int { bar.twice(sum(P{x: 2, y: 5})) }",
 			],
 		)
-		.file("bar/lib.oi", ["module bar", "pub fn twice(n int) int { n * 2 }"]);
+		.file("bar/lib.oi", ["module bar", "pub fn twice(n: int) int { n * 2 }"]);
 	assert_eq!(ok(run_main(p)), "14");
 }
 
@@ -105,7 +105,7 @@ fn selective_import_fails() {
 
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo { P }", "print(1)"])
-		.file("foo/lib.oi", ["module foo", "pub struct P { x int }"]);
+		.file("foo/lib.oi", ["module foo", "pub struct P { x: int }"]);
 	let out = err(run_main(p));
 	assert!(out.contains("is not a function"), "{out}");
 }

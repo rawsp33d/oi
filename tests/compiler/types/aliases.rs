@@ -4,7 +4,7 @@ use crate::helpers::*;
 fn alias_primitive_in_param() {
 	let src = indoc! {"
 		type Score = int
-		fn double(s Score) Score { s * 2 }
+		fn double(s: Score) Score { s * 2 }
 		double(21)
 	"};
 	check(src, "42");
@@ -25,7 +25,7 @@ fn alias_chains() {
 	let src = indoc! {"
 		type Meters = int
 		type Distance = Meters
-		fn add(a Distance, b Distance) Distance { a + b }
+		fn add(a: Distance, b: Distance) Distance { a + b }
 		add(3, 4)
 	"};
 	check(src, "7");
@@ -35,7 +35,7 @@ fn alias_chains() {
 fn alias_tuple_in_param_and_return() {
 	let src = indoc! {"
 		type Point = (int, int)
-		fn make(x int, y int) Point { (x, y) }
+		fn make(x: int, y: int) Point { (x, y) }
 		p :: make(3, 4)
 		print(p.0, p.1)
 	"};
@@ -46,7 +46,7 @@ fn alias_tuple_in_param_and_return() {
 fn alias_array_in_param() {
 	let src = indoc! {"
 		type Row = []int
-		fn first(r Row) int { r[0] }
+		fn first(r: Row) int { r[0] }
 		first([10 20 30])
 	"};
 	check(src, "10");
@@ -56,7 +56,7 @@ fn alias_array_in_param() {
 fn alias_in_struct_field() {
 	let src = indoc! {"
 		type Hp = int
-		struct Unit { hp Hp }
+		struct Unit { hp: Hp }
 		u :: Unit { hp: 100 }
 		u.hp
 	"};
@@ -74,7 +74,7 @@ fn fn_type_alias_parses() {
 fn alias_of_result_long_form() {
 	let src = indoc! {r#"
 		type Found = Result[int, Error]
-		fn find(x int) Found {
+		fn find(x: int) Found {
 			if x > 0 { return x }
 			return error("negative")
 		}
@@ -87,7 +87,7 @@ fn alias_of_result_long_form() {
 fn unknown_alias_target_errors() {
 	let src = indoc! {"
 		type Foo = Nope
-		fn f(x Foo) Foo { x }
+		fn f(x: Foo) Foo { x }
 		f(1)
 	"};
 	fail_with(src, "unknown type");

@@ -3,7 +3,7 @@ use crate::helpers::*;
 #[test]
 fn dollar_scalar() {
 	let src = indoc! {"
-		fn f(x int) int { assert(x == $); $ }
+		fn f(x: int) int { assert(x == $); $ }
 		f(7)
 	"};
 	check(src, "7");
@@ -11,13 +11,13 @@ fn dollar_scalar() {
 
 #[test]
 fn dollar_scalar_has_no_fields() {
-	fail_with("fn f(x int) int { $.0 } f(9)", "cannot access a field of int");
+	fail_with("fn f(x: int) int { $.0 } f(9)", "cannot access a field of int");
 }
 
 #[test]
 fn dollar_one_tuple() {
 	let src = indoc! {"
-		fn f(x int,) int { assert(x == $.0); $.0 }
+		fn f(x: int,) int { assert(x == $.0); $.0 }
 		f(5)
 	"};
 	check(src, "5");
@@ -26,7 +26,7 @@ fn dollar_one_tuple() {
 #[test]
 fn dollar_two_tuple() {
 	let src = indoc! {"
-		fn f(x int, y int) int { assert(x == $.0); assert(y == $.1); $.0 + $.1 }
+		fn f(x: int, y: int) int { assert(x == $.0); assert(y == $.1); $.0 + $.1 }
 		f(3, 4)
 	"};
 	check(src, "7");
@@ -34,7 +34,7 @@ fn dollar_two_tuple() {
 
 #[test]
 fn dollar_tuple_prints() {
-	check("fn f(x int, y int) { $ } f(3, 4)", "(3, 4)");
+	check("fn f(x: int, y: int) { $ } f(3, 4)", "(3, 4)");
 }
 
 #[test]
@@ -44,5 +44,5 @@ fn dollar_unit() {
 
 #[test]
 fn dollar_index_out_of_range() {
-	fail_with("fn f(x int, y int) int { $.5 } f(1, 2)", "out of range");
+	fail_with("fn f(x: int, y: int) int { $.5 } f(1, 2)", "out of range");
 }

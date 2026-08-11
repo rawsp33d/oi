@@ -3,11 +3,11 @@ use crate::helpers::*;
 #[test]
 fn question_unwraps_some() {
 	let src = indoc! {"
-		fn find(id int) ?int {
+		fn find(id: int) ?int {
 			if id == 7 { return 42 }
 			return none
 		}
-		fn display(id int) ?int {
+		fn display(id: int) ?int {
 			v :: find(id)?
 			v + 1
 		}
@@ -19,11 +19,11 @@ fn question_unwraps_some() {
 #[test]
 fn question_propagates_none() {
 	let src = indoc! {"
-		fn find(id int) ?int {
+		fn find(id: int) ?int {
 			if id == 7 { return 42 }
 			return none
 		}
-		fn display(id int) ?int {
+		fn display(id: int) ?int {
 			v :: find(id)?
 			v + 1
 		}
@@ -35,11 +35,11 @@ fn question_propagates_none() {
 #[test]
 fn bang_unwraps_ok() {
 	let src = indoc! {r#"
-		fn load(path string) !int {
+		fn load(path: string) !int {
 			if path == "ok" { return 42 }
 			return error("missing")
 		}
-		fn double(path string) !int {
+		fn double(path: string) !int {
 			v :: load(path)?
 			v * 2
 		}
@@ -51,11 +51,11 @@ fn bang_unwraps_ok() {
 #[test]
 fn bang_propagates_error() {
 	let src = indoc! {r#"
-		fn load(path string) !int {
+		fn load(path: string) !int {
 			if path == "ok" { return 42 }
 			return error("missing")
 		}
-		fn double(path string) !int {
+		fn double(path: string) !int {
 			v :: load(path)?
 			v * 2
 		}
@@ -70,11 +70,11 @@ fn bang_propagates_error() {
 #[test]
 fn question_infers_enclosing_return_type() {
 	let src = indoc! {"
-		fn find(id int) ?int {
+		fn find(id: int) ?int {
 			if id == 7 { return 42 }
 			return none
 		}
-		fn display(id int) {
+		fn display(id: int) {
 			v :: find(id)?
 			v + 1
 		}
@@ -91,7 +91,7 @@ fn requires_option_or_result() {
 #[test]
 fn option_panics_in_main() {
 	let src = indoc! {"
-		fn find(id int) ?int {
+		fn find(id: int) ?int {
 			if id == 7 { return 42 }
 			return none
 		}
@@ -103,7 +103,7 @@ fn option_panics_in_main() {
 #[test]
 fn result_panics_in_main() {
 	let src = indoc! {r#"
-		fn load(path string) !int {
+		fn load(path: string) !int {
 			if path == "ok" { return 42 }
 			return error("missing")
 		}
@@ -115,11 +115,11 @@ fn result_panics_in_main() {
 #[test]
 fn requires_matching_enclosing_return() {
 	let src = indoc! {"
-		fn find(id int) ?int {
+		fn find(id: int) ?int {
 			if id == 7 { return 42 }
 			return none
 		}
-		fn display(id int) int {
+		fn display(id: int) int {
 			find(id)?
 		}
 		display(7)
@@ -130,11 +130,11 @@ fn requires_matching_enclosing_return() {
 #[test]
 fn requires_matching_enclosing_return_result() {
 	let src = indoc! {r#"
-		fn load(path string) !int {
+		fn load(path: string) !int {
 			if path == "ok" { return 42 }
 			return error("missing")
 		}
-		fn display(path string) ?int {
+		fn display(path: string) ?int {
 			load(path)?
 		}
 		display("ok")

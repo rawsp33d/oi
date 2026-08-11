@@ -50,7 +50,7 @@ fn as_binding() {
 #[test]
 fn fallback_can_diverge() {
 	let src = indoc! {"
-		fn unwrap_or_bail(o ?int) int {
+		fn unwrap_or_bail(o: ?int) int {
 			v :: o or { return -1 }
 			v
 		}
@@ -59,7 +59,7 @@ fn fallback_can_diverge() {
 	check(src, "-1");
 
 	let src = indoc! {"
-		fn unwrap_or_bail(o ?int) int {
+		fn unwrap_or_bail(o: ?int) int {
 			v :: o or { return -1 }
 			v
 		}

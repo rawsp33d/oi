@@ -79,7 +79,7 @@ fn range_arithmetic_bounds() {
 #[test]
 fn range_as_fn_return() {
 	let src = indoc! {"
-		fn make(lo int, hi int) range { lo..hi }
+		fn make(lo: int, hi: int) range { lo..hi }
 		make(3, 7)
 	"};
 	check(src, "3..7");

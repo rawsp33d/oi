@@ -175,7 +175,7 @@ fn match_tuple_arity_mismatch() {
 #[test]
 fn match_struct_destructure() {
 	let src = indoc! {r#"
-		struct Point { x int, y int }
+		struct Point { x: int, y: int }
 		p :: Point{ x: 3, y: 4 }
 		match p {
 			Point{ y: b, x } => x + b,
@@ -187,7 +187,7 @@ fn match_struct_destructure() {
 #[test]
 fn match_struct_unknown_field() {
 	let src = indoc! {r#"
-		struct Point { x int, y int }
+		struct Point { x: int, y: int }
 		match Point{ x: 1, y: 2 } {
 			Point { z } => z,
 		}
@@ -244,7 +244,7 @@ fn match_pattern_type_mismatch() {
 #[test]
 fn match_arm_chain_across_lines() {
 	let src = indoc! {"
-		struct C { r int }
+		struct C { r: int }
 		impl C { fn area(self) int { self.r * self.r } }
 		c :: C{r: 3}
 		match true {

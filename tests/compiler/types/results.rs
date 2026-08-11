@@ -97,7 +97,7 @@ fn match_non_exhaustive_errors() {
 #[test]
 fn struct_field_type() {
 	check(
-		"struct Box { val !int }
+		"struct Box { val: !int }
 		b :: Box{ val: !int(42) }
 		b.val",
 		"ok(42)",
@@ -107,7 +107,7 @@ fn struct_field_type() {
 #[test]
 fn fn_param_type() {
 	let src = indoc! {"
-		fn unwrap_or(r !int, fallback int) int {
+		fn unwrap_or(r: !int, fallback: int) int {
 			match r {
 				.ok(n) => n,
 				.err(e) => fallback,
@@ -121,7 +121,7 @@ fn fn_param_type() {
 #[test]
 fn bare_value_return_wraps_ok() {
 	let src = indoc! {"
-		fn find(x int) !int {
+		fn find(x: int) !int {
 			return x
 		}
 		find(5)
@@ -132,7 +132,7 @@ fn bare_value_return_wraps_ok() {
 #[test]
 fn bare_error_return_wraps_err() {
 	let src = indoc! {r#"
-		fn find(x int) !int {
+		fn find(x: int) !int {
 			return error("not found")
 		}
 		find(5)
@@ -164,11 +164,11 @@ fn error_unknown_method() {
 #[test]
 fn long_form_matches_shorthand() {
 	let src = indoc! {r#"
-		fn load(path string) Result[int, Error] {
+		fn load(path: string) Result[int, Error] {
 			if path == "ok" { return 42 }
 			return error("missing")
 		}
-		fn double(path string) Result[int, Error] {
+		fn double(path: string) Result[int, Error] {
 			v :: load(path)?
 			v * 2
 		}
@@ -176,11 +176,11 @@ fn long_form_matches_shorthand() {
 	"#};
 	check(src, "84");
 	let src = indoc! {r#"
-		fn load(path string) Result[int, Error] {
+		fn load(path: string) Result[int, Error] {
 			if path == "ok" { return 42 }
 			return error("missing")
 		}
-		fn double(path string) Result[int, Error] {
+		fn double(path: string) Result[int, Error] {
 			v :: load(path)?
 			v * 2
 		}

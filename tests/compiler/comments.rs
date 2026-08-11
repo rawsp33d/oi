@@ -31,7 +31,7 @@ fn comment_inline() {
 fn doc_before_fn() {
 	let src = indoc! {"
 		## Adds two numbers.
-		fn add(a int, b int) { a + b }
+		fn add(a: int, b: int) { a + b }
 		add(3, 4)
 	"};
 	check(src, "7");

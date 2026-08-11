@@ -42,7 +42,7 @@ fn fn_vars() {
 #[test]
 fn fn_args() {
 	let src = indoc! {"
-		fn add(x int, y int) {
+		fn add(x: int, y: int) {
 			x + y
 		}
 		add(3, 4)
@@ -53,7 +53,7 @@ fn fn_args() {
 #[test]
 fn fn_arg_passthrough() {
 	let src = indoc! {"
-		fn identity(x int) { x }
+		fn identity(x: int) { x }
 		identity(99)
 	"};
 	check(src, "99");
@@ -62,8 +62,8 @@ fn fn_arg_passthrough() {
 #[test]
 fn fn_args_nested() {
 	let src = indoc! {"
-		fn add(x int, y int) { x + y }
-		fn add3(a int, b int, c int) { add(add(a, b), c) }
+		fn add(x: int, y: int) { x + y }
+		fn add3(a: int, b: int, c: int) { add(add(a, b), c) }
 		add3(1, 2, 3)
 	"};
 	check(src, "6");
@@ -72,7 +72,7 @@ fn fn_args_nested() {
 #[test]
 fn fn_arg_float() {
 	let src = indoc! {"
-		fn scale(x f64) { x * 2.0 }
+		fn scale(x: f64) { x * 2.0 }
 		scale(2.5)
 	"};
 	check(src, "5.0");
@@ -81,7 +81,7 @@ fn fn_arg_float() {
 #[test]
 fn fn_arg_trailing_comma() {
 	let src = indoc! {"
-		fn add(x int, y int,) { x + y }
+		fn add(x: int, y: int,) { x + y }
 		add(40, 2,)
 	"};
 	check(src, "42");
@@ -90,7 +90,7 @@ fn fn_arg_trailing_comma() {
 #[test]
 fn self_recursion() {
 	let src = indoc! {"
-		fn fact(n int) int { if n <= 1 { 1 } else { n * fact(n - 1) } }
+		fn fact(n: int) int { if n <= 1 { 1 } else { n * fact(n - 1) } }
 		fact(5)
 	"};
 	check(src, "120");
@@ -109,7 +109,7 @@ fn forward_reference() {
 #[test]
 fn fn_arg_wrong_type() {
 	let src = indoc! {"
-		fn i(x int) { x }
+		fn i(x: int) { x }
 		i(2.4)
 	"};
 	fail_with(src, "wrong argument type");
@@ -118,7 +118,7 @@ fn fn_arg_wrong_type() {
 #[test]
 fn fn_return_type() {
 	let src = indoc! {"
-		fn add(x int, y int) int {
+		fn add(x: int, y: int) int {
 			x + y
 		}
 		add(3, 4)
@@ -129,7 +129,7 @@ fn fn_return_type() {
 #[test]
 fn fn_return_type_float() {
 	let src = indoc! {"
-		fn scale(x f64) f64 { x * 2.0 }
+		fn scale(x: f64) f64 { x * 2.0 }
 		scale(2.5)
 	"};
 	check(src, "5.0");
@@ -138,7 +138,7 @@ fn fn_return_type_float() {
 #[test]
 fn fn_return_keyword() {
 	let src = indoc! {"
-		fn add(x int, y int) int {
+		fn add(x: int, y: int) int {
 			return x + y
 		}
 		add(3, 4)

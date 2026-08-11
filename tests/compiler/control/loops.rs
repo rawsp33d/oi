@@ -29,7 +29,7 @@ fn sums_across_iterations() {
 #[test]
 fn loop_in_function() {
 	let src = indoc! {"
-		fn pow2_over(n int) int {
+		fn pow2_over(n: int) int {
 			x := 1
 			loop {
 				if x > n { return x }
@@ -260,7 +260,7 @@ fn for_range_nested() {
 #[test]
 fn for_range_returns() {
 	let src = indoc! {"
-		fn square_at(n int) int {
+		fn square_at(n: int) int {
 			loop i in 0..10 {
 				if i == n { return i * i }
 			}

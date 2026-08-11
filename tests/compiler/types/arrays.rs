@@ -9,7 +9,7 @@ fn array_literal() {
 #[test]
 fn fn_param_type() {
 	let src = indoc! {"
-		fn first(xs []int) int {
+		fn first(xs: []int) int {
 			xs.0
 		}
 		first([9, 8, 7])
@@ -464,7 +464,7 @@ fn parent_independent_from_slice() {
 fn returned_param_independent_from_arg() {
 	check(
 		indoc! {"
-		fn id(a []int) []int { a }
+		fn id(a: []int) []int { a }
 		a :: [1, 2, 3]
 		r := id(a)
 		r << 4

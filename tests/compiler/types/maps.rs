@@ -290,7 +290,7 @@ fn init_with_elements_fails() {
 fn delete_on_immutable_map_fails() {
 	fail_with(
 		indoc! {r#"
-			fn f(m Map[string, int]) int {
+			fn f(m: Map[string, int]) int {
 				m.delete["one"]
 				m["one"]
 			}
@@ -357,7 +357,7 @@ fn independent_copies() {
 	// returned param vs arg
 	check(
 		indoc! {r#"
-			fn id(m Map[string, int]) Map[string, int] { m }
+			fn id(m: Map[string, int]) Map[string, int] { m }
 			a: Map[string, int]
 			a["a"] = 1
 			r := id(a)

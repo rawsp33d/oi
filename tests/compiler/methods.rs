@@ -3,7 +3,7 @@ use crate::helpers::*;
 #[test]
 fn instance_method() {
 	let src = indoc! {"
-		struct Point { x int, y int }
+		struct Point { x: int, y: int }
 		impl Point {
 			fn sum(self) int { self.x + self.y }
 		}
@@ -16,9 +16,9 @@ fn instance_method() {
 #[test]
 fn method_with_args() {
 	let src = indoc! {"
-		struct Point { x int, y int }
+		struct Point { x: int, y: int }
 		impl Point {
-			fn scaled(self, k int) int { (self.x + self.y) * k }
+			fn scaled(self, k: int) int { (self.x + self.y) * k }
 		}
 		Point{3, 4}.scaled(10)
 	"};
@@ -28,7 +28,7 @@ fn method_with_args() {
 #[test]
 fn method_on_literal() {
 	let src = indoc! {"
-		struct P { x int, y int }
+		struct P { x: int, y: int }
 		impl P { fn sum(self) int { self.x + self.y } }
 		P{3, 4}.sum()
 	"};
@@ -38,7 +38,7 @@ fn method_on_literal() {
 #[test]
 fn method_returns_struct_field() {
 	let src = indoc! {"
-		struct User { name string, age int }
+		struct User { name: string, age: int }
 		impl User {
 			fn can_register(self) bool { self.age > 16 }
 		}
@@ -50,7 +50,7 @@ fn method_returns_struct_field() {
 #[test]
 fn static_method() {
 	let src = indoc! {"
-		struct Point { x int, y int }
+		struct Point { x: int, y: int }
 		impl Point {
 			fn origin() Point { Point{0, 0} }
 			fn sum(self) int { self.x + self.y }
@@ -63,8 +63,8 @@ fn static_method() {
 #[test]
 fn static_method_with_args() {
 	let src = indoc! {"
-		struct Point { x int, y int }
-		impl Point { fn make(a int, b int) Point { Point{a, b} } }
+		struct Point { x: int, y: int }
+		impl Point { fn make(a: int, b: int) Point { Point{a, b} } }
 		Point.make(3, 4).x
 	"};
 	check(src, "3");
@@ -73,7 +73,7 @@ fn static_method_with_args() {
 #[test]
 fn self_type_and_literal() {
 	let src = indoc! {"
-		struct Point { x int, y int }
+		struct Point { x: int, y: int }
 		impl Point {
 			fn new() Self { Self {} }
 			fn sum(self) int { self.x + self.y }
@@ -86,9 +86,9 @@ fn self_type_and_literal() {
 #[test]
 fn self_param_and_fields() {
 	let src = indoc! {"
-		struct Point { x int, y int }
+		struct Point { x: int, y: int }
 		impl Point {
-			fn add(self, other Self) Self { Self{self.x + other.x, self.y + other.y} }
+			fn add(self, other: Self) Self { Self{self.x + other.x, self.y + other.y} }
 		}
 		Point{1, 2}.add(Point{3, 4}).x
 	"};
@@ -103,7 +103,7 @@ fn self_outside_impl() {
 #[test]
 fn mut_self_mutates_receiver() {
 	let src = indoc! {"
-		struct Counter { n int }
+		struct Counter { n: int }
 		impl Counter {
 			fn bump(mut self) { self.n = self.n + 1 }
 			fn get(self) int { self.n }
@@ -120,7 +120,7 @@ fn mut_self_mutates_receiver() {
 fn immutable_self_rejects_field_assign() {
 	fail_with(
 		indoc! {"
-			struct P { x int }
+			struct P { x: int }
 			impl P { fn bad(self) { self.x = 9 } }
 			P{1}.bad()
 		"},
@@ -132,7 +132,7 @@ fn immutable_self_rejects_field_assign() {
 fn no_such_method() {
 	fail_with(
 		indoc! {"
-			struct P { x int }
+			struct P { x: int }
 			p :: P{1}
 			p.nope()
 		"},
@@ -149,8 +149,8 @@ fn methods_only_on_structs() {
 fn wrong_arg_count() {
 	fail_with(
 		indoc! {"
-			struct P { x int }
-			impl P { fn add(self, k int) int { self.x + k } }
+			struct P { x: int }
+			impl P { fn add(self, k: int) int { self.x + k } }
 			P{1}.add()
 		"},
 		"expects 1 argument",

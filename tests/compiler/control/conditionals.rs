@@ -110,7 +110,7 @@ fn branch_binding_does_not_leak() {
 #[test]
 fn guard_return_taken() {
 	let src = indoc! {"
-		fn abs(x int) int {
+		fn abs(x: int) int {
 			if x < 0 { return -x }
 			x
 		}
@@ -122,7 +122,7 @@ fn guard_return_taken() {
 #[test]
 fn guard_return_not_taken() {
 	let src = indoc! {"
-		fn abs(x int) int {
+		fn abs(x: int) int {
 			if x < 0 { return -x }
 			x
 		}
@@ -134,7 +134,7 @@ fn guard_return_not_taken() {
 #[test]
 fn return_in_one_branch() {
 	let src = indoc! {"
-		fn pick(x int) int {
+		fn pick(x: int) int {
 			if x > 0 { return 1 } else { 99 }
 		}
 		pick(5)

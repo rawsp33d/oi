@@ -265,7 +265,7 @@ where
 	let param = just(Token::Mut)
 		.or_not()
 		.then(ident())
-		.then(type_expr.clone().or_not())
+		.then(just(Token::Colon).ignore_then(type_expr.clone()).or_not())
 		.map_with(|((mutable, name), typ), ex| Param {
 			typ: typ.unwrap_or(TypeExpr::Name("Self".into())),
 			name,
@@ -1020,6 +1020,7 @@ where
 
 	// struct defs
 	let struct_field = ident()
+		.then_ignore(just(Token::Colon))
 		.then(type_expr.clone())
 		.then(just(Token::Assign).ignore_then(expr.clone()).or_not())
 		.map_with(|((name, typ), default), ex| Param {
@@ -1073,7 +1074,7 @@ where
 		.then(select! { Token::Int(n) => n })
 		.map(|(neg, n)| (Some(if neg.is_some() { -n } else { n }), None));
 	let disc = just(Token::Assign).ignore_then(disc_int.or(select! { Token::String(s) => (None, Some(s)) }));
-	let fields = brace(loose_list(ident().then(annot.clone())));
+	let fields = brace(loose_list(ident().then_ignore(just(Token::Colon)).then(annot.clone())));
 	let backing = just(Token::Colon).ignore_then(annot.clone()).or_not();
 	let payload = paren(annot.separated_by(just(Token::Comma)).allow_trailing().collect::<Vec<_>>());
 	let variant = ident()

@@ -71,7 +71,7 @@ fn returned_from_fn() {
 fn struct_field() {
 	check(
 		"enum Stat { health mana stamina }
-		struct User { s Stat }
+		struct User { s: Stat }
 		u :: User{ s: Stat.mana }
 		u.s",
 		"mana",
@@ -143,14 +143,14 @@ fn shorthand_in_match() {
 fn shorthand_in_struct_field() {
 	check(
 		"enum Stat { health mana stamina }
-		struct User { s Stat }
+		struct User { s: Stat }
 		u :: User{ s: .mana }
 		u.s",
 		"mana",
 	);
 	check(
 		"enum Stat { health mana stamina }
-		struct User { s Stat }
+		struct User { s: Stat }
 		u :: User{ .stamina }
 		u.s",
 		"stamina",
@@ -315,7 +315,7 @@ fn payload_ordering_rejected() {
 fn struct_payload() {
 	check(
 		indoc! {r#"
-			struct Point { x int, y int }
+			struct Point { x: int, y: int }
 			enum Shape { dot rect(Point) }
 			s :: Shape.rect(Point{ x: 3, y: 4 })
 			match s {
@@ -351,8 +351,8 @@ fn struct_form_construct_and_match() {
 	check(
 		indoc! {r#"
 			enum Shape {
-				circle { radius f64 }
-				rectangle { width f64, height f64 }
+				circle { radius: f64 }
+				rectangle { width: f64, height: f64 }
 				triangle(f64, f64, f64)
 				point
 			}
@@ -372,7 +372,7 @@ fn struct_form_construct_and_match() {
 fn struct_form_shorthand_and_rename() {
 	check(
 		indoc! {r#"
-			enum Shape { circle { radius f64 } rectangle { width f64, height f64 } }
+			enum Shape { circle { radius: f64 } rectangle { width: f64, height: f64 } }
 			fn mk() Shape { .rectangle { width: 3.0, height: 4.0 } }
 			match mk() {
 				.rectangle { width: w, height } => w * height,
@@ -387,7 +387,7 @@ fn struct_form_shorthand_and_rename() {
 fn struct_form_zero_is_first_variant() {
 	check(
 		indoc! {r#"
-			enum Shape { circle { radius f64 } rectangle { width f64, height f64 } }
+			enum Shape { circle { radius: f64 } rectangle { width: f64, height: f64 } }
 			match Shape{} { .circle { radius } => radius, else => -1.0 }
 		"#},
 		"0.0",
@@ -396,14 +396,14 @@ fn struct_form_zero_is_first_variant() {
 
 #[test]
 fn struct_form_unknown_field() {
-	fail_with("enum S { circle { radius f64 } }\nS.circle { r: 1.0 }", "no field `r`");
+	fail_with("enum S { circle { radius: f64 } }\nS.circle { r: 1.0 }", "no field `r`");
 }
 
 #[test]
 fn struct_form_omitted_field_zeroes() {
 	check(
 		indoc! {r#"
-			enum S { rect { w f64, h f64 } }
+			enum S { rect { w: f64, h: f64 } }
 			s :: S.rect { h: 2.0 }
 			match s { .rect { w, h } => w + h }
 		"#},
@@ -413,7 +413,7 @@ fn struct_form_omitted_field_zeroes() {
 
 #[test]
 fn struct_form_positional_rejected() {
-	fail_with("enum S { circle { radius f64 } }\nS.circle(1.0)", "takes named fields");
+	fail_with("enum S { circle { radius: f64 } }\nS.circle(1.0)", "takes named fields");
 }
 
 #[test]
@@ -476,7 +476,7 @@ fn atom_coerces_in_struct_field() {
 	check(
 		indoc! {"
 			enum Stat { health mana stamina }
-			struct User { s Stat }
+			struct User { s: Stat }
 			u :: User{ s: :mana }
 			u.s
 		"},
@@ -627,7 +627,7 @@ fn shorthand_coerces_in_fn_arg() {
 	check(
 		indoc! {"
 			enum Color { red green blue }
-			fn name(c Color) { c.str() }
+			fn name(c: Color) { c.str() }
 			name(.blue)
 		"},
 		"blue",
@@ -639,7 +639,7 @@ fn atom_coerces_in_fn_arg() {
 	check(
 		indoc! {"
 			enum Color { red green blue }
-			fn name(c Color) { c.str() }
+			fn name(c: Color) { c.str() }
 			name(:blue)
 		"},
 		"blue",
@@ -651,7 +651,7 @@ fn shorthand_coerces_in_if_tail_return() {
 	check(
 		indoc! {"
 			enum Color { red green blue }
-			fn fav(pick bool) Color {
+			fn fav(pick: bool) Color {
 				if pick { .blue } else { .red }
 			}
 			fav(true)
@@ -665,7 +665,7 @@ fn shorthand_coerces_in_match_tail_return() {
 	check(
 		indoc! {r#"
 			enum Color { red green blue }
-			fn fav(n int) Color {
+			fn fav(n: int) Color {
 				match n {
 					1 => .red,
 					else => .blue,
@@ -710,14 +710,15 @@ fn print_payloads() {
 	check(
 		indoc! {"
 			enum Shape {
-				point triangle(f64, f64, f64)
-				circle { radius f64 }
+				point
+				circle { radius: f64 }
+				triangle(f64, f64, f64)
 			}
-			print(Shape.triangle(3.0, 4.0, 5.0))
-			print(Shape.circle { radius: 5.0 })
 			print(Shape.point)
+			print(Shape.circle { radius: 5.0 })
+			print(Shape.triangle(3.0, 4.0, 5.0))
 		"},
-		["triangle(3.0, 4.0, 5.0)", "circle{radius: 5.0}", "point"],
+		["point", "circle{radius: 5.0}", "triangle(3.0, 4.0, 5.0)"],
 	);
 }
 
