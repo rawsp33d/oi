@@ -23,8 +23,8 @@ check: build && fmt test lint
 
 # run tests
 [group("cargo")]
-@test:
-	cargo test
+@test *args:
+	cargo test "$@"
 
 # install
 [group("cargo")]
