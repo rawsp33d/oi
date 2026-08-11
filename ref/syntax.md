@@ -441,7 +441,7 @@ demo_traits :: fn() {
 	dog :: Dog{"Collie"}
 	cat :: Cat{"Egyptian Mau"}
 	animals :: []Animal{ dog, cat }
-	
+
 	loop animal in animals {
 		print "a {animal.kind} says: {animal.speak()}"
 	}
@@ -560,7 +560,7 @@ Car : Animal via Horn < { speak :: fn(self) string { "HONK HONK" } }
 
 #{
 	every type constructor composes with every other, to any depth
-	
+
 	| Oi Syntax | Meaning | Rust Equivalent |
 	| --- | --- | --- |
 	| `[]T` | Dynamic array | `Vec<T>` |
@@ -573,7 +573,7 @@ Car : Animal via Horn < { speak :: fn(self) string { "HONK HONK" } }
 	| `fn (A) R` | Function | `fn(A) -> R` |
 	| `Foo[T]` | Generic instance | `Foo<T>` |
 	| `Trait` | Trait object | `&dyn Trait` |
-	
+
 	the prefix shorthands (`[]` `[N]` `?` `!` `&`) read left-to-right
 	everything else nests in brackets
 }#
@@ -615,15 +615,15 @@ meters : Tagged[Meters] = Tagged{ value: 5.0 }
 
 main :: fn() {
 	## variables
-	
+
 	# assignment
-	
+
 	# declaration without assignment
 	foo: int # 0
 	bar: string # ""
 	p: Point # Point{}
 	grid: [3]string # ["", "", ""]
-	
+
 	# declaration with assignment
 	a: int = 2
 	b: string = "hi"
@@ -634,46 +634,46 @@ main :: fn() {
 	no_mute :: "immutable"
 	mute := "mutable"
 	mute = "trololololol"
-	
+
 	# muliple assignment
 	(foo, bar) :: ("food", "bard")
 	(lat long) :: get_coords()
-	
+
 	# swap
 	(baz, qux) := ("bazd", "quxd")
 	(baz, qux) = (qux, baz)
-	
+
 	## primatives
-	
+
 	bull :: true
 	str :: "string"
 	integer :: 1337
 	flt :: 69.420
-	
+
 	# ranges
 	# TODO: are until/after possible outside array slices?
 	between := 1..3
 	until := ..3
 	after := 1..
 	crossing_over_with_john_edward := -4..4
-	
+
 	# paths
 	# TODO: path literal
-	
+
 	# numbers
-	
+
 	# number litarals are `int` (`i32`) and `float` (`f64`) unless otherwise indicated
 	i := 55 # int AKA i32
 	f := 55.55 # float AKA f64
 	e_notation_float := 10e2 # 1000.0
-	
+
 	# can use a prefix to denote common notations
 	# these are all 123
 	a0 := 123
 	a1 := 0x7B
 	a2 := 0b01111011
 	a3 := 0o173
-	
+
 	# can separate arbitrarily with `_`
 	bil := 1_000_000_000
 	wtf := 1_2_3_4_5
@@ -681,23 +681,23 @@ main :: fn() {
 	binary_mask := 0b1_1111_1111
 	permissions := 0o7_5_5
 	big_addr := 0xFF80_0000_0000_0000
-	
+
 	# can cast between types
 	big_int := i64(50_000)
 	small_unsigned_int := u8(16)
-	
+
 	# ints can be automatically promoted to f64 or larger-width ints
 	assert!(2 + 1.0 == 3.0)
-	
+
 	# supports arbitrary bit-width integers, like Zig
 	# use `i<width>` and `u<width>`, where width in [1, 65535]
 	weird_one := i2(1)
 	wat := u7(1000)
-	
+
 	# supported floating types are: f16 f32 f64 f80 f128
-	
+
 	# strings
-	
+
 	normal := "NORMAL mode"
 	raw := r"there is no\nescape"
 	regex := r"\d+\.\d+"
@@ -705,10 +705,10 @@ main :: fn() {
 		strings are multiline
 		by default
 	"
-	
+
 	# concatenation
 	assert!("foo" + "bar", "foobar")
-	
+
 	# string interpolation
 	who := "mom"
 	print("hi {who}!")
@@ -718,10 +718,10 @@ main :: fn() {
 	print("{user.name} is {user.age}")
 	print("sum: {2 + 2}")
 	print("upper: {who.uppercase()}")
-	
+
 	# escape braces by doubling
 	print("use {{braces}} like this")
-	
+
 	# works in multiline strings
 	msg := "
 		dear {who},
@@ -729,7 +729,7 @@ main :: fn() {
 	"
 	# but no interpolation in raw strings
 	path := r"C:\Users\{who}" # {who} is not interpolated
-	
+
 	# arrays
 
 	# collection of 0-indexed elements of the same type
@@ -742,7 +742,7 @@ main :: fn() {
 	# numbers literals may also be used with dot notation
 	assert!(names.0 == "john")
 	assert!(names.2 == "jingleheimerschmidt")
-	
+
 	# append with `<<`
 	odd := [1, 3, 5]
 	odd << 7
@@ -751,27 +751,27 @@ main :: fn() {
 	odd << [9 11]
 	assert!(odd.5 == 11)
 	assert!(odd.len == 6)
-	
+
 	# arrays support dropping the commas when only literals are present
 	even := [2 4 6]
-	
+
 	# `in` operator returns whether array contains element
 	assert!(6 in even)
-	
+
 	# arrays have fields
 	# `len` is the number of initialized elements in the array
 	assert!(even.len == 3)
-	
+
 	# array init
 	arr := []int{}
 	arr << 3
-	
+
 	# fixed size arrays
 	three := [3]string{}
 	three.0 = "larry"
 	three.1 = "curly"
 	three.2 = "moe"
-	
+
 	# maps
 
 	# ident keys are string sugar
@@ -791,7 +791,7 @@ main :: fn() {
 
 	# `{}` resolves against the expected type
 	empty Map[string, int] := {}
-	
+
 	# array slices are array subsets of another array
 	# proper array
 	even := [0 2 4 6 8]
@@ -799,35 +799,35 @@ main :: fn() {
 	assert! even[1..3] == [2 4]
 	assert! even[..3] == [0 2 4]
 	assert! even[1..] == [2 4 6 8]
-	
+
 	# tuples
-	
+
 	# tuples are very important in Oi
 	# under the hood many things are tuples, and some if it bleeds through in [hopefully] interesting ways
 	# function input params are [planned to be] treated as tuples in the compiler
-	
+
 	# the `$` var you've seen in other places makes this really clear
 	its_all_tuples_man :: fn(a: bool, b: int, c: string) (bool, int, string) {
 		$
 	}
 	result := its_all_tuples_man(true, 2, "lol")
 	print(result) # (true, 2, "lol")
-	
+
 	# tuples support dropping the commas when only literals are present
 	only_nums := (2 3 4)
 	other_literals := ("lisp, innit?" true [2 4 5])
-	
+
 	# named tuple fields
-	
+
 	## Naturally every tuple field has a positional index.
 	## But they can also optionally be given names.
 	## This should remind the reader of tables in Lua (and Revo <3).
-	
+
 	t := (a: 1, b: 2)
 	print(t) # (a: 1, b: 2)
 	assert!(t.a == t.0)
 	assert!(t.b == t.1)
-	
+
 	#{
 		These names are purely aliases / hints, and do _not_ affect identity or comparison.
 		Think of it like somebody asks us if their rock is the same as our rock.
@@ -837,12 +837,12 @@ main :: fn() {
 	}#
 	assert!((x: 4, y: 2) == (4, 2))
 	assert!((x: 4, y: 2) == (4, z: 2))
-	
+
 	# names do not need to be given to all indices
 	t := (1, b: 2)
 	print(t) # (1, b: 2)
 	assert!(t.b == t.1)
-	
+
 	# can be used in function return signatures
 	split :: fn(value: string) (left: string, right: string) {
 		split_once(value, "|") # returns a 2-tuple (a twople? anyone?)
@@ -852,7 +852,7 @@ main :: fn() {
 	assert!(splat.left == "hi")
 	assert!(splat.right == "mom")
 	assert!(splat == (l, r))
-	
+
 	# another example with a common divmod method
 	divmod :: fn(a: int, b: int) (q: int, r: int) {
 		(a / b, a % b)
@@ -871,20 +871,20 @@ main :: fn() {
 		out.r = a % b
 		return
 	}
-	
+
 	http_get :: fn(url: string) (int, body string, []Header) {
 		(200, "the body", [])
 	}
 	result := http_get("/health")
 	print(result) # (200, body: "the body", [])
 	assert!(result.body == result.1)
-	
+
 	## unit type
-	
+
 	# (), a 0ple, is the unit type
 	# when you have a fn with no return type expressed, it returns `()`
 	assert!(() == ())
-	
+
 	# these are all equivalent:
 	nada :: fn() {}
 	zilch :: fn() () {}
@@ -902,24 +902,24 @@ main :: fn() {
 	assert!(nada() == no_way())
 	assert!(nada() == nuh_uh())
 	assert!(nada() == ())
-	
+
 	## never
-	
+
 	# `never` indicates that a fn should not return
 	foo :: fn() never {
 		loop {}
 	}
 	foo()
 	unreachable!("the above fn should never have finished")
-	
+
 	## atoms
-	
+
 	# Oi has first-class atoms
 	:foo
 	assert!(:foo != :bar)
 	food := :apple
 	assert!(food == :apple)
-	
+
 	# atoms coerce to enum variants when the type is known from context
 	# NOTE: atoms by definition cannot carry payloads
 	Color :: enum { red blue }
@@ -928,7 +928,7 @@ main :: fn() {
 	c = :blue # type inferred from declaration and coerced
 	assert!(c == Color.blue)
 	assert!(Color.blue == :blue)
-	
+
 	Stat :: enum { health mana stamina }
 	User :: struct {
 		stat: Stat
@@ -940,11 +940,11 @@ main :: fn() {
 	# this might be useful for quick prototyping?
 	# nothing at the callsites needs to change when you later add the definition
 	# NOTE: TBH I might remove this feature or make it a compiler warning when a typed enum exists.
-	
+
 	# prototype code
 	state := :loading
 	state = :ready
-	
+
 	# on a later pass, despite nothing at the callsites changing, adding this enum definition would add strong typing and copiler checking
 	# STYLE: if an enum exists, prefer `.foo`
 	State :: enum { loading ready error }
@@ -953,11 +953,11 @@ main :: fn() {
 	status :: fn() :ok { :ok }
 
 	## types
-	
+
 	# type aliases
 	type Score = int
 	type Speed = (Point, int)
-	
+
 	# function signatures can be aliased
 	type Operation = fn (int) int
 	op :: fn(n: int, f: Operation) int {
@@ -976,14 +976,14 @@ main :: fn() {
 	})) # 12
 	# anonymous function shorthand (types inferred, input accessible via `$`)
 	print(op(4, fn { $ * 4 })) # 16
-	
+
 	# all types have zeroed values
 	u := User{}
 	assert!(u.age == 0)
 	assert!(u.name == "")
-	
+
 	## control flow
-	
+
 	i := 2
 	if i == 0 {
 		print("zero")
@@ -992,11 +992,11 @@ main :: fn() {
 	} else {
 		print("idk")
 	}
-	
+
 	## matching
-	
+
 	# arms are `pattern => expr,` (last comma optional) or `pattern => { block }`
-	
+
 	# else for catch-all
 	os := "linux"
 	match os {
@@ -1024,28 +1024,28 @@ main :: fn() {
 	}
 
 	## loops
-	
+
 	# `loop {}`: infinite
 	# `loop <cond> {}`: while
 	# `loop <pattern> in <iter> {}`: for
-	
+
 	# forever
 	loop {
 		print("are we there yet?")
 	}
-	
+
 	# while
 	i := 0
 	loop i <= 3 {
 		print("are we there yet?")
 		i += 1
 	}
-	
+
 	# for
 	loop i in 0..5 {
 		print(i)
 	}
-	
+
 	# foreach
 	loop x in [2 4 6 8] {
 		print(x)
@@ -1053,14 +1053,14 @@ main :: fn() {
 	loop (x, y) in [(0, 0) (1, 2)] {
 		print((y, x))
 	}
-	
+
 	# TODO: custom iterators
-	
+
 	## [almost?] everything is an expression
-	
+
 	# ternary (`if` is an expression)
 	foo := if true { "yes" } else { "no" }
-	
+
 	# if no else, uses default value from the if body
 	# TODO: or should it be `none` and make the var `?T`?
 	str := if false { "idk" }
@@ -1070,7 +1070,7 @@ main :: fn() {
 
 	# built-in functions
 	result := assert!(check()) |> next
-	
+
 	# match
 	(i, foo, bar, u, me) := (0, true, true, 2, [0 2 4])
 	n := match true {
@@ -1081,17 +1081,17 @@ main :: fn() {
 	}
 
 	## `Option` and `Result` types
-	
+
 	# `?T` holds `some(T)` or `none`
 	# `!T` holds `ok(T)` or an `error` (any type implementing the `Error` trait)
 	# bare return values are auto-wrapped
 	# there is no need for an explicit `ok()` or `some()` un/wrapper like there is in Rust
-	
+
 	Repo :: struct {
 		users []User
 		cached_name ?string # zero value is `none`
 	}
-	
+
 	Repo :< {
 		# !T returns a value or an error
 		find_user :: fn(id: int) !User {
@@ -1100,7 +1100,7 @@ main :: fn() {
 			}
 			return error("User {id} not found")
 		}
-	
+
 		# ?T returns a value or `none`
 		find_user_if_exists :: fn(id: int) ?User {
 			loop user in self.users {
@@ -1109,51 +1109,51 @@ main :: fn() {
 			return none
 		}
 	}
-	
+
 	# ?T and !T must be handled, and the or block is required to unwrap
 	# $ is the Error value (!T) or none (?T)
 	user := repo.find_user(7) or {
 		print($.message()) # "User 7 not found"
 		return
 	}
-	
+
 	# or block can yield a fallback value of the same type
 	user := repo.find_user(7) or { User{ name: "guest" } }
-	
+
 	# check error type in the or block
 	file := fs.open(path) or {
 		if $ is fs.NotFoundError { return create_default() }
 		panic!($.message())
 	}
-	
+
 	# postfix `?` propagates up to the caller: error out of a !T fn, none out of a ?T fn
 	# panics if used in main()
 	load_config :: fn(path: string) !Config {
 		raw := fs.read(path)?
 		parse(raw)?
 	}
-	
+
 	display_name :: fn(id: int) ?string {
 		user := repo.find_user_if_exists(id)?
 		user.name
 	}
-	
+
 	# creating option/result values directly
 	nope :: ?int(none)
 	maybe :: ?int(42)
 	ok :: !int(7)
 	broken :: !int(error("oops"))
-	
+
 	# ?T / !T wrap the whole tuple in multi-return
 	checked_divmod :: fn(a: int, b: int) !(int, int) {
 		if b == 0 { return error("division by zero") }
 		(a / b, a % b)
 	}
 	(q, r) := checked_divmod(10, 3)?
-	
+
 	# custom error types
 	# embed Error for default impls, only override what you need
-	
+
 	ParseError :: struct {
 		Error
 		line: int
@@ -1163,14 +1163,14 @@ main :: fn() {
 		message :: fn(self) string { "parse error at {self.line}:{self.col}" }
 		code :: fn(self) int { 1 }
 	}
-	
+
 	parse :: fn(src: string) !Ast {
 		...
 		return ParseError{ line: 4, col: 2 } # auto-cast to Error
 	}
-	
+
 	parse(src) or { panic!($.message()) }
-	
+
 	# error chaining via cause()
 	WrappedError :: struct {
 		Error
@@ -1182,9 +1182,9 @@ main :: fn() {
 		cause :: fn(self) ?Error { self.inner }
 	}
 
-	
+
 	## enums
-	
+
 	# plain
 	Color :: enum {
 		red
@@ -1195,7 +1195,7 @@ main :: fn() {
 	c := Color.green
 	# shorthand enum when the type is known from context
 	c = .red
-	
+
 	# variants with payloads
 	Shape :: enum {
 		circle { radius f64 }
@@ -1207,7 +1207,7 @@ main :: fn() {
 	s := .circle { radius: 5.0 }
 	s := Shape.triangle(3.0, 4.0, 5.0)
 	s := Shape.point
-	
+
 	# pattern matching (exhaustive)
 	area := match s {
 		.circle { radius } => PI * radius * radius,
@@ -1215,14 +1215,14 @@ main :: fn() {
 		.triangle(a, b, c) => heron(a, b, c),
 		.point => 0.0,
 	}
-	
+
 	# specified values
 	Status :: enum {
 		ok = 200
 		not_found = 404
 		server_error = 500
 	}
-	
+
 	# ?T and !T are syntax suger for these:
 	Option[T] :: enum {
 		some(T)
@@ -1232,19 +1232,19 @@ main :: fn() {
 		ok(T)
 		err(E)
 	}
-	
+
 	# first value is default
 	c := Color{} # .red
 	s := Shape{} # .circle { radius: 0.0 }
-			
+
 	# methods
-	
+
 	Color :: enum {
 		red
 		green
 		blue
 	}
-	
+
 	Color :< {
 		hex :: fn(self) string {
 			match self {
@@ -1253,18 +1253,18 @@ main :: fn() {
 				.blue => "#0000ff",
 			}
 		}
-		
+
 		is_warm :: fn(self) bool {
 			self == .red
 			dwea :: pdl
 		}
-		
+
 		# Associated function (no self)
 		primary :: fn() Color {
 			.red
 		}
 	}
-	
+
 	# Display is auto-derived for enums, but can be overridden
 	Color : Display < {
 		display :: fn(self) string {
@@ -1275,46 +1275,46 @@ main :: fn() {
 			}
 		}
 	}
-	
+
 	c := Color.red
 	print(c.hex()) # "#ff0000"
 	default := Color.primary()
-	
+
 	# enums can be created from string or integer value and converted into string
-	
+
 	Cycle :: enum {
 		one
 		two = 2
 		three
 	}
-	
+
 	// create enum from value
 	print(Cycle.from(10) or { Cycle.three })
 	print(Cycle.from("two")?)
 	print(Cycle.from(:three) or Cycle{})
-	
+
 	// convert an enum value to a string
 	print(Cycle.one.str())
-	
+
 	# the newlines are optional
 	Fruit :: enum { apple orange grape }
 
 	## sum types
-	
+
 	type Id = int | string
 	type Json = :null | bool | f64 | string | []Json | Map[string, Json]
-	
+
 	# member values coerce when the type is known from context
 	id: Id = 7
 	id = "abc123"
-	
+
 	# sum types may be used in type signatures
 	lookup :: fn(id: Id) User | :missing { :missing }
-	
+
 	# nested sum aliases splice in place
 	type Num = int | f64
 	type Value = Num | string # = int | f64 | string
-	
+
 	# matching is exhaustive
 	describe :: fn(id: Id) string {
 		match id {
@@ -1322,61 +1322,61 @@ main :: fn() {
 			s @ string => "named: {s}",
 		}
 	}
-	
+
 	# members must be distinct after alias resolution
 	# type Bad = int | int # error: duplicate member
-	
+
 	# the zero value is the first member's zero
 	blank: Id # 0
-	
+
 	# sum types are interchangeable
 	# NOTE: except for containers like []Id and []Handle
 	Handle :: string | int
 	h Handle := blank
-	
+
 	# member order is defined by each type, which determines zero values
 	new: Id
 	fresh: Handle
 	assert!(new != fresh)
 	assert!(new == 0)
 	assert!(fresh == "")
-	
+
 	# atoms make great sum types
 	Status :: :ok | :err
-	
+
 	# to make distinct types, wrap sum type in tuple structs
 	UserId :: struct (int | string)
 
 	## errors
-	
+
 	# built-in Error trait
 	trait Error {
 		message :: fn(self) string
 		code :: fn(self) int
 		cause :: fn(self) ?Error { none }
 	}
-	
+
 	# `!T` means: `T` or some value implementing `Error`
 	read_config :: fn() !Config { ... }
-	
+
 	# crash out
 	if false {
 		assert!(true, "optional message")
 		panic!("uh oh...")
 	}
-	
+
 	## blocks
-	
+
 	# blocks are groups of expressions
 	# the final expression is the block's value
 	three := {
 		light_the_beacons()
 		3
 	}
-	
+
 	# `;` joins lines
 	long_but_short := { do_thing(); 3 }
-	
+
 	# blocks are eager and run in place
 	# they can fully read and mutate the enclosing scope
 	{ x }
@@ -1387,7 +1387,7 @@ main :: fn() {
 	if p == (Point{}) { ... }
 
 	## anonymous functions
-	
+
 	#{
 		Anonymous functions may be created with `fn`.
 		The syntax scales from tiny closures to fully typed, explicitly captured functions.
@@ -1428,28 +1428,28 @@ main :: fn() {
 		counter += x
 		counter
 	}
-	
+
 	# move capture
 	spawn(fn [move data] { process(data) })
-	
+
 	## trailing functions
-	
+
 	# if a function is the last argument of a call, it may be written after the parens
 	retry(3) fn {
 		fetch(url)?
 	}
-	
+
 	# if no named params are needed, the `fn` may be omitted (`$` is still accessible)
 	retry(3) {
 		fetch(url)?
 	}
-	
+
 	# if the trailing function is the only argument, the parens may be omitted too
 	spawn {
 		do_work()
 	}
 	mutex.with { do_work() }
-	
+
 	# composed with leading literals, function calls may be written like this:
 	# test("registration", fn { ... })
 	test "registration" {
@@ -1462,33 +1462,33 @@ main :: fn() {
 	timeout 5.sec {
 		slow_call()
 	}
-	
+
 	# like with normal functions, `$` is the input passed to the anonymous function
 	db.transaction {
 		$.insert(user)
 		$.insert(order)
 	}
-	
+
 	# named (and typed) params may optionally be provided
 	db.transaction fn (tx) {
 		tx.insert(user)
 		tx.insert(order)
 	}
-	
+
 	## misc.
-	
+
 	# defer
-	
+
 	# defer takes an expression
 	f := os.create("out.log")?
 	defer f.close()
-	
+
 	# blocks are expressions too
 	defer {
 		print("closing file")
 		f.close()
 	}
-	
+
 	# defer gets the return values if relevant
 	do_stuff :: fn() bool {
 		defer {
@@ -1502,7 +1502,7 @@ main :: fn() {
 
 	# defer/err only runs if an error was raised
 	defer/err eprint()
-	
+
 	# defers in loops run at the end of each iteration
 	loop {
 		defer print("here we go again...")
@@ -1512,18 +1512,18 @@ main :: fn() {
 	## pipelines
 
 	call_to_action := "let's do this" |> trim |> upper
-		
+
 	# if any step returns none, the whole chain is none
 	"optional-aware" |> upper?
 	nickname := find_user(id)
 		|> get_profile?
 		|> get_display_name?
 		or "anonymous"
-	
+
 	# any error short circuits
 	"result-aware" |> upper?
 	result := input |> trim |> upper |> save?
-	
+
 	# Each step gets the piped value as `$`.
 	# A bare fn (ex: `trim`) is ran with the input as the first param (`trim` == `trim($)`).
 	# Any other expression (a call using `$`, an `if`, a block) # is evaluated in place with `$` bound.
@@ -1533,12 +1533,12 @@ main :: fn() {
 		or log_errors("foo", $)
 	"hello" |> $ + " world"
 	[2 4 6 8] |> if $.len() > 0 { print(true) }
-	
+
 	# any errors in the pipeline flow directly to an `or`
 	"error-only pipes"
 		|> upper
 		or handler
-	
+
 	# any expression can be used as a pipeline step, including blocks
 	# for convenience, in blocks `$` is bound to the passed-in params as if they were a function
 	result := "error-only pipes with block"
@@ -1568,7 +1568,7 @@ main :: fn() {
 		}
 	"gtfo" |> process or { panic!("uh oh...") }
 	"err binding" |> raise_err |> or { log.error($) }
-	
+
 	# you can specify params
 	# to a name when nesting to avoid ambiguity
 	"foo" |> fn (outer) {
@@ -1587,7 +1587,7 @@ main :: fn() {
 		}
 		assert!(outer == $)
 	}
-	
+
 	# all together now (all together now!)
 	result := data
 		|> validate
@@ -1600,12 +1600,12 @@ main :: fn() {
 			save($)?
 		}
 		or log
-	
+
 	formatted := name
 		|> uppercase
 		|> wrap("[", $, "]")
 		|> log(level: :info, $)
-		
+
 	# pipeline functions
 
 	# there is a shorthand for creating methods that are just made up of a pipeline
@@ -1617,7 +1617,7 @@ main :: fn() {
 	fn slugify = trim |> lower |> replace(" ", "-")
 	# type annotations may be provided for clarity, but are inferred from the pipeline
 	slugify :: fn(s: string) string = trim |> lower |> replace(" ", "-")
-	
+
 	# this lets any bound values be used directly throughout the pipeline,
 	# rather than each stage only having access to the return of the prior stage
 	count_letters :: fn(s: string) int =
@@ -1626,22 +1626,22 @@ main :: fn() {
 			$
 		}
 	assert!(count_letters("hi, mom!") == 4)
-	
+
 	## metaprogramming
-	
+
 	# compile-time eval with comp
-	
+
 	# takes any expression
 	const PI = comp 22.0 / 7.0
 	const VERSION = comp git.current_sha()
-	
+
 	# including if and match expressions
 	const PLATFORM_DEFAULT = comp if BUILD_OS == :windows { "\\r\\n" } else { "\\n" }
-	
+
 	# embedded resources
 	const image = comp fs.read_bytes("assets/cats.png")?
 	const shader = comp fs.read("shaders/urmom.glsl")?
-	
+
 	# or block expressions
 	const VERSION_INFO = comp {
 		sha := git.head_sha()
@@ -1656,13 +1656,13 @@ main :: fn() {
 		# comptime assertions
 		assert!(max_connections > 0 && max_connections <= 65535)
 	}
-	
+
 	# function calls can have comptime args
 	open_typed :: fn(comp T: type, path: string) !T {
 		raw := open(path)?
 		deserialize(T, raw)
 	}
-	
+
 	# generics are sugar for comp type params
 	first[T] :: fn(xs []T) ?T {
 		if xs.len() == 0 { none } else { Some(xs[0]) }
@@ -1674,7 +1674,7 @@ main :: fn() {
 	max :: fn(comp T: type, a: T, b: T) T where T is Ord { ... }
 
 	## annotations
-	
+
 	# an annotation is a struct value attached with @
 	# they don't do anything on their own but may be read back through reflection
 	# @pure/@params/@required are builtin annotations, defined in the prelude and consumed by the compiler
@@ -1682,37 +1682,37 @@ main :: fn() {
 	awesome :: struct {}
 	@awesome
 	kickflip :: fn() {}
-	
+
 	deprecated :: struct { reason: string }
 	@deprecated("use speak()")
 	yell :: fn() string { ... }
 	# TODO: the comp and reflection stuff not fleshed out yet
 	comp for note in typeinfo(yell).annotations { ... }
-	
+
 	## macros
-	
+
 	# a macro is a comptime fn over `Ast`, defined with `fn name!`
 	# macros end in a !, which suspends normal parsing and collects the body
 	# args arrive as parsed `Ast` by default
-	
+
 	# quasi-quote evals to `Ast`
 	# paired backticks around valid Oi
 	q := `2 + 2`
-	
+
 	# %name unquotes a comptime value, %{expr} unquotes an expression
 	n := 2
 	doubled := `%n + %{compute_rhs()}`
-	
+
 	# %{...xs} spreads an []Ast across a sequence position (call args, array elems, statements, match arms)
 	args := [`1`, `2`, `3`]
 	ast := `sum(%{...args})`
-	
+
 	# quotes are bidirectional
 	match expr {
 		`foo(%x, %y)` => swap_args(x, y),
 		_ => expr,
 	}
-	
+
 	fn derive!(input: Ast, traits: Ast) Ast {
 		# input is the parsed struct, traits is the list passed to @derive!()
 		name := input.type_name()
@@ -1730,14 +1730,14 @@ main :: fn() {
 		})
 		`%{...impls}`
 	}
-	
+
 	# `@name!` runs a macro on the following expression
 	@derive!(Eq, Debug)
 	Point :: struct { x: int, y: int }
 
 	# inline calls
 	dbg!(count_letters("hi, mom!"))
-	
+
 	# paren-less statement form. the argument runs to end of statement, parenthesize to compose
 	assert! foo.bar() == 5
 
@@ -1751,7 +1751,7 @@ main :: fn() {
 			println("{field.name} = {value.(field.name)}")
 		}
 	}
-	
+
 	# conditional compilation
 	log :: fn(msg: string) {
 		comp if BUILD_MODE == :debug {
