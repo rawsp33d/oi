@@ -154,7 +154,7 @@ fn rejects_bad_impls() {
 		Dog : Animal { speak :: fn(self) string { "woof" } }
 	"#});
 	fail(indoc! {r#"
-		Animal :: trait { speak :: fn(self) string }
+		Animal :: trait { speak: fn(self) string }
 		Dog :: struct {}
 		Dog : Animal {}
 	"#});
@@ -174,42 +174,125 @@ fn rejects_duplicate_trait() {
 }
 
 #[test]
-fn rejects_method_not_in_trait() {
-	fail(indoc! {r#"
-		Animal :: trait { speak :: fn(self) string }
+fn allows_extra_helper_fills() {
+	let src = indoc! {r#"
+		Animal :: trait { speak: fn(self) string }
 		Dog :: struct {}
 		Dog : Animal {
-			speak :: fn(self) string { "woof" }
-			fetch :: fn(self) string { "stick" }
+			speak :: fn(self) string { self.noise() }
+			noise :: fn(self) string { "woof" }
 		}
-	"#});
+		Dog{}.speak()
+	"#};
+	check(src, "woof");
 }
 
 #[test]
 fn rejects_wrong_arity_impl() {
-	fail(indoc! {r#"
-		Animal :: trait { speak :: fn(self) string }
-		Dog :: struct {}
-		Dog : Animal { speak :: fn(self, loud: bool) string { "woof" } }
-	"#});
+	fail_with(
+		indoc! {r#"
+			Animal :: trait { speak: fn(self) string }
+			Dog :: struct {}
+			Dog : Animal { speak :: fn(self, loud: bool) string { "woof" } }
+		"#},
+		"wrong signature",
+	);
 }
 
 #[test]
 fn rejects_wrong_param_type_impl() {
-	fail(indoc! {r#"
-		Animal :: trait { speak :: fn(self, times: int) string }
-		Dog :: struct {}
-		Dog : Animal { speak :: fn(self, times: float) string { "woof" } }
-	"#});
+	fail_with(
+		indoc! {r#"
+			Animal :: trait { speak: fn(self, times: int) string }
+			Dog :: struct {}
+			Dog : Animal { speak :: fn(self, times: float) string { "woof" } }
+		"#},
+		"wrong signature",
+	);
 }
 
 #[test]
 fn rejects_wrong_return_type_impl() {
-	fail(indoc! {r#"
-		Animal :: trait { speak :: fn(self) string }
-		Dog :: struct {}
-		Dog : Animal { speak :: fn(self) int { 0 } }
-	"#});
+	fail_with(
+		indoc! {r#"
+			Animal :: trait { speak: fn(self) string }
+			Dog :: struct {}
+			Dog : Animal { speak :: fn(self) int { 0 } }
+		"#},
+		"wrong signature",
+	);
+}
+
+#[test]
+fn one_fill_satisfies_two_traits() {
+	let src = indoc! {"
+		A :: trait { f: fn(self) int }
+		B :: trait { f: fn(self) int }
+		S :: struct {}
+		S : A, B { f :: fn(self) int { 9 } }
+		S{}.f()
+	"};
+	check(src, "9");
+}
+
+#[test]
+fn rejects_shared_fill_sig_mismatch() {
+	fail_with(
+		indoc! {"
+			A :: trait { f: fn(self) int }
+			B :: trait { f: fn(self) string }
+			S :: struct {}
+			S : A, B { f :: fn(self) int { 9 } }
+		"},
+		"declares",
+	);
+}
+
+#[test]
+fn rejects_conflicting_defaults() {
+	fail_with(
+		indoc! {"
+			A :: trait { f :: fn(self) int { 1 } }
+			B :: trait { f :: fn(self) int { 2 } }
+			S :: struct {}
+			S : A, B
+		"},
+		"takes default `f` from both",
+	);
+}
+
+#[test]
+fn own_fill_settles_default_conflict() {
+	let src = indoc! {"
+		A :: trait { f :: fn(self) int { 1 } }
+		B :: trait { f :: fn(self) int { 2 } }
+		S :: struct { f :: fn(self) int { 3 } }
+		S : A, B
+		S{}.f()
+	"};
+	check(src, "3");
+}
+
+#[test]
+fn body_fill_discharges_bare_claim() {
+	let src = indoc! {"
+		A :: trait { f: fn(self) int }
+		S :: struct { f :: fn(self) int { 7 } }
+		S : A
+		S{}.f()
+	"};
+	check(src, "7");
+}
+
+#[test]
+fn rejects_duplicate_fill() {
+	fail_with(
+		indoc! {"
+			S :: struct { f :: fn(self) int { 1 } }
+			S :{ f :: fn(self) int { 2 } }
+		"},
+		"duplicate fill",
+	);
 }
 
 #[test]

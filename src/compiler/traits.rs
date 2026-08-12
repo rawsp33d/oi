@@ -33,6 +33,7 @@ pub(super) fn check_impls<'p>(
 	types: TypeCtx,
 	others: &mut Vec<FnItem<'p>>,
 ) -> Result<(), Diagnostic> {
+	let mut defaults: HashMap<(String, String), &str> = HashMap::new();
 	for TraitBody {
 		span,
 		typ,
@@ -119,9 +120,29 @@ pub(super) fn check_impls<'p>(
 			if methods.iter().any(|m| matches!(&m.0, Expr::Fn { name: n, .. } if n == name)) {
 				continue;
 			}
+			// check whether an overlapping fill is already present
+			let key = (typ.to_string(), name.clone());
+			if !defaults.contains_key(&key)
+				&& let Some(f) = others.iter().find(|f| f.key == format!("{typ}.{name}"))
+			{
+				let (got, want) = (sig(f.params, f.ret)?, sig(params, ret)?);
+				if got != want {
+					let msg = format!("`{typ}.{name}` is `{got}`, trait `{tn}` declares `{want}`");
+					return Err(Diagnostic::new(msg, span.into_range()).with_label("wrong signature"));
+				}
+				continue;
+			}
 			if body.is_empty() {
 				let msg = format!("`{typ}` is missing method `{name}` required by trait `{tn}`");
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("provide this method"));
+			}
+			if let Some(prev) = defaults.insert(key, tn)
+				&& prev != tn
+			{
+				let msg = format!("`{typ}` takes default `{name}` from both `{prev}` and `{tn}`");
+				return Err(
+					Diagnostic::new(msg, span.into_range()).with_label(format!("fill `{name}` on `{typ}` to settle it"))
+				);
 			}
 			others.push(FnItem {
 				key: format!("{typ}.{name}"),

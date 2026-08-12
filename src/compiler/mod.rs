@@ -236,7 +236,7 @@ impl Default for Compiler {
 }
 
 impl Compiler {
-	// Register a type's fills (from its body or an impl block) as `Type.method` fns.
+	// Register a type's fills as `Type.method` fns.
 	fn register_fills<'a>(
 		&mut self,
 		typ: &str,
@@ -244,7 +244,7 @@ impl Compiler {
 		fills: &'a [Spanned<Expr>],
 		scope: &'a Scope,
 		others: &mut Vec<FnItem<'a>>,
-	) {
+	) -> Result<(), Diagnostic> {
 		for m in fills {
 			let Expr::Fn {
 				name,
@@ -257,6 +257,12 @@ impl Compiler {
 			else {
 				continue;
 			};
+			// one fill per name
+			let key = format!("{typ}.{name}");
+			if others.iter().any(|f| f.key == key) || self.generics.contains_key(&key) {
+				let msg = format!("duplicate fill `{key}`");
+				return Err(Diagnostic::new(msg, m.1.into_range()).with_label("one fill per name"));
+			}
 			if type_params.is_empty() && mtp.is_empty() {
 				others.push(FnItem {
 					key: format!("{typ}.{name}"),
@@ -285,7 +291,7 @@ impl Compiler {
 			let mut all_params = type_params.to_vec();
 			all_params.extend(mtp.clone());
 			self.generics.insert(
-				format!("{typ}.{name}"),
+				key,
 				GenericFnDef {
 					params,
 					params_tuple: *params_tuple,
@@ -296,6 +302,7 @@ impl Compiler {
 				},
 			);
 		}
+		Ok(())
 	}
 
 	pub fn compile(&mut self, program: &Program) -> Result<*const u8, Diagnostic> {
@@ -345,11 +352,11 @@ impl Compiler {
 							fields: fields.clone(),
 						},
 					);
-					self.register_fills(name, type_params, fills, scope, &mut others);
+					self.register_fills(name, type_params, fills, scope, &mut others)?;
 				}
 				Expr::StructDef { name, fields, fills, .. } => {
 					struct_items.push((name.as_str(), fields.as_slice()));
-					self.register_fills(name, &[], fills, scope, &mut others);
+					self.register_fills(name, &[], fills, scope, &mut others)?;
 				}
 				Expr::EnumDef {
 					name,
@@ -365,7 +372,7 @@ impl Compiler {
 							variants: variants.clone(),
 						},
 					);
-					self.register_fills(name, type_params, fills, scope, &mut others);
+					self.register_fills(name, type_params, fills, scope, &mut others)?;
 				}
 				Expr::EnumDef {
 					name,
@@ -375,7 +382,7 @@ impl Compiler {
 					..
 				} => {
 					enum_items.push((name.as_str(), backing.as_ref(), variants.as_slice()));
-					self.register_fills(name, &[], fills, scope, &mut others);
+					self.register_fills(name, &[], fills, scope, &mut others)?;
 				}
 				Expr::TypeAlias { name, typ } => {
 					if matches!(typ, TypeExpr::TupleStruct(..)) && TypeCtx::builtin_type(name) {
@@ -407,7 +414,7 @@ impl Compiler {
 						});
 						self.trait_impls.insert((typ.clone(), tn.clone()));
 					}
-					self.register_fills(typ, type_params, fills, scope, &mut others);
+					self.register_fills(typ, type_params, fills, scope, &mut others)?;
 				}
 				Expr::Fn { name, body, .. } if name == "main" => main_body = Some(body),
 				Expr::Fn {
