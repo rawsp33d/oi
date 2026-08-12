@@ -40,6 +40,17 @@ pub(crate) struct FnSig {
 	pub ret: Typ,
 }
 
+impl FnSig {
+	// Params as a fn value sees them, `mut` folded back in.
+	pub(crate) fn value_params(&self) -> Vec<Typ> {
+		self.params
+			.iter()
+			.zip(&self.muts)
+			.map(|(t, &m)| if m { Typ::Mut(Box::new(t.clone())) } else { t.clone() })
+			.collect()
+	}
+}
+
 // A generic free function, monomorphized per callsite.
 #[derive(Clone)]
 pub(crate) struct GenericFnDef {

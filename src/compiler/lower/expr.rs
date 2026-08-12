@@ -63,11 +63,20 @@ impl<'a> Translator<'a> {
 				Ok((val, Typ::Result(Box::new(inner_typ))))
 			}
 
-			Expr::Ident(name) => {
-				let local = self.local(name, expr.1.into_range())?;
-				let val = self.read_local(&local);
-				Ok((val, local.typ))
-			}
+			Expr::Ident(name) => match self.local(name, expr.1.into_range()) {
+				Ok(local) => {
+					let val = self.read_local(&local);
+					Ok((val, local.typ))
+				}
+				Err(e) => match self.funcs.get(self.qualify(name)).cloned() {
+					Some(sig) => {
+						let func_ref = self.module.declare_func_in_func(sig.id, self.b.func);
+						let addr = self.b.ins().func_addr(self.int, func_ref);
+						Ok((addr, Typ::Fn(sig.value_params(), Box::new(sig.ret))))
+					}
+					None => Err(e),
+				},
+			},
 
 			Expr::Dollar => Ok(self.dollar()),
 

@@ -52,12 +52,7 @@ impl<'a> Translator<'a> {
 		let sig = self.declare_instance(&format!("anon${}_{}", span.start, span.end), &def, HashMap::new())?;
 		let func_ref = self.module.declare_func_in_func(sig.id, self.b.func);
 		let addr = self.b.ins().func_addr(self.int, func_ref);
-		let params: Vec<Typ> = sig
-			.params
-			.into_iter()
-			.zip(&sig.muts)
-			.map(|(t, &m)| if m { Typ::Mut(Box::new(t)) } else { t })
-			.collect();
+		let params = sig.value_params();
 		if resolved.is_empty() {
 			return Ok((addr, Typ::Fn(params, Box::new(sig.ret))));
 		}
