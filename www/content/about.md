@@ -120,7 +120,7 @@ At some point I started designing what has become Oi.
 - V
 - Nushell
 - Rust
-- random new languages that pop up on [/r/programminglanguages](https://www.reddit.com/r/ProgrammingLanguages/), like [revo](https://github.com/if-not-nil/revo)
+- random new languages that pop up on [/r/programminglanguages](https://www.reddit.com/r/ProgrammingLanguages/), like [revo](https://github.com/if-not-nil/revo) and [Capy](https://github.com/capy-language/capy)
 - to a lesser extent: Nim, Zig, Clojure, Janet, Lua, Odin, Julia, Elixir, Haskell, GDScript
 
 ## goals & non-goals

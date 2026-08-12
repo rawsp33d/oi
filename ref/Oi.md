@@ -151,6 +151,7 @@ tags: []
 # influences
 - V
 - [revo](https://github.com/if-not-nil/revo)
+- [Capy](https://github.com/capy-language/capy)
 - Nushell
 	- structured data pipelines
 - Rust
