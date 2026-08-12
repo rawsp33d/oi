@@ -555,6 +555,18 @@ where
 		};
 		let keyed = spanned(key).then(just(Token::Colon).ignore_then(expr.clone()));
 		let pun = ident().map_with(|n, ex| ((Expr::Ident(n.clone()), ex.span()), (Expr::Ident(n), ex.span())));
+
+		// map literals
+		let map_entry = spanned(key).then_ignore(just(Token::Assign)).then(expr.clone());
+		let map_entries = map_entry
+			.separated_by(just(Token::Comma).or_not())
+			.allow_trailing()
+			.at_least(1)
+			.collect::<Vec<_>>();
+		let map_lit = just(Token::Ident("Map".to_string()))
+			.ignore_then(brace(map_entries.clone().or_not().map(Option::unwrap_or_default)))
+			.or(brace(map_entries))
+			.map_with(|entries, ex| (Expr::MapLit(entries), ex.span()));
 		let record_entries = keyed
 			.clone()
 			.or(pun.then_ignore(just(Token::Comma).rewind()))
@@ -770,6 +782,7 @@ where
 		// atoms
 		let atom = choice((
 			type_init,
+			map_lit,
 			leaf,
 			enum_shorthand,
 			group,

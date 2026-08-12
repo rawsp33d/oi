@@ -189,6 +189,8 @@ pub enum Expr {
 	Ref(Box<Spanned<Expr>>),
 	// `{ k: v }`
 	Record(Vec<(Spanned<Expr>, Spanned<Expr>)>),
+	// `Map{ k = v }`
+	MapLit(Vec<(Spanned<Expr>, Spanned<Expr>)>),
 	// `name.field = value`
 	FieldAssign {
 		name: String,

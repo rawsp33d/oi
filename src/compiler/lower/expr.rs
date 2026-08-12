@@ -444,7 +444,16 @@ impl<'a> Translator<'a> {
 				Ok((boxp, typ))
 			}
 
-			Expr::Record(entries) => self.record_lit(entries, expr.1, None),
+			Expr::MapLit(entries) => self.record_lit(entries, expr.1, None),
+
+			Expr::Record(entries) => {
+				if !entries.iter().all(|(k, v)| k.1 == v.1) {
+					return Err(
+						Diagnostic::new("map entries use `=`", expr.1.into_range()).with_label("write `key = value`")
+					);
+				}
+				self.record_lit(entries, expr.1, None)
+			}
 
 			Expr::Range { start, end } => {
 				let start_val = match start {

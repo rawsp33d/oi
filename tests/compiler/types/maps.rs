@@ -154,7 +154,7 @@ fn wrong_value_type() {
 fn record_literal_infers() {
 	check(
 		indoc! {r#"
-			m :: { one: 1, two: 2 }
+			m :: { one = 1, two = 2 }
 			m["one"] + m["two"]
 		"#},
 		"3",
@@ -166,8 +166,8 @@ fn record_literal_multiline() {
 	check(
 		indoc! {r#"
 			m :: {
-				one: 1
-				two: 2
+				one = 1
+				two = 2
 			}
 			m["two"]
 		"#},
@@ -179,7 +179,7 @@ fn record_literal_multiline() {
 fn record_int_keys() {
 	check(
 		indoc! {r#"
-			m :: { 1: "one", 2: "two" }
+			m :: { 1 = "one", 2 = "two" }
 			m[1]
 		"#},
 		"one",
@@ -190,7 +190,7 @@ fn record_int_keys() {
 fn record_atom_keys() {
 	check(
 		indoc! {"
-			m :: { :ok: 200, :not_found: 404 }
+			m :: { :ok = 200, :not_found = 404 }
 			m[:ok]
 		"},
 		"200",
@@ -201,7 +201,7 @@ fn record_atom_keys() {
 fn record_typed_target() {
 	check(
 		indoc! {r#"
-			m: Map[string, f64] : { a: 1.5 }
+			m: Map[string, f64] : { a = 1.5 }
 			m["a"]
 		"#},
 		"1.5",
@@ -234,7 +234,21 @@ fn record_pun() {
 
 #[test]
 fn record_mixed_value_types_fail() {
-	fail_with(r#"m :: { a: 1, b: "two" }"#, "expected int, got str");
+	fail_with(r#"m :: { a = 1, b = "two" }"#, "expected int, got str");
+}
+
+#[test]
+fn map_prefix_lit() {
+	check(
+		indoc! {r#"
+			num_map := Map{
+				one = 1
+				two = 2
+			}
+			num_map["one"]
+		"#},
+		"1",
+	);
 }
 
 #[test]

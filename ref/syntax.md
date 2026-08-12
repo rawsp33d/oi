@@ -1380,7 +1380,7 @@ main :: fn() {
 	# they can fully read and mutate the enclosing scope
 	{ x }
 	# if you want a map with shorthand keys, add a trailing comma
-	{ x, } # `{ x: x }`
+	{ x, } # `{ x = x }`
 
 	# in conditionals a top-level `{` always opens the body, so a record or `Name{}` literal there needs parens
 	if p == (Point{}) { ... }
