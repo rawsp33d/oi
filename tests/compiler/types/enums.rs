@@ -72,7 +72,7 @@ fn struct_field() {
 	check(
 		"Stat :: enum { health mana stamina }
 		User :: struct { s: Stat }
-		u :: User{ s: Stat.mana }
+		u :: User{ s = Stat.mana }
 		u.s",
 		"mana",
 	);
@@ -144,7 +144,7 @@ fn shorthand_in_struct_field() {
 	check(
 		"Stat :: enum { health mana stamina }
 		User :: struct { s: Stat }
-		u :: User{ s: .mana }
+		u :: User{ s = .mana }
 		u.s",
 		"mana",
 	);
@@ -216,7 +216,10 @@ fn payload_int_cast_errors() {
 
 #[test]
 fn payload_field_type_mismatch() {
-	fail_with("Opt :: enum { nope some(int) }\nOpt.some(3.0)", "expected int, got float");
+	fail_with(
+		"Opt :: enum { nope some(int) }\nOpt.some(3.0)",
+		"expected int, got float",
+	);
 }
 
 #[test]
@@ -317,13 +320,13 @@ fn struct_payload() {
 		indoc! {r#"
 			Point :: struct { x: int, y: int }
 			Shape :: enum { dot rect(Point) }
-			s :: Shape.rect(Point{ x: 3, y: 4 })
+			s :: Shape.rect(Point{ x = 3, y = 4 })
 			match s {
 				.rect(p) => print(p),
 				.dot => {}
 			}
 		"#},
-		"Point{x: 3, y: 4}",
+		"Point{x = 3, y = 4}",
 	);
 }
 
@@ -356,7 +359,7 @@ fn struct_form_construct_and_match() {
 				triangle(f64, f64, f64)
 				point
 			}
-			s :: Shape.circle { radius: 5.0 }
+			s :: Shape.circle { radius = 5.0 }
 			match s {
 				.circle { radius } => radius * 2.0,
 				.rectangle { width, height } => width * height,
@@ -373,9 +376,9 @@ fn struct_form_shorthand_and_rename() {
 	check(
 		indoc! {r#"
 			Shape :: enum { circle { radius: f64 } rectangle { width: f64, height: f64 } }
-			mk :: fn() Shape { .rectangle { width: 3.0, height: 4.0 } }
+			mk :: fn() Shape { .rectangle { width = 3.0, height = 4.0 } }
 			match mk() {
-				.rectangle { width: w, height } => w * height,
+				.rectangle { width = w, height } => w * height,
 				else => 0.0,
 			}
 		"#},
@@ -396,7 +399,10 @@ fn struct_form_zero_is_first_variant() {
 
 #[test]
 fn struct_form_unknown_field() {
-	fail_with("S :: enum { circle { radius: f64 } }\nS.circle { r: 1.0 }", "no field `r`");
+	fail_with(
+		"S :: enum { circle { radius: f64 } }\nS.circle { r = 1.0 }",
+		"no field `r`",
+	);
 }
 
 #[test]
@@ -404,7 +410,7 @@ fn struct_form_omitted_field_zeroes() {
 	check(
 		indoc! {r#"
 			S :: enum { rect { w: f64, h: f64 } }
-			s :: S.rect { h: 2.0 }
+			s :: S.rect { h = 2.0 }
 			match s { .rect { w, h } => w + h }
 		"#},
 		"2.0",
@@ -413,12 +419,18 @@ fn struct_form_omitted_field_zeroes() {
 
 #[test]
 fn struct_form_positional_rejected() {
-	fail_with("S :: enum { circle { radius: f64 } }\nS.circle(1.0)", "takes named fields");
+	fail_with(
+		"S :: enum { circle { radius: f64 } }\nS.circle(1.0)",
+		"takes named fields",
+	);
 }
 
 #[test]
 fn tuple_form_record_rejected() {
-	fail_with("S :: enum { tri(f64, f64) }\nS.tri { a: 1.0 }", "takes 2 field(s), got 1");
+	fail_with(
+		"S :: enum { tri(f64, f64) }\nS.tri { a = 1.0 }",
+		"takes 2 field(s), got 1",
+	);
 }
 
 #[test]
@@ -477,7 +489,7 @@ fn atom_coerces_in_struct_field() {
 		indoc! {"
 			Stat :: enum { health mana stamina }
 			User :: struct { s: Stat }
-			u :: User{ s: :mana }
+			u :: User{ s = :mana }
 			u.s
 		"},
 		"mana",
@@ -553,17 +565,26 @@ fn str_method_concat() {
 
 #[test]
 fn no_such_method() {
-	fail_with("Color :: enum { red green blue }\nColor.red.hex()", "has no method `hex`");
+	fail_with(
+		"Color :: enum { red green blue }\nColor.red.hex()",
+		"has no method `hex`",
+	);
 }
 
 #[test]
 fn from_int_match() {
-	check("Color :: enum { red green blue }\nColor.from(1) or { Color.red }", "green");
+	check(
+		"Color :: enum { red green blue }\nColor.from(1) or { Color.red }",
+		"green",
+	);
 }
 
 #[test]
 fn from_int_no_match() {
-	check("Color :: enum { red green blue }\nColor.from(9) or { Color.red }", "red");
+	check(
+		"Color :: enum { red green blue }\nColor.from(9) or { Color.red }",
+		"red",
+	);
 }
 
 #[test]
@@ -715,10 +736,10 @@ fn print_payloads() {
 				triangle(f64, f64, f64)
 			}
 			print(Shape.point)
-			print(Shape.circle { radius: 5.0 })
+			print(Shape.circle { radius = 5.0 })
 			print(Shape.triangle(3.0, 4.0, 5.0))
 		"},
-		["point", "circle{radius: 5.0}", "triangle(3.0, 4.0, 5.0)"],
+		["point", "circle{radius = 5.0}", "triangle(3.0, 4.0, 5.0)"],
 	);
 }
 

@@ -127,7 +127,7 @@ fn nested_elements_still_leak() {
 fn struct_field_leak_is_bounded() {
 	let src = indoc! {"
 		Bag :: struct { items: []int }
-		s :: Bag{ items: [1, 2] }
+		s :: Bag{ items = [1, 2] }
 		print(s.items[0])
 	"};
 	// TODO: revisit

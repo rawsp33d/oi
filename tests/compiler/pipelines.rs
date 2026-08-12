@@ -188,7 +188,7 @@ fn composes_fn_literals() {
 		f :: fn(x: int) (int, int) { (x, x) } |> fn(x: int, y: int) Point { Point{ x, y } }
 		print(f(2))
 	"};
-	check(src, "Point{x: 2, y: 2}");
+	check(src, "Point{x = 2, y = 2}");
 }
 
 #[test]

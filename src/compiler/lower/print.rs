@@ -77,7 +77,7 @@ impl<'a> Translator<'a> {
 						self.write_lit(", ", sink);
 					}
 					if braced {
-						self.write_lit(&format!("{}: ", v.names[i]), sink);
+						self.write_lit(&format!("{} = ", v.names[i]), sink);
 					}
 					let pv = self.opt_payload(val, typ, pt, (8 + i * 8) as i32);
 					self.emit_print(pv, pt, true, sink);
@@ -104,7 +104,7 @@ impl<'a> Translator<'a> {
 						self.write_lit(", ", sink);
 					}
 					if let Some(name) = name {
-						self.write_lit(&format!("{name}: "), sink);
+						self.write_lit(&format!("{name} = "), sink);
 					}
 					let cl = cl_type(ft, self.int);
 					let fv = self.b.ins().load(cl, MemFlags::new(), val, (i * 8) as i32);
@@ -160,7 +160,7 @@ impl<'a> Translator<'a> {
 					if i > 0 {
 						self.write_lit(", ", sink);
 					}
-					self.write_lit(&format!("{}: ", f.name), sink);
+					self.write_lit(&format!("{} = ", f.name), sink);
 					let cl = cl_type(&f.typ, self.int);
 					let fv = self.b.ins().load(cl, MemFlags::new(), val, (i * 8) as i32);
 					self.emit_print(fv, &f.typ, true, sink);

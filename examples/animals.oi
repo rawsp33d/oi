@@ -11,6 +11,6 @@ Dog :{
 
 dog := Dog{
 	"Larry"
-	greeting: "bark"
+	greeting = "bark"
 }
 dog.greet()

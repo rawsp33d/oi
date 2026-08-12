@@ -479,15 +479,8 @@ impl<'a> Translator<'a> {
 				),
 			},
 			Expr::StructLit { name, fields } => self.struct_lit(name, fields, value.1, Some(target)),
-			Expr::MapLit(entries) if matches!(target, Typ::Map(..)) => self.record_lit(entries, value.1, Some(target)),
 			Expr::Record(entries) => match target {
-				Typ::Map(..) => {
-					if !entries.iter().all(|(k, v)| k.1 == v.1) {
-						return Err(Diagnostic::new("map entries use `=`", value.1.into_range())
-							.with_label("write `key = value`"));
-					}
-					self.record_lit(entries, value.1, Some(target))
-				}
+				Typ::Map(..) => self.record_lit(entries, value.1, Some(target)),
 				Typ::Struct(name, _) => {
 					let fields = entries
 						.iter()

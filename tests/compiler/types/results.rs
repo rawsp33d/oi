@@ -98,7 +98,7 @@ fn match_non_exhaustive_errors() {
 fn struct_field_type() {
 	check(
 		"Box :: struct { val: !int }
-		b :: Box{ val: !int(42) }
+		b :: Box{ val = !int(42) }
 		b.val",
 		"ok(42)",
 	);

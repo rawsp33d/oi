@@ -12,12 +12,12 @@ fn tuple_mixed_types() {
 
 #[test]
 fn tuple_named() {
-	check("(a: 1, b: 2)", "(a: 1, b: 2)");
+	check("(a = 1, b = 2)", "(a = 1, b = 2)");
 }
 
 #[test]
 fn tuple_partially_named() {
-	check("(1, b: 2)", "(1, b: 2)");
+	check("(1, b = 2)", "(1, b = 2)");
 }
 
 #[test]
@@ -64,12 +64,12 @@ fn field_by_index() {
 
 #[test]
 fn field_by_name() {
-	check("t :: (a: 1, b: 2)\nt.b", "2");
+	check("t :: (a = 1, b = 2)\nt.b", "2");
 }
 
 #[test]
 fn named_and_positional_agree() {
-	check("t :: (a: 1, b: 2); assert(t.a == t.0)", "true");
+	check("t :: (a = 1, b = 2); assert(t.a == t.0)", "true");
 }
 
 #[test]
@@ -94,7 +94,7 @@ fn index_out_of_range() {
 
 #[test]
 fn unknown_named_field() {
-	fail_with("t :: (a: 1)\nt.z", "no field `z`");
+	fail_with("t :: (a = 1)\nt.z", "no field `z`");
 }
 
 #[test]
@@ -171,7 +171,7 @@ fn if_no_else_tuple_zero() {
 fn field_names_are_hints() {
 	check(
 		indoc! {"
-			t : (int, int) : (x: 1, y: 2)
+			t : (int, int) : (x = 1, y = 2)
 			t.0 + t.1
 		"},
 		"3",
@@ -179,7 +179,7 @@ fn field_names_are_hints() {
 	check(
 		indoc! {"
 			f :: fn(t: (int, int)) int { t.0 }
-			f((x: 7, y: 8))
+			f((x = 7, y = 8))
 		"},
 		"7",
 	);

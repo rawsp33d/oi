@@ -5,7 +5,7 @@ fn basic_dispatch() {
 	let src = indoc! {"
 		Box[T] :: struct { v: T }
 		Box[T] :{ get :: fn(self) T { self.v } }
-		Box{ v: 7 }.get()
+		Box{ v = 7 }.get()
 	"};
 	check(src, "7");
 }
@@ -15,8 +15,8 @@ fn two_instances_coexist() {
 	let src = indoc! {r#"
 		Box[T] :: struct { v: T }
 		Box[T] :{ get :: fn(self) T { self.v } }
-		print(Box{ v: 1 }.get())
-		print(Box{ v: "hi" }.get())
+		print(Box{ v = 1 }.get())
+		print(Box{ v = "hi" }.get())
 	"#};
 	check(src, "1\nhi");
 }
@@ -26,7 +26,7 @@ fn method_own_type_param() {
 	let src = indoc! {r#"
 		Box[T] :: struct { v: T }
 		Box[T] :{ swap[U] :: fn(self, u: U) U { u } }
-		Box{ v: 1 }.swap("hi")
+		Box{ v = 1 }.swap("hi")
 	"#};
 	check(src, "hi");
 }
@@ -36,7 +36,7 @@ fn self_return() {
 	let src = indoc! {"
 		Box[T] :: struct { v: T }
 		Box[T] :{ same :: fn(self) Self { self } }
-		Box{ v: 3 }.same().v
+		Box{ v = 3 }.same().v
 	"};
 	check(src, "3");
 }
@@ -57,7 +57,7 @@ fn unknown_method_error() {
 		indoc! {"
 			Box[T] :: struct { v: T }
 			Box[T] :{ get :: fn(self) T { self.v } }
-			Box{ v: 1 }.nope()
+			Box{ v = 1 }.nope()
 		"},
 		"no such method",
 	);
@@ -68,7 +68,7 @@ fn field_through_self() {
 	let src = indoc! {"
 		Box[T] :: struct { v: T }
 		Box[T] :{ double :: fn(self) T { self.v + self.v } }
-		Box{ v: 7 }.double()
+		Box{ v = 7 }.double()
 	"};
 	check(src, "14");
 }

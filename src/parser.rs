@@ -507,7 +507,7 @@ where
 		.boxed();
 
 		// named or positional field entry
-		let struct_field_entry = ident().then_ignore(just(Token::Colon)).or_not().then(expr.clone());
+		let struct_field_entry = ident().then_ignore(just(Token::Assign)).or_not().then(expr.clone());
 		let struct_body = brace(loose_list(struct_field_entry.clone()));
 
 		// pull out struct literals separately (they have title case names) from vars/calls/whatever below
@@ -553,20 +553,9 @@ where
 			Token::String(s) => Expr::String(s),
 			Token::Atom(a) => Expr::Atom(a),
 		};
-		let keyed = spanned(key).then(just(Token::Colon).ignore_then(expr.clone()));
+		let keyed = spanned(key).then(just(Token::Assign).ignore_then(expr.clone()));
 		let pun = ident().map_with(|n, ex| ((Expr::Ident(n.clone()), ex.span()), (Expr::Ident(n), ex.span())));
 
-		// map literals
-		let map_entry = spanned(key).then_ignore(just(Token::Assign)).then(expr.clone());
-		let map_entries = map_entry
-			.separated_by(just(Token::Comma).or_not())
-			.allow_trailing()
-			.at_least(1)
-			.collect::<Vec<_>>();
-		let map_lit = just(Token::Ident("Map".to_string()))
-			.ignore_then(brace(map_entries.clone().or_not().map(Option::unwrap_or_default)))
-			.or(brace(map_entries))
-			.map_with(|entries, ex| (Expr::MapLit(entries), ex.span()));
 		let record_entries = keyed
 			.clone()
 			.or(pun.then_ignore(just(Token::Comma).rewind()))
@@ -578,6 +567,11 @@ where
 			})
 			.boxed();
 		let record_arg = brace(record_entries.clone()).map_with(|es, ex| vec![(Expr::Record(es), ex.span())]);
+
+		// map literals
+		let map_lit = just(Token::Ident("Map".to_string()))
+			.ignore_then(brace(record_entries.clone().or_not().map(Option::unwrap_or_default)))
+			.map_with(|entries, ex| (Expr::Record(entries), ex.span()));
 
 		// enum shorthand
 		let enum_shorthand = just(Token::Dot)

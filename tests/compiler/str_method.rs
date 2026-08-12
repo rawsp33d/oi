@@ -27,7 +27,7 @@ fn derived_struct() {
 		Bag :: struct { items: []int }
 		Bag{[1, 2, 3]}.str()
 	"};
-	check(src, "Bag{items: [1, 2, 3]}");
+	check(src, "Bag{items = [1, 2, 3]}");
 }
 
 #[test]

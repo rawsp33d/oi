@@ -35,7 +35,7 @@ fn method_trailing_fn() {
 			with :: fn(self, f: fn() int) int { self.n + f() }
 			m :: fn(self, k: int, f: fn() int) int { self.n + k + f() }
 		}
-		b :: Box{ n: 10 }
+		b :: Box{ n = 10 }
 		print(b.with fn() int { 5 })
 		b.m(1) fn() int { 5 }
 	"};
@@ -51,7 +51,7 @@ fn leading_literals() {
 		take :: fn(n: int) int { n }
 		print(shout "hey")
 		print(take 1_000)
-		Box{ n: 10 }.tag :go
+		Box{ n = 10 }.tag :go
 	"#};
 	check(src, ["hey", "1000", "10"]);
 }

@@ -13,7 +13,7 @@ area :: fn(s: Shape) f64 {
 	}
 }
 
-Shape.rect({ w: 3.0, h: 4.0 })
+Shape.rect({ w = 3.0, h = 4.0 })
 	|> area
 	|> assert($ == 12.0)
 

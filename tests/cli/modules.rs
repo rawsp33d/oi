@@ -18,7 +18,7 @@ fn imports_work() {
 				"use bar",
 				"P :: struct { x: int, y: int }",
 				"sum :: fn(p: P) int { p.x + p.y }",
-				"pub total :: fn() int { bar.twice(sum(P{x: 2, y: 5})) }",
+				"pub total :: fn() int { bar.twice(sum(P{x = 2, y = 5})) }",
 			],
 		)
 		.file("bar/lib.oi", ["module bar", "pub twice :: fn(n: int) int { n * 2 }"]);
@@ -81,10 +81,7 @@ fn import_alias() {
 #[test]
 fn selective_import() {
 	let p = Project::new()
-		.file(
-			"main.oi",
-			["module main", "use foo { hi }", "print(hi() + foo.hi())"],
-		)
+		.file("main.oi", ["module main", "use foo { hi }", "print(hi() + foo.hi())"])
 		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
 	assert_eq!(ok(run_main(p)), "14");
 }

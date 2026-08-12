@@ -182,12 +182,12 @@ Point :: struct {
 }
 
 point :: Point{
-	x: 19
-	y: 90
+	x = 19
+	y = 90
 }
 
 # one line
-point :: Point{ x: 19, y: 88 }
+point :: Point{ x = 19, y = 88 }
 
 # zero values when unspecified
 origin :: Point{}
@@ -211,15 +211,15 @@ Foo :: struct {
 
 # short struct literals
 normal :: Point{
-	x: 2
-	y: 1
+	x = 2
+	y = 1
 }
 short :: Point{3, 2}
 
 # the type name can be dropped when it's known from context (typed decl, call arg, return, field value)
-p : Point = { x: 2, y: 1 }
+p : Point = { x = 2, y = 1 }
 
-# `{x, y}` is sugar for `{x: x, y: y}` (punning)
+# `{x, y}` is sugar for `{x = x, y = y}` (punning)
 x :: 2
 y :: 1
 q :: Point{x, y}
@@ -271,13 +271,13 @@ User :: struct {
 register :: fn(u: User) User {
 	return User{
 		...u
-		is_registered: true
+		is_registered = true
 	}
 }
 
 user := User{
-	name: "abc"
-	age: 23
+	name = "abc"
+	age = 23
 }
 user = register(user)
 
@@ -294,7 +294,7 @@ User :{
 }
 user :: User{}
 user.with_options(bar: true, foo: 4)
-# same record literal as `Options{ bar: true, foo: 4 }`, just braceless, coerced against the last param's struct type
+# same record literal as `Options{ bar = true, foo = 4 }`, just braceless, coerced against the last param's struct type
 
 # annotating with `@params` lets a trailing record be omitted
 # otherwise you need to specify at least one field or the compiler will error
@@ -329,16 +329,16 @@ Food :: struct {
 }
 
 apple := Food{
-	name: "apple"
-	nutrition: struct {
-		calories: 4
+	name = "apple"
+	nutrition = struct {
+		calories = 4
 	}
 }
 
 # you can (maybe?) use short struct literals in the assignment
 pear := Food{
-	name: "pear"
-	nutrition: struct { 5 }
+	name = "pear"
+	nutrition = struct { 5 }
 }
 
 # static struct methods
@@ -367,15 +367,15 @@ Profile :: struct {
 }
 
 profile :: Profile{
-	foo: 4
-	name: "one cool dude"
+	foo = 4
+	name = "one cool dude"
 }
 assert! profile.foo == profile.Options.foo
 
 # you can refer to and assign to embedded structs directly
 profile := Profile{
-	Options: Options{
-		foo: 200
+	Options = Options{
+		foo = 200
 	}
 }
 print(profile.Options)
@@ -481,7 +481,7 @@ assert!(Bike is not Fruit)
 greet[A: Animal] :: fn(a: A) { print(a.shout()) }
 
 # A trait used directly as a type is dynamic: a trait object behind a vtable.
-zoo := []Animal{ Dog{"collie"}, Cat{"mau"}, Enemy{ kind: "boss", hp: 9 } }
+zoo := []Animal{ Dog{"collie"}, Cat{"mau"}, Enemy{ kind = "boss", hp = 9 } }
 loop a in zoo { print "a {a.kind} says {a.speak()}" }
 
 ## associated types
@@ -609,7 +609,7 @@ grid[x][y] = 0
 
 # the sandwich middle names the type when there's nothing to infer from
 empty : Stack[int] = Stack{}
-meters : Tagged[Meters] = Tagged{ value: 5.0 }
+meters : Tagged[Meters] = Tagged{ value = 5.0 }
 
 ## main entrypoint
 
@@ -714,7 +714,7 @@ main :: fn() {
 	print("hi {who}!")
 
 	# any expression works inside braces
-	user := User { name: "alice", age: 30 }
+	user := User { name = "alice", age = 30 }
 	print("{user.name} is {user.age}")
 	print("sum: {2 + 2}")
 	print("upper: {who.uppercase()}")
@@ -933,8 +933,8 @@ main :: fn() {
 	User :: struct {
 		stat: Stat
 	}
-	user1 := User{ stat: .mana }
-	user2 := User{ stat: :mana }
+	user1 := User{ stat = .mana }
+	user2 := User{ stat = :mana }
 	assert!(user1.stat == user2.stat)
 
 	# this might be useful for quick prototyping?
@@ -1018,8 +1018,8 @@ main :: fn() {
 
 	# TODO: not sure whether Oi should support `$` in match or use binding
 	match user {
-		u @ User { age: 0..18 } => "minor: {u.name}",
-		User { age: 0..18 } => "minor: {$.name}",
+		u @ User { age = 0..18 } => "minor: {u.name}",
+		User { age = 0..18 } => "minor: {$.name}",
 		_ => "adult",
 	}
 
@@ -1118,7 +1118,7 @@ main :: fn() {
 	}
 
 	# or block can yield a fallback value of the same type
-	user := repo.find_user(7) or { User{ name: "guest" } }
+	user := repo.find_user(7) or { User{ name = "guest" } }
 
 	# check error type in the or block
 	file := fs.open(path) or {
@@ -1166,7 +1166,7 @@ main :: fn() {
 
 	parse :: fn(src: string) !Ast {
 		...
-		return ParseError{ line: 4, col: 2 } # auto-cast to Error
+		return ParseError{ line = 4, col = 2 } # auto-cast to Error
 	}
 
 	parse(src) or { panic!($.message()) }
@@ -1203,8 +1203,8 @@ main :: fn() {
 		triangle(f64, f64, f64)
 		point
 	}
-	s := Shape.circle { radius: 5.0 }
-	s := .circle { radius: 5.0 }
+	s := Shape.circle { radius = 5.0 }
+	s := .circle { radius = 5.0 }
 	s := Shape.triangle(3.0, 4.0, 5.0)
 	s := Shape.point
 
@@ -1235,7 +1235,7 @@ main :: fn() {
 
 	# first value is default
 	c := Color{} # .red
-	s := Shape{} # .circle { radius: 0.0 }
+	s := Shape{} # .circle { radius = 0.0 }
 
 	# methods
 

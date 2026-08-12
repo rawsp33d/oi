@@ -356,7 +356,7 @@ fn dyn_trait_param_and_default() {
 fn trait_typed_struct_field() {
 	let src = indoc! {r#"
 		Pen :: struct { pet: Animal }
-		p :: Pen{ pet: Dog{} }
+		p :: Pen{ pet = Dog{} }
 		print(p.pet.speak())
 	"#};
 	check([ANIMAL_DOG, src], "woof");
@@ -401,9 +401,9 @@ fn trait_object_renders_concrete_struct() {
 	check(
 		[ANIMAL_DOG_KIND, src],
 		[
-			r#"Dog{kind: "collie"}"#,
-			r#"says Dog{kind: "collie"}"#,
-			r#"Dog{kind: "collie"}"#,
+			r#"Dog{kind = "collie"}"#,
+			r#"says Dog{kind = "collie"}"#,
+			r#"Dog{kind = "collie"}"#,
 		],
 	);
 }
@@ -425,7 +425,7 @@ fn array_of_trait_objects_renders() {
 		Cat : Animal { speak :: fn(self) string { "meow" } }
 		print([]Animal{ Dog{ "collie" }, Cat{ "mau" } })
 	"#};
-	check([ANIMAL_DOG_KIND, src], "[Dog{kind: \"collie\"}, Cat{kind: \"mau\"}]");
+	check([ANIMAL_DOG_KIND, src], "[Dog{kind = \"collie\"}, Cat{kind = \"mau\"}]");
 }
 
 #[test]

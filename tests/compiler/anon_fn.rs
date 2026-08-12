@@ -251,7 +251,7 @@ fn closure_cannot_be_stored_in_a_struct_field() {
 	let src = indoc! {"
 		Box[T] :: struct { v: T }
 		n :: 10
-		Box{ v: fn [n] () int { n } }
+		Box{ v = fn [n] () int { n } }
 	"};
 	fail_with(src, "borrows its captures, so it can't be stored in a field");
 }

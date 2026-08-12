@@ -37,13 +37,13 @@ fn method_on_literal() {
 
 #[test]
 fn method_returns_struct_field() {
-	let src = indoc! {"
+	let src = indoc! {r#"
 		User :: struct { name: string, age: int }
 		User :{
 			can_register :: fn(self) bool { self.age > 16 }
 		}
-		User{name: \"ada\", age: 36}.can_register()
-	"};
+		User{name = "ada", age = 36}.can_register()
+	"#};
 	check(src, "true");
 }
 

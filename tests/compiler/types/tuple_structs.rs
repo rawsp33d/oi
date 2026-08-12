@@ -56,7 +56,7 @@ fn print_named() {
 			p: Point
 			p
 		"},
-		"Point(x: 0.0, y: 0.0)",
+		"Point(x = 0.0, y = 0.0)",
 	);
 }
 
@@ -140,7 +140,7 @@ fn construct_print() {
 			Point :: struct (x: float, y: float)
 			Point(1.0, 2.0)
 		"},
-		"Point(x: 1.0, y: 2.0)",
+		"Point(x = 1.0, y = 2.0)",
 	);
 }
 
