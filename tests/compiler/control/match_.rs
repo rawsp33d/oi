@@ -245,7 +245,7 @@ fn match_pattern_type_mismatch() {
 fn match_arm_chain_across_lines() {
 	let src = indoc! {"
 		C :: struct { r: int }
-		impl C { area :: fn(self) int { self.r * self.r } }
+		C :{ area :: fn(self) int { self.r * self.r } }
 		c :: C{r: 3}
 		match true {
 			true => c

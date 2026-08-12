@@ -61,16 +61,12 @@ pub enum Token {
 	Struct,
 	#[token("enum")]
 	Enum,
-	#[token("impl")]
-	Impl,
 	#[token("return")]
 	Return,
 	#[token("match")]
 	Match,
 	#[token("trait")]
 	Trait,
-	#[token("for")]
-	For,
 	#[token("is")]
 	Is,
 	#[token("module")]
@@ -215,11 +211,9 @@ impl fmt::Display for Token {
 			Token::Fn => write!(f, "fn"),
 			Token::Struct => write!(f, "struct"),
 			Token::Enum => write!(f, "enum"),
-			Token::Impl => write!(f, "impl"),
 			Token::Return => write!(f, "return"),
 			Token::Match => write!(f, "match"),
 			Token::Trait => write!(f, "trait"),
-			Token::For => write!(f, "for"),
 			Token::Is => write!(f, "is"),
 			Token::Module => write!(f, "module"),
 			Token::Use => write!(f, "use"),

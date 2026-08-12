@@ -1215,22 +1215,27 @@ where
 		})
 		.boxed();
 
-	let impl_block = just(Token::Impl)
-		.ignore_then(ident())
-		.then(just(Token::For).ignore_then(ident()).or_not())
+	// impl blocks
+	let fill_block = brace(func.clone().repeated().collect::<Vec<_>>());
+	let claim = ident()
 		.then(type_params.clone())
-		.then(brace(func.clone().repeated().collect::<Vec<_>>()).or_not())
-		.map_with(|(((head, target), type_params), methods), ex| {
-			let (typ, trait_name) = match target {
-				Some(t) => (t, Some(head)),
-				None => (head, None),
-			};
+		.then_ignore(just(Token::Colon))
+		.then(list(ident()))
+		.then(fill_block)
+		.or(ident()
+			.filter(|name| name.starts_with(char::is_uppercase))
+			.then(type_params.clone())
+			.then_ignore(just(Token::Colon))
+			.then(ident().separated_by(just(Token::Comma)).at_least(1).collect::<Vec<_>>())
+			.then_ignore(just(Token::Colon).not())
+			.map(|(head, traits)| ((head, traits), vec![])))
+		.map_with(|(((typ, type_params), traits), fills), ex| {
 			(
-				Expr::Impl {
+				Expr::Claim {
 					typ,
 					type_params,
-					trait_name,
-					methods: methods.unwrap_or_default(),
+					traits,
+					fills,
 				},
 				ex.span(),
 			)
@@ -1243,6 +1248,7 @@ where
 		.or(struct_def)
 		.or(enum_def)
 		.or(trait_def)
+		.or(claim)
 		.or(type_alias)
 		.boxed();
 	let public = just(Token::Pub)
@@ -1268,7 +1274,6 @@ where
 	def.or(public)
 		.or(module_decl)
 		.or(use_decl)
-		.or(impl_block)
 		.or(stmt)
 		.repeated()
 		.collect()

@@ -196,11 +196,12 @@ pub enum Expr {
 		value: Box<Spanned<Expr>>,
 	},
 
-	Impl {
+	// `Type :{ fills }`
+	Claim {
 		typ: String,
 		type_params: Vec<TypeParam>,
-		trait_name: Option<String>,
-		methods: Vec<Spanned<Expr>>,
+		traits: Vec<String>,
+		fills: Vec<Spanned<Expr>>,
 	},
 
 	// `trait Name {}`

@@ -31,7 +31,7 @@ fn trailing_only_no_parens() {
 fn method_trailing_fn() {
 	let src = indoc! {"
 		Box :: struct { n: int }
-		impl Box {
+		Box :{
 			with :: fn(self, f: fn() int) int { self.n + f() }
 			m :: fn(self, k: int, f: fn() int) int { self.n + k + f() }
 		}
@@ -46,7 +46,7 @@ fn method_trailing_fn() {
 fn leading_literals() {
 	let src = indoc! {r#"
 		Box :: struct { n: int }
-		impl Box { tag :: fn(self, a: :go) int { self.n } }
+		Box :{ tag :: fn(self, a: :go) int { self.n } }
 		shout :: fn(s: string) string { s }
 		take :: fn(n: int) int { n }
 		print(shout "hey")

@@ -96,8 +96,7 @@ pub(super) fn check_impls<'p>(
 				continue;
 			};
 			let Some((_, tp, tr)) = trait_fns(tmethods).find(|(n, ..)| n == name) else {
-				let msg = format!("trait `{tn}` has no method `{name}`");
-				return Err(Diagnostic::new(msg, m.1.into_range()).with_label("not in the trait"));
+				continue;
 			};
 			let (got, want) = (sig(params, ret)?, sig(tp, tr)?);
 			if got != want {

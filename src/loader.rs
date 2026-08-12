@@ -171,8 +171,8 @@ impl Loader<'_> {
 				| Expr::EnumDef { name, .. }
 				| Expr::TypeAlias { name, .. } => self.define(m, name, !main, public, span)?,
 				Expr::TraitDef { name, .. } => self.define(m, name, false, public, span)?,
-				Expr::Impl { typ, .. } if !main => *typ = format!("{}::{typ}", m.name),
-				Expr::Impl { .. } | Expr::Doc(_) => {}
+				Expr::Claim { typ, .. } if !main => *typ = format!("{}::{typ}", m.name),
+				Expr::Claim { .. } | Expr::Doc(_) => {}
 				_ if !main => {
 					return Err(err(
 						"top-level statements aren't allowed in a module",

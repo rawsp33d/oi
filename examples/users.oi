@@ -17,7 +17,7 @@ badge :: fn(u: User) {
 	}
 }
 
-impl User {
+User :{
 	create :: fn(name: string) Self {
 		# TODO: this should let you create without all fields, zeroing the rest
 		return User{ name, status: .offline }

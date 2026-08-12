@@ -316,7 +316,7 @@ fn named_method_args() {
 	check(
 		"Options :: struct { foo: int, bar: bool }
 		User :: struct {}
-		impl User {
+		User :{
 			with_options :: fn(self, opt: Options) { print(opt.bar) }
 		}
 		user :: User{}

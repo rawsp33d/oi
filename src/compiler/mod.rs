@@ -385,15 +385,15 @@ impl Compiler {
 					alias_items.push((name.as_str(), typ));
 				}
 				Expr::TraitDef { .. } => {}
-				Expr::Impl {
+				Expr::Claim {
 					typ,
 					type_params,
-					trait_name,
-					methods,
+					traits: claimed,
+					fills,
 				} => {
-					if let Some(tn) = trait_name {
+					for tn in claimed {
 						if !type_params.is_empty() {
-							let msg = "generic trait impls aren't supported yet".to_string();
+							let msg = "generic trait claims aren't supported yet".to_string();
 							return Err(
 								Diagnostic::new(msg, item.1.into_range()).with_label("remove the type parameters")
 							);
@@ -402,12 +402,12 @@ impl Compiler {
 							span: item.1,
 							typ,
 							trait_name: tn,
-							methods,
+							methods: fills,
 							scope,
 						});
 						self.trait_impls.insert((typ.clone(), tn.clone()));
 					}
-					self.register_fills(typ, type_params, methods, scope, &mut others);
+					self.register_fills(typ, type_params, fills, scope, &mut others);
 				}
 				Expr::Fn { name, body, .. } if name == "main" => main_body = Some(body),
 				Expr::Fn {
