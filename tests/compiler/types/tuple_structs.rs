@@ -126,7 +126,7 @@ fn construct_named() {
 	check(
 		indoc! {"
 			Point :: struct (x: float, y: float)
-			p :: Point(x: 1.0, y: 2.0)
+			p :: Point(x = 1.0, y = 2.0)
 			p.0 == p.x
 		"},
 		"true",

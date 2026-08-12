@@ -231,7 +231,7 @@ Money :: struct (int)
 Point :: struct (x: float, y: float)
 m :: Money(500)
 p :: Point(1.0, 2.0)
-p :: Point(x: 1.0, y: 2.0) # named call args work too
+p :: Point(x = 1.0, y = 2.0) # named call args work too
 assert!(p.0 == p.x)
 print(m.0) # 500
 
@@ -293,7 +293,7 @@ User :{
 	}
 }
 user :: User{}
-user.with_options(bar: true, foo: 4)
+user.with_options(bar = true, foo = 4)
 # same record literal as `Options{ bar = true, foo = 4 }`, just braceless, coerced against the last param's struct type
 
 # annotating with `@params` lets a trailing record be omitted
@@ -1603,7 +1603,7 @@ main :: fn() {
 	formatted := name
 		|> uppercase
 		|> wrap("[", $, "]")
-		|> log(level: :info, $)
+		|> log(level = :info, $)
 
 	# pipeline functions
 

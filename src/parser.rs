@@ -474,7 +474,7 @@ where
 		// named args collect into one trailing record arg
 		let named_arg = ident()
 			.map_with(|n, ex| (Expr::Ident(n), ex.span()))
-			.then_ignore(just(Token::Colon))
+			.then_ignore(just(Token::Assign))
 			.then(expr.clone())
 			.map(|(key, value)| (Some(key), value));
 		// arg mods

@@ -306,7 +306,7 @@ fn named_call_args() {
 	check(
 		"Options :: struct { foo: int, bar: bool }
 		f :: fn(o: Options) { print(o.foo) }
-		f(bar: true, foo: 4)",
+		f(bar = true, foo = 4)",
 		"4",
 	);
 }
@@ -320,7 +320,7 @@ fn named_method_args() {
 			with_options :: fn(self, opt: Options) { print(opt.bar) }
 		}
 		user :: User{}
-		user.with_options(bar: true, foo: 4)",
+		user.with_options(bar = true, foo = 4)",
 		"true",
 	);
 }
@@ -330,7 +330,7 @@ fn mixed_positional_and_named_args() {
 	check(
 		"Options :: struct { foo: int }
 		g :: fn(x: int, o: Options) { print(x + o.foo) }
-		g(1, foo: 2)",
+		g(1, foo = 2)",
 		"3",
 	);
 }
@@ -340,7 +340,7 @@ fn named_before_positional_error() {
 	fail_with(
 		"Options :: struct { foo: int }
 		g :: fn(x: int, o: Options) {}
-		g(foo: 1, 2)",
+		g(foo = 1, 2)",
 		"positional args go before named args",
 	);
 }
