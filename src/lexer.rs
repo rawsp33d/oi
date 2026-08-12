@@ -61,24 +61,18 @@ pub enum Token {
 	Struct,
 	#[token("enum")]
 	Enum,
-	#[token("impl")]
-	Impl,
-	#[token("type")]
-	Type,
 	#[token("return")]
 	Return,
 	#[token("match")]
 	Match,
 	#[token("trait")]
 	Trait,
-	#[token("for")]
-	For,
 	#[token("is")]
 	Is,
 	#[token("module")]
 	Module,
-	#[token("import")]
-	Import,
+	#[token("use")]
+	Use,
 	#[token("pub")]
 	Pub,
 
@@ -109,6 +103,8 @@ pub enum Token {
 	Ident(String),
 	#[token(":=")]
 	Bind,
+	#[token("::")]
+	DoubleColon,
 	#[token("=")]
 	Assign,
 	#[token("=>")]
@@ -215,15 +211,12 @@ impl fmt::Display for Token {
 			Token::Fn => write!(f, "fn"),
 			Token::Struct => write!(f, "struct"),
 			Token::Enum => write!(f, "enum"),
-			Token::Impl => write!(f, "impl"),
-			Token::Type => write!(f, "type"),
 			Token::Return => write!(f, "return"),
 			Token::Match => write!(f, "match"),
 			Token::Trait => write!(f, "trait"),
-			Token::For => write!(f, "for"),
 			Token::Is => write!(f, "is"),
 			Token::Module => write!(f, "module"),
-			Token::Import => write!(f, "import"),
+			Token::Use => write!(f, "use"),
 			Token::Pub => write!(f, "pub"),
 			Token::If => write!(f, "if"),
 			Token::Else => write!(f, "else"),
@@ -237,6 +230,7 @@ impl fmt::Display for Token {
 			Token::Or => write!(f, "or"),
 			Token::Ident(name) => write!(f, "{name}"),
 			Token::Bind => write!(f, ":="),
+			Token::DoubleColon => write!(f, "::"),
 			Token::Assign => write!(f, "="),
 			Token::FatArrow => write!(f, "=>"),
 			Token::Atom(name) => write!(f, ":{name}"),

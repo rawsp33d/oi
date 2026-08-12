@@ -7,7 +7,6 @@ fn tuple_literal() {
 
 #[test]
 fn tuple_mixed_types() {
-	// strings are quoted when printed inside a tuple
 	check(r#"(true, 2, "lol")"#, r#"(true, 2, "lol")"#);
 }
 
@@ -28,20 +27,17 @@ fn tuple_trailing_comma() {
 
 #[test]
 fn one_tuple_needs_comma() {
-	// `(e)` is grouping, a 1-tuple needs the trailing comma
 	check("(1)", "1");
 	check("(1,)", "(1)");
 }
 
 #[test]
 fn no_comma_ints() {
-	// spec: `only_nums := (2 3 4)`
 	check("(2 3 4)", "(2, 3, 4)");
 }
 
 #[test]
 fn no_comma_mixed_literals() {
-	// spec: `other_literals := ("lisp, innit?" true [2 4 5])`
 	check(
 		r#"("lisp, innit?" true [2, 4, 5])"#,
 		r#"("lisp, innit?", true, [2, 4, 5])"#,
@@ -50,7 +46,6 @@ fn no_comma_mixed_literals() {
 
 #[test]
 fn no_comma_nested_array_no_comma() {
-	// nested array also uses comma-free syntax
 	check(
 		r#"("lisp, innit?" true [2 4 5])"#,
 		r#"("lisp, innit?", true, [2, 4, 5])"#,
@@ -64,53 +59,53 @@ fn nested_tuple() {
 
 #[test]
 fn field_by_index() {
-	check("t := (10, 20)\nt.1", "20");
+	check("t :: (10, 20)\nt.1", "20");
 }
 
 #[test]
 fn field_by_name() {
-	check("t := (a: 1, b: 2)\nt.b", "2");
+	check("t :: (a: 1, b: 2)\nt.b", "2");
 }
 
 #[test]
 fn named_and_positional_agree() {
-	check("t := (a: 1, b: 2); assert(t.a == t.0)", "true");
+	check("t :: (a: 1, b: 2); assert(t.a == t.0)", "true");
 }
 
 #[test]
 fn field_float_load() {
-	check("t := (1.5, 2.5)\nt.0", "1.5");
+	check("t :: (1.5, 2.5)\nt.0", "1.5");
 }
 
 #[test]
 fn field_arithmetic() {
-	check("t := (3, 4)\nt.0 * t.1", "12");
+	check("t :: (3, 4)\nt.0 * t.1", "12");
 }
 
 #[test]
 fn tuple_in_var_prints() {
-	check(r#"t := (1, "two", 3.0); t"#, r#"(1, "two", 3.0)"#);
+	check(r#"t :: (1, "two", 3.0); t"#, r#"(1, "two", 3.0)"#);
 }
 
 #[test]
 fn index_out_of_range() {
-	fail_with("t := (1, 2)\nt.5", "out of range");
+	fail_with("t :: (1, 2)\nt.5", "out of range");
 }
 
 #[test]
 fn unknown_named_field() {
-	fail_with("t := (a: 1)\nt.z", "no field `z`");
+	fail_with("t :: (a: 1)\nt.z", "no field `z`");
 }
 
 #[test]
 fn field_of_non_tuple() {
-	fail_with("x := 5\nx.0", "cannot access a field");
+	fail_with("x :: 5\nx.0", "cannot access a field");
 }
 
 #[test]
 fn fn_returns_tuple() {
 	let src = indoc! {"
-		fn pair() { (1, 2) }
+		pair :: fn() { (1, 2) }
 		pair()
 	"};
 	check(src, "(1, 2)");
@@ -119,8 +114,8 @@ fn fn_returns_tuple() {
 #[test]
 fn fn_returns_tuple_field() {
 	let src = indoc! {"
-		fn pair() { (10, 20) }
-		t := pair()
+		pair :: fn() { (10, 20) }
+		t :: pair()
 		t.1
 	"};
 	check(src, "20");
@@ -129,7 +124,7 @@ fn fn_returns_tuple_field() {
 #[test]
 fn fn_return_type_annotation_tuple() {
 	let src = indoc! {"
-		fn pair() (int, int) { (3, 4) }
+		pair :: fn() (int, int) { (3, 4) }
 		pair()
 	"};
 	check(src, "(3, 4)");
@@ -138,7 +133,7 @@ fn fn_return_type_annotation_tuple() {
 #[test]
 fn fn_return_type_annotation_tuple_no_comma() {
 	let src = indoc! {"
-		fn pair() (int int) { (3, 4) }
+		pair :: fn() (int int) { (3, 4) }
 		pair()
 	"};
 	check(src, "(3, 4)");
@@ -147,7 +142,7 @@ fn fn_return_type_annotation_tuple_no_comma() {
 #[test]
 fn fn_return_type_mismatch_tuple() {
 	let src = indoc! {"
-		fn bad() (int, int) { 42 }
+		bad :: fn() (int, int) { 42 }
 		bad()
 	"};
 	fail_with(src, "wrong return type");
@@ -156,8 +151,8 @@ fn fn_return_type_mismatch_tuple() {
 #[test]
 fn fn_tuple_return_composing() {
 	let src = indoc! {"
-		fn swap(x int, y int) (int, int) { (y, x) }
-		t := swap(1, 2)
+		swap :: fn(x: int, y: int) (int, int) { (y, x) }
+		t :: swap(1, 2)
 		t.0
 	"};
 	check(src, "2");
@@ -166,7 +161,7 @@ fn fn_tuple_return_composing() {
 #[test]
 fn if_no_else_tuple_zero() {
 	let src = indoc! {"
-		t := if false { (1, 2) }
+		t :: if false { (1, 2) }
 		t
 	"};
 	check(src, "(0, 0)");
@@ -176,14 +171,14 @@ fn if_no_else_tuple_zero() {
 fn field_names_are_hints() {
 	check(
 		indoc! {"
-			t (int, int) := (x: 1, y: 2)
+			t : (int, int) : (x: 1, y: 2)
 			t.0 + t.1
 		"},
 		"3",
 	);
 	check(
 		indoc! {"
-			fn f(t (int, int)) int { t.0 }
+			f :: fn(t: (int, int)) int { t.0 }
 			f((x: 7, y: 8))
 		"},
 		"7",
@@ -194,8 +189,8 @@ fn field_names_are_hints() {
 fn array_slot_is_independent_copy() {
 	check(
 		indoc! {"
-			mut a := [1]
-			t := (a, 0)
+			a := [1]
+			t :: (a, 0)
 			a << 2
 			t.0
 		"},

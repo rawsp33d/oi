@@ -19,6 +19,25 @@ enum Access {
 	Method(String, Vec<Spanned<Expr>>),
 }
 
+// One entry of a struct/enum/trait body.
+enum Member {
+	Field(Param),
+	Fn(Spanned<Expr>),
+	Variant(EnumVariant),
+}
+
+fn split_members(members: Vec<Member>) -> (Vec<Param>, Vec<Spanned<Expr>>, Vec<EnumVariant>) {
+	let (mut fields, mut fns, mut variants) = (vec![], vec![], vec![]);
+	for m in members {
+		match m {
+			Member::Field(f) => fields.push(f),
+			Member::Fn(f) => fns.push(f),
+			Member::Variant(v) => variants.push(v),
+		}
+	}
+	(fields, fns, variants)
+}
+
 fn pipe_step((e, span): Spanned<Expr>) -> Spanned<Expr> {
 	match e {
 		Expr::Ident(name) => (
@@ -265,7 +284,7 @@ where
 	let param = just(Token::Mut)
 		.or_not()
 		.then(ident())
-		.then(type_expr.clone().or_not())
+		.then(just(Token::Colon).ignore_then(type_expr.clone()).or_not())
 		.map_with(|((mutable, name), typ), ex| Param {
 			typ: typ.unwrap_or(TypeExpr::Name("Self".into())),
 			name,
@@ -297,23 +316,37 @@ where
 
 	// bindings
 	let annot = spanned(type_expr.clone());
-	let bind = just(Token::Mut)
-		.or_not()
-		.then(ident())
-		.then(annot.clone().or_not())
-		.then(just(Token::Bind).ignore_then(expr.clone()).or_not())
-		.try_map(|(((mutable, name), typ), value), span| {
-			if value.is_none() && (typ.is_none() || mutable.is_none()) {
-				return Err(Rich::custom(span, "expected `:=` value, or `mut name type`"));
-			}
-			Ok(Expr::Bind {
-				mutable: mutable.is_some(),
-				name,
-				typ,
-				value: value.map(Box::new),
-			})
-		})
-		.map_with(|e, ex| (e, ex.span()));
+	let value_tail = just(Token::Bind)
+		.to(true)
+		.or(just(Token::DoubleColon).to(false))
+		.then(expr.clone())
+		.map(|(mutable, value)| (mutable, None, Some(value)));
+	let sandwich_tail = just(Token::Colon)
+		.ignore_then(annot.clone())
+		.then(
+			just(Token::Assign)
+				.to(true)
+				.or(just(Token::Colon).to(false))
+				.then(expr.clone())
+				.or_not(),
+		)
+		.map(|(typ, tail)| match tail {
+			Some((mutable, value)) => (mutable, Some(typ), Some(value)),
+			None => (true, Some(typ), None),
+		});
+	let bind = ident()
+		.then(value_tail.or(sandwich_tail))
+		.map_with(|(name, (mutable, typ, value)), ex| {
+			(
+				Expr::Bind {
+					mutable,
+					name,
+					typ,
+					value: value.map(Box::new),
+				},
+				ex.span(),
+			)
+		});
 
 	// assignment
 	let assign = ident()
@@ -397,22 +430,22 @@ where
 		});
 
 	// tuple destructuring
-	let modded = list(just(Token::Mut).or_not().map(|m| m.is_some()).then(ident()));
-	let plain = loose_list(ident().map(|n| (false, n)));
-	let destructure = paren(modded)
-		.or(paren(plain))
-		.then(just(Token::Bind).to(true).or(just(Token::Assign).to(false)))
+	let destructure = paren(loose_list(ident()))
+		.then(
+			just(Token::Bind)
+				.to(Some(true))
+				.or(just(Token::DoubleColon).to(Some(false)))
+				.or(just(Token::Assign).to(None)),
+		)
 		.then(expr.clone())
-		.try_map(|((names, bind), value), span| {
+		.try_map(|((names, op), value), span| {
 			if names.len() < 2 {
 				return Err(Rich::custom(span, "tuple destructuring needs at least 2 names"));
 			}
-			if !bind && names.iter().any(|&(m, _)| m) {
-				return Err(Rich::custom(span, "`mut` only applies to `:=` bindings"));
-			}
+			let mutable = op == Some(true);
 			Ok(Expr::Destructure {
-				names,
-				bind,
+				names: names.into_iter().map(|n| (mutable, n)).collect(),
+				bind: op.is_some(),
 				value: Box::new(value),
 			})
 		})
@@ -985,16 +1018,21 @@ where
 	};
 	expr.define(definition);
 
+	// item bindings
+	let item_head = ident().then(type_params.clone()).then_ignore(just(Token::DoubleColon));
+
 	// fn defs
-	let fn_head = just(Token::Fn).ignore_then(ident()).then(type_params.clone());
-	let func = fn_head
+	let func = item_head
 		.clone()
+		.then_ignore(just(Token::Fn))
 		.then(params.clone())
 		.then(ret.clone())
 		.then(block.clone())
 		.map_with(|(((head, params), ret), body), ex| fn_def(head, Some(params), ret, body, ex.span()))
 		// pipeline shorthand
-		.or(fn_head
+		.or(item_head
+			.clone()
+			.then_ignore(just(Token::Fn))
 			.then(params.clone().or_not())
 			.then(ret.clone())
 			.then_ignore(just(Token::Assign))
@@ -1006,6 +1044,7 @@ where
 
 	// struct defs
 	let struct_field = ident()
+		.then_ignore(just(Token::Colon))
 		.then(type_expr.clone())
 		.then(just(Token::Assign).ignore_then(expr.clone()).or_not())
 		.map_with(|((name, typ), default), ex| Param {
@@ -1016,16 +1055,20 @@ where
 			mutable: false,
 		})
 		.boxed();
-	let struct_def = just(Token::Struct)
-		.ignore_then(ident())
-		.then(type_params.clone())
-		.then(brace(loose_list(struct_field.clone())))
-		.map_with(|((name, type_params), fields), ex| {
+	let struct_def = item_head
+		.clone()
+		.then_ignore(just(Token::Struct))
+		.then(brace(loose_list(
+			struct_field.clone().map(Member::Field).or(func.clone().map(Member::Fn)),
+		)))
+		.map_with(|((name, type_params), members), ex| {
+			let (fields, fills, _) = split_members(members);
 			(
 				Expr::StructDef {
 					name,
 					type_params,
 					fields,
+					fills,
 				},
 				ex.span(),
 			)
@@ -1038,8 +1081,9 @@ where
 		.then(type_expr.clone())
 		.map(|(n, t)| (Some(n), t))
 		.or(type_expr.clone().map(|t| (None, t)));
-	let tuple_struct_def = just(Token::Struct)
-		.ignore_then(ident())
+	let tuple_struct_def = ident()
+		.then_ignore(just(Token::DoubleColon))
+		.then_ignore(just(Token::Struct))
 		.then(paren(
 			ts_field
 				.separated_by(just(Token::Comma))
@@ -1059,8 +1103,11 @@ where
 		.then(select! { Token::Int(n) => n })
 		.map(|(neg, n)| (Some(if neg.is_some() { -n } else { n }), None));
 	let disc = just(Token::Assign).ignore_then(disc_int.or(select! { Token::String(s) => (None, Some(s)) }));
-	let fields = brace(loose_list(ident().then(annot.clone())));
-	let backing = just(Token::Colon).ignore_then(annot.clone()).or_not();
+	let fields = brace(loose_list(ident().then_ignore(just(Token::Colon)).then(annot.clone())));
+	let backing = just(Token::DoubleColon).to(None).or(just(Token::Colon)
+		.ignore_then(annot.clone())
+		.then_ignore(just(Token::Colon))
+		.map(Some));
 	let payload = paren(annot.separated_by(just(Token::Comma)).allow_trailing().collect::<Vec<_>>());
 	let variant = ident()
 		.then(
@@ -1081,66 +1128,81 @@ where
 				names,
 			}
 		});
-	let enum_def = just(Token::Enum)
-		.ignore_then(ident())
+	let enum_def = ident()
 		.then(type_params.clone())
 		.then(backing)
-		.then(brace(loose_list(variant)))
-		.try_map_with(|(((name, type_params), backing), variants), ex| {
+		.then_ignore(just(Token::Enum))
+		.then(brace(loose_list(
+			func.clone().map(Member::Fn).or(variant.map(Member::Variant)),
+		)))
+		.validate(|(((name, type_params), backing), members), ex, emitter| {
+			let (_, fills, variants) = split_members(members);
 			let mut next = 0;
 			let mut seen = Vec::new();
 			for v in &variants {
 				let d = v.disc.unwrap_or(next);
 				if seen.contains(&d) {
 					let msg = format!("discriminant value `{d}` assigned more than once");
-					return Err(Rich::custom(ex.span(), msg));
+					emitter.emit(Rich::custom(ex.span(), msg));
 				}
 				seen.push(d);
 				next = d + 1;
 			}
 			if backing.is_none() && variants.iter().any(|v| v.raw.is_some()) {
-				return Err(Rich::custom(ex.span(), "a raw value needs a string backing"));
+				emitter.emit(Rich::custom(ex.span(), "a raw value needs a string backing"));
 			}
-			Ok((
+			(
 				Expr::EnumDef {
 					name,
 					backing,
 					type_params,
 					variants,
+					fills,
 				},
 				ex.span(),
-			))
+			)
 		})
 		.boxed();
 
 	// type aliases
-	let type_alias = just(Token::Type)
-		.ignore_then(ident())
-		.then_ignore(just(Token::Assign))
+	let type_alias = ident()
+		.filter(|name| name.starts_with(char::is_uppercase))
+		.then_ignore(just(Token::DoubleColon))
 		.then(type_expr.clone())
+		.then_ignore(
+			one_of([
+				Token::LBrace,
+				Token::LParen,
+				Token::LBracket,
+				Token::Dot,
+				Token::DotDot,
+				Token::Question,
+				Token::Pipeline,
+			])
+			.not(),
+		)
 		.map_with(|(name, typ), ex| (Expr::TypeAlias { name, typ }, ex.span()));
 
 	// trait definitions
-	let trait_method = just(Token::Fn)
-		.ignore_then(ident())
+	let slot_fn = ident()
+		.then_ignore(just(Token::Colon))
+		.then_ignore(just(Token::Fn))
 		.then(params.clone())
 		.then(ret.clone())
-		.then(block.clone().or_not())
-		.map_with(|(((name, params), ret), body), ex| {
-			fn_def((name, vec![]), Some(params), ret, body.unwrap_or_default(), ex.span())
-		});
-	let trait_def = just(Token::Trait)
-		.ignore_then(ident())
-		.then(
-			just(Token::Is)
-				.ignore_then(list(ident()))
-				.or_not()
-				.map(Option::unwrap_or_default),
-		)
-		.then(brace(
-			loose_list(struct_field.clone()).then(trait_method.repeated().collect::<Vec<_>>()),
-		))
-		.map_with(|((name, supers), (fields, methods)), ex| {
+		.map_with(|((name, params), ret), ex| fn_def((name, vec![]), Some(params), ret, vec![], ex.span()));
+	let supers = just(Token::DoubleColon)
+		.to(vec![])
+		.or(just(Token::Colon).ignore_then(list(ident())).then_ignore(just(Token::Colon)));
+	let trait_def = ident()
+		.then(supers)
+		.then_ignore(just(Token::Trait))
+		.then(brace(loose_list(choice((
+			slot_fn.map(Member::Fn),
+			struct_field.clone().map(Member::Field),
+			func.clone().map(Member::Fn),
+		)))))
+		.map_with(|((name, supers), members), ex| {
+			let (fields, methods, _) = split_members(members);
 			(
 				Expr::TraitDef {
 					name,
@@ -1153,34 +1215,41 @@ where
 		})
 		.boxed();
 
-	let impl_block = just(Token::Impl)
-		.ignore_then(ident())
-		.then(just(Token::For).ignore_then(ident()).or_not())
+	// impl blocks
+	let fill_block = brace(func.clone().repeated().collect::<Vec<_>>());
+	let claim = ident()
 		.then(type_params.clone())
-		.then(brace(func.clone().repeated().collect::<Vec<_>>()).or_not())
-		.map_with(|(((head, target), type_params), methods), ex| {
-			let (typ, trait_name) = match target {
-				Some(t) => (t, Some(head)),
-				None => (head, None),
-			};
+		.then_ignore(just(Token::Colon))
+		.then(list(ident()))
+		.then(fill_block)
+		.or(ident()
+			.filter(|name| name.starts_with(char::is_uppercase))
+			.then(type_params.clone())
+			.then_ignore(just(Token::Colon))
+			.then(ident().separated_by(just(Token::Comma)).at_least(1).collect::<Vec<_>>())
+			.then_ignore(just(Token::Colon).not())
+			.map(|(head, traits)| ((head, traits), vec![])))
+		.map_with(|(((typ, type_params), traits), fills), ex| {
 			(
-				Expr::Impl {
+				Expr::Claim {
 					typ,
 					type_params,
-					trait_name,
-					methods: methods.unwrap_or_default(),
+					traits,
+					fills,
 				},
 				ex.span(),
 			)
 		})
 		.boxed();
 
-	let def = tuple_struct_def
+	let def = func
+		.clone()
+		.or(tuple_struct_def)
 		.or(struct_def)
 		.or(enum_def)
-		.or(type_alias)
-		.or(func.clone())
 		.or(trait_def)
+		.or(claim)
+		.or(type_alias)
 		.boxed();
 	let public = just(Token::Pub)
 		.ignore_then(def.clone())
@@ -1189,7 +1258,7 @@ where
 		.ignore_then(ident())
 		.map_with(|name, ex| (Expr::Module(name), ex.span()));
 	let alias = select! { Token::Ident(s) if s == "as" => () }.ignore_then(ident());
-	let import_decl = just(Token::Import)
+	let use_decl = just(Token::Use)
 		.ignore_then(ident())
 		.then(
 			brace(loose_list(spanned(ident())))
@@ -1199,13 +1268,12 @@ where
 		)
 		.map_with(|(module, tail), ex| {
 			let (alias, names) = tail.unwrap_or_default();
-			(Expr::Import { module, alias, names }, ex.span())
+			(Expr::Use { module, alias, names }, ex.span())
 		});
 
 	def.or(public)
 		.or(module_decl)
-		.or(import_decl)
-		.or(impl_block)
+		.or(use_decl)
 		.or(stmt)
 		.repeated()
 		.collect()

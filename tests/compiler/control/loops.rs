@@ -3,7 +3,7 @@ use crate::helpers::*;
 #[test]
 fn counts_to_a_return() {
 	let src = indoc! {"
-		mut i := 0
+		i := 0
 		loop {
 			i = i + 1
 			if i == 3 { return i }
@@ -15,8 +15,8 @@ fn counts_to_a_return() {
 #[test]
 fn sums_across_iterations() {
 	let src = indoc! {"
-		mut sum := 0
-		mut i := 0
+		sum := 0
+		i := 0
 		loop {
 			i = i + 1
 			sum = sum + i
@@ -29,8 +29,8 @@ fn sums_across_iterations() {
 #[test]
 fn loop_in_function() {
 	let src = indoc! {"
-		fn pow2_over(n int) int {
-			mut x := 1
+		pow2_over :: fn(n: int) int {
+			x := 1
 			loop {
 				if x > n { return x }
 				x = x * 2
@@ -44,7 +44,7 @@ fn loop_in_function() {
 #[test]
 fn break_exits() {
 	let src = indoc! {"
-		mut i := 0
+		i := 0
 		loop {
 			i = i + 1
 			if i == 3 { break }
@@ -57,8 +57,8 @@ fn break_exits() {
 #[test]
 fn continue_skips() {
 	let src = indoc! {"
-		mut sum := 0
-		mut i := 0
+		sum := 0
+		i := 0
 		loop {
 			i = i + 1
 			if i > 10 { break }
@@ -73,10 +73,10 @@ fn continue_skips() {
 #[test]
 fn break_targets_innermost() {
 	let src = indoc! {"
-		mut outer := 0
+		outer := 0
 		loop {
 			outer = outer + 1
-			mut inner := 0
+			inner := 0
 			loop {
 				inner = inner + 1
 				if inner == 2 { break }
@@ -101,7 +101,7 @@ fn continue_outside_loop() {
 #[test]
 fn while_counts() {
 	let src = indoc! {"
-		mut i := 0
+		i := 0
 		loop i < 5 {
 			i = i + 1
 		}
@@ -113,7 +113,7 @@ fn while_counts() {
 #[test]
 fn while_never_enters() {
 	let src = indoc! {"
-		mut i := 10
+		i := 10
 		loop i < 5 {
 			i = i + 1
 		}
@@ -125,8 +125,8 @@ fn while_never_enters() {
 #[test]
 fn while_sums() {
 	let src = indoc! {"
-		mut sum := 0
-		mut i := 0
+		sum := 0
+		i := 0
 		loop i < 5 {
 			i = i + 1
 			sum = sum + i
@@ -139,7 +139,7 @@ fn while_sums() {
 #[test]
 fn while_break() {
 	let src = indoc! {"
-		mut i := 0
+		i := 0
 		loop i < 100 {
 			i = i + 1
 			if i == 3 { break }
@@ -152,8 +152,8 @@ fn while_break() {
 #[test]
 fn while_continue() {
 	let src = indoc! {"
-		mut sum := 0
-		mut i := 0
+		sum := 0
+		i := 0
 		loop i < 10 {
 			i = i + 1
 			if i % 2 == 1 { continue }
@@ -174,7 +174,7 @@ fn while_condition_must_be_bool() {
 #[test]
 fn for_range_sums() {
 	let src = indoc! {"
-		mut sum := 0
+		sum := 0
 		loop i in 0..5 {
 			sum = sum + i
 		}
@@ -194,7 +194,7 @@ fn for_range_excludes_end() {
 #[test]
 fn for_range_empty() {
 	let src = indoc! {"
-		mut sum := 99
+		sum := 99
 		loop i in 3..3 {
 			sum = 0
 		}
@@ -206,9 +206,9 @@ fn for_range_empty() {
 #[test]
 fn for_range_variable_bounds() {
 	let src = indoc! {"
-		lo := 2
-		hi := 5
-		mut sum := 0
+		lo :: 2
+		hi :: 5
+		sum := 0
 		loop i in lo..hi {
 			sum = sum + i
 		}
@@ -220,7 +220,7 @@ fn for_range_variable_bounds() {
 #[test]
 fn for_range_break() {
 	let src = indoc! {"
-		mut sum := 0
+		sum := 0
 		loop i in 0..100 {
 			if i == 5 { break }
 			sum = sum + i
@@ -233,7 +233,7 @@ fn for_range_break() {
 #[test]
 fn for_range_continue_advances() {
 	let src = indoc! {"
-		mut sum := 0
+		sum := 0
 		loop i in 0..6 {
 			if i % 2 == 1 { continue }
 			sum = sum + i
@@ -246,7 +246,7 @@ fn for_range_continue_advances() {
 #[test]
 fn for_range_nested() {
 	let src = indoc! {"
-		mut n := 0
+		n := 0
 		loop i in 0..3 {
 			loop j in 0..3 {
 				n = n + 1
@@ -260,7 +260,7 @@ fn for_range_nested() {
 #[test]
 fn for_range_returns() {
 	let src = indoc! {"
-		fn square_at(n int) int {
+		square_at :: fn(n: int) int {
 			loop i in 0..10 {
 				if i == n { return i * i }
 			}
@@ -281,7 +281,7 @@ fn for_var_is_scoped() {
 #[test]
 fn for_each_sums() {
 	let src = indoc! {"
-		mut sum := 0
+		sum := 0
 		loop x in [2, 4, 6, 8] {
 			sum = sum + x
 		}
@@ -293,8 +293,8 @@ fn for_each_sums() {
 #[test]
 fn for_each_variable_array() {
 	let src = indoc! {"
-		a := [10, 20, 30]
-		mut sum := 0
+		a :: [10, 20, 30]
+		sum := 0
 		loop x in a {
 			sum = sum + x
 		}
@@ -315,8 +315,8 @@ fn for_each_strings() {
 #[test]
 fn slice_iterates_its_window() {
 	let src = indoc! {"
-		a := [0, 2, 4, 6, 8]
-		mut sum := 0
+		a :: [0, 2, 4, 6, 8]
+		sum := 0
 		loop x in a[1..4] {
 			sum = sum + x
 		}
@@ -328,7 +328,7 @@ fn slice_iterates_its_window() {
 #[test]
 fn for_each_tuple_destructure() {
 	let src = indoc! {"
-		mut sum := 0
+		sum := 0
 		loop (x, y) in [(0, 0), (1, 2), (3, 4)] {
 			sum = sum + x + y
 		}
@@ -360,8 +360,8 @@ fn for_tuple_pattern_wrong_field_count() {
 #[test]
 fn for_each_bind_is_independent_copy() {
 	let src = indoc! {"
-		outer := [[1], [2]]
-		mut got := [0]
+		outer :: [[1], [2]]
+		got := [0]
 		loop x in outer {
 			got = x
 		}

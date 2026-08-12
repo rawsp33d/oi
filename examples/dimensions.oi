@@ -1,4 +1,4 @@
-fn dimensions() {
+dimensions :: fn() {
 	(width: 1920, height: 1080)
 }
 

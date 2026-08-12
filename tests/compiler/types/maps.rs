@@ -5,7 +5,7 @@ use indoc::indoc;
 fn declare_and_set_get() {
 	check(
 		indoc! {r#"
-			mut m Map[string, int]
+			m: Map[string, int]
 			m["one"] = 1
 			m["one"]
 		"#},
@@ -17,7 +17,7 @@ fn declare_and_set_get() {
 fn init_expr_declare_and_set_get() {
 	check(
 		indoc! {r#"
-			mut m := Map[string, int]{}
+			m := Map[string, int]{}
 			m["one"] = 1
 			m["one"]
 		"#},
@@ -29,7 +29,7 @@ fn init_expr_declare_and_set_get() {
 fn bare_map_lit_from_annotation() {
 	check(
 		indoc! {r#"
-			mut m Map[string, int] := Map{}
+			m: Map[string, int] = Map{}
 			m["one"] = 1
 			m["one"]
 		"#},
@@ -41,7 +41,7 @@ fn bare_map_lit_from_annotation() {
 fn overwrite_key() {
 	check(
 		indoc! {r#"
-			mut m Map[string, int]
+			m: Map[string, int]
 			m["a"] = 1
 			m["a"] = 2
 			m["a"]
@@ -54,7 +54,7 @@ fn overwrite_key() {
 fn multiple_keys() {
 	check(
 		indoc! {r#"
-			mut m Map[string, int]
+			m: Map[string, int]
 			m["one"] = 1
 			m["two"] = 2
 			m["one"] + m["two"]
@@ -67,7 +67,7 @@ fn multiple_keys() {
 fn int_keys() {
 	check(
 		indoc! {r#"
-			mut m Map[int, string]
+			m: Map[int, string]
 			m[1] = "a"
 			m[2] = "b"
 			m[1]
@@ -80,7 +80,7 @@ fn int_keys() {
 fn float_keys() {
 	check(
 		indoc! {"
-			mut m Map[float, int]
+			m: Map[float, int]
 			m[1.2] = 6
 			m[2.1] = 9
 			m[2.1]
@@ -93,7 +93,7 @@ fn float_keys() {
 fn bool_keys() {
 	check(
 		indoc! {"
-			mut m Map[bool, int]
+			m: Map[bool, int]
 			m[true] = 6
 			m[false] = 9
 			m[false]
@@ -107,8 +107,8 @@ fn tuple_keys_fail_for_now() {
 	// TODO: actually implement complex keys and fix test
 	assert!(
 		fail(indoc! {"
-			type Point = (int, int)
-			mut m Map[Point, int]
+			Point :: (int, int)
+			m: Map[Point, int]
 			m[(1, 2)] = 6
 			m[(2, 1)] = 9
 			m[(2, 1)]
@@ -121,7 +121,7 @@ fn tuple_keys_fail_for_now() {
 fn missing_key_panics() {
 	assert!(
 		fail(indoc! {r#"
-			mut m Map[string, int]
+			m: Map[string, int]
 			m["missing"]
 		"#})
 		.contains("key not found")
@@ -132,7 +132,7 @@ fn missing_key_panics() {
 fn wrong_key_type() {
 	assert!(
 		fail(indoc! {r#"
-			mut m Map[string, int]
+			m: Map[string, int]
 			m[1]
 		"#})
 		.contains("expected str key")
@@ -143,7 +143,7 @@ fn wrong_key_type() {
 fn wrong_value_type() {
 	assert!(
 		fail(indoc! {r#"
-			mut m Map[string, int]
+			m: Map[string, int]
 			m["a"] = "b"
 		"#})
 		.contains("type mismatch")
@@ -154,7 +154,7 @@ fn wrong_value_type() {
 fn record_literal_infers() {
 	check(
 		indoc! {r#"
-			m := { one: 1, two: 2 }
+			m :: { one: 1, two: 2 }
 			m["one"] + m["two"]
 		"#},
 		"3",
@@ -165,7 +165,7 @@ fn record_literal_infers() {
 fn record_literal_multiline() {
 	check(
 		indoc! {r#"
-			m := {
+			m :: {
 				one: 1
 				two: 2
 			}
@@ -179,7 +179,7 @@ fn record_literal_multiline() {
 fn record_int_keys() {
 	check(
 		indoc! {r#"
-			m := { 1: "one", 2: "two" }
+			m :: { 1: "one", 2: "two" }
 			m[1]
 		"#},
 		"one",
@@ -190,7 +190,7 @@ fn record_int_keys() {
 fn record_atom_keys() {
 	check(
 		indoc! {"
-			m := { :ok: 200, :not_found: 404 }
+			m :: { :ok: 200, :not_found: 404 }
 			m[:ok]
 		"},
 		"200",
@@ -201,7 +201,7 @@ fn record_atom_keys() {
 fn record_typed_target() {
 	check(
 		indoc! {r#"
-			m Map[string, f64] := { a: 1.5 }
+			m: Map[string, f64] : { a: 1.5 }
 			m["a"]
 		"#},
 		"1.5",
@@ -212,7 +212,7 @@ fn record_typed_target() {
 fn record_empty_against_target() {
 	check(
 		indoc! {r#"
-			mut m Map[string, int] := {}
+			m: Map[string, int] = {}
 			m["a"] = 3
 			m["a"]
 		"#},
@@ -224,8 +224,8 @@ fn record_empty_against_target() {
 fn record_pun() {
 	check(
 		indoc! {r#"
-			x := 5
-			m := {x,}
+			x :: 5
+			m :: {x,}
 			m["x"]
 		"#},
 		"5",
@@ -234,19 +234,19 @@ fn record_pun() {
 
 #[test]
 fn record_mixed_value_types_fail() {
-	fail_with(r#"m := { a: 1, b: "two" }"#, "expected int, got str");
+	fail_with(r#"m :: { a: 1, b: "two" }"#, "expected int, got str");
 }
 
 #[test]
 fn record_empty_needs_target() {
-	fail_with("m := {}", "cannot infer");
+	fail_with("m :: {}", "cannot infer");
 }
 
 #[test]
 fn delete_key() {
 	check(
 		indoc! {r#"
-			mut m Map[string, int]
+			m: Map[string, int]
 			m["one"] = 1
 			m["two"] = 2
 			m.delete["one"]
@@ -260,7 +260,7 @@ fn delete_key() {
 fn delete_missing_key_is_noop() {
 	check(
 		indoc! {r#"
-			mut m Map[string, int]
+			m: Map[string, int]
 			m.delete["missing"]
 			1
 		"#},
@@ -272,7 +272,7 @@ fn delete_missing_key_is_noop() {
 fn deleted_key_then_lookup_panics() {
 	fail_with(
 		indoc! {r#"
-			mut m Map[string, int]
+			m: Map[string, int]
 			m["one"] = 1
 			m.delete["one"]
 			m["one"]
@@ -290,11 +290,11 @@ fn init_with_elements_fails() {
 fn delete_on_immutable_map_fails() {
 	fail_with(
 		indoc! {r#"
-			fn f(m Map[string, int]) int {
+			f :: fn(m: Map[string, int]) int {
 				m.delete["one"]
 				m["one"]
 			}
-			mut n Map[string, int]
+			n: Map[string, int]
 			n["one"] = 1
 			f(n)
 		"#},
@@ -308,9 +308,9 @@ fn delete_on_immutable_map_fails() {
 fn index_assign_copy() {
 	check(
 		indoc! {r#"
-			mut m Map[string, int]
+			m: Map[string, int]
 			m["a"] = 1
-			b := m
+			b :: m
 			m["a"] = 99
 			b["a"]
 		"#},
@@ -318,9 +318,9 @@ fn index_assign_copy() {
 	);
 	check(
 		indoc! {r#"
-			mut m Map[string, int]
+			m: Map[string, int]
 			m["a"] = 1
-			mut b := m
+			b := m
 			b["a"] = 99
 			m["a"]
 		"#},
@@ -333,10 +333,10 @@ fn independent_copies() {
 	// delete copy
 	check(
 		indoc! {r#"
-			mut m Map[string, int]
+			m: Map[string, int]
 			m["a"] = 1
 			m["b"] = 2
-			mut n := m
+			n := m
 			n.delete["a"]
 			m["a"]
 		"#},
@@ -345,10 +345,10 @@ fn independent_copies() {
 	// chain of copies
 	check(
 		indoc! {r#"
-			mut m Map[string, int]
+			m: Map[string, int]
 			m["a"] = 1
-			n := m
-			mut o := n
+			n :: m
+			o := n
 			o["a"] = 99
 			n["a"]
 		"#},
@@ -357,10 +357,10 @@ fn independent_copies() {
 	// returned param vs arg
 	check(
 		indoc! {r#"
-			fn id(m Map[string, int]) Map[string, int] { m }
-			mut a Map[string, int]
+			id :: fn(m: Map[string, int]) Map[string, int] { m }
+			a: Map[string, int]
 			a["a"] = 1
-			mut r := id(a)
+			r := id(a)
 			r["a"] = 99
 			a["a"]
 		"#},
@@ -369,8 +369,8 @@ fn independent_copies() {
 	// stored array value
 	check(
 		indoc! {r#"
-			mut m Map[string, []int]
-			mut arr := [1]
+			m: Map[string, []int]
+			arr := [1]
 			m["a"] = arr
 			arr << 2
 			m["a"]

@@ -13,7 +13,7 @@ fn undefined_function() {
 #[test]
 fn wrong_arg_count() {
 	let src = indoc! {"
-		fn add(x int, y int) { x + y }
+		add :: fn(x: int, y: int) { x + y }
 		add(1)
 	"};
 	fail_with(src, "expects 2 argument");
@@ -22,7 +22,7 @@ fn wrong_arg_count() {
 #[test]
 fn wrong_arg_type() {
 	let src = indoc! {r#"
-		fn double(x int) { x + x }
+		double :: fn(x: int) { x + x }
 		double("nope")
 	"#};
 	fail_with(src, "expected int argument");
@@ -31,7 +31,7 @@ fn wrong_arg_type() {
 #[test]
 fn wrong_return_type() {
 	let src = indoc! {r#"
-		fn bad() int { "nope" }
+		bad :: fn() int { "nope" }
 		bad()
 	"#};
 	fail_with(src, "expected int return value");
@@ -40,7 +40,7 @@ fn wrong_return_type() {
 #[test]
 fn unknown_return_type() {
 	let src = indoc! {"
-		fn bad() blob { 1 }
+		bad :: fn() blob { 1 }
 		bad()
 	"};
 	fail_with(src, "unknown type `blob`");
@@ -49,7 +49,7 @@ fn unknown_return_type() {
 #[test]
 fn return_keyword_wrong_type() {
 	let src = indoc! {"
-		fn bad() int { return 2.0 }
+		bad :: fn() int { return 2.0 }
 		bad()
 	"};
 	fail_with(src, "expected int return value");
@@ -74,7 +74,7 @@ fn invalid_token() {
 
 #[test]
 fn assign_to_immutable() {
-	fail_with("x := 1\nx = 2", "cannot assign to immutable");
+	fail_with("x :: 1\nx = 2", "cannot assign to immutable");
 }
 
 #[test]
@@ -84,13 +84,13 @@ fn assign_to_undefined() {
 
 #[test]
 fn assign_wrong_type() {
-	fail_with("mut x := 1\nx = 2.0", "cannot assign float");
+	fail_with("x := 1\nx = 2.0", "cannot assign float");
 }
 
 #[test]
 fn top_level_stmt_with_main() {
 	let src = indoc! {"
-		fn main() {
+		main :: fn() {
 			1
 		}
 		2

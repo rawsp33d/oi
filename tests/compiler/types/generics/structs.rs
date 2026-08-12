@@ -4,8 +4,8 @@ use indoc::indoc;
 #[test]
 fn infer_from_literal() {
 	let src = indoc! {"
-		struct Pair[T] { a T, b T }
-		p := Pair{ a: 3, b: 4 }
+		Pair[T] :: struct { a: T, b: T }
+		p :: Pair{ a: 3, b: 4 }
 		p.a + p.b
 	"};
 	check(src, "7");
@@ -14,7 +14,7 @@ fn infer_from_literal() {
 #[test]
 fn nested_instantiation() {
 	let src = indoc! {"
-		struct Box[T] { v T }
+		Box[T] :: struct { v: T }
 		Box{ v: Box{ v: 5 } }.v.v
 	"};
 	check(src, "5");
@@ -23,8 +23,8 @@ fn nested_instantiation() {
 #[test]
 fn type_position_param() {
 	let src = indoc! {"
-		struct Pair[T] { a T, b T }
-		fn sum(p Pair[int]) int { p.a + p.b }
+		Pair[T] :: struct { a: T, b: T }
+		sum :: fn(p: Pair[int]) int { p.a + p.b }
 		sum(Pair{ a: 3, b: 4 })
 	"};
 	check(src, "7");
@@ -34,7 +34,7 @@ fn type_position_param() {
 fn conflicting_field_types_error() {
 	fail_with(
 		indoc! {r#"
-			struct Pair[T] { a T, b T }
+			Pair[T] :: struct { a: T, b: T }
 			Pair{ a: 3, b: "x" }
 		"#},
 		"bound to both",
@@ -45,7 +45,7 @@ fn conflicting_field_types_error() {
 fn cannot_infer_error() {
 	fail_with(
 		indoc! {"
-			struct Pair[T] { a T, b T }
+			Pair[T] :: struct { a: T, b: T }
 			Pair{}
 		"},
 		"cannot infer",
@@ -56,8 +56,8 @@ fn cannot_infer_error() {
 fn empty_lit_infers_from_annotation() {
 	check(
 		indoc! {"
-			struct Box[T] { v T }
-			b Box[int] := Box{}
+			Box[T] :: struct { v: T }
+			b : Box[int] : Box{}
 			b.v
 		"},
 		"0",
@@ -68,8 +68,8 @@ fn empty_lit_infers_from_annotation() {
 fn partial_lit_infers_from_annotation() {
 	check(
 		indoc! {r#"
-			struct Pair[A, B] { a A, b B }
-			p Pair[int, string] := Pair{ a: 7 }
+			Pair[A, B] :: struct { a: A, b: B }
+			p : Pair[int, string] : Pair{ a: 7 }
 			p.a
 		"#},
 		"7",
@@ -80,8 +80,8 @@ fn partial_lit_infers_from_annotation() {
 fn bare_name_needs_type_arguments() {
 	fail_with(
 		indoc! {"
-			struct Pair[T] { a T, b T }
-			fn f(p Pair) int { p.a }
+			Pair[T] :: struct { a: T, b: T }
+			f :: fn(p: Pair) int { p.a }
 			0
 		"},
 		"needs type arguments",
@@ -91,8 +91,8 @@ fn bare_name_needs_type_arguments() {
 #[test]
 fn generic_fn_round_trip() {
 	let src = indoc! {"
-		struct Box[T] { v T }
-		fn wrap[T](v T) Box[T] { Box{ v: v } }
+		Box[T] :: struct { v: T }
+		wrap[T] :: fn(v: T) Box[T] { Box{ v: v } }
 		wrap(9).v
 	"};
 	check(src, "9");
@@ -102,7 +102,7 @@ fn generic_fn_round_trip() {
 fn concrete_field_type_still_checked() {
 	fail_with(
 		indoc! {r#"
-			struct Tagged[T] { v T, id int }
+			Tagged[T] :: struct { v: T, id: int }
 			Tagged{ v: 1.5, id: "x" }
 		"#},
 		"expected int",
@@ -113,8 +113,8 @@ fn concrete_field_type_still_checked() {
 fn type_args_on_non_generic_struct_error() {
 	fail_with(
 		indoc! {"
-			struct Point { x int, y int }
-			fn f(p Point[int]) int { p.x }
+			Point :: struct { x: int, y: int }
+			f :: fn(p: Point[int]) int { p.x }
 			0
 		"},
 		"is not generic",

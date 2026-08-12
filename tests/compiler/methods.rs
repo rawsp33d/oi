@@ -3,11 +3,11 @@ use crate::helpers::*;
 #[test]
 fn instance_method() {
 	let src = indoc! {"
-		struct Point { x int, y int }
-		impl Point {
-			fn sum(self) int { self.x + self.y }
+		Point :: struct { x: int, y: int }
+		Point :{
+			sum :: fn(self) int { self.x + self.y }
 		}
-		p := Point{3, 4}
+		p :: Point{3, 4}
 		p.sum()
 	"};
 	check(src, "7");
@@ -16,9 +16,9 @@ fn instance_method() {
 #[test]
 fn method_with_args() {
 	let src = indoc! {"
-		struct Point { x int, y int }
-		impl Point {
-			fn scaled(self, k int) int { (self.x + self.y) * k }
+		Point :: struct { x: int, y: int }
+		Point :{
+			scaled :: fn(self, k: int) int { (self.x + self.y) * k }
 		}
 		Point{3, 4}.scaled(10)
 	"};
@@ -28,8 +28,8 @@ fn method_with_args() {
 #[test]
 fn method_on_literal() {
 	let src = indoc! {"
-		struct P { x int, y int }
-		impl P { fn sum(self) int { self.x + self.y } }
+		P :: struct { x: int, y: int }
+		P :{ sum :: fn(self) int { self.x + self.y } }
 		P{3, 4}.sum()
 	"};
 	check(src, "7");
@@ -38,9 +38,9 @@ fn method_on_literal() {
 #[test]
 fn method_returns_struct_field() {
 	let src = indoc! {"
-		struct User { name string, age int }
-		impl User {
-			fn can_register(self) bool { self.age > 16 }
+		User :: struct { name: string, age: int }
+		User :{
+			can_register :: fn(self) bool { self.age > 16 }
 		}
 		User{name: \"ada\", age: 36}.can_register()
 	"};
@@ -50,10 +50,10 @@ fn method_returns_struct_field() {
 #[test]
 fn static_method() {
 	let src = indoc! {"
-		struct Point { x int, y int }
-		impl Point {
-			fn origin() Point { Point{0, 0} }
-			fn sum(self) int { self.x + self.y }
+		Point :: struct { x: int, y: int }
+		Point :{
+			origin :: fn() Point { Point{0, 0} }
+			sum :: fn(self) int { self.x + self.y }
 		}
 		Point.origin().sum()
 	"};
@@ -63,8 +63,8 @@ fn static_method() {
 #[test]
 fn static_method_with_args() {
 	let src = indoc! {"
-		struct Point { x int, y int }
-		impl Point { fn make(a int, b int) Point { Point{a, b} } }
+		Point :: struct { x: int, y: int }
+		Point :{ make :: fn(a: int, b: int) Point { Point{a, b} } }
 		Point.make(3, 4).x
 	"};
 	check(src, "3");
@@ -73,10 +73,10 @@ fn static_method_with_args() {
 #[test]
 fn self_type_and_literal() {
 	let src = indoc! {"
-		struct Point { x int, y int }
-		impl Point {
-			fn new() Self { Self {} }
-			fn sum(self) int { self.x + self.y }
+		Point :: struct { x: int, y: int }
+		Point :{
+			new :: fn() Self { Self {} }
+			sum :: fn(self) int { self.x + self.y }
 		}
 		Point.new().sum()
 	"};
@@ -86,9 +86,9 @@ fn self_type_and_literal() {
 #[test]
 fn self_param_and_fields() {
 	let src = indoc! {"
-		struct Point { x int, y int }
-		impl Point {
-			fn add(self, other Self) Self { Self{self.x + other.x, self.y + other.y} }
+		Point :: struct { x: int, y: int }
+		Point :{
+			add :: fn(self, other: Self) Self { Self{self.x + other.x, self.y + other.y} }
 		}
 		Point{1, 2}.add(Point{3, 4}).x
 	"};
@@ -103,12 +103,12 @@ fn self_outside_impl() {
 #[test]
 fn mut_self_mutates_receiver() {
 	let src = indoc! {"
-		struct Counter { n int }
-		impl Counter {
-			fn bump(mut self) { self.n = self.n + 1 }
-			fn get(self) int { self.n }
+		Counter :: struct { n: int }
+		Counter :{
+			bump :: fn(mut self) { self.n = self.n + 1 }
+			get :: fn(self) int { self.n }
 		}
-		mut c := Counter{0}
+		c := Counter{0}
 		c.bump()
 		c.bump()
 		c.get()
@@ -120,11 +120,11 @@ fn mut_self_mutates_receiver() {
 fn immutable_self_rejects_field_assign() {
 	fail_with(
 		indoc! {"
-			struct P { x int }
-			impl P { fn bad(self) { self.x = 9 } }
+			P :: struct { x: int }
+			P :{ bad :: fn(self) { self.x = 9 } }
 			P{1}.bad()
 		"},
-		"without `mut`",
+		"immutably bound",
 	);
 }
 
@@ -132,8 +132,8 @@ fn immutable_self_rejects_field_assign() {
 fn no_such_method() {
 	fail_with(
 		indoc! {"
-			struct P { x int }
-			p := P{1}
+			P :: struct { x: int }
+			p :: P{1}
 			p.nope()
 		"},
 		"no method `nope`",
@@ -149,8 +149,8 @@ fn methods_only_on_structs() {
 fn wrong_arg_count() {
 	fail_with(
 		indoc! {"
-			struct P { x int }
-			impl P { fn add(self, k int) int { self.x + k } }
+			P :: struct { x: int }
+			P :{ add :: fn(self, k: int) int { self.x + k } }
 			P{1}.add()
 		"},
 		"expects 1 argument",

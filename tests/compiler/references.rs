@@ -4,9 +4,9 @@ use crate::helpers::*;
 fn aliasing_shares_identity() {
 	check(
 		indoc! {r#"
-			struct Node { value int }
-			mut list := &Node{ value: 5 }
-			head := list
+			Node :: struct { value: int }
+			list := &Node{ value: 5 }
+			head :: list
 			list.value = 9
 			print("head is {head}")
 		"#},
@@ -17,18 +17,18 @@ fn aliasing_shares_identity() {
 #[test]
 fn bare_ref_without_value_errors() {
 	fail_with(
-		["struct Node { value int }", "mut n &Node"],
+		["Node :: struct { value: int }", "n: &Node"],
 		"a reference must be initialized (`?&T` for an optional one)",
 	);
 }
 
 #[test]
 fn optional_ref_zero_value_assign_unwrap() {
-	check(["struct Node { value int }", "mut o ?&Node", "o"], "none");
+	check(["Node :: struct { value: int }", "o: ?&Node", "o"], "none");
 	check(
 		indoc! {"
-			struct Node { value int }
-			mut o ?&Node
+			Node :: struct { value: int }
+			o: ?&Node
 			o = ?&Node(&Node{ value: 7 })
 			match o {
 				.some(n) => n.value,
@@ -42,9 +42,9 @@ fn optional_ref_zero_value_assign_unwrap() {
 #[test]
 fn no_leaks_on_share_and_release() {
 	assert_clean(indoc! {"
-		struct Node { value int }
-		mut list := &Node{ value: 5 }
-		head := list
+		Node :: struct { value: int }
+		list := &Node{ value: 5 }
+		head :: list
 		list.value = 9
 		print(head.value)
 	"});
@@ -53,8 +53,8 @@ fn no_leaks_on_share_and_release() {
 #[test]
 fn bare_ref_field_rejected() {
 	let src = indoc! {"
-		struct Node { value int }
-		struct List { head &Node }
+		Node :: struct { value: int }
+		List :: struct { head: &Node }
 	"};
 	fail_with(src, "must be optional (`?&T`)");
 }
@@ -63,9 +63,9 @@ fn bare_ref_field_rejected() {
 fn linked_nodes() {
 	check(
 		indoc! {r#"
-			struct Node { value int, next ?&Node }
-			tail := &Node{ value: 2 }
-			head := &Node{ value: 1, next: ?&Node(tail) }
+			Node :: struct { value: int, next: ?&Node }
+			tail :: &Node{ value: 2 }
+			head :: &Node{ value: 1, next: ?&Node(tail) }
 			match head.next {
 				.some(n) => print("{head.value} -> {n.value}"),
 				.none => print("lonely"),
@@ -78,8 +78,8 @@ fn linked_nodes() {
 #[test]
 fn interior_ref_frees_on_release() {
 	assert_clean(indoc! {"
-		struct Node { value int, next ?&Node }
-		head := &Node{ value: 1, next: ?&Node(&Node{ value: 2 }) }
+		Node :: struct { value: int, next: ?&Node }
+		head :: &Node{ value: 1, next: ?&Node(&Node{ value: 2 }) }
 		print(head.value)
 	"});
 }
@@ -87,11 +87,11 @@ fn interior_ref_frees_on_release() {
 #[test]
 fn shared_option_ref_stays_clean() {
 	assert_clean(indoc! {"
-		struct Node { value int, next ?&Node }
-		t := &Node{ value: 2 }
-		o := ?&Node(t)
-		a := &Node{ value: 1, next: o }
-		b := &Node{ value: 3, next: o }
+		Node :: struct { value: int, next: ?&Node }
+		t :: &Node{ value: 2 }
+		o :: ?&Node(t)
+		a :: &Node{ value: 1, next: o }
+		b :: &Node{ value: 3, next: o }
 		print(t.value)
 	"});
 }
@@ -99,9 +99,9 @@ fn shared_option_ref_stays_clean() {
 #[test]
 fn returned_box_keeps_zeroed_field() {
 	let src = indoc! {r#"
-		struct Node { value int, next ?&Node }
-		fn make() &Node { &Node{ value: 1 } }
-		n := make()
+		Node :: struct { value: int, next: ?&Node }
+		make :: fn() &Node { &Node{ value: 1 } }
+		n :: make()
 		match n.next {
 			.some(x) => print(x.value),
 			.none => print("ok"),
@@ -114,8 +114,8 @@ fn returned_box_keeps_zeroed_field() {
 #[test]
 fn rebind_releases_old_target() {
 	assert_clean(indoc! {r#"
-		struct Node { value int }
-		mut o ?&Node
+		Node :: struct { value: int }
+		o: ?&Node
 		o = ?&Node(&Node{ value: 1 })
 		o = ?&Node(&Node{ value: 2 })
 		print("done")
@@ -126,9 +126,9 @@ fn rebind_releases_old_target() {
 fn user_enum_with_ref_payload_stays_boxed() {
 	check(
 		indoc! {r#"
-			struct Node { value int }
-			enum E { empty, full(&Node) }
-			e := E.full(&Node{ value: 7 })
+			Node :: struct { value: int }
+			E :: enum { empty, full(&Node) }
+			e :: E.full(&Node{ value: 7 })
 			print(e)
 			match e {
 				.full(n) => print(n.value),
@@ -142,7 +142,7 @@ fn user_enum_with_ref_payload_stays_boxed() {
 #[test]
 fn value_recursion_still_errors() {
 	fail_with(
-		["struct A { b B }", "struct B { a A }"],
+		["A :: struct { b: B }", "B :: struct { a: A }"],
 		"would require infinitely nested fields",
 	);
 }
@@ -150,9 +150,9 @@ fn value_recursion_still_errors() {
 #[test]
 fn two_node_cycle_reclaimed() {
 	assert_clean(indoc! {r#"
-		struct Node { value int, next ?&Node }
-		mut a := &Node{ value: 1 }
-		b := &Node{ value: 2, next: ?&Node(a) }
+		Node :: struct { value: int, next: ?&Node }
+		a := &Node{ value: 1 }
+		b :: &Node{ value: 2, next: ?&Node(a) }
 		a.next = ?&Node(b)
 		print(a.value)
 	"#});
@@ -161,8 +161,8 @@ fn two_node_cycle_reclaimed() {
 #[test]
 fn self_cycle_reclaimed() {
 	assert_clean(indoc! {r#"
-		struct Node { value int, next ?&Node }
-		mut n := &Node{ value: 1 }
+		Node :: struct { value: int, next: ?&Node }
+		n := &Node{ value: 1 }
 		n.next = ?&Node(n)
 		print(n.value)
 	"#});
@@ -171,10 +171,10 @@ fn self_cycle_reclaimed() {
 #[test]
 fn cycle_with_acyclic_hangoff_reclaimed() {
 	assert_clean(indoc! {r#"
-		struct Leaf { v int }
-		struct Node { value int, leaf ?&Leaf, next ?&Node }
-		mut a := &Node{ value: 1, leaf: ?&Leaf(&Leaf{ v: 9 }) }
-		b := &Node{ value: 2, next: ?&Node(a) }
+		Leaf :: struct { v: int }
+		Node :: struct { value: int, leaf: ?&Leaf, next: ?&Node }
+		a := &Node{ value: 1, leaf: ?&Leaf(&Leaf{ v: 9 }) }
+		b :: &Node{ value: 2, next: ?&Node(a) }
 		a.next = ?&Node(b)
 		print(a.value)
 	"#});

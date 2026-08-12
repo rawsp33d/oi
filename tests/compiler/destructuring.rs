@@ -2,15 +2,15 @@ use crate::helpers::*;
 
 #[test]
 fn bind_basic() {
-	check(r#"(foo, bar) := ("food", "bard"); foo"#, "food");
-	check(r#"(foo, bar) := ("food", "bard"); bar"#, "bard");
+	check(r#"(foo, bar) :: ("food", "bard"); foo"#, "food");
+	check(r#"(foo, bar) :: ("food", "bard"); bar"#, "bard");
 }
 
 #[test]
 fn bind_from_fn() {
 	let src = indoc! {"
-		fn pair() (int, int) { (10, 20) }
-		(a, b) := pair()
+		pair :: fn() (int, int) { (10, 20) }
+		(a, b) :: pair()
 		a + b
 	"};
 	check(src, "30");
@@ -19,7 +19,7 @@ fn bind_from_fn() {
 #[test]
 fn bind_mut_reassigned() {
 	let src = indoc! {"
-		(mut a, b) := (1, 2)
+		(a, b) := (1, 2)
 		a = a + b
 		a
 	"};
@@ -29,7 +29,7 @@ fn bind_mut_reassigned() {
 #[test]
 fn swap() {
 	let src = indoc! {"
-		(mut a, mut b) := (1, 2)
+		(a, b) := (1, 2)
 		(a, b) = (b, a)
 		a
 	"};
@@ -39,9 +39,9 @@ fn swap() {
 #[test]
 fn loose_commas() {
 	let src = indoc! {r#"
-		fn get_coords() (int, int) { (7, 2) }
-		(lat long) := get_coords()
-		(mut a, mut b) := (lat long)
+		get_coords :: fn() (int, int) { (7, 2) }
+		(lat long) :: get_coords()
+		(a, b) := (lat long)
 		(a b) = (b a)
 		loop (x y) in [(1 2)] { print(x + y) }
 		match (a b) { (l r) => print(l - r), }
@@ -51,30 +51,25 @@ fn loose_commas() {
 
 #[test]
 fn bare_tuple_still_expr() {
-	check("(a, b) := (1, 2)\n(a, b)", "(1, 2)");
+	check("(a, b) :: (1, 2)\n(a, b)", "(1, 2)");
 }
 
 #[test]
 fn fail_arity_mismatch() {
-	fail_with("(a, b, c) := (1, 2)", "fields");
+	fail_with("(a, b, c) :: (1, 2)", "fields");
 }
 
 #[test]
 fn fail_non_tuple() {
-	fail_with("(a, b) := 5", "expected a tuple");
-}
-
-#[test]
-fn fail_mut_without_commas() {
-	fail("(mut a mut b) := (1, 2)");
+	fail_with("(a, b) :: 5", "expected a tuple");
 }
 
 #[test]
 fn fail_mut_in_assign() {
-	fail("(mut a, mut b) := (1, 2)\n(mut a, b) = (3, 4)");
+	fail("(a, b) :: (1, 2)\n(a, b) = (3, 4)");
 }
 
 #[test]
 fn fail_assign_immutable() {
-	fail_with("(a, b) := (1, 2)\n(a, b) = (3, 4)", "mut");
+	fail_with("(a, b) :: (1, 2)\n(a, b) = (3, 4)", "immutably bound");
 }

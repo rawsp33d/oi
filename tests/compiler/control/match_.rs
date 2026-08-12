@@ -3,7 +3,7 @@ use crate::helpers::*;
 #[test]
 fn match_string() {
 	let src = indoc! {r#"
-		os := "linux"
+		os :: "linux"
 		match os {
 			"darwin" => "macOS",
 			"linux" => "Linux",
@@ -16,7 +16,7 @@ fn match_string() {
 #[test]
 fn match_int() {
 	let src = indoc! {r#"
-		x := 2
+		x :: 2
 		match x {
 			1 => "one",
 			2 => "two",
@@ -29,7 +29,7 @@ fn match_int() {
 #[test]
 fn match_else_taken() {
 	let src = indoc! {r#"
-		x := 99
+		x :: 99
 		match x {
 			1 => "one",
 			else => "other",
@@ -61,7 +61,7 @@ fn match_no_else_miss_string() {
 #[test]
 fn match_as_binding() {
 	let src = indoc! {r#"
-		label := match 2 {
+		label :: match 2 {
 			1 => "one",
 			2 => "two",
 			else => "other",
@@ -86,7 +86,7 @@ fn match_int_expr_value() {
 #[test]
 fn match_or_patterns() {
 	let src = indoc! {r#"
-		os := "macos"
+		os :: "macos"
 		match os {
 			"darwin", "macos" => "Apple",
 			"linux" => "Linux",
@@ -99,7 +99,7 @@ fn match_or_patterns() {
 #[test]
 fn match_or_patterns_second() {
 	let src = indoc! {r#"
-		os := "darwin"
+		os :: "darwin"
 		match os {
 			"darwin", "macos" => "Apple",
 			else => "other",
@@ -116,7 +116,7 @@ fn match_bool() {
 #[test]
 fn match_true_as_if_chain() {
 	let src = indoc! {r#"
-		x := 7
+		x :: 7
 		match true {
 			x < 5 => "small",
 			x < 10 => "medium",
@@ -130,7 +130,7 @@ fn match_true_as_if_chain() {
 fn match_wildcard() {
 	check(r#"match 5 { 1 => "one", _ => "other" }"#, "other");
 	let src = indoc! {r#"
-		enum Color { red green blue }
+		Color :: enum { red green blue }
 		match Color.blue {
 			.red => 1,
 			_ => 9,
@@ -142,7 +142,7 @@ fn match_wildcard() {
 #[test]
 fn match_range() {
 	let src = indoc! {r#"
-		age := 18
+		age :: 18
 		match age {
 			0..18 => "minor",
 			18..65 => "adult",
@@ -164,7 +164,7 @@ fn match_range_needs_int_subject() {
 
 #[test]
 fn match_tuple_destructure() {
-	check("p := (3, 4)\nmatch p { (x, y) => x + y, }", "7");
+	check("p :: (3, 4)\nmatch p { (x, y) => x + y, }", "7");
 }
 
 #[test]
@@ -175,8 +175,8 @@ fn match_tuple_arity_mismatch() {
 #[test]
 fn match_struct_destructure() {
 	let src = indoc! {r#"
-		struct Point { x int, y int }
-		p := Point{ x: 3, y: 4 }
+		Point :: struct { x: int, y: int }
+		p :: Point{ x: 3, y: 4 }
 		match p {
 			Point{ y: b, x } => x + b,
 		}
@@ -187,7 +187,7 @@ fn match_struct_destructure() {
 #[test]
 fn match_struct_unknown_field() {
 	let src = indoc! {r#"
-		struct Point { x int, y int }
+		Point :: struct { x: int, y: int }
 		match Point{ x: 1, y: 2 } {
 			Point { z } => z,
 		}
@@ -198,7 +198,7 @@ fn match_struct_unknown_field() {
 #[test]
 fn match_array_destructure() {
 	let src = indoc! {r#"
-		a := [3, 4]
+		a :: [3, 4]
 		match a {
 			[x, y] => x + y,
 		}
@@ -209,7 +209,7 @@ fn match_array_destructure() {
 #[test]
 fn match_array_length_guard() {
 	let src = indoc! {r#"
-		a := [1, 2, 3]
+		a :: [1, 2, 3]
 		match a {
 			[x, y] => 0,
 			_ => 99,
@@ -221,8 +221,8 @@ fn match_array_length_guard() {
 #[test]
 fn match_enum_non_exhaustive() {
 	let src = indoc! {r#"
-		enum Color { red green blue }
-		c := Color.red
+		Color :: enum { red green blue }
+		c :: Color.red
 		match c {
 			.red => 1,
 			.green => 2,
@@ -244,9 +244,9 @@ fn match_pattern_type_mismatch() {
 #[test]
 fn match_arm_chain_across_lines() {
 	let src = indoc! {"
-		struct C { r int }
-		impl C { fn area(self) int { self.r * self.r } }
-		c := C{r: 3}
+		C :: struct { r: int }
+		C :{ area :: fn(self) int { self.r * self.r } }
+		c :: C{r: 3}
 		match true {
 			true => c
 				.area()
@@ -259,9 +259,9 @@ fn match_arm_chain_across_lines() {
 #[test]
 fn payload_bind_is_independent_copy() {
 	let src = indoc! {"
-		enum Box { empty has([]int) }
-		b := Box.has([1])
-		mut v := match b {
+		Box :: enum { empty has([]int) }
+		b :: Box.has([1])
+		v := match b {
 			.has(x) => x,
 			.empty => [0],
 		}

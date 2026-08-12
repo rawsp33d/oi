@@ -236,6 +236,75 @@ impl Default for Compiler {
 }
 
 impl Compiler {
+	// Register a type's fills as `Type.method` fns.
+	fn register_fills<'a>(
+		&mut self,
+		typ: &str,
+		type_params: &[TypeParam],
+		fills: &'a [Spanned<Expr>],
+		scope: &'a Scope,
+		others: &mut Vec<FnItem<'a>>,
+	) -> Result<(), Diagnostic> {
+		for m in fills {
+			let Expr::Fn {
+				name,
+				type_params: mtp,
+				params,
+				params_tuple,
+				ret,
+				body,
+			} = &m.0
+			else {
+				continue;
+			};
+			// one fill per name
+			let key = format!("{typ}.{name}");
+			if others.iter().any(|f| f.key == key) || self.generics.contains_key(&key) {
+				let msg = format!("duplicate fill `{key}`");
+				return Err(Diagnostic::new(msg, m.1.into_range()).with_label("one fill per name"));
+			}
+			if type_params.is_empty() && mtp.is_empty() {
+				others.push(FnItem {
+					key: format!("{typ}.{name}"),
+					scope,
+					params,
+					params_tuple: *params_tuple,
+					ret,
+					body,
+				});
+				continue;
+			}
+			let self_ty = if type_params.is_empty() {
+				TypeExpr::Name(typ.to_string())
+			} else {
+				let args = type_params.iter().map(|p| TypeExpr::Name(p.name.clone())).collect();
+				TypeExpr::Generic(typ.to_string(), args)
+			};
+			let params = params
+				.iter()
+				.map(|p| Param {
+					typ: replace_self(&p.typ, &self_ty),
+					..p.clone()
+				})
+				.collect();
+			let ret = ret.as_ref().map(|(te, span)| (replace_self(te, &self_ty), *span));
+			let mut all_params = type_params.to_vec();
+			all_params.extend(mtp.clone());
+			self.generics.insert(
+				key,
+				GenericFnDef {
+					params,
+					params_tuple: *params_tuple,
+					ret,
+					body: body.clone(),
+					type_params: all_params,
+					captures: vec![],
+				},
+			);
+		}
+		Ok(())
+	}
+
 	pub fn compile(&mut self, program: &Program) -> Result<*const u8, Diagnostic> {
 		let mut struct_items: Vec<(&str, &[Param])> = vec![];
 		let mut generics = Generics::default();
@@ -274,6 +343,7 @@ impl Compiler {
 					name,
 					type_params,
 					fields,
+					fills,
 				} if !type_params.is_empty() => {
 					generics.structs.insert(
 						name.clone(),
@@ -282,12 +352,17 @@ impl Compiler {
 							fields: fields.clone(),
 						},
 					);
+					self.register_fills(name, type_params, fills, scope, &mut others)?;
 				}
-				Expr::StructDef { name, fields, .. } => struct_items.push((name.as_str(), fields.as_slice())),
+				Expr::StructDef { name, fields, fills, .. } => {
+					struct_items.push((name.as_str(), fields.as_slice()));
+					self.register_fills(name, &[], fills, scope, &mut others)?;
+				}
 				Expr::EnumDef {
 					name,
 					type_params,
 					variants,
+					fills,
 					..
 				} if !type_params.is_empty() => {
 					generics.enums.insert(
@@ -297,13 +372,18 @@ impl Compiler {
 							variants: variants.clone(),
 						},
 					);
+					self.register_fills(name, type_params, fills, scope, &mut others)?;
 				}
 				Expr::EnumDef {
 					name,
 					backing,
 					variants,
+					fills,
 					..
-				} => enum_items.push((name.as_str(), backing.as_ref(), variants.as_slice())),
+				} => {
+					enum_items.push((name.as_str(), backing.as_ref(), variants.as_slice()));
+					self.register_fills(name, &[], fills, scope, &mut others)?;
+				}
 				Expr::TypeAlias { name, typ } => {
 					if matches!(typ, TypeExpr::TupleStruct(..)) && TypeCtx::builtin_type(name) {
 						let msg = format!("`{name}` is a builtin type");
@@ -312,15 +392,15 @@ impl Compiler {
 					alias_items.push((name.as_str(), typ));
 				}
 				Expr::TraitDef { .. } => {}
-				Expr::Impl {
+				Expr::Claim {
 					typ,
 					type_params,
-					trait_name,
-					methods,
+					traits: claimed,
+					fills,
 				} => {
-					if let Some(tn) = trait_name {
+					for tn in claimed {
 						if !type_params.is_empty() {
-							let msg = "generic trait impls aren't supported yet".to_string();
+							let msg = "generic trait claims aren't supported yet".to_string();
 							return Err(
 								Diagnostic::new(msg, item.1.into_range()).with_label("remove the type parameters")
 							);
@@ -329,62 +409,12 @@ impl Compiler {
 							span: item.1,
 							typ,
 							trait_name: tn,
-							methods,
+							methods: fills,
 							scope,
 						});
 						self.trait_impls.insert((typ.clone(), tn.clone()));
 					}
-					for m in methods {
-						let Expr::Fn {
-							name,
-							type_params: mtp,
-							params,
-							params_tuple,
-							ret,
-							body,
-						} = &m.0
-						else {
-							continue;
-						};
-						if type_params.is_empty() && mtp.is_empty() {
-							others.push(FnItem {
-								key: format!("{typ}.{name}"),
-								scope,
-								params,
-								params_tuple: *params_tuple,
-								ret,
-								body,
-							});
-							continue;
-						}
-						let self_ty = if type_params.is_empty() {
-							TypeExpr::Name(typ.clone())
-						} else {
-							let args = type_params.iter().map(|p| TypeExpr::Name(p.name.clone())).collect();
-							TypeExpr::Generic(typ.clone(), args)
-						};
-						let params = params
-							.iter()
-							.map(|p| Param {
-								typ: replace_self(&p.typ, &self_ty),
-								..p.clone()
-							})
-							.collect();
-						let ret = ret.as_ref().map(|(te, span)| (replace_self(te, &self_ty), *span));
-						let mut all_params = type_params.clone();
-						all_params.extend(mtp.clone());
-						self.generics.insert(
-							format!("{typ}.{name}"),
-							GenericFnDef {
-								params,
-								params_tuple: *params_tuple,
-								ret,
-								body: body.clone(),
-								type_params: all_params,
-								captures: vec![],
-							},
-						);
-					}
+					self.register_fills(typ, type_params, fills, scope, &mut others)?;
 				}
 				Expr::Fn { name, body, .. } if name == "main" => main_body = Some(body),
 				Expr::Fn {

@@ -1,11 +1,11 @@
-enum Shape {
+Shape :: enum {
 	point
-	circle { radius f64 }
-	rect { w float, h float }
+	circle { radius: f64 }
+	rect { w: float, h: float }
 	triangle(f64, f64, f64)
 }
 
-fn area(s Shape) f64 {
+area :: fn(s: Shape) f64 {
 	match s {
 		.circle(r) => 3.14159 * r * r,
 		.rect(w, h) => w * h,

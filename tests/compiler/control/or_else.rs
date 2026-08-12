@@ -44,14 +44,14 @@ fn dollar_is_error_message() {
 
 #[test]
 fn as_binding() {
-	check(["x := ?int(none) or { 99 }", "x"], "99");
+	check(["x :: ?int(none) or { 99 }", "x"], "99");
 }
 
 #[test]
 fn fallback_can_diverge() {
 	let src = indoc! {"
-		fn unwrap_or_bail(o ?int) int {
-			v := o or { return -1 }
+		unwrap_or_bail :: fn(o: ?int) int {
+			v :: o or { return -1 }
 			v
 		}
 		unwrap_or_bail(?int(none))
@@ -59,8 +59,8 @@ fn fallback_can_diverge() {
 	check(src, "-1");
 
 	let src = indoc! {"
-		fn unwrap_or_bail(o ?int) int {
-			v := o or { return -1 }
+		unwrap_or_bail :: fn(o: ?int) int {
+			v :: o or { return -1 }
 			v
 		}
 		unwrap_or_bail(?int(42))

@@ -9,7 +9,7 @@ fn atom_literal() {
 
 #[test]
 fn atom_bind() {
-	check("x := :apple\nx", ":apple");
+	check("x :: :apple\nx", ":apple");
 }
 
 #[test]
@@ -29,23 +29,23 @@ fn atom_ne() {
 
 #[test]
 fn atom_bound_eq() {
-	check("x := :apple\nx == :apple", "true");
+	check("x :: :apple\nx == :apple", "true");
 }
 
 #[test]
 fn atom_bound_ne() {
-	check("x := :apple\nx == :banana", "false");
+	check("x :: :apple\nx == :banana", "false");
 }
 
 #[test]
 fn atom_two_bindings_eq() {
-	check("a := :thing\nb := :thing\na == b", "true");
+	check("a :: :thing\nb :: :thing\na == b", "true");
 }
 
 #[test]
 fn atom_in_match() {
 	check(
-		r#"x := :ok
+		r#"x :: :ok
 match x {
 	:ok => "yes",
 	else => "no",
@@ -56,5 +56,5 @@ match x {
 
 #[test]
 fn atom_return() {
-	check("fn f() :ok { :ok }\nf()", "ok");
+	check("f :: fn() :ok { :ok }\nf()", "ok");
 }

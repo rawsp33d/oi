@@ -3,8 +3,8 @@ use crate::helpers::*;
 #[test]
 fn basic_dispatch() {
 	let src = indoc! {"
-		struct Box[T] { v T }
-		impl Box[T] { fn get(self) T { self.v } }
+		Box[T] :: struct { v: T }
+		Box[T] :{ get :: fn(self) T { self.v } }
 		Box{ v: 7 }.get()
 	"};
 	check(src, "7");
@@ -13,8 +13,8 @@ fn basic_dispatch() {
 #[test]
 fn two_instances_coexist() {
 	let src = indoc! {r#"
-		struct Box[T] { v T }
-		impl Box[T] { fn get(self) T { self.v } }
+		Box[T] :: struct { v: T }
+		Box[T] :{ get :: fn(self) T { self.v } }
 		print(Box{ v: 1 }.get())
 		print(Box{ v: "hi" }.get())
 	"#};
@@ -24,8 +24,8 @@ fn two_instances_coexist() {
 #[test]
 fn method_own_type_param() {
 	let src = indoc! {r#"
-		struct Box[T] { v T }
-		impl Box[T] { fn swap[U](self, u U) U { u } }
+		Box[T] :: struct { v: T }
+		Box[T] :{ swap[U] :: fn(self, u: U) U { u } }
 		Box{ v: 1 }.swap("hi")
 	"#};
 	check(src, "hi");
@@ -34,8 +34,8 @@ fn method_own_type_param() {
 #[test]
 fn self_return() {
 	let src = indoc! {"
-		struct Box[T] { v T }
-		impl Box[T] { fn same(self) Self { self } }
+		Box[T] :: struct { v: T }
+		Box[T] :{ same :: fn(self) Self { self } }
 		Box{ v: 3 }.same().v
 	"};
 	check(src, "3");
@@ -44,8 +44,8 @@ fn self_return() {
 #[test]
 fn concrete_impl_own_type_param() {
 	let src = indoc! {"
-		struct Point { x int, y int }
-		impl Point { fn id[U](self, u U) U { u } }
+		Point :: struct { x: int, y: int }
+		Point :{ id[U] :: fn(self, u: U) U { u } }
 		Point{1, 2}.id(5)
 	"};
 	check(src, "5");
@@ -55,8 +55,8 @@ fn concrete_impl_own_type_param() {
 fn unknown_method_error() {
 	fail_with(
 		indoc! {"
-			struct Box[T] { v T }
-			impl Box[T] { fn get(self) T { self.v } }
+			Box[T] :: struct { v: T }
+			Box[T] :{ get :: fn(self) T { self.v } }
 			Box{ v: 1 }.nope()
 		"},
 		"no such method",
@@ -66,8 +66,8 @@ fn unknown_method_error() {
 #[test]
 fn field_through_self() {
 	let src = indoc! {"
-		struct Box[T] { v T }
-		impl Box[T] { fn double(self) T { self.v + self.v } }
+		Box[T] :: struct { v: T }
+		Box[T] :{ double :: fn(self) T { self.v + self.v } }
 		Box{ v: 7 }.double()
 	"};
 	check(src, "14");

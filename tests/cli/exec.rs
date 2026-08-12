@@ -31,7 +31,7 @@ fn stdin_arithmetic() {
 
 #[test]
 fn stdin_and_arg_concatenate() {
-	assert_eq!(ok(oi(&["exec", "x + 1"]).run(Some("x := 41"))), "42");
+	assert_eq!(ok(oi(&["exec", "x + 1"]).run(Some("x :: 41"))), "42");
 }
 
 #[test]

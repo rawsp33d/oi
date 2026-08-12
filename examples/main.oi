@@ -17,7 +17,7 @@
 ## Main entrypoint.
 ##
 ## Called by Oi if present.
-fn main() {
+main :: fn() {
 	## primatives
 
 	bull := true

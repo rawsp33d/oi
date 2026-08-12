@@ -135,7 +135,7 @@ impl Loader<'_> {
 		for item in file {
 			match &item.0 {
 				Expr::Module(_) => return Err(err("`module` must come first", item.1, "move it to the top")),
-				Expr::Import { module, alias, names } => {
+				Expr::Use { module, alias, names } => {
 					let local = alias.clone().unwrap_or_else(|| module.clone());
 					if let Some(prev) = m.scope.visible.insert(local.clone(), module.clone())
 						&& prev != *module
@@ -171,8 +171,8 @@ impl Loader<'_> {
 				| Expr::EnumDef { name, .. }
 				| Expr::TypeAlias { name, .. } => self.define(m, name, !main, public, span)?,
 				Expr::TraitDef { name, .. } => self.define(m, name, false, public, span)?,
-				Expr::Impl { typ, .. } if !main => *typ = format!("{}::{typ}", m.name),
-				Expr::Impl { .. } | Expr::Doc(_) => {}
+				Expr::Claim { typ, .. } if !main => *typ = format!("{}::{typ}", m.name),
+				Expr::Claim { .. } | Expr::Doc(_) => {}
 				_ if !main => {
 					return Err(err(
 						"top-level statements aren't allowed in a module",
