@@ -84,6 +84,7 @@ fn fn_def(
 	params: Option<(Vec<Param>, bool)>,
 	ret: Option<Spanned<TypeExpr>>,
 	body: Vec<Spanned<Expr>>,
+	pipeline: bool,
 	span: Span,
 ) -> Spanned<Expr> {
 	let (params, params_tuple) = params.unwrap_or_else(|| {
@@ -108,6 +109,7 @@ fn fn_def(
 			params_tuple,
 			ret,
 			body,
+			pipeline,
 		},
 		span,
 	)
@@ -1028,7 +1030,7 @@ where
 		.then(params.clone())
 		.then(ret.clone())
 		.then(block.clone())
-		.map_with(|(((head, params), ret), body), ex| fn_def(head, Some(params), ret, body, ex.span()))
+		.map_with(|(((head, params), ret), body), ex| fn_def(head, Some(params), ret, body, false, ex.span()))
 		// pipeline shorthand
 		.or(item_head
 			.clone()
@@ -1038,7 +1040,7 @@ where
 			.then_ignore(just(Token::Assign))
 			.then(expr.clone())
 			.map_with(|(((head, params), ret), body), ex| {
-				fn_def(head, params, ret, vec![dollar_pipe(body)], ex.span())
+				fn_def(head, params, ret, vec![dollar_pipe(body)], true, ex.span())
 			}))
 		.boxed();
 
@@ -1189,7 +1191,7 @@ where
 		.then_ignore(just(Token::Fn))
 		.then(params.clone())
 		.then(ret.clone())
-		.map_with(|((name, params), ret), ex| fn_def((name, vec![]), Some(params), ret, vec![], ex.span()));
+		.map_with(|((name, params), ret), ex| fn_def((name, vec![]), Some(params), ret, vec![], false, ex.span()));
 	let supers = just(Token::DoubleColon)
 		.to(vec![])
 		.or(just(Token::Colon).ignore_then(list(ident())).then_ignore(just(Token::Colon)));

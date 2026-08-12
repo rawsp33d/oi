@@ -45,7 +45,7 @@ fn question_step_unwraps_some() {
 			if id == 7 { return 42 }
 			return none
 		}
-		display :: fn(id: int) {
+		display :: fn(id: int) ?int {
 			v :: id |> find?
 			v + 1
 		}
@@ -61,7 +61,7 @@ fn question_step_propagates_none() {
 			if id == 7 { return 42 }
 			return none
 		}
-		display :: fn(id: int) {
+		display :: fn(id: int) ?int {
 			v :: id |> find?
 			v + 1
 		}
@@ -209,11 +209,11 @@ fn pipeline_fn_shorthand_zero_param_explicit_ret() {
 }
 
 #[test]
-fn pipeline_fn_shorthand_bare_needs_ret() {
+fn pipeline_fn_shorthand_bare_takes_ret_from_last_stage() {
 	let src = indoc! {"
 		double :: fn(x: int) int { x * 2 }
 		quad :: fn = double |> double
 		quad(3)
 	"};
-	fail_with(src, "explicit return type");
+	check(src, "12");
 }

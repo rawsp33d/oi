@@ -112,6 +112,7 @@ pub(super) fn check_impls<'p>(
 				params_tuple,
 				ret,
 				body,
+				pipeline,
 				..
 			} = &t.0
 			else {
@@ -151,6 +152,7 @@ pub(super) fn check_impls<'p>(
 				params_tuple: *params_tuple,
 				ret,
 				body,
+				pipeline: *pipeline,
 			});
 		}
 	}

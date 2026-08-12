@@ -627,7 +627,7 @@ fn shorthand_coerces_in_fn_arg() {
 	check(
 		indoc! {"
 			Color :: enum { red green blue }
-			name :: fn(c: Color) { c.str() }
+			name :: fn(c: Color) string { c.str() }
 			name(.blue)
 		"},
 		"blue",
@@ -639,7 +639,7 @@ fn atom_coerces_in_fn_arg() {
 	check(
 		indoc! {"
 			Color :: enum { red green blue }
-			name :: fn(c: Color) { c.str() }
+			name :: fn(c: Color) string { c.str() }
 			name(:blue)
 		"},
 		"blue",

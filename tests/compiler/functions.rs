@@ -3,7 +3,7 @@ use crate::helpers::*;
 #[test]
 fn fn_call() {
 	let src = indoc! {"
-		double :: fn() { 21 * 2 }
+		double :: fn() int { 21 * 2 }
 		double()
 	"};
 	check(src, "42");
@@ -12,11 +12,11 @@ fn fn_call() {
 #[test]
 fn multi_fn() {
 	let src = indoc! {"
-		base :: fn() {
+		base :: fn() int {
 			6
 		}
 
-		triple :: fn() {
+		triple :: fn() int {
 			base() + base() + base()
 		}
 
@@ -28,7 +28,7 @@ fn multi_fn() {
 #[test]
 fn fn_vars() {
 	let src = indoc! {"
-		area :: fn() {
+		area :: fn() int {
 			width :: 12
 			height :: 5
 			width * height
@@ -42,7 +42,7 @@ fn fn_vars() {
 #[test]
 fn fn_args() {
 	let src = indoc! {"
-		add :: fn(x: int, y: int) {
+		add :: fn(x: int, y: int) int {
 			x + y
 		}
 		add(3, 4)
@@ -53,7 +53,7 @@ fn fn_args() {
 #[test]
 fn fn_arg_passthrough() {
 	let src = indoc! {"
-		identity :: fn(x: int) { x }
+		identity :: fn(x: int) int { x }
 		identity(99)
 	"};
 	check(src, "99");
@@ -62,8 +62,8 @@ fn fn_arg_passthrough() {
 #[test]
 fn fn_args_nested() {
 	let src = indoc! {"
-		add :: fn(x: int, y: int) { x + y }
-		add3 :: fn(a: int, b: int, c: int) { add(add(a, b), c) }
+		add :: fn(x: int, y: int) int { x + y }
+		add3 :: fn(a: int, b: int, c: int) int { add(add(a, b), c) }
 		add3(1, 2, 3)
 	"};
 	check(src, "6");
@@ -72,7 +72,7 @@ fn fn_args_nested() {
 #[test]
 fn fn_arg_float() {
 	let src = indoc! {"
-		scale :: fn(x: f64) { x * 2.0 }
+		scale :: fn(x: f64) f64 { x * 2.0 }
 		scale(2.5)
 	"};
 	check(src, "5.0");
@@ -81,7 +81,7 @@ fn fn_arg_float() {
 #[test]
 fn fn_arg_trailing_comma() {
 	let src = indoc! {"
-		add :: fn(x: int, y: int,) { x + y }
+		add :: fn(x: int, y: int,) int { x + y }
 		add(40, 2,)
 	"};
 	check(src, "42");
@@ -109,7 +109,7 @@ fn forward_reference() {
 #[test]
 fn fn_arg_wrong_type() {
 	let src = indoc! {"
-		i :: fn(x: int) { x }
+		i :: fn(x: int) int { x }
 		i(2.4)
 	"};
 	fail_with(src, "wrong argument type");

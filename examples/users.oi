@@ -9,7 +9,7 @@ User :: struct {
 	status: Status
 }
 
-badge :: fn(u: User) {
+badge :: fn(u: User) string {
 	match u.status {
 		.online => "🟢 {u.name}",
 		.away => "🟡 {u.name}",
@@ -23,7 +23,7 @@ User :{
 		return User{ name, status: .offline }
 	}
 
-	greet :: fn(self) {
+	greet :: fn(self) string {
 		match self.status {
 			.online => "Welcome back, {self.name}!",
 			.away => "See you soon, {self.name}.",

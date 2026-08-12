@@ -33,8 +33,12 @@ fn dollar_two_tuple() {
 }
 
 #[test]
-fn dollar_tuple_prints() {
-	check("f :: fn(x: int, y: int) { $ } f(3, 4)", "(3, 4)");
+fn dollar_tuple_returns() {
+	let src = indoc! {"
+		f :: fn(x: int, y: int) (int, int) { $ }
+		f(3, 4)
+	"};
+	check(src, "(3, 4)");
 }
 
 #[test]

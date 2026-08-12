@@ -141,14 +141,6 @@ impl<'a> Translator<'a> {
 		if let Some(sig) = self.mono.get(&sym) {
 			return Ok(sig.clone());
 		}
-		let Some((ret_te, ret_span)) = &def.ret else {
-			return Err(Diagnostic::new(
-				format!("generic function `{name}` needs an explicit return type"),
-				span.into_range(),
-			)
-			.with_label("called here"));
-		};
-
 		let types = TypeCtx::new(
 			self.structs,
 			self.enums,
@@ -158,7 +150,17 @@ impl<'a> Translator<'a> {
 			self.traits,
 		);
 		let params = types.resolve_params(&def.params)?;
-		let ret = types.resolve(ret_te, *ret_span)?;
+		let ret = match &def.ret {
+			Some((ret_te, ret_span)) => types.resolve(ret_te, *ret_span)?,
+			None if def.pipeline => match pipeline_tail(&def.body).and_then(|n| self.funcs.get(n)) {
+				Some(sig) => sig.ret.clone(),
+				None => {
+					let msg = "cannot infer the return type from the pipeline";
+					return Err(Diagnostic::new(msg, span.into_range()).with_label("add a return type"));
+				}
+			},
+			None => Typ::unit(),
+		};
 
 		let mut sig = self.module.make_signature();
 		sig.params

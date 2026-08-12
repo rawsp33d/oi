@@ -72,13 +72,23 @@ fn type_mismatch_across_args() {
 }
 
 #[test]
-fn missing_return_type_errors() {
+fn omitted_return_type_is_unit() {
+	let src = indoc! {"
+		show[T] :: fn(x: T) { print(x) }
+		show(1)
+		show(2.5)
+	"};
+	check(src, ["1", "2.5"]);
+}
+
+#[test]
+fn omitted_return_type_rejects_a_value() {
 	fail_with(
-		indoc! {r"
+		indoc! {"
 			noret[T] :: fn(x: T) { x }
 			noret(1)
 		"},
-		"needs an explicit return type",
+		"expected ()",
 	);
 }
 

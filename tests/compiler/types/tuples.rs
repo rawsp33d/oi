@@ -105,7 +105,7 @@ fn field_of_non_tuple() {
 #[test]
 fn fn_returns_tuple() {
 	let src = indoc! {"
-		pair :: fn() { (1, 2) }
+		pair :: fn() (int, int) { (1, 2) }
 		pair()
 	"};
 	check(src, "(1, 2)");
@@ -114,7 +114,7 @@ fn fn_returns_tuple() {
 #[test]
 fn fn_returns_tuple_field() {
 	let src = indoc! {"
-		pair :: fn() { (10, 20) }
+		pair :: fn() (int, int) { (10, 20) }
 		t :: pair()
 		t.1
 	"};

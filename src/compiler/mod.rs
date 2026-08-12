@@ -28,6 +28,7 @@ struct FnItem<'a> {
 	params_tuple: bool,
 	ret: &'a Option<Spanned<TypeExpr>>,
 	body: &'a [Spanned<Expr>],
+	pipeline: bool,
 }
 
 type EnumItem<'a> = (&'a str, Option<&'a Spanned<TypeExpr>>, &'a [EnumVariant]);
@@ -49,6 +50,7 @@ pub(crate) struct GenericFnDef {
 	pub body: Vec<Spanned<Expr>>,
 	pub type_params: Vec<TypeParam>,
 	pub captures: Vec<(String, Typ, bool)>,
+	pub pipeline: bool,
 }
 
 // A monomorphized instance whose sig is declared but body not yet compiled.
@@ -89,6 +91,17 @@ pub(crate) struct Generics {
 	pub instances: RefCell<HashMap<String, Vec<VariantInfo>>>,
 	// struct instances' concrete type args keyed by display name (`Box[int]`)
 	pub instance_args: RefCell<HashMap<String, Vec<Typ>>>,
+}
+
+// The fn named by the last stage of a pipeline body.
+fn pipeline_tail(body: &[Spanned<Expr>]) -> Option<&str> {
+	let [(Expr::Pipe { step, .. }, _)] = body else {
+		return None;
+	};
+	match &step.0 {
+		Expr::Ident(name) | Expr::Call { name, .. } => Some(name),
+		_ => None,
+	}
 }
 
 // Does a type ref mention the named type?
@@ -253,6 +266,7 @@ impl Compiler {
 				params_tuple,
 				ret,
 				body,
+				pipeline,
 			} = &m.0
 			else {
 				continue;
@@ -271,6 +285,7 @@ impl Compiler {
 					params_tuple: *params_tuple,
 					ret,
 					body,
+					pipeline: *pipeline,
 				});
 				continue;
 			}
@@ -299,6 +314,7 @@ impl Compiler {
 					body: body.clone(),
 					type_params: all_params,
 					captures: vec![],
+					pipeline: *pipeline,
 				},
 			);
 		}
@@ -424,6 +440,7 @@ impl Compiler {
 					params_tuple,
 					ret,
 					body,
+					pipeline,
 				} if !type_params.is_empty() => {
 					self.generics.insert(
 						name.clone(),
@@ -434,6 +451,7 @@ impl Compiler {
 							body: body.clone(),
 							type_params: type_params.clone(),
 							captures: vec![],
+							pipeline: *pipeline,
 						},
 					);
 				}
@@ -443,6 +461,7 @@ impl Compiler {
 					params_tuple,
 					ret,
 					body,
+					pipeline,
 					..
 				} => others.push(FnItem {
 					key: name.clone(),
@@ -451,6 +470,7 @@ impl Compiler {
 					params_tuple: *params_tuple,
 					ret,
 					body,
+					pipeline: *pipeline,
 				}),
 				Expr::Doc(_) => {}
 				_ => loose_refs.push(item),
@@ -535,42 +555,43 @@ impl Compiler {
 			})
 			.collect::<Result<_, _>>()?;
 
-		// hoist functions with an explicit return type
-		let int = self.module.target_config().pointer_type();
+		// hoist fns
 		let mut funcs: HashMap<String, FnSig> = HashMap::new();
+		let mut shorthands = vec![];
 		for item in &others {
-			let Some((ret_te, ret_span)) = item.ret else { continue };
 			let mut aliases = aliases.clone();
 			if let Some(t) = item.key.rsplit_once('.').map(|(t, _)| t) {
 				aliases.insert("Self".into(), TypeExpr::Name(t.into()));
 			}
 			let types =
 				TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits).with_scope(item.scope);
-			let param_typs: Vec<Typ> = item
+			let params: Vec<Typ> = item
 				.params
 				.iter()
 				.map(|p| types.resolve(&p.typ, p.span))
 				.collect::<Result<_, _>>()?;
-			let ret = types.resolve(ret_te, *ret_span)?;
-			let mut sig = self.module.make_signature();
-			sig.params.extend(param_typs.iter().map(|t| AbiParam::new(cl_type(t, int))));
-			if !ret.is_unit() {
-				sig.returns.push(AbiParam::new(cl_type(&ret, int)));
-			}
-			let sym = oi_symbol(&item.key);
-			let id = self
-				.module
-				.declare_function(&sym, Linkage::Local, &sig)
-				.expect("declare function");
-			funcs.insert(
-				item.key.clone(),
-				FnSig {
-					id,
-					params: param_typs,
-					muts: item.params.iter().map(|p| p.mutable).collect(),
-					ret,
-				},
-			);
+			let muts: Vec<bool> = item.params.iter().map(|p| p.mutable).collect();
+			let ret = match item.ret {
+				Some((ret_te, ret_span)) => types.resolve(ret_te, *ret_span)?,
+				None if item.pipeline => {
+					// takes return type from pipeline's last stage
+					shorthands.push((item, params, muts));
+					continue;
+				}
+				None => Typ::unit(),
+			};
+			let sig = self.declare_fn(&item.key, params, muts, ret);
+			funcs.insert(item.key.clone(), sig);
+		}
+
+		for (item, params, muts) in shorthands {
+			let Some(ret) = pipeline_tail(item.body).and_then(|n| funcs.get(n)).map(|s| s.ret.clone()) else {
+				let span = item.body.last().map(|s| s.1).unwrap_or((0..0).into());
+				let msg = "cannot infer the return type from the pipeline";
+				return Err(Diagnostic::new(msg, span.into_range()).with_label("add a return type"));
+			};
+			let sig = self.declare_fn(&item.key, params, muts, ret);
+			funcs.insert(item.key.clone(), sig);
 		}
 
 		for item in &others {
@@ -582,8 +603,8 @@ impl Compiler {
 			let types =
 				TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits).with_scope(item.scope);
 			let (params, ret) = types.resolve_params_ret(item.params, item.ret)?;
-			let sym = oi_symbol(&item.key);
-			let ret = self.translate(
+			let ret = ret.or_else(|| Some((funcs[&item.key].ret.clone(), (0..0).into())));
+			self.translate(
 				FnDef {
 					params: &params,
 					params_tuple: item.params_tuple,
@@ -595,18 +616,7 @@ impl Compiler {
 				&funcs,
 				types,
 			)?;
-			let id = self.finish_fn(&sym);
-			let param_typs = params.iter().map(|(_, t, _)| t.clone()).collect();
-			let muts = params.iter().map(|(_, _, m)| *m).collect();
-			funcs.insert(
-				item.key.clone(),
-				FnSig {
-					id,
-					params: param_typs,
-					muts,
-					ret,
-				},
-			);
+			self.finish_fn(&oi_symbol(&item.key));
 		}
 
 		// a `str` wrapper per struct
@@ -702,6 +712,7 @@ impl Compiler {
 		while let Some((sym, def, subst)) = self.pending.pop() {
 			let types = TypeCtx::new(&structs, &enums, &aliases, &subst, &generics, &traits);
 			let (params, ret) = types.resolve_params_ret(&def.params, &def.ret)?;
+			let ret = ret.or_else(|| Some((self.mono[&sym].ret.clone(), (0..0).into())));
 			self.translate(
 				FnDef {
 					params: &params,
@@ -736,6 +747,21 @@ impl Compiler {
 		trans.b.finalize();
 
 		self.finish_fn("__oi_main")
+	}
+
+	// Declare a hoisted fn's signature ahead of its body.
+	fn declare_fn(&mut self, key: &str, params: Vec<Typ>, muts: Vec<bool>, ret: Typ) -> FnSig {
+		let int = self.module.target_config().pointer_type();
+		let mut sig = self.module.make_signature();
+		sig.params.extend(params.iter().map(|t| AbiParam::new(cl_type(t, int))));
+		if !ret.is_unit() {
+			sig.returns.push(AbiParam::new(cl_type(&ret, int)));
+		}
+		let id = self
+			.module
+			.declare_function(&oi_symbol(key), Linkage::Local, &sig)
+			.expect("declare function");
+		FnSig { id, params, muts, ret }
 	}
 
 	fn finish_fn(&mut self, name: &str) -> FuncId {

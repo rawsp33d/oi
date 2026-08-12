@@ -61,6 +61,7 @@ pub enum Expr {
 		params_tuple: bool,
 		ret: Option<Spanned<TypeExpr>>,
 		body: Vec<Spanned<Expr>>,
+		pipeline: bool,
 	},
 
 	// `fn [captures]? (params)? ret? { body }`

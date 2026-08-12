@@ -81,7 +81,9 @@ tags: []
 - immediate
 	- [x] backport these obsidian notes into the Oi repo
 	- [x] `import` -> `use`
-	- [ ] V-like `mut ` -> Capy-ish `::` sandwich
+	- [x] V-like `mut ` -> Capy-ish `::` sandwich `capy`
+	- [ ] do another pass on anon fns. All fns should now be the same `capy`
+	- [ ] revisit modules to vet incorporating `::` bindings
 - [ ] `comp assert`
 - [x] pipeline examples with `!` postfix collide with macros
 - [x] revisit needing `print`, `assert`, et al to be macros

@@ -68,13 +68,13 @@ fn bang_propagates_error() {
 }
 
 #[test]
-fn question_infers_enclosing_return_type() {
+fn question_matches_enclosing_return_type() {
 	let src = indoc! {"
 		find :: fn(id: int) ?int {
 			if id == 7 { return 42 }
 			return none
 		}
-		display :: fn(id: int) {
+		display :: fn(id: int) ?int {
 			v :: find(id)?
 			v + 1
 		}
