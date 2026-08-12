@@ -1607,23 +1607,33 @@ main :: fn() {
 
 	# pipeline functions
 
-	# there is a shorthand for creating methods that are just made up of a pipeline
-	# the following function:
-	slugify :: fn(s: string) string {
-		s |> trim |> lower |> replace(" ", "-")
-	}
-	# may be written like this:
-	fn slugify = trim |> lower |> replace(" ", "-")
-	# type annotations may be provided for clarity, but are inferred from the pipeline
-	slugify :: fn(s: string) string = trim |> lower |> replace(" ", "-")
+	# a pipeline is a composition of stages
 
-	# this lets any bound values be used directly throughout the pipeline,
-	# rather than each stage only having access to the return of the prior stage
-	count_letters :: fn(s: string) int =
-		lower |> uniq |> replace("[^A-Za-z]", "") |> len |> {
+	# a fn head composes the stages into a single fn
+	slugify :: trim |> lower |> replace(" ", "-")
+	assert!(slugify(" Hello World ") == "hello-world")
+
+	# a non-fn head immediately applies the stages to the input
+	" foo-bar " |> trim |> upper |> replace("-", "_") # "FOO_BAR"
+
+	# fn literals chain by the same rule
+	f :: fn(x: int) (int, int) { (x, x) } |> fn(x: int, y: int) Point { Point{ x, y } }
+	assert!(f(2) == Point{ 2, 2 })
+
+	# compositions are expressions
+	nums.map(double |> negate)
+
+	# annotations may be provided when desired, as with any other binding
+	slugify : fn(string) string : trim |> lower |> replace(" ", "-")
+
+	# when a stage needs a parameter by name, write the fn out and pipe from the param
+	# TODO: revisit, because I can see ways to make this more ergonomic like it was originally
+	count_letters :: fn(s: string) int {
+		s |> lower |> uniq |> replace("[^A-Za-z]", "") |> len |> {
 			log.info("called count_letters with {s}, and it has {$} unique letters")
 			$
 		}
+	}
 	assert!(count_letters("hi, mom!") == 4)
 
 	## metaprogramming

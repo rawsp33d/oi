@@ -4,7 +4,7 @@ use std::fmt;
 
 use cranelift::prelude::*;
 
-use crate::ast::{Expr, Spanned};
+use crate::ast::{Expr, Spanned, TypeExpr};
 
 #[derive(Clone, Debug)]
 pub(crate) enum Typ {
@@ -144,6 +144,37 @@ impl PartialEq for Typ {
 			},
 			_ => std::mem::discriminant(self) == std::mem::discriminant(other),
 		}
+	}
+}
+
+// Spell a type back out as source, for signatures created by the compiler.
+pub(crate) fn type_expr(typ: &Typ) -> Option<TypeExpr> {
+	let named = |n: &String| (!n.contains('[')).then(|| TypeExpr::Name(n.clone()));
+	Some(match typ {
+		Typ::Int(_) | Typ::UInt(_) | Typ::ISize | Typ::USize | Typ::Float(_) | Typ::Bool | Typ::Str => {
+			TypeExpr::Name(typ.to_string())
+		}
+		Typ::Range => TypeExpr::Name("range".into()),
+		Typ::Struct(n, _) | Typ::TupleStruct(n, _) | Typ::Enum(n) => named(n)?,
+		Typ::Array(e) => TypeExpr::Array(Box::new(type_expr(e)?)),
+		Typ::FixedArray(e, n) => TypeExpr::FixedArray(Box::new(type_expr(e)?), *n),
+		Typ::Option(e) => TypeExpr::Option(Box::new(type_expr(e)?)),
+		Typ::Result(e) => TypeExpr::Result(Box::new(type_expr(e)?), None),
+		Typ::Map(k, v) => TypeExpr::Map(Box::new(type_expr(k)?), Box::new(type_expr(v)?)),
+		Typ::Tuple(fs) => TypeExpr::Tuple(fs.iter().map(|(_, t)| type_expr(t)).collect::<Option<_>>()?),
+		Typ::Fn(ps, r) => TypeExpr::Fn(
+			ps.iter().map(|p| type_expr(mut_peel(p))).collect::<Option<_>>()?,
+			ps.iter().map(|p| matches!(p, Typ::Mut(_))).collect(),
+			Box::new(type_expr(r)?),
+		),
+		_ => return None,
+	})
+}
+
+fn mut_peel(typ: &Typ) -> &Typ {
+	match typ {
+		Typ::Mut(inner) => inner,
+		typ => typ,
 	}
 }
 

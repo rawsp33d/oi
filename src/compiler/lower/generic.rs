@@ -123,7 +123,7 @@ impl<'a> Translator<'a> {
 			)
 			.with_label("not determined by any argument"));
 		}
-		let sig = self.declare_instance(name, def, subst, span)?;
+		let sig = self.declare_instance(name, def, subst)?;
 		let out = self.emit_call(&sig, &vals);
 		self.reload_lent(&lent);
 		Ok(out)
@@ -135,7 +135,6 @@ impl<'a> Translator<'a> {
 		name: &str,
 		def: &GenericFnDef,
 		subst: HashMap<String, Typ>,
-		span: Span,
 	) -> Result<FnSig, Diagnostic> {
 		let sym = mangle(name, &subst, &def.type_params);
 		if let Some(sig) = self.mono.get(&sym) {
@@ -152,13 +151,6 @@ impl<'a> Translator<'a> {
 		let params = types.resolve_params(&def.params)?;
 		let ret = match &def.ret {
 			Some((ret_te, ret_span)) => types.resolve(ret_te, *ret_span)?,
-			None if def.pipeline => match pipeline_tail(&def.body).and_then(|n| self.funcs.get(n)) {
-				Some(sig) => sig.ret.clone(),
-				None => {
-					let msg = "cannot infer the return type from the pipeline";
-					return Err(Diagnostic::new(msg, span.into_range()).with_label("add a return type"));
-				}
-			},
 			None => Typ::unit(),
 		};
 

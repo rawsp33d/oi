@@ -48,9 +48,8 @@ impl<'a> Translator<'a> {
 			body: body.to_vec(),
 			type_params: vec![],
 			captures: resolved.iter().map(|(n, t, boxed, _)| (n.clone(), t.clone(), *boxed)).collect(),
-			pipeline: false,
 		};
-		let sig = self.declare_instance(&format!("anon${}", span.start), &def, HashMap::new(), span)?;
+		let sig = self.declare_instance(&format!("anon${}_{}", span.start, span.end), &def, HashMap::new())?;
 		let func_ref = self.module.declare_func_in_func(sig.id, self.b.func);
 		let addr = self.b.ins().func_addr(self.int, func_ref);
 		let params: Vec<Typ> = sig

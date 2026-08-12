@@ -158,62 +158,95 @@ fn or_tail_bare_ident_calls_with_dollar() {
 }
 
 #[test]
-fn pipeline_fn_shorthand_annotated() {
+fn composes_named_fns() {
 	let src = indoc! {"
 		double :: fn(x: int) int { x * 2 }
-		inc :: fn(x: int) int { x + 1 }
-		f :: fn(x: int) int = double |> inc
-		print(f(20))
-	"};
-	check(src, "41");
-}
-
-#[test]
-fn pipeline_fn_shorthand_inferred_ret() {
-	let src = indoc! {"
-		double :: fn(x: int) int { x * 2 }
-		inc :: fn(x: int) int { x + 1 }
-		f :: fn(x: int) = double |> inc
-		print(f(20))
-	"};
-	check(src, "41");
-}
-
-#[test]
-fn pipeline_fn_shorthand_named_param_mid_pipe() {
-	let src = indoc! {"
-		double :: fn(x: int) int { x * 2 }
-		f :: fn(x: int) int = double |> ($ + x)
-		print(f(3))
-	"};
-	check(src, "9");
-}
-
-#[test]
-fn pipeline_fn_shorthand_non_pipe_body() {
-	let src = indoc! {"
-		inc2 :: fn(x: int) int = $ + 1
-		print(inc2(5))
-	"};
-	check(src, "6");
-}
-
-#[test]
-fn pipeline_fn_shorthand_zero_param_explicit_ret() {
-	let src = indoc! {"
-		double :: fn(x: int) int { x * 2 }
-		quad :: fn int = double |> double
+		quad :: double |> double
 		print(quad(3))
 	"};
 	check(src, "12");
 }
 
 #[test]
-fn pipeline_fn_shorthand_bare_takes_ret_from_last_stage() {
+fn composes_with_a_call_stage() {
 	let src = indoc! {"
 		double :: fn(x: int) int { x * 2 }
-		quad :: fn = double |> double
-		quad(3)
+		add :: fn(a: int, b: int) int { a + b }
+		f :: double |> add(10, $)
+		print(f(3))
+	"};
+	check(src, "16");
+}
+
+#[test]
+fn composes_fn_literals() {
+	let src = indoc! {"
+		Point :: struct {
+			x: int
+			y: int
+		}
+		f :: fn(x: int) (int, int) { (x, x) } |> fn(x: int, y: int) Point { Point{ x, y } }
+		print(f(2))
+	"};
+	check(src, "Point{x: 2, y: 2}");
+}
+
+#[test]
+fn data_head_applies_a_literal_stage() {
+	check("print(5 |> fn(x: int) int { x * 2 })", "10");
+}
+
+#[test]
+fn composition_passes_as_an_argument() {
+	let src = indoc! {"
+		double :: fn(x: int) int { x * 2 }
+		apply :: fn(g: fn(int) int, x: int) int { g(x) }
+		print(apply(double |> double, 3))
 	"};
 	check(src, "12");
+}
+
+#[test]
+fn composition_tail_must_be_a_fn() {
+	let src = indoc! {"
+		double :: fn(x: int) int { x * 2 }
+		f :: double |> ($ + 1)
+		print(f(3))
+	"};
+	fail_with(src, "cannot infer the composed return type");
+}
+
+#[test]
+fn generic_head_cannot_compose() {
+	let src = indoc! {"
+		id[T] :: fn(x: T) T { x }
+		double :: fn(x: int) int { x * 2 }
+		f :: id |> double
+		print(f(3))
+	"};
+	fail_with(src, "cannot compose a generic function");
+}
+
+#[test]
+fn longhand_pipeline_body() {
+	let src = indoc! {"
+		double :: fn(x: int) int { x * 2 }
+		f :: fn(x: int) int { x |> double |> ($ + x) }
+		print(f(3))
+	"};
+	check(src, "9");
+}
+
+#[test]
+fn composes_heads_of_any_arity() {
+	let src = indoc! {"
+		zero :: fn() int { 7 }
+		add :: fn(a: int, b: int) int { a + b }
+		double :: fn(x: int) int { x * 2 }
+		f :: zero |> double
+		g :: add |> double
+		print(f())
+		print(g(2, 3))
+	"};
+	check(src, ["14", "10"]);
 }

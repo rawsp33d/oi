@@ -112,7 +112,6 @@ pub(super) fn check_impls<'p>(
 				params_tuple,
 				ret,
 				body,
-				pipeline,
 				..
 			} = &t.0
 			else {
@@ -141,9 +140,8 @@ pub(super) fn check_impls<'p>(
 				&& prev != tn
 			{
 				let msg = format!("`{typ}` takes default `{name}` from both `{prev}` and `{tn}`");
-				return Err(
-					Diagnostic::new(msg, span.into_range()).with_label(format!("fill `{name}` on `{typ}` to settle it"))
-				);
+				return Err(Diagnostic::new(msg, span.into_range())
+					.with_label(format!("fill `{name}` on `{typ}` to settle it")));
 			}
 			others.push(FnItem {
 				key: format!("{typ}.{name}"),
@@ -152,7 +150,6 @@ pub(super) fn check_impls<'p>(
 				params_tuple: *params_tuple,
 				ret,
 				body,
-				pipeline: *pipeline,
 			});
 		}
 	}

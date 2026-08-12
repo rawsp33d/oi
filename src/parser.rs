@@ -64,27 +64,12 @@ fn pipe(value: Spanned<Expr>, step: Spanned<Expr>, span: Span) -> Spanned<Expr> 
 	)
 }
 
-// Prepend $ to LHS of pipeline.
-fn dollar_pipe((e, span): Spanned<Expr>) -> Spanned<Expr> {
-	match e {
-		Expr::Pipe { value, step } => (
-			Expr::Pipe {
-				value: Box::new(dollar_pipe(*value)),
-				step,
-			},
-			span,
-		),
-		e => pipe((Expr::Dollar, span), (e, span), span),
-	}
-}
-
 // Assemble a fn item.
 fn fn_def(
 	(name, mut type_params): (String, Vec<TypeParam>),
 	params: Option<(Vec<Param>, bool)>,
 	ret: Option<Spanned<TypeExpr>>,
 	body: Vec<Spanned<Expr>>,
-	pipeline: bool,
 	span: Span,
 ) -> Spanned<Expr> {
 	let (params, params_tuple) = params.unwrap_or_else(|| {
@@ -109,7 +94,6 @@ fn fn_def(
 			params_tuple,
 			ret,
 			body,
-			pipeline,
 		},
 		span,
 	)
@@ -1030,18 +1014,8 @@ where
 		.then(params.clone())
 		.then(ret.clone())
 		.then(block.clone())
-		.map_with(|(((head, params), ret), body), ex| fn_def(head, Some(params), ret, body, false, ex.span()))
-		// pipeline shorthand
-		.or(item_head
-			.clone()
-			.then_ignore(just(Token::Fn))
-			.then(params.clone().or_not())
-			.then(ret.clone())
-			.then_ignore(just(Token::Assign))
-			.then(expr.clone())
-			.map_with(|(((head, params), ret), body), ex| {
-				fn_def(head, params, ret, vec![dollar_pipe(body)], true, ex.span())
-			}))
+		.then_ignore(just(Token::Pipeline).not())
+		.map_with(|(((head, params), ret), body), ex| fn_def(head, Some(params), ret, body, ex.span()))
 		.boxed();
 
 	// struct defs
@@ -1191,7 +1165,7 @@ where
 		.then_ignore(just(Token::Fn))
 		.then(params.clone())
 		.then(ret.clone())
-		.map_with(|((name, params), ret), ex| fn_def((name, vec![]), Some(params), ret, vec![], false, ex.span()));
+		.map_with(|((name, params), ret), ex| fn_def((name, vec![]), Some(params), ret, vec![], ex.span()));
 	let supers = just(Token::DoubleColon)
 		.to(vec![])
 		.or(just(Token::Colon).ignore_then(list(ident())).then_ignore(just(Token::Colon)));

@@ -28,7 +28,6 @@ struct FnItem<'a> {
 	params_tuple: bool,
 	ret: &'a Option<Spanned<TypeExpr>>,
 	body: &'a [Spanned<Expr>],
-	pipeline: bool,
 }
 
 type EnumItem<'a> = (&'a str, Option<&'a Spanned<TypeExpr>>, &'a [EnumVariant]);
@@ -50,7 +49,6 @@ pub(crate) struct GenericFnDef {
 	pub body: Vec<Spanned<Expr>>,
 	pub type_params: Vec<TypeParam>,
 	pub captures: Vec<(String, Typ, bool)>,
-	pub pipeline: bool,
 }
 
 // A monomorphized instance whose sig is declared but body not yet compiled.
@@ -91,17 +89,6 @@ pub(crate) struct Generics {
 	pub instances: RefCell<HashMap<String, Vec<VariantInfo>>>,
 	// struct instances' concrete type args keyed by display name (`Box[int]`)
 	pub instance_args: RefCell<HashMap<String, Vec<Typ>>>,
-}
-
-// The fn named by the last stage of a pipeline body.
-fn pipeline_tail(body: &[Spanned<Expr>]) -> Option<&str> {
-	let [(Expr::Pipe { step, .. }, _)] = body else {
-		return None;
-	};
-	match &step.0 {
-		Expr::Ident(name) | Expr::Call { name, .. } => Some(name),
-		_ => None,
-	}
 }
 
 // Does a type ref mention the named type?
@@ -266,7 +253,6 @@ impl Compiler {
 				params_tuple,
 				ret,
 				body,
-				pipeline,
 			} = &m.0
 			else {
 				continue;
@@ -285,7 +271,6 @@ impl Compiler {
 					params_tuple: *params_tuple,
 					ret,
 					body,
-					pipeline: *pipeline,
 				});
 				continue;
 			}
@@ -314,7 +299,6 @@ impl Compiler {
 					body: body.clone(),
 					type_params: all_params,
 					captures: vec![],
-					pipeline: *pipeline,
 				},
 			);
 		}
@@ -440,7 +424,6 @@ impl Compiler {
 					params_tuple,
 					ret,
 					body,
-					pipeline,
 				} if !type_params.is_empty() => {
 					self.generics.insert(
 						name.clone(),
@@ -451,7 +434,6 @@ impl Compiler {
 							body: body.clone(),
 							type_params: type_params.clone(),
 							captures: vec![],
-							pipeline: *pipeline,
 						},
 					);
 				}
@@ -461,7 +443,6 @@ impl Compiler {
 					params_tuple,
 					ret,
 					body,
-					pipeline,
 					..
 				} => others.push(FnItem {
 					key: name.clone(),
@@ -470,7 +451,6 @@ impl Compiler {
 					params_tuple: *params_tuple,
 					ret,
 					body,
-					pipeline: *pipeline,
 				}),
 				Expr::Doc(_) => {}
 				_ => loose_refs.push(item),
@@ -557,7 +537,6 @@ impl Compiler {
 
 		// hoist fns
 		let mut funcs: HashMap<String, FnSig> = HashMap::new();
-		let mut shorthands = vec![];
 		for item in &others {
 			let mut aliases = aliases.clone();
 			if let Some(t) = item.key.rsplit_once('.').map(|(t, _)| t) {
@@ -573,22 +552,7 @@ impl Compiler {
 			let muts: Vec<bool> = item.params.iter().map(|p| p.mutable).collect();
 			let ret = match item.ret {
 				Some((ret_te, ret_span)) => types.resolve(ret_te, *ret_span)?,
-				None if item.pipeline => {
-					// takes return type from pipeline's last stage
-					shorthands.push((item, params, muts));
-					continue;
-				}
 				None => Typ::unit(),
-			};
-			let sig = self.declare_fn(&item.key, params, muts, ret);
-			funcs.insert(item.key.clone(), sig);
-		}
-
-		for (item, params, muts) in shorthands {
-			let Some(ret) = pipeline_tail(item.body).and_then(|n| funcs.get(n)).map(|s| s.ret.clone()) else {
-				let span = item.body.last().map(|s| s.1).unwrap_or((0..0).into());
-				let msg = "cannot infer the return type from the pipeline";
-				return Err(Diagnostic::new(msg, span.into_range()).with_label("add a return type"));
 			};
 			let sig = self.declare_fn(&item.key, params, muts, ret);
 			funcs.insert(item.key.clone(), sig);

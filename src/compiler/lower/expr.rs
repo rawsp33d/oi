@@ -393,13 +393,7 @@ impl<'a> Translator<'a> {
 				),
 			},
 
-			Expr::Pipe { value, step } => {
-				let (val, typ) = self.expr(value)?;
-				let saved = self.dollar.replace((val, typ));
-				let out = self.expr(step);
-				self.dollar = saved;
-				out
-			}
+			Expr::Pipe { value, step } => self.pipe(value, step, expr.1),
 
 			Expr::OrElse { value, body } => self.or_else(value, body, expr.1),
 			Expr::Propagate(value) => self.propagate(value, expr.1),
