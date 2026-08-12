@@ -3,6 +3,17 @@ title = "about"
 description = "idk what"
 +++
 
+## goals & non-goals
+
+Oi is not trying to be:
+- the smallest
+- the fastest
+- the most academically perfect
+- the most minimal
+- another X replacement
+
+The real goal is building a language that is enjoyable to write.
+
 ## philosophy
 
 
@@ -26,10 +37,10 @@ Rather than introducing a one-off syntax for every feature, Oi tries to make sma
 
 ```oi
 # type composability
-type Absurd = (Map[int, ?[]string], []?string, i69)
+Absurd :: (Map[int, ?[]string], []?string, i69)
 
 # ranges + loops
-range := 2..4
+range :: 2..4
 loop i in range {
 	print(i)
 }
@@ -120,16 +131,5 @@ At some point I started designing what has become Oi.
 - V
 - Nushell
 - Rust
-- random new languages that pop up on [/r/programminglanguages](https://www.reddit.com/r/ProgrammingLanguages/), like [revo](https://github.com/if-not-nil/revo) and [Capy](https://github.com/capy-language/capy)
+- awesome new languages that pop up on [/r/programminglanguages](https://www.reddit.com/r/ProgrammingLanguages/), like [revo](https://github.com/if-not-nil/revo) and [Capy](https://github.com/capy-language/capy)
 - to a lesser extent: Nim, Zig, Clojure, Janet, Lua, Odin, Julia, Elixir, Haskell, GDScript
-
-## goals & non-goals
-
-Oi is not trying to be:
-- the smallest
-- the fastest
-- the most academically perfect
-- the most minimal
-- another X replacement
-
-The real goal is building a language that is enjoyable to write.

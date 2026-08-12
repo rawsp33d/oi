@@ -25,14 +25,14 @@ Its features [try to] encourage uninterrupted thought:
 # examples
 
 ```oi
-enum Shape {
+Shape :: enum {
 	point
-	circle { radius f64 }
-	rect { w float, h float }
+	circle { radius: f64 }
+	rect { w: float, h: float }
 	triangle(f64, f64, f64)
 }
 
-fn area(s Shape) f64 {
+area :: fn(s: Shape) f64 {
 	match s {
 		.circle(r) => 3.14159 * r * r,
 		.rect(w, h) => w * h,
@@ -42,8 +42,7 @@ fn area(s Shape) f64 {
 
 Shape.rect({ w: 3.0, h: 4.0 })
 	|> area
-	|> print
-# => 12.0
+	|> assert($ == 12.0)
 
 shape := Shape.triangle(3.0, 4.0, 5.0)
 
@@ -61,5 +60,4 @@ match shape {
 		print(t)
 	}
 }
-# => triangle(3.0, 4.0, 5.0)
 ```

@@ -1,0 +1,16 @@
+Dog :: struct {
+	name: string
+	greeting : string = "woof"
+}
+
+Dog :{
+	greet :: fn(self) string {
+		"{self.name} says {self.greeting}!"
+	}
+}
+
+dog := Dog{
+	"Larry"
+	greeting: "bark"
+}
+dog.greet()

@@ -21,11 +21,30 @@ value := match token {
 }
 ```
 
+## bindings
+
+```oi
+# immutable ::
+never_change :: "hi there"
+
+# mutable :=
+sound := :loud
+sound = :quiet
+
+# fills :{}
+Point :: struct { x: float, y: float }
+Point :{
+	locate :: fn(self) {
+		print("I'm at ({self.x}, {self.y})")
+	}
+}
+```
+
 ## pipelines
 
 ```oi
 # basic
-call_to_action := "let's do this" |> trim |> upper
+call_to_action :: " let's do this " |> trim |> $ + "!!!" |> upper
 
 # option/result aware
 # short-circuits on none/error
@@ -82,15 +101,15 @@ spawn {
 
 > TODO: rename to something cooler?
 
-`$` is the data passed to a function.
+`$` is what gets passed to a function.
 
 ```oi
-fn print_coord(x int, y int) {
+print_coord :: fn(x: int, y: int) {
 	print($.0, $.1)
 }
 ```
 
-This is especially useful when using inside pipelines.
+This is especially useful inside pipelines.
 
 ```oi
 # clojure-like threading
@@ -103,7 +122,7 @@ This is especially useful when using inside pipelines.
 Bindings may be provided to return signatures, creating a mutable zeroed value.
 
 ```oi
-fn divmod(a int, b int) out (int, int) {
+divmod :: fn(a: int, b: int) out (int, int) {
 	out.0 = a / b
 	out.1 = a % b
 	return
