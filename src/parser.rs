@@ -19,6 +19,25 @@ enum Access {
 	Method(String, Vec<Spanned<Expr>>),
 }
 
+// One entry of a struct/enum/trait body.
+enum Member {
+	Field(Param),
+	Fn(Spanned<Expr>),
+	Variant(EnumVariant),
+}
+
+fn split_members(members: Vec<Member>) -> (Vec<Param>, Vec<Spanned<Expr>>, Vec<EnumVariant>) {
+	let (mut fields, mut fns, mut variants) = (vec![], vec![], vec![]);
+	for m in members {
+		match m {
+			Member::Field(f) => fields.push(f),
+			Member::Fn(f) => fns.push(f),
+			Member::Variant(v) => variants.push(v),
+		}
+	}
+	(fields, fns, variants)
+}
+
 fn pipe_step((e, span): Spanned<Expr>) -> Spanned<Expr> {
 	match e {
 		Expr::Ident(name) => (
@@ -1039,13 +1058,17 @@ where
 	let struct_def = item_head
 		.clone()
 		.then_ignore(just(Token::Struct))
-		.then(brace(loose_list(struct_field.clone())))
-		.map_with(|((name, type_params), fields), ex| {
+		.then(brace(loose_list(
+			struct_field.clone().map(Member::Field).or(func.clone().map(Member::Fn)),
+		)))
+		.map_with(|((name, type_params), members), ex| {
+			let (fields, fills, _) = split_members(members);
 			(
 				Expr::StructDef {
 					name,
 					type_params,
 					fields,
+					fills,
 				},
 				ex.span(),
 			)
@@ -1109,8 +1132,11 @@ where
 		.then(type_params.clone())
 		.then(backing)
 		.then_ignore(just(Token::Enum))
-		.then(brace(loose_list(variant)))
-		.validate(|(((name, type_params), backing), variants), ex, emitter| {
+		.then(brace(loose_list(
+			func.clone().map(Member::Fn).or(variant.map(Member::Variant)),
+		)))
+		.validate(|(((name, type_params), backing), members), ex, emitter| {
+			let (_, fills, variants) = split_members(members);
 			let mut next = 0;
 			let mut seen = Vec::new();
 			for v in &variants {
@@ -1131,6 +1157,7 @@ where
 					backing,
 					type_params,
 					variants,
+					fills,
 				},
 				ex.span(),
 			)
@@ -1157,24 +1184,25 @@ where
 		.map_with(|(name, typ), ex| (Expr::TypeAlias { name, typ }, ex.span()));
 
 	// trait definitions
-	let trait_method = just(Token::Fn)
-		.ignore_then(ident())
+	let slot_fn = ident()
+		.then_ignore(just(Token::Colon))
+		.then_ignore(just(Token::Fn))
 		.then(params.clone())
 		.then(ret.clone())
-		.then(block.clone().or_not())
-		.map_with(|(((name, params), ret), body), ex| {
-			fn_def((name, vec![]), Some(params), ret, body.unwrap_or_default(), ex.span())
-		});
+		.map_with(|((name, params), ret), ex| fn_def((name, vec![]), Some(params), ret, vec![], ex.span()));
 	let supers = just(Token::DoubleColon)
 		.to(vec![])
 		.or(just(Token::Colon).ignore_then(list(ident())).then_ignore(just(Token::Colon)));
 	let trait_def = ident()
 		.then(supers)
 		.then_ignore(just(Token::Trait))
-		.then(brace(
-			loose_list(struct_field.clone()).then(trait_method.repeated().collect::<Vec<_>>()),
-		))
-		.map_with(|((name, supers), (fields, methods)), ex| {
+		.then(brace(loose_list(choice((
+			slot_fn.map(Member::Fn),
+			struct_field.clone().map(Member::Field),
+			func.clone().map(Member::Fn),
+		)))))
+		.map_with(|((name, supers), members), ex| {
+			let (fields, methods, _) = split_members(members);
 			(
 				Expr::TraitDef {
 					name,

@@ -173,11 +173,12 @@ pub enum Expr {
 	Propagate(Box<Spanned<Expr>>),
 
 	// structs
-	// `struct Name {}`
+	// `Name :: struct {}`
 	StructDef {
 		name: String,
 		type_params: Vec<TypeParam>,
 		fields: Vec<Param>,
+		fills: Vec<Spanned<Expr>>,
 	},
 	// `Name {}`
 	StructLit {
@@ -222,12 +223,13 @@ pub enum Expr {
 		end: Option<Box<Spanned<Expr>>>,
 	},
 
-	// `enum Name: backing {}`
+	// `Name : backing? : enum {}`
 	EnumDef {
 		name: String,
 		backing: Option<Spanned<TypeExpr>>,
 		type_params: Vec<TypeParam>,
 		variants: Vec<EnumVariant>,
+		fills: Vec<Spanned<Expr>>,
 	},
 	// `.variant` or `.variant(args)`
 	EnumShorthand {

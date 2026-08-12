@@ -1,13 +1,13 @@
 use crate::helpers::*;
 
 const ANIMAL_DOG: &str = indoc! {r#"
-	Animal :: trait { fn speak(self) string }
+	Animal :: trait { speak : fn(self) string }
 	Dog :: struct {}
 	impl Animal for Dog { speak :: fn(self) string { "woof" } }
 "#};
 
 const ANIMAL_DOG_KIND: &str = indoc! {r#"
-	Animal :: trait { fn speak(self) string }
+	Animal :: trait { speak : fn(self) string }
 	Dog :: struct { kind: string }
 	impl Animal for Dog { speak :: fn(self) string { "woof" } }
 "#};
@@ -15,7 +15,7 @@ const ANIMAL_DOG_KIND: &str = indoc! {r#"
 const ANIMAL_KIND: &str = indoc! {r#"
 	Animal :: trait {
 		kind: string
-		fn speak(self) string
+		speak : fn(self) string
 	}
 	Dog :: struct { kind: string }
 	impl Animal for Dog { speak :: fn(self) string { "woof" } }
@@ -26,8 +26,8 @@ fn trait_def_and_impl() {
 	let src = indoc! {r#"
 		Animal :: trait {
 			kind: string
-			fn speak(self) string
-			fn shout(self) string { self.speak() + "!" }
+			speak : fn(self) string
+			shout :: fn(self) string { self.speak() + "!" }
 		}
 		Dog :: struct { kind: string }
 		impl Animal for Dog { speak :: fn(self) string { "woof" } }
@@ -51,7 +51,7 @@ fn marker_impl() {
 fn supertraits() {
 	let src = indoc! {"
 		Eq :: trait {}
-		Ord : Eq : trait { fn cmp(self, other: Self) int }
+		Ord : Eq : trait { cmp : fn(self, other: Self) int }
 	"};
 	check(src, "");
 
@@ -83,8 +83,8 @@ fn supertraits() {
 fn default_methods() {
 	let src = indoc! {r#"
 		Animal :: trait {
-			fn speak(self) string
-			fn shout(self) string { self.speak() + "!" }
+			speak : fn(self) string
+			shout :: fn(self) string { self.speak() + "!" }
 		}
 		Dog :: struct {}
 		impl Animal for Dog { speak :: fn(self) string { "woof" } }
@@ -93,8 +93,8 @@ fn default_methods() {
 	check(src, "woof!");
 	let src = indoc! {r#"
 		Animal :: trait {
-			fn speak(self) string
-			fn shout(self) string { self.speak() + "!" }
+			speak : fn(self) string
+			shout :: fn(self) string { self.speak() + "!" }
 		}
 		Dog :: struct {}
 		impl Animal for Dog {
@@ -216,8 +216,8 @@ fn rejects_wrong_return_type_impl() {
 fn overrides_default_method_multi_param() {
 	let src = indoc! {r#"
 		Animal :: trait {
-			fn speak(self, times: int, loud: bool) string
-			fn shout(self) string { self.speak(1, false) + "!" }
+			speak : fn(self, times: int, loud: bool) string
+			shout :: fn(self) string { self.speak(1, false) + "!" }
 		}
 		Dog :: struct {}
 		impl Animal for Dog {
@@ -254,8 +254,8 @@ fn trait_object_array_literal() {
 fn dyn_trait_param_and_default() {
 	let src = indoc! {r#"
 		Animal :: trait {
-			fn speak(self) string
-			fn shout(self) string { self.speak() + "!" }
+			speak : fn(self) string
+			shout :: fn(self) string { self.speak() + "!" }
 		}
 		Dog :: struct {}
 		Cat :: struct {}
@@ -282,7 +282,7 @@ fn trait_typed_struct_field() {
 #[test]
 fn self_sig_static_dispatch_ok() {
 	let src = indoc! {r#"
-		Cloner :: trait { fn dup(self) Self }
+		Cloner :: trait { dup : fn(self) Self }
 		Dog :: struct {}
 		impl Cloner for Dog { dup :: fn(self) Self { Dog{} } }
 		d :: Dog{}.dup()
@@ -294,13 +294,13 @@ fn self_sig_static_dispatch_ok() {
 #[test]
 fn rejects_non_object_safe_trait() {
 	fail(indoc! {r#"
-		Cloner :: trait { fn dup(self) Self }
+		Cloner :: trait { dup : fn(self) Self }
 		Dog :: struct {}
 		impl Cloner for Dog { dup :: fn(self) Self { Dog{} } }
 		f :: fn(c: Cloner) string { "no" }
 	"#});
 	fail(indoc! {r#"
-		Eater :: trait { fn eat(self, other: Self) string }
+		Eater :: trait { eat : fn(self, other: Self) string }
 		Dog :: struct {}
 		impl Eater for Dog { eat :: fn(self, other: Self) string { "ate" } }
 		pack :: []Eater{ Dog{} }
@@ -348,7 +348,7 @@ fn array_of_trait_objects_renders() {
 #[test]
 fn trait_declared_str_dyn_dispatches() {
 	let src = indoc! {r#"
-		Animal :: trait { fn str(self) string }
+		Animal :: trait { str : fn(self) string }
 		Dog :: struct { kind: string }
 		impl Animal for Dog { str :: fn(self) string { "custom-" + self.kind } }
 		a : Animal : Dog{ "collie" }
