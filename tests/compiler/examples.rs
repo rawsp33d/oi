@@ -4,6 +4,7 @@ use crate::common::{Run, oi, ok};
 
 /// Expected stdout for every file in `examples/`.
 const EXPECTED: &[(&str, &str)] = &[
+	("animals", "Larry says bark!"),
 	("boxes", "hi"),
 	// TODO: make fns forward tuple labels
 	// ("dimensions", "(width = 1920, height = 1080)"),
