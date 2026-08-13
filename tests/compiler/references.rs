@@ -10,7 +10,7 @@ fn aliasing_shares_identity() {
 			list.value = 9
 			print("head is {head}")
 		"#},
-		"head is Node{value = 9}",
+		"head is Node.{value = 9}",
 	);
 }
 
@@ -135,7 +135,7 @@ fn user_enum_with_ref_payload_stays_boxed() {
 				.empty => print("no"),
 			}
 		"#},
-		["full(Node{value = 7})", "7"],
+		["full(Node.{value = 7})", "7"],
 	);
 }
 

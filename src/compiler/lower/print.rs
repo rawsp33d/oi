@@ -155,7 +155,7 @@ impl<'a> Translator<'a> {
 				}
 				let sname = display_name(sname).to_string();
 				let fields = fields.clone();
-				self.write_lit(&format!("{sname}{{"), sink);
+				self.write_lit(&format!("{sname}.{{"), sink);
 				for (i, f) in fields.iter().enumerate() {
 					if i > 0 {
 						self.write_lit(", ", sink);

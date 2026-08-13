@@ -108,12 +108,12 @@ fn print_struct() {
 	check(
 		"Point :: struct { x: int, y: int }
 		print(Point.{ x = 1, y = 2 })",
-		"Point{x = 1, y = 2}",
+		"Point.{x = 1, y = 2}",
 	);
 	check(
 		"Point :: struct { x: int, y: int }
 		print(Point.{})",
-		"Point{x = 0, y = 0}",
+		"Point.{x = 0, y = 0}",
 	);
 }
 
@@ -140,7 +140,7 @@ fn fn_return_type_annotation() {
 		origin :: fn() Point { Point.{} }
 		origin()
 	"};
-	check(src, "Point{x = 0, y = 0}");
+	check(src, "Point.{x = 0, y = 0}");
 }
 
 #[test]
@@ -150,7 +150,7 @@ fn fn_return_type_annotation_named_fields() {
 		make :: fn(a: int, b: int) Point { Point.{ x = a, y = b } }
 		make(3, 4)
 	"};
-	check(src, "Point{x = 3, y = 4}");
+	check(src, "Point.{x = 3, y = 4}");
 }
 
 #[test]
@@ -238,7 +238,7 @@ fn record_in_return_position() {
 		make :: fn() Point { { x = 1, y = 2 } }
 		make()
 	"};
-	check(src, "Point{x = 1, y = 2}");
+	check(src, "Point.{x = 1, y = 2}");
 }
 
 #[test]
@@ -354,7 +354,7 @@ fn struct_typed_field() {
 		print(w.cash.amount)
 		print(w)
 	"};
-	check(src, ["5", "Wallet{cash = Money{amount = 5}}"]);
+	check(src, ["5", "Wallet.{cash = Money.{amount = 5}}"]);
 }
 
 #[test]

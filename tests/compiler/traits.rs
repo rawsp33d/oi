@@ -401,9 +401,9 @@ fn trait_object_renders_concrete_struct() {
 	check(
 		[ANIMAL_DOG_KIND, src],
 		[
-			r#"Dog{kind = "collie"}"#,
-			r#"says Dog{kind = "collie"}"#,
-			r#"Dog{kind = "collie"}"#,
+			r#"Dog.{kind = "collie"}"#,
+			r#"says Dog.{kind = "collie"}"#,
+			r#"Dog.{kind = "collie"}"#,
 		],
 	);
 }
@@ -425,7 +425,7 @@ fn array_of_trait_objects_renders() {
 		Cat : Animal { speak :: fn(self) string { "meow" } }
 		print([]Animal{ Dog.{ "collie" }, Cat.{ "mau" } })
 	"#};
-	check([ANIMAL_DOG_KIND, src], "[Dog{kind = \"collie\"}, Cat{kind = \"mau\"}]");
+	check([ANIMAL_DOG_KIND, src], "[Dog.{kind = \"collie\"}, Cat.{kind = \"mau\"}]");
 }
 
 #[test]

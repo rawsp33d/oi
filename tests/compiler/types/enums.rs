@@ -326,7 +326,7 @@ fn struct_payload() {
 				.dot => {}
 			}
 		"#},
-		"Point{x = 3, y = 4}",
+		"Point.{x = 3, y = 4}",
 	);
 }
 
