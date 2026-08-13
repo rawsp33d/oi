@@ -17,7 +17,7 @@ fn declare_and_set_get() {
 fn init_expr_declare_and_set_get() {
 	check(
 		indoc! {r#"
-			m := Map[string, int]{}
+			m := Map[string, int].{}
 			m["one"] = 1
 			m["one"]
 		"#},
@@ -29,7 +29,7 @@ fn init_expr_declare_and_set_get() {
 fn bare_map_lit_from_annotation() {
 	check(
 		indoc! {r#"
-			m: Map[string, int] = Map{}
+			m: Map[string, int] = Map.{}
 			m["one"] = 1
 			m["one"]
 		"#},
@@ -241,7 +241,7 @@ fn record_mixed_value_types_fail() {
 fn map_prefix_lit() {
 	check(
 		indoc! {r#"
-			num_map := Map{
+			num_map := Map.{
 				one = 1
 				two = 2
 			}
@@ -297,7 +297,7 @@ fn deleted_key_then_lookup_panics() {
 
 #[test]
 fn init_with_elements_fails() {
-	fail_with(r#"Map[string, int]{"x"}"#, "only array initializers take elements");
+	fail_with(r#"Map[string, int].{"x"}"#, "only array initializers take elements");
 }
 
 #[test]

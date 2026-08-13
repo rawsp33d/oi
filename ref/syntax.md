@@ -643,7 +643,7 @@ main :: fn() {
 	a: int = 2
 	b: string = "hi"
 	c: Car = Car{}
-	m: Map[int, string] = Map{}
+	m: Map[int, string] = Map.{}
 
 	# inferred
 	no_mute :: "immutable"
@@ -791,7 +791,7 @@ main :: fn() {
 
 	# ident keys are string sugar
 	# with no expected type this infers Map[string, int]
-	num_map := Map{
+	num_map := Map.{
 		one = 1
 		two = 2
 	}
@@ -801,8 +801,8 @@ main :: fn() {
 	typed_map.delete["three"]
 
 	# literals as keys
-	by_id := Map{ 1 = "one", 2 = "two" }
-	by_status := Map{ :ok = 200, :not_found = 404 }
+	by_id := Map.{ 1 = "one", 2 = "two" }
+	by_status := Map.{ :ok = 200, :not_found = 404 }
 
 	# `{}` resolves against the expected type
 	empty Map[string, int] := {}

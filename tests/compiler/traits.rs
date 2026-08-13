@@ -327,7 +327,7 @@ fn trait_object_array_literal() {
 	let src = indoc! {r#"
 		Cat :: struct { kind: string }
 		Cat : Animal { speak :: fn(self) string { "meow" } }
-		animals :: []Animal{ Dog.{ "collie" }, Cat.{ "mau" } }
+		animals :: []Animal.{ Dog.{ "collie" }, Cat.{ "mau" } }
 		loop a in animals { print("{a.kind}: {a.speak()}") }
 	"#};
 	check([ANIMAL_KIND, src], ["collie: woof", "mau: meow"]);
@@ -423,7 +423,7 @@ fn array_of_trait_objects_renders() {
 	let src = indoc! {r#"
 		Cat :: struct { kind: string }
 		Cat : Animal { speak :: fn(self) string { "meow" } }
-		print([]Animal{ Dog.{ "collie" }, Cat.{ "mau" } })
+		print([]Animal.{ Dog.{ "collie" }, Cat.{ "mau" } })
 	"#};
 	check([ANIMAL_DOG_KIND, src], "[Dog.{kind = \"collie\"}, Cat.{kind = \"mau\"}]");
 }

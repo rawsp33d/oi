@@ -227,7 +227,7 @@ fn closure_cannot_be_stored_in_array_literal() {
 fn closure_cannot_be_smuggled_through_a_generic_store() {
 	let src = indoc! {"
 		smuggle[T] :: fn(x: T) []T {
-			a := []T{}
+			a := []T.{}
 			a << x
 			a
 		}

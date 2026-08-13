@@ -576,6 +576,7 @@ where
 
 		// map literals
 		let map_lit = just(Token::Ident("Map".to_string()))
+			.ignore_then(just(Token::Dot))
 			.ignore_then(brace(record_entries.clone().or_not().map(Option::unwrap_or_default)))
 			.map_with(|entries, ex| (Expr::Record(entries), ex.span()));
 
@@ -603,6 +604,7 @@ where
 		let type_init = type_expr
 			.clone()
 			.filter(|t| matches!(t, TypeExpr::Array(_) | TypeExpr::FixedArray(..) | TypeExpr::Map(..)))
+			.then_ignore(just(Token::Dot))
 			.then(brace(loose_list(expr.clone())))
 			.map_with(|(te, elems), ex| (Expr::TypeInit((te, ex.span()), elems), ex.span()));
 
