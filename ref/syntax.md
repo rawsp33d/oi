@@ -31,18 +31,33 @@ tags: []
 	I don't love how it handles nested modules, but I will likely revisit this in the future.
 }#
 
-# specify module
+# declare module
 module module_name
 
-# imports
+# imports are dot-separated paths
 use os
+use fs.stream
 
 # selective imports
-use os { input }
+use os.{ input }
+use fs.{ stream, sock :: socket }
 
 # import aliases
-use crypto.sha256
-use mymod.sha256 as mysha256
+# `use` is an expression, and thus it may be bound
+mysha256 :: use hash.sha256
+
+# visibility
+
+# any immutable expression can be made public with a `pub` modifier
+
+# re-export modules
+pub use math
+
+# definitions
+pub quack :: fn() string { "quack!" }
+pub Foo :: struct { bar: bool }
+pub foo :: Foo{ true }
+pub strange :: "dr strange love"
 
 ## functions
 

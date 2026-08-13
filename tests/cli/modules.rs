@@ -67,12 +67,12 @@ fn duplicate_name_across_files_rejected() {
 #[test]
 fn import_alias() {
 	let p = Project::new()
-		.file("main.oi", ["module main", "use foo as f", "print(f.hi())"])
+		.file("main.oi", ["module main", "f :: use foo", "print(f.hi())"])
 		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
 	assert_eq!(ok(run_main(p)), "7");
 
 	let p = Project::new()
-		.file("main.oi", ["module main", "use foo as f", "print(foo.hi())"])
+		.file("main.oi", ["module main", "f :: use foo", "print(foo.hi())"])
 		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
 	let out = err(run_main(p));
 	assert!(out.contains("foo"), "{out}");
@@ -81,27 +81,43 @@ fn import_alias() {
 #[test]
 fn selective_import() {
 	let p = Project::new()
-		.file("main.oi", ["module main", "use foo { hi }", "print(hi() + foo.hi())"])
+		.file("main.oi", ["module main", "use foo", "use foo.{ hi }", "print(hi() + foo.hi())"])
 		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
 	assert_eq!(ok(run_main(p)), "14");
 }
 
 #[test]
+fn dotted_import() {
+	let p = Project::new()
+		.file("main.oi", ["module main", "use foo.hi", "print(hi())"])
+		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
+	assert_eq!(ok(run_main(p)), "7");
+}
+
+#[test]
+fn renamed_import() {
+	let p = Project::new()
+		.file("main.oi", ["module main", "use foo.{ h :: hi }", "print(h())"])
+		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
+	assert_eq!(ok(run_main(p)), "7");
+}
+
+#[test]
 fn selective_import_fails() {
 	let p = Project::new()
-		.file("main.oi", ["module main", "use foo { nope }", "print(nope())"])
+		.file("main.oi", ["module main", "use foo.{ nope }", "print(nope())"])
 		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
 	let out = err(run_main(p));
 	assert!(out.contains("has no function `nope`"), "{out}");
 
 	let p = Project::new()
-		.file("main.oi", ["module main", "use foo { secret }", "print(secret())"])
+		.file("main.oi", ["module main", "use foo.{ secret }", "print(secret())"])
 		.file("foo/lib.oi", ["module foo", "secret :: fn() int { 1 }"]);
 	let out = err(run_main(p));
 	assert!(out.contains("private to module `foo`"), "{out}");
 
 	let p = Project::new()
-		.file("main.oi", ["module main", "use foo { P }", "print(1)"])
+		.file("main.oi", ["module main", "use foo.{ P }", "print(1)"])
 		.file("foo/lib.oi", ["module foo", "pub P :: struct { x: int }"]);
 	let out = err(run_main(p));
 	assert!(out.contains("is not a function"), "{out}");

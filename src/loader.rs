@@ -135,25 +135,37 @@ impl Loader<'_> {
 		for item in file {
 			match &item.0 {
 				Expr::Module(_) => return Err(err("`module` must come first", item.1, "move it to the top")),
-				Expr::Use { module, alias, names } => {
-					let local = alias.clone().unwrap_or_else(|| module.clone());
-					if let Some(prev) = m.scope.visible.insert(local.clone(), module.clone())
-						&& prev != *module
-					{
-						return Err(err(
-							format!("`{local}` already names module `{prev}`"),
-							item.1,
-							"conflicting import",
-						));
+				Expr::Use { binds } => {
+					for ((local, span), path) in binds {
+						let module = match path.as_slice() {
+							// whole module
+							[(module, _)] => {
+								if let Some(prev) = m.scope.visible.insert(local.clone(), module.clone())
+									&& prev != *module
+								{
+									return Err(err(
+										format!("`{local}` already names module `{prev}`"),
+										item.1,
+										"conflicting import",
+									));
+								}
+								module
+							}
+							// one module item
+							[(module, _), (name, _)] => {
+								if m.scope.env.insert(local.clone(), format!("{module}::{name}")).is_some() {
+									let msg = format!("`{local}` is already defined in module `{}`", m.name);
+									return Err(err(msg, *span, "conflicting import"));
+								}
+								self.selected.push((module.clone(), name.clone(), *span));
+								module
+							}
+							_ => {
+								return Err(err("nested module paths aren't supported yet", *span, "flatten the path"));
+							}
+						};
+						imports.push((module.clone(), item.1));
 					}
-					for (name, span) in names {
-						if m.scope.env.insert(name.clone(), format!("{module}::{name}")).is_some() {
-							let msg = format!("`{name}` is already defined in module `{}`", m.name);
-							return Err(err(msg, *span, "conflicting import"));
-						}
-						self.selected.push((module.clone(), name.clone(), *span));
-					}
-					imports.push((module.clone(), item.1));
 					continue;
 				}
 				_ => {}

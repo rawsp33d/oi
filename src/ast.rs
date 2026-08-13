@@ -29,13 +29,13 @@ pub enum Expr {
 	// `T{}`
 	TypeInit(Spanned<TypeExpr>, Vec<Spanned<Expr>>),
 
-	// `?T(value)` or `?T(none)`
+	// `?T(value)`, `?T(none)`
 	OptionInit {
 		inner: Spanned<TypeExpr>,
 		arg: Box<Spanned<Expr>>,
 	},
 
-	// `!T(value)` or `!T(error)`
+	// `!T(value)`, `!T(error)`
 	ResultInit {
 		inner: Spanned<TypeExpr>,
 		arg: Box<Spanned<Expr>>,
@@ -47,7 +47,7 @@ pub enum Expr {
 		value: Box<Spanned<Expr>>,
 	},
 
-	// `(a, mut b) := value` or `(a, b) = value`
+	// `(a, mut b) := value`, `(a, b) = value`
 	Destructure {
 		names: Vec<(bool, String)>,
 		value: Box<Spanned<Expr>>,
@@ -232,7 +232,7 @@ pub enum Expr {
 		variants: Vec<EnumVariant>,
 		fills: Vec<Spanned<Expr>>,
 	},
-	// `.variant` or `.variant(args)`
+	// `.variant`, `.variant(args)`
 	EnumShorthand {
 		variant: String,
 		args: Vec<Spanned<Expr>>,
@@ -242,11 +242,9 @@ pub enum Expr {
 
 	// `module name`
 	Module(String),
-	// `use module { names }` or `use module as alias`
+	// `use module`, `use module.{ binds }`
 	Use {
-		module: String,
-		alias: Option<String>,
-		names: Vec<Spanned<String>>,
+		binds: Vec<(Spanned<String>, Vec<Spanned<String>>)>,
 	},
 	// `pub expr`
 	Pub(Box<Spanned<Expr>>),

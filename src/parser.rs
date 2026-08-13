@@ -1240,23 +1240,57 @@ where
 	let module_decl = just(Token::Module)
 		.ignore_then(ident())
 		.map_with(|name, ex| (Expr::Module(name), ex.span()));
-	let alias = select! { Token::Ident(s) if s == "as" => () }.ignore_then(ident());
-	let use_decl = just(Token::Use)
-		.ignore_then(ident())
-		.then(
-			brace(loose_list(spanned(ident())))
-				.map(|names| (None, names))
-				.or(alias.map(|a| (Some(a), vec![])))
-				.or_not(),
-		)
-		.map_with(|(module, tail), ex| {
-			let (alias, names) = tail.unwrap_or_default();
-			(Expr::Use { module, alias, names }, ex.span())
+	// imports
+	type Group = Vec<(Spanned<String>, Option<Spanned<String>>)>;
+	fn use_binds(path: Vec<Spanned<String>>, group: Option<Group>) -> Vec<(Spanned<String>, Vec<Spanned<String>>)> {
+		match group {
+			Some(items) => items
+				.into_iter()
+				.map(|(local, remote)| {
+					let mut path = path.clone();
+					path.push(remote.unwrap_or_else(|| local.clone()));
+					(local, path)
+				})
+				.collect(),
+			// a bare import implicitly binds
+			None => vec![(path.last().unwrap().clone(), path)],
+		}
+	}
+	let use_path = just(Token::Use).ignore_then(
+		spanned(ident())
+			.separated_by(just(Token::Dot))
+			.at_least(1)
+			.collect::<Vec<_>>(),
+	);
+	let group_item = spanned(ident()).then(just(Token::DoubleColon).ignore_then(spanned(ident())).or_not());
+	let use_decl = use_path
+		.clone()
+		.then(just(Token::Dot).ignore_then(brace(loose_list(group_item))).or_not())
+		.map_with(|(path, group), ex| {
+			(
+				Expr::Use {
+					binds: use_binds(path, group),
+				},
+				ex.span(),
+			)
+		});
+	// imports with explicit binding
+	let bound_use = spanned(ident())
+		.then_ignore(just(Token::DoubleColon))
+		.then(use_path)
+		.map_with(|(local, path), ex| {
+			(
+				Expr::Use {
+					binds: vec![(local, path)],
+				},
+				ex.span(),
+			)
 		});
 
 	def.or(public)
 		.or(module_decl)
 		.or(use_decl)
+		.or(bound_use)
 		.or(stmt)
 		.repeated()
 		.collect()
