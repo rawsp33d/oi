@@ -233,6 +233,44 @@ fn reexport_fails() {
 }
 
 #[test]
+fn const_import() {
+	for main in [
+		"use foo\nprint(foo.name)",
+		"use foo.{ name }\nprint(name)",
+		"use foo.name\nprint(name)",
+	] {
+		let p = Project::new()
+			.file("main.oi", ["module main", main])
+			.file("foo/lib.oi", ["module foo", "pub name :: 7"]);
+		assert_eq!(ok(run_main(p)), "7");
+	}
+}
+
+#[test]
+fn const_import_fails() {
+	for (lib, expected) in [
+		("name :: 7", "private to module `foo`"),
+		("pub name := 7", "must be a const"),
+		("pub name :: 1 + 2", "only literal consts"),
+	] {
+		let p = Project::new()
+			.file("main.oi", ["module main", "use foo.{ name }", "print(name)"])
+			.file("foo/lib.oi", ["module foo", lib]);
+		let out = err(run_main(p));
+		assert!(out.contains(expected), "{out}");
+	}
+}
+
+#[test]
+fn const_reexport() {
+	let p = Project::new()
+		.file("main.oi", ["module main", "use mid", "print(mid.name)"])
+		.file("mid/lib.oi", ["module mid", "pub use base.name"])
+		.file("base/lib.oi", ["module base", "pub name :: 7"]);
+	assert_eq!(ok(run_main(p)), "7");
+}
+
+#[test]
 fn exec_resolves_imports_against_cwd() {
 	let p = Project::new().file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 99 }"]);
 	let out = ok(oi(&["exec", "use foo\nprint(foo.hi())"]).current_dir(&p).run(None));

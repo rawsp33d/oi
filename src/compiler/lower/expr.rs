@@ -74,7 +74,10 @@ impl<'a> Translator<'a> {
 						let addr = self.b.ins().func_addr(self.int, func_ref);
 						Ok((addr, Typ::Fn(sig.value_params(), Box::new(sig.ret))))
 					}
-					None => Err(e),
+					None => match self.consts.get(self.qualify(name)).cloned() {
+						Some(c) => self.expr(&c),
+						None => Err(e),
+					},
 				},
 			},
 
@@ -273,6 +276,32 @@ impl<'a> Translator<'a> {
 			}
 
 			Expr::Field { tuple, field } => {
+				// access an imported module's items
+				if let Expr::Ident(m) = &tuple.0
+					&& !self.vars.contains_key(m)
+					&& let Some(vis) = self.scope.visible.get(m)
+				{
+					let target = match &vis.only {
+						None => field,
+						Some(only) => only.get(field).ok_or_else(|| {
+							Diagnostic::new(format!("`{field}` is not part of `{m}`"), expr.1.into_range())
+								.with_label("not in this import")
+						})?,
+					};
+					let module = vis.module.clone();
+					let key = format!("{module}::{target}");
+					let key = self.reexports.get(&key).cloned().unwrap_or(key);
+					let (msg, label) = match self.consts.get(&key).cloned() {
+						Some(c) if self.publics.contains(&key) => return self.expr(&c),
+						Some(_) => (format!("`{field}` is private to module `{module}`"), "not public"),
+						None if self.funcs.contains_key(&key) || self.generic_fns.contains_key(&key) => {
+							(format!("`{field}` is a function, call it"), "add `()`")
+						}
+						None => (format!("module `{module}` has no const `{field}`"), "no such const"),
+					};
+					return Err(Diagnostic::new(msg, expr.1.into_range()).with_label(label));
+				}
+
 				// enum variants
 				if let Expr::Ident(name) = &tuple.0
 					&& !self.vars.contains_key(name)

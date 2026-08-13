@@ -191,6 +191,7 @@ pub struct Compiler {
 	descs: HashMap<String, DataId>,
 	publics: HashSet<String>,
 	reexports: HashMap<String, String>,
+	consts: HashMap<String, Spanned<Expr>>,
 }
 
 impl Default for Compiler {
@@ -244,6 +245,7 @@ impl Default for Compiler {
 			descs: HashMap::new(),
 			publics: HashSet::new(),
 			reexports: HashMap::new(),
+			consts: HashMap::new(),
 		}
 	}
 }
@@ -330,6 +332,7 @@ impl Compiler {
 
 		self.publics = program.publics.clone();
 		self.reexports = program.reexports.clone();
+		self.consts = program.consts.clone();
 		let scopes: HashMap<&str, &Scope> = program.modules.iter().map(|m| (m.name.as_str(), &m.scope)).collect();
 		let scope_of = |key: &str| scopes[key.split_once("::").map_or("main", |(m, _)| m)];
 
@@ -790,6 +793,7 @@ impl Compiler {
 			scope: types.scope,
 			publics: &self.publics,
 			reexports: &self.reexports,
+			consts: &self.consts,
 			mono: &mut self.mono,
 			pending: &mut self.pending,
 			descs: &mut self.descs,

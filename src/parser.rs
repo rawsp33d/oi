@@ -450,7 +450,7 @@ where
 	let stmt = doc
 		.or(ret_stmt)
 		.or(destructure)
-		.or(bind)
+		.or(bind.clone())
 		.or(field_assign)
 		.or(assign)
 		.or(index_assign)
@@ -1252,7 +1252,7 @@ where
 		.map_with(|((name, path), group), ex| (Expr::Use { name, path, group }, ex.span()))
 		.boxed();
 	let public = just(Token::Pub)
-		.ignore_then(def.clone().or(use_decl.clone()))
+		.ignore_then(def.clone().or(use_decl.clone()).or(bind))
 		.map_with(|d, ex| (Expr::Pub(Box::new(d)), ex.span()));
 
 	def.or(public)

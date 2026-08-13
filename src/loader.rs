@@ -39,6 +39,7 @@ pub struct Program {
 	pub modules: Vec<Module>,
 	pub publics: HashSet<String>,
 	pub reexports: HashMap<String, String>,
+	pub consts: HashMap<String, Spanned<Expr>>,
 }
 
 impl Program {
@@ -50,6 +51,15 @@ impl Program {
 
 fn err(msg: impl Into<String>, span: Span, label: &str) -> Diagnostic {
 	Diagnostic::new(msg.into(), span.into_range()).with_label(label)
+}
+
+// Ensure const values are literals.
+fn is_literal(e: &Expr) -> bool {
+	match e {
+		Expr::Bool(_) | Expr::Int(_) | Expr::Float(_) | Expr::String(_) | Expr::Atom(_) => true,
+		Expr::Negative(inner) => is_literal(&inner.0),
+		_ => false,
+	}
 }
 
 // Lex and parse the file just pushed onto the map.
@@ -74,6 +84,7 @@ struct Loader<'a> {
 	modules: Vec<Module>,
 	publics: HashSet<String>,
 	reexports: HashMap<String, String>,
+	consts: HashMap<String, Spanned<Expr>>,
 	// import stack
 	loading: Vec<String>,
 	selected: Vec<(String, String, Span)>,
@@ -224,6 +235,24 @@ impl Loader<'_> {
 				| Expr::EnumDef { name, .. }
 				| Expr::TypeAlias { name, .. } => self.define(m, name, !main, public, span)?,
 				Expr::TraitDef { name, .. } => self.define(m, name, false, public, span)?,
+				Expr::Bind {
+					mutable,
+					name,
+					typ,
+					value,
+				} if !main => {
+					let (msg, label) = match (*mutable, typ.is_some(), value.as_deref()) {
+						(true, ..) => ("a module-level binding must be a const", "use `::`"),
+						(_, true, _) => ("type annotations on consts aren't supported yet", "drop the annotation"),
+						(_, _, Some(v)) if is_literal(&v.0) => {
+							self.define(m, name, true, public, span)?;
+							self.consts.insert(name.clone(), v.clone());
+							continue;
+						}
+						_ => ("only literal consts are allowed in a module", "not a literal"),
+					};
+					return Err(err(msg, span, label));
+				}
 				Expr::Claim { typ, .. } if !main => *typ = format!("{}::{typ}", m.name),
 				Expr::Claim { .. } | Expr::Doc(_) => {}
 				_ if !main => {
@@ -314,15 +343,16 @@ impl Loader<'_> {
 		for (module, name, span) in &self.selected {
 			let m = self.modules.iter().find(|m| &m.name == module).unwrap();
 			let is_def = |q: &String| {
-				self.modules.iter().any(|m| {
-					m.items.iter().any(|i| {
-						matches!(&i.0,
-							Expr::Fn { name, .. }
-							| Expr::StructDef { name, .. }
-							| Expr::EnumDef { name, .. }
-							| Expr::TypeAlias { name, .. } if name == q)
+				self.consts.contains_key(q)
+					|| self.modules.iter().any(|m| {
+						m.items.iter().any(|i| {
+							matches!(&i.0,
+								Expr::Fn { name, .. }
+								| Expr::StructDef { name, .. }
+								| Expr::EnumDef { name, .. }
+								| Expr::TypeAlias { name, .. } if name == q)
+						})
 					})
-				})
 			};
 			let (msg, label) = match m.scope.env.get(name) {
 				None => (format!("module `{module}` has no `{name}`"), "no such name"),
@@ -350,6 +380,7 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 		modules: vec![],
 		publics: HashSet::new(),
 		reexports: HashMap::new(),
+		consts: HashMap::new(),
 		loading: vec![],
 		selected: vec![],
 	};
@@ -370,5 +401,6 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 		modules: loader.modules,
 		publics: loader.publics,
 		reexports,
+		consts: loader.consts,
 	})
 }
