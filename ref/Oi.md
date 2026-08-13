@@ -152,24 +152,16 @@ tags: []
 - `time`
 - `units`
 # influences
+- [Capy](https://github.com/capy-language/capy)
+- Odin
 - V
 - [revo](https://github.com/if-not-nil/revo)
-- [Capy](https://github.com/capy-language/capy)
-- Nushell
-	- structured data pipelines
+- Jai
 - Rust
-	- `impl`
+- Nushell
 - Nim
 - Zig
-- Clojure
-	- metaprogramming
-	- homoiconicity
 - Janet
 - Lua
-- Jai
-- Odin
 - Julia
-- Elixir
-- Haskell
-- GDScript
 # [[archive]]

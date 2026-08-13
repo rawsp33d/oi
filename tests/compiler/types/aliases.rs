@@ -57,7 +57,7 @@ fn alias_in_struct_field() {
 	let src = indoc! {"
 		Hp :: int
 		Unit :: struct { hp: Hp }
-		u :: Unit { hp = 100 }
+		u :: Unit.{ hp = 100 }
 		u.hp
 	"};
 	check(src, "100");

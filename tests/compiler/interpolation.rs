@@ -20,7 +20,7 @@ fn arithmetic_expr() {
 fn field_and_method() {
 	let src = indoc! {r#"
 		P :: struct { x: int }
-		p :: P{7}
+		p :: P.{7}
 		print("x is {p.x}, doubled {(p.x * 2).str()}")
 	"#};
 	check(src, "x is 7, doubled 14");
@@ -56,7 +56,7 @@ fn user_str_impl() {
 	let src = indoc! {r#"
 		Money :: struct { n: int }
 		Money :{ str :: fn(self) string { "$" + self.n.str() } }
-		m :: Money{5}
+		m :: Money.{5}
 		print("cost: {m}")
 	"#};
 	check(src, "cost: $5");

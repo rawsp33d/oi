@@ -9,7 +9,7 @@ Dog :{
 	}
 }
 
-dog := Dog{
+dog := Dog.{
 	"Larry"
 	greeting = "bark"
 }

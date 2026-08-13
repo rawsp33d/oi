@@ -25,7 +25,7 @@ fn variants() {
 fn derived_struct() {
 	let src = indoc! {"
 		Bag :: struct { items: []int }
-		Bag{[1, 2, 3]}.str()
+		Bag.{[1, 2, 3]}.str()
 	"};
 	check(src, "Bag{items = [1, 2, 3]}");
 }
@@ -35,7 +35,7 @@ fn user_str_wins() {
 	let src = indoc! {r#"
 		Money :: struct { n: int }
 		Money :{ str :: fn(self) string { "$" } }
-		Money{5}.str()
+		Money.{5}.str()
 	"#};
 	check(src, "$");
 }
@@ -45,7 +45,7 @@ fn print_uses_user_str() {
 	let src = indoc! {r#"
 		Money :: struct { n: int }
 		Money :{ str :: fn(self) string { "$" + self.n.str() } }
-		m :: Money{5}
+		m :: Money.{5}
 		print(m)
 		print([m, m])
 	"#};
@@ -57,7 +57,7 @@ fn user_str_nested_in_derived_render() {
 	let src = indoc! {r#"
 		Money :: struct { n: int }
 		Money :{ str :: fn(self) string { "$" + self.n.str() } }
-		[Money{5}, Money{7}].str()
+		[Money.{5}, Money.{7}].str()
 	"#};
 	check(src, "[$5, $7]");
 }

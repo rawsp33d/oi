@@ -5,7 +5,7 @@ use indoc::indoc;
 fn infer_from_literal() {
 	let src = indoc! {"
 		Pair[T] :: struct { a: T, b: T }
-		p :: Pair{ a = 3, b = 4 }
+		p :: Pair.{ a = 3, b = 4 }
 		p.a + p.b
 	"};
 	check(src, "7");
@@ -15,7 +15,7 @@ fn infer_from_literal() {
 fn nested_instantiation() {
 	let src = indoc! {"
 		Box[T] :: struct { v: T }
-		Box{ v = Box{ v = 5 } }.v.v
+		Box.{ v = Box.{ v = 5 } }.v.v
 	"};
 	check(src, "5");
 }
@@ -25,7 +25,7 @@ fn type_position_param() {
 	let src = indoc! {"
 		Pair[T] :: struct { a: T, b: T }
 		sum :: fn(p: Pair[int]) int { p.a + p.b }
-		sum(Pair{ a = 3, b = 4 })
+		sum(Pair.{ a = 3, b = 4 })
 	"};
 	check(src, "7");
 }
@@ -35,7 +35,7 @@ fn conflicting_field_types_error() {
 	fail_with(
 		indoc! {r#"
 			Pair[T] :: struct { a: T, b: T }
-			Pair{ a = 3, b = "x" }
+			Pair.{ a = 3, b = "x" }
 		"#},
 		"bound to both",
 	);
@@ -46,7 +46,7 @@ fn cannot_infer_error() {
 	fail_with(
 		indoc! {"
 			Pair[T] :: struct { a: T, b: T }
-			Pair{}
+			Pair.{}
 		"},
 		"cannot infer",
 	);
@@ -57,7 +57,7 @@ fn empty_lit_infers_from_annotation() {
 	check(
 		indoc! {"
 			Box[T] :: struct { v: T }
-			b : Box[int] : Box{}
+			b : Box[int] : Box.{}
 			b.v
 		"},
 		"0",
@@ -69,7 +69,7 @@ fn partial_lit_infers_from_annotation() {
 	check(
 		indoc! {r#"
 			Pair[A, B] :: struct { a: A, b: B }
-			p : Pair[int, string] : Pair{ a = 7 }
+			p : Pair[int, string] : Pair.{ a = 7 }
 			p.a
 		"#},
 		"7",
@@ -92,7 +92,7 @@ fn bare_name_needs_type_arguments() {
 fn generic_fn_round_trip() {
 	let src = indoc! {"
 		Box[T] :: struct { v: T }
-		wrap[T] :: fn(v: T) Box[T] { Box{ v = v } }
+		wrap[T] :: fn(v: T) Box[T] { Box.{ v = v } }
 		wrap(9).v
 	"};
 	check(src, "9");
@@ -103,7 +103,7 @@ fn concrete_field_type_still_checked() {
 	fail_with(
 		indoc! {r#"
 			Tagged[T] :: struct { v: T, id: int }
-			Tagged{ v = 1.5, id = "x" }
+			Tagged.{ v = 1.5, id = "x" }
 		"#},
 		"expected int",
 	);

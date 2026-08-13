@@ -7,12 +7,12 @@ const FILE: &str = indoc! {r#"
 
 #[test]
 fn reverse_drop_order() {
-	check([FILE, "a :: File{fd = 1}", "b :: File{fd = 2}"], ["drop 2", "drop 1"]);
+	check([FILE, "a :: File.{fd = 1}", "b :: File.{fd = 2}"], ["drop 2", "drop 1"]);
 }
 
 #[test]
 fn bind_move_kills_source() {
-	fail_with([FILE, "f :: File{fd = 1}", "g :: f", "print(f)"], "undefined variable");
+	fail_with([FILE, "f :: File.{fd = 1}", "g :: f", "print(f)"], "undefined variable");
 }
 
 #[test]
@@ -21,7 +21,7 @@ fn arg_borrows_and_drops_once() {
 		[
 			FILE,
 			"look :: fn(f: File) {}",
-			"f :: File{fd = 1}",
+			"f :: File.{fd = 1}",
 			"look(f)",
 			r#"print("marker")"#,
 		],
@@ -32,7 +32,7 @@ fn arg_borrows_and_drops_once() {
 #[test]
 fn callee_cannot_steal_a_borrowed_arg() {
 	fail_with(
-		[FILE, "steal :: fn(f: File) { g :: f }", "f :: File{fd = 1}", "steal(f)"],
+		[FILE, "steal :: fn(f: File) { g :: f }", "f :: File.{fd = 1}", "steal(f)"],
 		"it is borrowed here",
 	);
 }
@@ -42,7 +42,7 @@ fn returned_resource_drops_once() {
 	check(
 		[
 			FILE,
-			"open :: fn(n: int) File { File{fd = n} }",
+			"open :: fn(n: int) File { File.{fd = n} }",
 			"f :: open(3)",
 			r#"print("before")"#,
 		],

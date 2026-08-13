@@ -20,7 +20,7 @@ badge :: fn(u: User) string {
 User :{
 	create :: fn(name: string) Self {
 		# TODO: this should let you create without all fields, zeroing the rest
-		return User{ name, status = .offline }
+		return User.{ name, status = .offline }
 	}
 
 	greet :: fn(self) string {

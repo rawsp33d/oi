@@ -625,6 +625,15 @@ impl<'a> Translator<'a> {
 	) -> Result<TypedVal, Diagnostic> {
 		// `Self {}` inside a method resolves to the impl's type
 		let name = match name {
+			"" => match target {
+				Some(Typ::Struct(n, _)) => n.clone(),
+				_ => {
+					return Err(
+						Diagnostic::new("cannot infer the struct type of `.{}` here", span.into_range())
+							.with_label("name the literal: `Name.{ ... }`"),
+					);
+				}
+			},
 			"Self" => self.self_type.clone().ok_or_else(|| {
 				Diagnostic::new("`Self` is only valid in an impl block", span.into_range())
 					.with_label("no enclosing impl")
@@ -634,7 +643,7 @@ impl<'a> Translator<'a> {
 		if self.enums.contains_key(name.as_str()) {
 			if !fields.is_empty() {
 				return Err(Diagnostic::new(
-					format!("enum `{name}` only supports `{name}{{}}` with no fields"),
+					format!("enum `{name}` only supports `{name}.{{}}` with no fields"),
 					span.into_range(),
 				)
 				.with_label("not a struct"));

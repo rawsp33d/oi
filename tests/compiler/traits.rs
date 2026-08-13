@@ -31,7 +31,7 @@ fn trait_def_and_impl() {
 		}
 		Dog :: struct { kind: string }
 		Dog : Animal { speak :: fn(self) string { "woof" } }
-		Dog{ "Collie" }.speak()
+		Dog.{ "Collie" }.speak()
 	"#};
 	check(src, "woof");
 }
@@ -42,7 +42,7 @@ fn marker_impl() {
 		Copy :: trait {}
 		Dog :: struct { kind: string }
 		Dog : Copy
-		Dog{ "Collie" }.kind
+		Dog.{ "Collie" }.kind
 	"#};
 	check(src, "Collie");
 }
@@ -88,7 +88,7 @@ fn default_methods() {
 		}
 		Dog :: struct {}
 		Dog : Animal { speak :: fn(self) string { "woof" } }
-		Dog{}.shout()
+		Dog.{}.shout()
 	"#};
 	check(src, "woof!");
 	let src = indoc! {r#"
@@ -101,7 +101,7 @@ fn default_methods() {
 			speak :: fn(self) string { "woof" }
 			shout :: fn(self) string { "WOOF" }
 		}
-		Dog{}.shout()
+		Dog.{}.shout()
 	"#};
 	check(src, "WOOF");
 }
@@ -112,7 +112,7 @@ fn field_requirement_satisfied() {
 		Animal :: trait { kind: string }
 		Dog :: struct { kind: string }
 		Dog : Animal
-		Dog{ "Collie" }.kind
+		Dog.{ "Collie" }.kind
 	"#};
 	check(src, "Collie");
 }
@@ -182,7 +182,7 @@ fn allows_extra_helper_fills() {
 			speak :: fn(self) string { self.noise() }
 			noise :: fn(self) string { "woof" }
 		}
-		Dog{}.speak()
+		Dog.{}.speak()
 	"#};
 	check(src, "woof");
 }
@@ -230,7 +230,7 @@ fn one_fill_satisfies_two_traits() {
 		B :: trait { f: fn(self) int }
 		S :: struct {}
 		S : A, B { f :: fn(self) int { 9 } }
-		S{}.f()
+		S.{}.f()
 	"};
 	check(src, "9");
 }
@@ -268,7 +268,7 @@ fn own_fill_settles_default_conflict() {
 		B :: trait { f :: fn(self) int { 2 } }
 		S :: struct { f :: fn(self) int { 3 } }
 		S : A, B
-		S{}.f()
+		S.{}.f()
 	"};
 	check(src, "3");
 }
@@ -279,7 +279,7 @@ fn body_fill_discharges_bare_claim() {
 		A :: trait { f: fn(self) int }
 		S :: struct { f :: fn(self) int { 7 } }
 		S : A
-		S{}.f()
+		S.{}.f()
 	"};
 	check(src, "7");
 }
@@ -306,7 +306,7 @@ fn overrides_default_method_multi_param() {
 		Dog : Animal {
 			speak :: fn(self, times: int, loud: bool) string { if loud { "WOOF" } else { "woof" } }
 		}
-		Dog{}.speak(2, true)
+		Dog.{}.speak(2, true)
 	"#};
 	check(src, "WOOF");
 }
@@ -316,7 +316,7 @@ fn dyn_dispatch_zoo() {
 	let src = indoc! {r#"
 		Cat :: struct { legs: int, kind: string }
 		Cat : Animal { speak :: fn(self) string { "meow" } }
-		zoo : []Animal : [ Dog{ "collie" }, Cat{ 4, "mau" } ]
+		zoo : []Animal : [ Dog.{ "collie" }, Cat.{ 4, "mau" } ]
 		loop a in zoo { print("a " + a.kind + " says " + a.speak()) }
 	"#};
 	check([ANIMAL_KIND, src], ["a collie says woof", "a mau says meow"]);
@@ -327,7 +327,7 @@ fn trait_object_array_literal() {
 	let src = indoc! {r#"
 		Cat :: struct { kind: string }
 		Cat : Animal { speak :: fn(self) string { "meow" } }
-		animals :: []Animal{ Dog{ "collie" }, Cat{ "mau" } }
+		animals :: []Animal{ Dog.{ "collie" }, Cat.{ "mau" } }
 		loop a in animals { print("{a.kind}: {a.speak()}") }
 	"#};
 	check([ANIMAL_KIND, src], ["collie: woof", "mau: meow"]);
@@ -346,8 +346,8 @@ fn dyn_trait_param_and_default() {
 		Cat : Animal { speak :: fn(self) string { "meow" } }
 		greet :: fn(a: Animal) string { a.shout() }
 		relay :: fn(a: Animal) string { greet(a) }
-		print(greet(Dog{}))
-		print(relay(Cat{}))
+		print(greet(Dog.{}))
+		print(relay(Cat.{}))
 	"#};
 	check(src, ["woof!", "meow!"]);
 }
@@ -356,7 +356,7 @@ fn dyn_trait_param_and_default() {
 fn trait_typed_struct_field() {
 	let src = indoc! {r#"
 		Pen :: struct { pet: Animal }
-		p :: Pen{ pet = Dog{} }
+		p :: Pen.{ pet = Dog.{} }
 		print(p.pet.speak())
 	"#};
 	check([ANIMAL_DOG, src], "woof");
@@ -367,8 +367,8 @@ fn self_sig_static_dispatch_ok() {
 	let src = indoc! {r#"
 		Cloner :: trait { dup : fn(self) Self }
 		Dog :: struct {}
-		Dog : Cloner { dup :: fn(self) Self { Dog{} } }
-		d :: Dog{}.dup()
+		Dog : Cloner { dup :: fn(self) Self { Dog.{} } }
+		d :: Dog.{}.dup()
 		print("cloned")
 	"#};
 	check(src, "cloned");
@@ -379,21 +379,21 @@ fn rejects_non_object_safe_trait() {
 	fail(indoc! {r#"
 		Cloner :: trait { dup : fn(self) Self }
 		Dog :: struct {}
-		Dog : Cloner { dup :: fn(self) Self { Dog{} } }
+		Dog : Cloner { dup :: fn(self) Self { Dog.{} } }
 		f :: fn(c: Cloner) string { "no" }
 	"#});
 	fail(indoc! {r#"
 		Eater :: trait { eat : fn(self, other: Self) string }
 		Dog :: struct {}
 		Dog : Eater { eat :: fn(self, other: Self) string { "ate" } }
-		pack :: []Eater{ Dog{} }
+		pack :: []Eater.{ Dog.{} }
 	"#});
 }
 
 #[test]
 fn trait_object_renders_concrete_struct() {
 	let src = indoc! {r#"
-		a : Animal : Dog{ "collie" }
+		a : Animal : Dog.{ "collie" }
 		print(a)
 		print("says {a}")
 		print(a.str())
@@ -412,7 +412,7 @@ fn trait_object_renders_concrete_struct() {
 fn trait_object_uses_str_override() {
 	let src = indoc! {r#"
 		Dog :{ str :: fn(self) string { "a " + self.kind + " dog" } }
-		a : Animal : Dog{ "collie" }
+		a : Animal : Dog.{ "collie" }
 		print(a)
 	"#};
 	check([ANIMAL_DOG_KIND, src], "a collie dog");
@@ -423,7 +423,7 @@ fn array_of_trait_objects_renders() {
 	let src = indoc! {r#"
 		Cat :: struct { kind: string }
 		Cat : Animal { speak :: fn(self) string { "meow" } }
-		print([]Animal{ Dog{ "collie" }, Cat{ "mau" } })
+		print([]Animal{ Dog.{ "collie" }, Cat.{ "mau" } })
 	"#};
 	check([ANIMAL_DOG_KIND, src], "[Dog{kind = \"collie\"}, Cat{kind = \"mau\"}]");
 }
@@ -434,7 +434,7 @@ fn trait_declared_str_dyn_dispatches() {
 		Animal :: trait { str : fn(self) string }
 		Dog :: struct { kind: string }
 		Dog : Animal { str :: fn(self) string { "custom-" + self.kind } }
-		a : Animal : Dog{ "collie" }
+		a : Animal : Dog.{ "collie" }
 		print(a)
 		print(a.str())
 	"#};
@@ -445,7 +445,7 @@ fn trait_declared_str_dyn_dispatches() {
 fn rejects_non_implementing_trait_object() {
 	let src = indoc! {"
 		Rock :: struct {}
-		a : Animal : Rock{}
+		a : Animal : Rock.{}
 	"};
 	fail([ANIMAL_DOG, src]);
 }

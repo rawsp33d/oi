@@ -128,8 +128,10 @@ At some point I started designing what has become Oi.
 
 ## influences
 
+- Odin
 - V
-- Nushell
 - Rust
+- Jai
+- Nushell
 - awesome new languages that pop up on [/r/programminglanguages](https://www.reddit.com/r/ProgrammingLanguages/), like [revo](https://github.com/if-not-nil/revo) and [Capy](https://github.com/capy-language/capy)
-- to a lesser extent: Nim, Zig, Clojure, Janet, Lua, Odin, Julia, Elixir, Haskell, GDScript
+- to a lesser extent: Nim, Zig, Clojure, Janet, Lua, Julia

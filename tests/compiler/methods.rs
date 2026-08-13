@@ -7,7 +7,7 @@ fn instance_method() {
 		Point :{
 			sum :: fn(self) int { self.x + self.y }
 		}
-		p :: Point{3, 4}
+		p :: Point.{3, 4}
 		p.sum()
 	"};
 	check(src, "7");
@@ -20,7 +20,7 @@ fn method_with_args() {
 		Point :{
 			scaled :: fn(self, k: int) int { (self.x + self.y) * k }
 		}
-		Point{3, 4}.scaled(10)
+		Point.{3, 4}.scaled(10)
 	"};
 	check(src, "70");
 }
@@ -30,7 +30,7 @@ fn method_on_literal() {
 	let src = indoc! {"
 		P :: struct { x: int, y: int }
 		P :{ sum :: fn(self) int { self.x + self.y } }
-		P{3, 4}.sum()
+		P.{3, 4}.sum()
 	"};
 	check(src, "7");
 }
@@ -42,7 +42,7 @@ fn method_returns_struct_field() {
 		User :{
 			can_register :: fn(self) bool { self.age > 16 }
 		}
-		User{name = "ada", age = 36}.can_register()
+		User.{name = "ada", age = 36}.can_register()
 	"#};
 	check(src, "true");
 }
@@ -52,7 +52,7 @@ fn static_method() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
 		Point :{
-			origin :: fn() Point { Point{0, 0} }
+			origin :: fn() Point { Point.{0, 0} }
 			sum :: fn(self) int { self.x + self.y }
 		}
 		Point.origin().sum()
@@ -64,7 +64,7 @@ fn static_method() {
 fn static_method_with_args() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
-		Point :{ make :: fn(a: int, b: int) Point { Point{a, b} } }
+		Point :{ make :: fn(a: int, b: int) Point { Point.{a, b} } }
 		Point.make(3, 4).x
 	"};
 	check(src, "3");
@@ -75,7 +75,7 @@ fn self_type_and_literal() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
 		Point :{
-			new :: fn() Self { Self {} }
+			new :: fn() Self { Self.{} }
 			sum :: fn(self) int { self.x + self.y }
 		}
 		Point.new().sum()
@@ -88,16 +88,16 @@ fn self_param_and_fields() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
 		Point :{
-			add :: fn(self, other: Self) Self { Self{self.x + other.x, self.y + other.y} }
+			add :: fn(self, other: Self) Self { Self.{self.x + other.x, self.y + other.y} }
 		}
-		Point{1, 2}.add(Point{3, 4}).x
+		Point.{1, 2}.add(Point.{3, 4}).x
 	"};
 	check(src, "4");
 }
 
 #[test]
 fn self_outside_impl() {
-	fail_with("Self{}", "no enclosing impl");
+	fail_with("Self.{}", "no enclosing impl");
 }
 
 #[test]
@@ -108,7 +108,7 @@ fn mut_self_mutates_receiver() {
 			bump :: fn(mut self) { self.n = self.n + 1 }
 			get :: fn(self) int { self.n }
 		}
-		c := Counter{0}
+		c := Counter.{0}
 		c.bump()
 		c.bump()
 		c.get()
@@ -122,7 +122,7 @@ fn immutable_self_rejects_field_assign() {
 		indoc! {"
 			P :: struct { x: int }
 			P :{ bad :: fn(self) { self.x = 9 } }
-			P{1}.bad()
+			P.{1}.bad()
 		"},
 		"immutably bound",
 	);
@@ -133,7 +133,7 @@ fn no_such_method() {
 	fail_with(
 		indoc! {"
 			P :: struct { x: int }
-			p :: P{1}
+			p :: P.{1}
 			p.nope()
 		"},
 		"no method `nope`",
@@ -151,7 +151,7 @@ fn wrong_arg_count() {
 		indoc! {"
 			P :: struct { x: int }
 			P :{ add :: fn(self, k: int) int { self.x + k } }
-			P{1}.add()
+			P.{1}.add()
 		"},
 		"expects 1 argument",
 	);

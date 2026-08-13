@@ -176,9 +176,9 @@ fn match_tuple_arity_mismatch() {
 fn match_struct_destructure() {
 	let src = indoc! {r#"
 		Point :: struct { x: int, y: int }
-		p :: Point{ x = 3, y = 4 }
+		p :: Point.{ x = 3, y = 4 }
 		match p {
-			Point{ y = b, x } => x + b,
+			Point.{ y = b, x } => x + b,
 		}
 	"#};
 	check(src, "7");
@@ -188,8 +188,8 @@ fn match_struct_destructure() {
 fn match_struct_unknown_field() {
 	let src = indoc! {r#"
 		Point :: struct { x: int, y: int }
-		match Point{ x = 1, y = 2 } {
-			Point { z } => z,
+		match Point.{ x = 1, y = 2 } {
+			Point.{ z } => z,
 		}
 	"#};
 	fail_with(src, "no field `z`");
@@ -246,7 +246,7 @@ fn match_arm_chain_across_lines() {
 	let src = indoc! {"
 		C :: struct { r: int }
 		C :{ area :: fn(self) int { self.r * self.r } }
-		c :: C{r = 3}
+		c :: C.{r = 3}
 		match true {
 			true => c
 				.area()

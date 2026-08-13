@@ -512,11 +512,15 @@ where
 		let struct_field_entry = ident().then_ignore(just(Token::Assign)).or_not().then(expr.clone());
 		let struct_body = brace(loose_list(struct_field_entry.clone()));
 
-		// pull out struct literals separately (they have title case names) from vars/calls/whatever below
+		// struct literals
 		let struct_lit = ident()
-			.filter(|name| name.starts_with(char::is_uppercase))
+			.or_not()
+			.then_ignore(just(Token::Dot))
 			.then(struct_body)
-			.map(|(name, fields)| Expr::StructLit { name, fields });
+			.map(|(name, fields)| Expr::StructLit {
+				name: name.unwrap_or_default(),
+				fields,
+			});
 
 		let ref_lit = just(Token::Amp).ignore_then(expr.clone()).try_map(|e, span| match &e.0 {
 			Expr::StructLit { .. } => Ok(Expr::Ref(Box::new(e))),

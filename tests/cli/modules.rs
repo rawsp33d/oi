@@ -18,7 +18,7 @@ fn imports_work() {
 				"use bar",
 				"P :: struct { x: int, y: int }",
 				"sum :: fn(p: P) int { p.x + p.y }",
-				"pub total :: fn() int { bar.twice(sum(P{x = 2, y = 5})) }",
+				"pub total :: fn() int { bar.twice(sum(P.{x = 2, y = 5})) }",
 			],
 		)
 		.file("bar/lib.oi", ["module bar", "pub twice :: fn(n: int) int { n * 2 }"]);
@@ -111,11 +111,11 @@ fn selective_import_fails() {
 fn type_import() {
 	for (main, lib) in [
 		(
-			"use foo.{ P }\np := P{ x = 3, y = 4 }\nprint(p.x + p.y)",
+			"use foo.{ P }\np := P.{ x = 3, y = 4 }\nprint(p.x + p.y)",
 			"pub P :: struct { x: int, y: int }",
 		),
 		(
-			"Q :: use foo.P\nsum :: fn(q: Q) int { q.x + q.y }\nprint(sum(Q{ x = 3, y = 4 }))",
+			"Q :: use foo.P\nsum :: fn(q: Q) int { q.x + q.y }\nprint(sum(Q.{ x = 3, y = 4 }))",
 			"pub P :: struct { x: int, y: int }",
 		),
 		(
@@ -148,7 +148,7 @@ fn type_import_fails() {
 #[test]
 fn type_reexport() {
 	let p = Project::new()
-		.file("main.oi", ["module main", "use mid.{ P }", "print(P{ x = 7 }.x)"])
+		.file("main.oi", ["module main", "use mid.{ P }", "print(P.{ x = 7 }.x)"])
 		.file("mid/lib.oi", ["module mid", "pub use base.P"])
 		.file("base/lib.oi", ["module base", "pub P :: struct { x: int }"]);
 	assert_eq!(ok(run_main(p)), "7");

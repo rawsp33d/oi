@@ -152,7 +152,7 @@ fn struct_field_type() {
 		indoc! {"
 			Status :: :ok | :err
 			Res :: struct { s: Status }
-			r :: Res{ s = :err }
+			r :: Res.{ s = :err }
 			r.s
 		"},
 		"err",
@@ -274,7 +274,7 @@ fn general_fn_return_and_field() {
 		indoc! {r#"
 			Id :: int | string
 			Box :: struct { id: Id }
-			Box{ id = "hey" }.id
+			Box.{ id = "hey" }.id
 		"#},
 		"hey",
 	);

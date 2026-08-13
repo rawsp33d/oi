@@ -36,12 +36,12 @@ fn first_variant_is_default() {
 
 #[test]
 fn empty_literal_is_default() {
-	check("Color :: enum { red green blue }\nColor{}", "red");
+	check("Color :: enum { red green blue }\nColor.{}", "red");
 }
 
 #[test]
 fn empty_literal_rejects_fields() {
-	fail_with("Color :: enum { red green blue }\nColor{ red }", "only supports");
+	fail_with("Color :: enum { red green blue }\nColor.{ red }", "only supports");
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn struct_field() {
 	check(
 		"Stat :: enum { health mana stamina }
 		User :: struct { s: Stat }
-		u :: User{ s = Stat.mana }
+		u :: User.{ s = Stat.mana }
 		u.s",
 		"mana",
 	);
@@ -144,14 +144,14 @@ fn shorthand_in_struct_field() {
 	check(
 		"Stat :: enum { health mana stamina }
 		User :: struct { s: Stat }
-		u :: User{ s = .mana }
+		u :: User.{ s = .mana }
 		u.s",
 		"mana",
 	);
 	check(
 		"Stat :: enum { health mana stamina }
 		User :: struct { s: Stat }
-		u :: User{ .stamina }
+		u :: User.{ .stamina }
 		u.s",
 		"stamina",
 	);
@@ -206,7 +206,7 @@ fn payload_enum_default_is_first() {
 
 #[test]
 fn payload_empty_literal_is_default() {
-	check("Opt :: enum { nope some(int) }\nOpt{}", "nope");
+	check("Opt :: enum { nope some(int) }\nOpt.{}", "nope");
 }
 
 #[test]
@@ -320,7 +320,7 @@ fn struct_payload() {
 		indoc! {r#"
 			Point :: struct { x: int, y: int }
 			Shape :: enum { dot rect(Point) }
-			s :: Shape.rect(Point{ x = 3, y = 4 })
+			s :: Shape.rect(Point.{ x = 3, y = 4 })
 			match s {
 				.rect(p) => print(p),
 				.dot => {}
@@ -391,7 +391,7 @@ fn struct_form_zero_is_first_variant() {
 	check(
 		indoc! {r#"
 			Shape :: enum { circle { radius: f64 } rectangle { width: f64, height: f64 } }
-			match Shape{} { .circle { radius } => radius, else => -1.0 }
+			match Shape.{} { .circle { radius } => radius, else => -1.0 }
 		"#},
 		"0.0",
 	);
@@ -489,7 +489,7 @@ fn atom_coerces_in_struct_field() {
 		indoc! {"
 			Stat :: enum { health mana stamina }
 			User :: struct { s: Stat }
-			u :: User{ s = :mana }
+			u :: User.{ s = :mana }
 			u.s
 		"},
 		"mana",
