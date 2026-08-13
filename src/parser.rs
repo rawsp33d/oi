@@ -1226,11 +1226,10 @@ where
 		.then(list(ident()))
 		.then(fill_block)
 		.or(ident()
-			.filter(|name| name.starts_with(char::is_uppercase))
 			.then(type_params.clone())
 			.then_ignore(just(Token::Colon))
 			.then(ident().separated_by(just(Token::Comma)).at_least(1).collect::<Vec<_>>())
-			.then_ignore(just(Token::Colon).not())
+			.then_ignore(one_of([Token::Colon, Token::Assign, Token::LBracket]).not())
 			.map(|(head, traits)| ((head, traits), vec![])))
 		.map_with(|(((typ, type_params), traits), fills), ex| {
 			(

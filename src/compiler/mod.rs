@@ -413,6 +413,18 @@ impl Compiler {
 				Expr::Claim {
 					typ,
 					type_params,
+					traits: ts,
+					fills,
+				} if fills.is_empty()
+					&& type_params.is_empty()
+					&& !typ.contains("::")
+					&& matches!(ts.as_slice(), [t] if !traits.contains_key(t.as_str())) =>
+				{
+					loose_refs.push(item)
+				}
+				Expr::Claim {
+					typ,
+					type_params,
 					traits: claimed,
 					fills,
 				} => {

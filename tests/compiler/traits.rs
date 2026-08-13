@@ -48,6 +48,18 @@ fn marker_impl() {
 }
 
 #[test]
+fn lowercase_claim_beside_zeroed_decl() {
+	let src = indoc! {"
+		animal :: trait {}
+		dog :: struct {}
+		dog : animal
+		n : int
+		print(dog is animal, n)
+	"};
+	check(src, "true 0");
+}
+
+#[test]
 fn supertraits() {
 	let src = indoc! {"
 		Eq :: trait {}

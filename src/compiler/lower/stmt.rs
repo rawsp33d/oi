@@ -12,6 +12,23 @@ impl<'a> Translator<'a> {
 		let mut last = self.unit_value();
 		for (i, stmt) in stmts.iter().enumerate() {
 			let stmt_target = if i + 1 == stmts.len() { tail } else { None };
+			let zeroed;
+			let stmt = match &stmt.0 {
+				Expr::Claim { typ, traits, .. } => {
+					let annot = Some((TypeExpr::Name(traits[0].clone()), stmt.1));
+					zeroed = (
+						Expr::Bind {
+							mutable: true,
+							name: typ.clone(),
+							typ: annot,
+							value: None,
+						},
+						stmt.1,
+					);
+					&zeroed
+				}
+				_ => stmt,
+			};
 			match &stmt.0 {
 				Expr::Bind {
 					mutable,
