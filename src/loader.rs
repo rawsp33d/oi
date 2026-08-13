@@ -8,7 +8,7 @@ use std::path::Path;
 use chumsky::{input::Stream, prelude::*};
 
 use crate::Reported;
-use crate::ast::{Expr, Span, Spanned, UseItem};
+use crate::ast::{Expr, Span, Spanned, TypeExpr, UseItem};
 use crate::diagnostics::{Diagnostic, SourceMap};
 use crate::lexer::lex_at;
 use crate::parser::parser;
@@ -241,17 +241,25 @@ impl Loader<'_> {
 					typ,
 					value,
 				} if !main => {
-					let (msg, label) = match (*mutable, typ.is_some(), value.as_deref()) {
-						(true, ..) => ("a module-level binding must be a const", "use `::`"),
-						(_, true, _) => ("type annotations on consts aren't supported yet", "drop the annotation"),
+					let bad = match (*mutable, typ.is_some(), value.as_deref()) {
+						(true, ..) => Some(("a module-level binding must be a const", "use `::`")),
+						(_, true, _) => {
+							Some(("type annotations on consts aren't supported yet", "drop the annotation"))
+						}
 						(_, _, Some(v)) if is_literal(&v.0) => {
 							self.define(m, name, true, public, span)?;
 							self.consts.insert(name.clone(), v.clone());
 							continue;
 						}
-						_ => ("only literal consts are allowed in a module", "not a literal"),
+						(_, _, Some(v)) if TypeExpr::from_expr(&v.0).is_some() => {
+							self.define(m, name, true, public, span)?;
+							None
+						}
+						_ => Some(("only literal consts are allowed in a module", "not a literal")),
 					};
-					return Err(err(msg, span, label));
+					if let Some((msg, label)) = bad {
+						return Err(err(msg, span, label));
+					}
 				}
 				Expr::Claim { typ, .. } if !main => *typ = format!("{}::{typ}", m.name),
 				Expr::Claim { .. } | Expr::Doc(_) => {}
@@ -350,7 +358,8 @@ impl Loader<'_> {
 								Expr::Fn { name, .. }
 								| Expr::StructDef { name, .. }
 								| Expr::EnumDef { name, .. }
-								| Expr::TypeAlias { name, .. } if name == q)
+								| Expr::TypeAlias { name, .. }
+								| Expr::Bind { name, .. } if name == q)
 						})
 					})
 			};

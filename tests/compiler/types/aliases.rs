@@ -11,6 +11,38 @@ fn alias_primitive_in_param() {
 }
 
 #[test]
+fn lowercase_alias() {
+	let src = indoc! {"
+		score :: int
+		double :: fn(s: score) score { s * 2 }
+		double(21)
+	"};
+	check(src, "42");
+}
+
+#[test]
+fn lowercase_tuple_alias() {
+	let src = indoc! {"
+		pair :: (int, int)
+		mk :: fn() pair { (3, 4) }
+		p :: mk()
+		print(p.0, p.1)
+	"};
+	check(src, "3 4");
+}
+
+#[test]
+fn const_copy_is_not_an_alias() {
+	check(["X :: 5", "Y :: X", "print(Y)"], "5");
+	check(["x :: 5", "y :: x", "print(y)"], "5");
+}
+
+#[test]
+fn top_level_index_bind() {
+	check(["a :: [10, 20, 30]", "i :: 1", "v :: a[i]", "print(v)"], "20");
+}
+
+#[test]
 fn alias_primitive_in_return() {
 	let src = indoc! {r#"
 		Name :: str

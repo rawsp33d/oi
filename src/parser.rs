@@ -1156,10 +1156,19 @@ where
 		.boxed();
 
 	// type aliases
+	fn expr_shaped(t: &TypeExpr) -> bool {
+		match t {
+			TypeExpr::Name(_) => true,
+			TypeExpr::AtomSum(atoms) => atoms.len() == 1,
+			TypeExpr::Tuple(ts) => ts.iter().all(expr_shaped),
+			TypeExpr::Generic(_, args) => matches!(args.as_slice(), [a] if expr_shaped(a)),
+			_ => false,
+		}
+	}
 	let type_alias = ident()
-		.filter(|name| name.starts_with(char::is_uppercase))
 		.then_ignore(just(Token::DoubleColon))
 		.then(type_expr.clone())
+		.filter(|(_, typ)| !expr_shaped(typ))
 		.then_ignore(
 			one_of([
 				Token::LBrace,
@@ -1169,6 +1178,9 @@ where
 				Token::DotDot,
 				Token::Question,
 				Token::Pipeline,
+				Token::DoubleColon,
+				Token::Bind,
+				Token::Assign,
 			])
 			.not(),
 		)

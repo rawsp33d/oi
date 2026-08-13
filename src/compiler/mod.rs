@@ -325,6 +325,7 @@ impl Compiler {
 		let mut generics = Generics::default();
 		let mut enum_items: Vec<EnumItem> = vec![];
 		let mut alias_items: Vec<(&str, &TypeExpr)> = vec![];
+		let mut soft_aliases: Vec<(String, TypeExpr)> = vec![];
 		let mut main_body: Option<&[Spanned<Expr>]> = None;
 		let mut others: Vec<FnItem> = vec![];
 		let mut loose_refs: Vec<&Spanned<Expr>> = vec![];
@@ -470,12 +471,24 @@ impl Compiler {
 					body,
 				}),
 				Expr::Doc(_) => {}
+				Expr::Bind {
+					mutable: false,
+					name,
+					typ: None,
+					value: Some(v),
+				} => {
+					if let Some(te) = TypeExpr::from_expr(&v.0) {
+						soft_aliases.push((name.clone(), te));
+					}
+					loose_refs.push(item);
+				}
 				_ => loose_refs.push(item),
 			}
 		}
 
-		let aliases: HashMap<String, TypeExpr> =
+		let mut aliases: HashMap<String, TypeExpr> =
 			alias_items.iter().map(|(name, te)| (name.to_string(), (*te).clone())).collect();
+		aliases.extend(soft_aliases);
 
 		// name-only registry
 		let enum_names: HashMap<String, Vec<VariantInfo>> =

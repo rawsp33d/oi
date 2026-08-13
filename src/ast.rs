@@ -328,6 +328,25 @@ pub enum TypeExpr {
 	Ref(Box<TypeExpr>),
 }
 
+impl TypeExpr {
+	// The type an expression could be naming.
+	pub fn from_expr(e: &Expr) -> Option<TypeExpr> {
+		match e {
+			Expr::Ident(n) => Some(TypeExpr::Name(n.clone())),
+			Expr::Tuple(fields) if !fields.is_empty() && fields.iter().all(|(n, _)| n.is_none()) => fields
+				.iter()
+				.map(|(_, v)| TypeExpr::from_expr(&v.0))
+				.collect::<Option<_>>()
+				.map(TypeExpr::Tuple),
+			Expr::Index { collection, index } => match &collection.0 {
+				Expr::Ident(n) => Some(TypeExpr::Generic(n.clone(), vec![TypeExpr::from_expr(&index.0)?])),
+				_ => None,
+			},
+			_ => None,
+		}
+	}
+}
+
 #[derive(Debug, Clone)]
 // One arm of a `match` expression.
 // `patterns` are compared to the subject (OR'd together).

@@ -123,6 +123,7 @@ fn type_import() {
 			"pub E :: enum { a, b }",
 		),
 		("use foo.{ Id }\nn: Id = 7\nprint(n)", "pub Id :: int"),
+		("use foo.{ id }\nn: id = 7\nprint(n)", "pub id :: int"),
 	] {
 		let p = Project::new()
 			.file("main.oi", ["module main", main])

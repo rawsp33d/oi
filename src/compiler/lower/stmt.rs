@@ -19,6 +19,14 @@ impl<'a> Translator<'a> {
 					typ,
 					value,
 				} => {
+					// a bind whose name resolves as a type is an alias
+					if !*mutable
+						&& typ.is_none()
+						&& value.as_ref().is_some_and(|v| TypeExpr::from_expr(&v.0).is_some())
+						&& self.types().resolve(&TypeExpr::Name(name.clone()), stmt.1).is_ok()
+					{
+						continue;
+					}
 					let annot = typ.as_ref().map(|(t, span)| self.types().resolve(t, *span)).transpose()?;
 					let (val, typ) = match (value, annot) {
 						(Some(value), Some(target)) => match self.coerce_lit(value, &target)? {
