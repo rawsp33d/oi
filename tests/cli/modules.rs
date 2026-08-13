@@ -80,26 +80,16 @@ fn import_alias() {
 
 #[test]
 fn selective_import() {
-	let p = Project::new()
-		.file("main.oi", ["module main", "use foo", "use foo.{ hi }", "print(hi() + foo.hi())"])
-		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
-	assert_eq!(ok(run_main(p)), "14");
-}
-
-#[test]
-fn dotted_import() {
-	let p = Project::new()
-		.file("main.oi", ["module main", "use foo.hi", "print(hi())"])
-		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
-	assert_eq!(ok(run_main(p)), "7");
-}
-
-#[test]
-fn renamed_import() {
-	let p = Project::new()
-		.file("main.oi", ["module main", "use foo.{ h :: hi }", "print(h())"])
-		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
-	assert_eq!(ok(run_main(p)), "7");
+	for main in [
+		"use foo\nuse foo.{ hi }\nprint(hi() + foo.hi())",
+		"use foo.hi\nprint(hi() + hi())",
+		"use foo.{ h :: hi }\nprint(h() + h())",
+	] {
+		let p = Project::new()
+			.file("main.oi", ["module main", main])
+			.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
+		assert_eq!(ok(run_main(p)), "14");
+	}
 }
 
 #[test]
@@ -121,6 +111,34 @@ fn selective_import_fails() {
 		.file("foo/lib.oi", ["module foo", "pub P :: struct { x: int }"]);
 	let out = err(run_main(p));
 	assert!(out.contains("is not a function"), "{out}");
+}
+
+#[test]
+fn narrowed_import() {
+	for main in [
+		"io :: use foo.{ hi }\nprint(io.hi())",
+		"io :: use foo.{ h :: hi }\nprint(io.h())",
+	] {
+		let p = Project::new()
+			.file("main.oi", ["module main", main])
+			.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
+		assert_eq!(ok(run_main(p)), "7");
+	}
+}
+
+#[test]
+fn narrowed_import_fails() {
+	for (main, expected) in [
+		("io :: use foo.{ hi }\nprint(io.yo())", "not part of"),
+		("io :: use foo.{ nope }\nprint(io.nope())", "has no function `nope`"),
+	] {
+		let p = Project::new().file("main.oi", ["module main", main]).file(
+			"foo/lib.oi",
+			["module foo", "pub hi :: fn() int { 7 }", "pub yo :: fn() int { 8 }"],
+		);
+		let out = err(run_main(p));
+		assert!(out.contains(expected), "{out}");
+	}
 }
 
 #[test]

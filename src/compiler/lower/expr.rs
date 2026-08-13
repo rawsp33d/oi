@@ -163,9 +163,18 @@ impl<'a> Translator<'a> {
 				// qualified access to an imported module's function
 				if let Expr::Ident(m) = &recv.0
 					&& !self.vars.contains_key(m)
-					&& let Some(real) = self.scope.visible.get(m).cloned()
+					&& let Some(vis) = self.scope.visible.get(m)
 				{
-					return self.module_call(&real, method, args, expr.1);
+					// narrowed imports
+					let target = match &vis.only {
+						None => method,
+						Some(only) => only.get(method).ok_or_else(|| {
+							Diagnostic::new(format!("`{method}` is not part of `{m}`"), expr.1.into_range())
+								.with_label("not in this import")
+						})?,
+					};
+					let (module, target) = (vis.module.clone(), target.clone());
+					return self.module_call(&module, &target, args, expr.1);
 				}
 
 				// enum payload

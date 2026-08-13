@@ -1,4 +1,6 @@
-use crate::ast::{BinOp, Capture, EnumVariant, Expr, MatchArm, Param, Pattern, Span, Spanned, TypeExpr, TypeParam};
+use crate::ast::{
+	BinOp, Capture, EnumVariant, Expr, MatchArm, Param, Pattern, Span, Spanned, TypeExpr, TypeParam, UseItem,
+};
 use crate::lexer::Token;
 
 use chumsky::{
@@ -1241,56 +1243,20 @@ where
 		.ignore_then(ident())
 		.map_with(|name, ex| (Expr::Module(name), ex.span()));
 	// imports
-	type Group = Vec<(Spanned<String>, Option<Spanned<String>>)>;
-	fn use_binds(path: Vec<Spanned<String>>, group: Option<Group>) -> Vec<(Spanned<String>, Vec<Spanned<String>>)> {
-		match group {
-			Some(items) => items
-				.into_iter()
-				.map(|(local, remote)| {
-					let mut path = path.clone();
-					path.push(remote.unwrap_or_else(|| local.clone()));
-					(local, path)
-				})
-				.collect(),
-			// a bare import implicitly binds
-			None => vec![(path.last().unwrap().clone(), path)],
-		}
-	}
-	let use_path = just(Token::Use).ignore_then(
-		spanned(ident())
-			.separated_by(just(Token::Dot))
-			.at_least(1)
-			.collect::<Vec<_>>(),
-	);
-	let group_item = spanned(ident()).then(just(Token::DoubleColon).ignore_then(spanned(ident())).or_not());
-	let use_decl = use_path
-		.clone()
-		.then(just(Token::Dot).ignore_then(brace(loose_list(group_item))).or_not())
-		.map_with(|(path, group), ex| {
-			(
-				Expr::Use {
-					binds: use_binds(path, group),
-				},
-				ex.span(),
-			)
-		});
-	// imports with explicit binding
-	let bound_use = spanned(ident())
+	let use_item = spanned(ident())
+		.then(just(Token::DoubleColon).ignore_then(spanned(ident())).or_not())
+		.map(|(local, rename_of)| UseItem { local, rename_of });
+	let use_decl = spanned(ident())
 		.then_ignore(just(Token::DoubleColon))
-		.then(use_path)
-		.map_with(|(local, path), ex| {
-			(
-				Expr::Use {
-					binds: vec![(local, path)],
-				},
-				ex.span(),
-			)
-		});
+		.or_not()
+		.then_ignore(just(Token::Use))
+		.then(spanned(ident()).separated_by(just(Token::Dot)).at_least(1).collect())
+		.then(just(Token::Dot).ignore_then(brace(loose_list(use_item))).or_not())
+		.map_with(|((name, path), group), ex| (Expr::Use { name, path, group }, ex.span()));
 
 	def.or(public)
 		.or(module_decl)
 		.or(use_decl)
-		.or(bound_use)
 		.or(stmt)
 		.repeated()
 		.collect()

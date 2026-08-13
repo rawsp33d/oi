@@ -16,3 +16,9 @@ fn module_decl() {
 fn import_missing() {
 	fail_with("use os", "cannot find module `os`");
 }
+
+#[test]
+fn import_nested_path() {
+	fail_with("use a.b.c", "nested module paths aren't supported yet");
+	fail_with("x :: use a.b.{ c }", "nested module paths aren't supported yet");
+}

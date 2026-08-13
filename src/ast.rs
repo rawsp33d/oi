@@ -242,9 +242,11 @@ pub enum Expr {
 
 	// `module name`
 	Module(String),
-	// `use module`, `use module.{ binds }`
+	// `use path`, `name :: use path.{ local :: remote }`
 	Use {
-		binds: Vec<(Spanned<String>, Vec<Spanned<String>>)>,
+		name: Option<Spanned<String>>,
+		path: Vec<Spanned<String>>,
+		group: Option<Vec<UseItem>>,
 	},
 	// `pub expr`
 	Pub(Box<Spanned<Expr>>),
@@ -337,7 +339,18 @@ pub struct MatchArm {
 	pub body: Vec<Spanned<Expr>>,
 }
 
-// Enum variant.
+#[derive(Debug, Clone)]
+pub struct UseItem {
+	pub local: Spanned<String>,
+	pub rename_of: Option<Spanned<String>>,
+}
+
+impl UseItem {
+	pub fn remote(&self) -> &Spanned<String> {
+		self.rename_of.as_ref().unwrap_or(&self.local)
+	}
+}
+
 #[derive(Debug, Clone)]
 pub struct EnumVariant {
 	pub name: String,

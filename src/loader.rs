@@ -8,7 +8,7 @@ use std::path::Path;
 use chumsky::{input::Stream, prelude::*};
 
 use crate::Reported;
-use crate::ast::{Expr, Span, Spanned};
+use crate::ast::{Expr, Span, Spanned, UseItem};
 use crate::diagnostics::{Diagnostic, SourceMap};
 use crate::lexer::lex_at;
 use crate::parser::parser;
@@ -24,7 +24,13 @@ pub struct Module {
 #[derive(Default)]
 pub struct Scope {
 	pub env: HashMap<String, String>,
-	pub visible: HashMap<String, String>,
+	pub visible: HashMap<String, Visible>,
+}
+
+// A visible module.
+pub struct Visible {
+	pub module: String,
+	pub only: Option<HashMap<String, String>>,
 }
 
 // A whole program, with its source files and modules and pubs, oh my.
@@ -135,37 +141,61 @@ impl Loader<'_> {
 		for item in file {
 			match &item.0 {
 				Expr::Module(_) => return Err(err("`module` must come first", item.1, "move it to the top")),
-				Expr::Use { binds } => {
-					for ((local, span), path) in binds {
-						let module = match path.as_slice() {
-							// whole module
-							[(module, _)] => {
-								if let Some(prev) = m.scope.visible.insert(local.clone(), module.clone())
-									&& prev != *module
-								{
-									return Err(err(
-										format!("`{local}` already names module `{prev}`"),
-										item.1,
-										"conflicting import",
-									));
-								}
-								module
-							}
-							// one module item
-							[(module, _), (name, _)] => {
-								if m.scope.env.insert(local.clone(), format!("{module}::{name}")).is_some() {
-									let msg = format!("`{local}` is already defined in module `{}`", m.name);
-									return Err(err(msg, *span, "conflicting import"));
-								}
-								self.selected.push((module.clone(), name.clone(), *span));
-								module
-							}
-							_ => {
-								return Err(err("nested module paths aren't supported yet", *span, "flatten the path"));
-							}
-						};
-						imports.push((module.clone(), item.1));
+				Expr::Use { name, path, group } => {
+					let (module, _) = &path[0];
+					if path.len() > 2 || (path.len() == 2 && group.is_some()) {
+						return Err(err(
+							"nested module paths aren't supported yet",
+							item.1,
+							"flatten the path",
+						));
 					}
+					// a `.item` import tail acts as a one-item group
+					let items: Vec<UseItem> = match (path.get(1), group) {
+						(Some(it), _) => vec![UseItem {
+							local: name.clone().unwrap_or_else(|| it.clone()),
+							rename_of: Some(it.clone()),
+						}],
+						(None, Some(items)) => items.clone(),
+						(None, None) => vec![],
+					};
+					// ensure every imported item is public in its module
+					for it in &items {
+						let (remote, span) = it.remote();
+						self.selected.push((module.clone(), remote.clone(), *span));
+					}
+					let narrows = name.is_some() && group.is_some();
+					if narrows || items.is_empty() {
+						// bind the module itself, or narrowed to its specified items
+						let local = name.as_ref().map_or(module, |(n, _)| n).clone();
+						let only = narrows
+							.then(|| items.iter().map(|it| (it.local.0.clone(), it.remote().0.clone())).collect());
+						let vis = Visible {
+							module: module.clone(),
+							only,
+						};
+						// re-importing the same whole module is fine, anything else clashes
+						if let Some(prev) = m.scope.visible.insert(local.clone(), vis)
+							&& (narrows || prev.only.is_some() || prev.module != *module)
+						{
+							return Err(err(
+								format!("`{local}` already names module `{}`", prev.module),
+								item.1,
+								"conflicting import",
+							));
+						}
+					} else {
+						// bind the items
+						for it in &items {
+							let (local, span) = &it.local;
+							let target = format!("{module}::{}", it.remote().0);
+							if m.scope.env.insert(local.clone(), target).is_some() {
+								let msg = format!("`{local}` is already defined in module `{}`", m.name);
+								return Err(err(msg, *span, "conflicting import"));
+							}
+						}
+					}
+					imports.push((module.clone(), item.1));
 					continue;
 				}
 				_ => {}
