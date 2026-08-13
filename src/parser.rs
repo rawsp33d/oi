@@ -1236,9 +1236,6 @@ where
 		.or(claim)
 		.or(type_alias)
 		.boxed();
-	let public = just(Token::Pub)
-		.ignore_then(def.clone())
-		.map_with(|d, ex| (Expr::Pub(Box::new(d)), ex.span()));
 	let module_decl = just(Token::Module)
 		.ignore_then(ident())
 		.map_with(|name, ex| (Expr::Module(name), ex.span()));
@@ -1252,7 +1249,11 @@ where
 		.then_ignore(just(Token::Use))
 		.then(spanned(ident()).separated_by(just(Token::Dot)).at_least(1).collect())
 		.then(just(Token::Dot).ignore_then(brace(loose_list(use_item))).or_not())
-		.map_with(|((name, path), group), ex| (Expr::Use { name, path, group }, ex.span()));
+		.map_with(|((name, path), group), ex| (Expr::Use { name, path, group }, ex.span()))
+		.boxed();
+	let public = just(Token::Pub)
+		.ignore_then(def.clone().or(use_decl.clone()))
+		.map_with(|d, ex| (Expr::Pub(Box::new(d)), ex.span()));
 
 	def.or(public)
 		.or(module_decl)

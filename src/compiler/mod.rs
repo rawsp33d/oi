@@ -190,6 +190,7 @@ pub struct Compiler {
 	trait_impls: HashSet<(String, String)>,
 	descs: HashMap<String, DataId>,
 	publics: HashSet<String>,
+	reexports: HashMap<String, String>,
 }
 
 impl Default for Compiler {
@@ -242,6 +243,7 @@ impl Default for Compiler {
 			trait_impls: HashSet::new(),
 			descs: HashMap::new(),
 			publics: HashSet::new(),
+			reexports: HashMap::new(),
 		}
 	}
 }
@@ -327,6 +329,7 @@ impl Compiler {
 		let mut trait_bodies: Vec<TraitBody> = vec![];
 
 		self.publics = program.publics.clone();
+		self.reexports = program.reexports.clone();
 		let scopes: HashMap<&str, &Scope> = program.modules.iter().map(|m| (m.name.as_str(), &m.scope)).collect();
 		let scope_of = |key: &str| scopes[key.split_once("::").map_or("main", |(m, _)| m)];
 
@@ -786,6 +789,7 @@ impl Compiler {
 			trait_impls: &self.trait_impls,
 			scope: types.scope,
 			publics: &self.publics,
+			reexports: &self.reexports,
 			mono: &mut self.mono,
 			pending: &mut self.pending,
 			descs: &mut self.descs,

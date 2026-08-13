@@ -41,6 +41,7 @@ impl<'a> Translator<'a> {
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
 		let key = format!("{module}::{method}");
+		let key = self.reexports.get(&key).cloned().unwrap_or(key);
 		let known = self.funcs.contains_key(&key) || self.generic_fns.contains_key(&key);
 		if !self.publics.contains(&key) {
 			let (msg, label) = if known {

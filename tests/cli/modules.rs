@@ -142,6 +142,56 @@ fn narrowed_import_fails() {
 }
 
 #[test]
+fn reexport() {
+	for (mid, call) in [
+		("pub use base.hi", "mid.hi()"),
+		("pub use base.{ hi }", "mid.hi()"),
+		("pub use base.{ h :: hi }", "mid.h()"),
+	] {
+		let p = Project::new()
+			.file("main.oi", ["module main", "use mid", &format!("print({call})")])
+			.file("mid/lib.oi", ["module mid", mid])
+			.file("base/lib.oi", ["module base", "pub hi :: fn() int { 7 }"]);
+		assert_eq!(ok(run_main(p)), "7");
+	}
+}
+
+#[test]
+fn reexport_selected() {
+	let p = Project::new()
+		.file("main.oi", ["module main", "use mid.{ hi }", "print(hi())"])
+		.file("mid/lib.oi", ["module mid", "pub use base.hi"])
+		.file("base/lib.oi", ["module base", "pub hi :: fn() int { 7 }"]);
+	assert_eq!(ok(run_main(p)), "7");
+}
+
+#[test]
+fn reexport_chain() {
+	let p = Project::new()
+		.file("main.oi", ["module main", "use top", "print(top.hi())"])
+		.file("top/lib.oi", ["module top", "pub use mid.hi"])
+		.file("mid/lib.oi", ["module mid", "pub use base.hi"])
+		.file("base/lib.oi", ["module base", "pub hi :: fn() int { 7 }"]);
+	assert_eq!(ok(run_main(p)), "7");
+}
+
+#[test]
+fn reexport_fails() {
+	for (mid, expected) in [
+		("use base.hi", "has no function `hi`"),
+		("pub use base", "only item imports can be re-exported"),
+		("pub io :: use base.{ hi }", "only item imports can be re-exported"),
+	] {
+		let p = Project::new()
+			.file("main.oi", ["module main", "use mid", "print(mid.hi())"])
+			.file("mid/lib.oi", ["module mid", mid])
+			.file("base/lib.oi", ["module base", "pub hi :: fn() int { 7 }"]);
+		let out = err(run_main(p));
+		assert!(out.contains(expected), "{out}");
+	}
+}
+
+#[test]
 fn exec_resolves_imports_against_cwd() {
 	let p = Project::new().file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 99 }"]);
 	let out = ok(oi(&["exec", "use foo\nprint(foo.hi())"]).current_dir(&p).run(None));

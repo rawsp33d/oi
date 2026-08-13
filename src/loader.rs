@@ -38,6 +38,7 @@ pub struct Program {
 	pub map: SourceMap,
 	pub modules: Vec<Module>,
 	pub publics: HashSet<String>,
+	pub reexports: HashMap<String, String>,
 }
 
 impl Program {
@@ -72,6 +73,7 @@ struct Loader<'a> {
 	map: SourceMap,
 	modules: Vec<Module>,
 	publics: HashSet<String>,
+	reexports: HashMap<String, String>,
 	// import stack
 	loading: Vec<String>,
 	selected: Vec<(String, String, Span)>,
@@ -139,66 +141,8 @@ impl Loader<'_> {
 			_ => {}
 		}
 		for item in file {
-			match &item.0 {
-				Expr::Module(_) => return Err(err("`module` must come first", item.1, "move it to the top")),
-				Expr::Use { name, path, group } => {
-					let (module, _) = &path[0];
-					if path.len() > 2 || (path.len() == 2 && group.is_some()) {
-						return Err(err(
-							"nested module paths aren't supported yet",
-							item.1,
-							"flatten the path",
-						));
-					}
-					// a `.item` import tail acts as a one-item group
-					let items: Vec<UseItem> = match (path.get(1), group) {
-						(Some(it), _) => vec![UseItem {
-							local: name.clone().unwrap_or_else(|| it.clone()),
-							rename_of: Some(it.clone()),
-						}],
-						(None, Some(items)) => items.clone(),
-						(None, None) => vec![],
-					};
-					// ensure every imported item is public in its module
-					for it in &items {
-						let (remote, span) = it.remote();
-						self.selected.push((module.clone(), remote.clone(), *span));
-					}
-					let narrows = name.is_some() && group.is_some();
-					if narrows || items.is_empty() {
-						// bind the module itself, or narrowed to its specified items
-						let local = name.as_ref().map_or(module, |(n, _)| n).clone();
-						let only = narrows
-							.then(|| items.iter().map(|it| (it.local.0.clone(), it.remote().0.clone())).collect());
-						let vis = Visible {
-							module: module.clone(),
-							only,
-						};
-						// re-importing the same whole module is fine, anything else clashes
-						if let Some(prev) = m.scope.visible.insert(local.clone(), vis)
-							&& (narrows || prev.only.is_some() || prev.module != *module)
-						{
-							return Err(err(
-								format!("`{local}` already names module `{}`", prev.module),
-								item.1,
-								"conflicting import",
-							));
-						}
-					} else {
-						// bind the items
-						for it in &items {
-							let (local, span) = &it.local;
-							let target = format!("{module}::{}", it.remote().0);
-							if m.scope.env.insert(local.clone(), target).is_some() {
-								let msg = format!("`{local}` is already defined in module `{}`", m.name);
-								return Err(err(msg, *span, "conflicting import"));
-							}
-						}
-					}
-					imports.push((module.clone(), item.1));
-					continue;
-				}
-				_ => {}
+			if matches!(item.0, Expr::Module(_)) {
+				return Err(err("`module` must come first", item.1, "move it to the top"));
 			}
 			// peel off `pub` wrapper
 			let public = matches!(item.0, Expr::Pub(_));
@@ -206,6 +150,73 @@ impl Loader<'_> {
 				(Expr::Pub(inner), _) => *inner,
 				item => item,
 			};
+			if let Expr::Use { name, path, group } = &item.0 {
+				let (module, _) = &path[0];
+				if path.len() > 2 || (path.len() == 2 && group.is_some()) {
+					return Err(err(
+						"nested module paths aren't supported yet",
+						item.1,
+						"flatten the path",
+					));
+				}
+				// a `.item` import tail acts as a one-item group
+				let items: Vec<UseItem> = match (path.get(1), group) {
+					(Some(it), _) => vec![UseItem {
+						local: name.clone().unwrap_or_else(|| it.clone()),
+						rename_of: Some(it.clone()),
+					}],
+					(None, Some(items)) => items.clone(),
+					(None, None) => vec![],
+				};
+				// ensure every imported item is public in its module
+				for it in &items {
+					let (remote, span) = it.remote();
+					self.selected.push((module.clone(), remote.clone(), *span));
+				}
+				let narrows = name.is_some() && group.is_some();
+				if public && (items.is_empty() || narrows) {
+					return Err(err(
+						"only item imports can be re-exported yet",
+						item.1,
+						"import it privately instead",
+					));
+				}
+				if narrows || items.is_empty() {
+					// bind the module itself, or narrowed to its specified items
+					let local = name.as_ref().map_or(module, |(n, _)| n).clone();
+					let only =
+						narrows.then(|| items.iter().map(|it| (it.local.0.clone(), it.remote().0.clone())).collect());
+					let vis = Visible {
+						module: module.clone(),
+						only,
+					};
+					// handle re-importing
+					if let Some(prev) = m.scope.visible.insert(local.clone(), vis)
+						&& (narrows || prev.only.is_some() || prev.module != *module)
+					{
+						return Err(err(
+							format!("`{local}` already names module `{}`", prev.module),
+							item.1,
+							"conflicting import",
+						));
+					}
+				} else {
+					// bind the items
+					for it in &items {
+						let (local, span) = &it.local;
+						let target = format!("{module}::{}", it.remote().0);
+						if public {
+							self.reexports.insert(format!("{}::{local}", m.name), target.clone());
+						}
+						if m.scope.env.insert(local.clone(), target).is_some() {
+							let msg = format!("`{local}` is already defined in module `{}`", m.name);
+							return Err(err(msg, *span, "conflicting import"));
+						}
+					}
+				}
+				imports.push((module.clone(), item.1));
+				continue;
+			}
 			let span = item.1;
 			match &mut item.0 {
 				Expr::Fn { name, .. }
@@ -275,11 +286,38 @@ impl Loader<'_> {
 		self.seal(module, imports)
 	}
 
+	// Collapse `pub use` chains to their final targets, then point every binding at them.
+	fn resolve_reexports(&mut self) -> HashMap<String, String> {
+		let resolved: HashMap<_, _> = self
+			.reexports
+			.keys()
+			.map(|alias| {
+				let mut target = &self.reexports[alias];
+				while let Some(next) = self.reexports.get(target) {
+					target = next;
+				}
+				(alias.clone(), target.clone())
+			})
+			.collect();
+		for m in &mut self.modules {
+			for target in m.scope.env.values_mut() {
+				if let Some(t) = resolved.get(target) {
+					*target = t.clone();
+				}
+			}
+		}
+		resolved
+	}
+
 	// Ensure selected names are pub fns of their module.
 	fn check_selected(&self) -> Result<(), Reported> {
 		for (module, name, span) in &self.selected {
 			let m = self.modules.iter().find(|m| &m.name == module).unwrap();
-			let is_fn = |q: &String| m.items.iter().any(|i| matches!(&i.0, Expr::Fn { name, .. } if name == q));
+			let is_fn = |q: &String| {
+				self.modules
+					.iter()
+					.any(|m| m.items.iter().any(|i| matches!(&i.0, Expr::Fn { name, .. } if name == q)))
+			};
 			let (msg, label) = match m.scope.env.get(name) {
 				None => (
 					format!("module `{module}` has no function `{name}`"),
@@ -305,6 +343,7 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 		map: SourceMap::default(),
 		modules: vec![],
 		publics: HashSet::new(),
+		reexports: HashMap::new(),
 		loading: vec![],
 		selected: vec![],
 	};
@@ -318,10 +357,12 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 	let mut imports = vec![];
 	loader.add_file(&mut main, &mut imports, items).map_err(|d| loader.report(d))?;
 	loader.seal(main, imports)?;
+	let reexports = loader.resolve_reexports();
 	loader.check_selected()?;
 	Ok(Program {
 		map: loader.map,
 		modules: loader.modules,
 		publics: loader.publics,
+		reexports,
 	})
 }

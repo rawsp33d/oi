@@ -54,6 +54,7 @@ pub(super) struct Translator<'a> {
 	pub trait_impls: &'a HashSet<(String, String)>,
 	pub scope: &'a Scope,
 	pub publics: &'a HashSet<String>,
+	pub reexports: &'a HashMap<String, String>,
 	pub mono: &'a mut HashMap<String, FnSig>,
 	pub pending: &'a mut Vec<Pending>,
 	pub descs: &'a mut HashMap<String, DataId>,
