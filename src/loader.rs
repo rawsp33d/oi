@@ -309,21 +309,27 @@ impl Loader<'_> {
 		resolved
 	}
 
-	// Ensure selected names are pub fns of their module.
+	// Ensure selected names are public within their module.
 	fn check_selected(&self) -> Result<(), Reported> {
 		for (module, name, span) in &self.selected {
 			let m = self.modules.iter().find(|m| &m.name == module).unwrap();
-			let is_fn = |q: &String| {
-				self.modules
-					.iter()
-					.any(|m| m.items.iter().any(|i| matches!(&i.0, Expr::Fn { name, .. } if name == q)))
+			let is_def = |q: &String| {
+				self.modules.iter().any(|m| {
+					m.items.iter().any(|i| {
+						matches!(&i.0,
+							Expr::Fn { name, .. }
+							| Expr::StructDef { name, .. }
+							| Expr::EnumDef { name, .. }
+							| Expr::TypeAlias { name, .. } if name == q)
+					})
+				})
 			};
 			let (msg, label) = match m.scope.env.get(name) {
-				None => (
-					format!("module `{module}` has no function `{name}`"),
-					"no such function",
+				None => (format!("module `{module}` has no `{name}`"), "no such name"),
+				Some(q) if !is_def(q) => (
+					format!("`{name}` cannot be imported"),
+					"only fns and types can be imported for now",
 				),
-				Some(q) if !is_fn(q) => (format!("`{name}` is not a function"), "only fns can be imported for now"),
 				Some(q) if !self.publics.contains(q) => {
 					(format!("`{name}` is private to module `{module}`"), "not public")
 				}

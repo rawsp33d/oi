@@ -98,19 +98,60 @@ fn selective_import_fails() {
 		.file("main.oi", ["module main", "use foo.{ nope }", "print(nope())"])
 		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
 	let out = err(run_main(p));
-	assert!(out.contains("has no function `nope`"), "{out}");
+	assert!(out.contains("has no `nope`"), "{out}");
 
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo.{ secret }", "print(secret())"])
 		.file("foo/lib.oi", ["module foo", "secret :: fn() int { 1 }"]);
 	let out = err(run_main(p));
 	assert!(out.contains("private to module `foo`"), "{out}");
+}
 
+#[test]
+fn type_import() {
+	for (main, lib) in [
+		(
+			"use foo.{ P }\np := P{ x = 3, y = 4 }\nprint(p.x + p.y)",
+			"pub P :: struct { x: int, y: int }",
+		),
+		(
+			"Q :: use foo.P\nsum :: fn(q: Q) int { q.x + q.y }\nprint(sum(Q{ x = 3, y = 4 }))",
+			"pub P :: struct { x: int, y: int }",
+		),
+		(
+			"use foo.{ E }\ne := E.a\nprint(match e { E.a => 7, E.b => 0 })",
+			"pub E :: enum { a, b }",
+		),
+		("use foo.{ Id }\nn: Id = 7\nprint(n)", "pub Id :: int"),
+	] {
+		let p = Project::new()
+			.file("main.oi", ["module main", main])
+			.file("foo/lib.oi", ["module foo", lib]);
+		assert_eq!(ok(run_main(p)), "7");
+	}
+}
+
+#[test]
+fn type_import_fails() {
+	for (lib, expected) in [
+		("P :: struct { x: int }", "private to module `foo`"),
+		("pub P :: trait {}", "cannot be imported"),
+	] {
+		let p = Project::new()
+			.file("main.oi", ["module main", "use foo.{ P }", "print(1)"])
+			.file("foo/lib.oi", ["module foo", lib]);
+		let out = err(run_main(p));
+		assert!(out.contains(expected), "{out}");
+	}
+}
+
+#[test]
+fn type_reexport() {
 	let p = Project::new()
-		.file("main.oi", ["module main", "use foo.{ P }", "print(1)"])
-		.file("foo/lib.oi", ["module foo", "pub P :: struct { x: int }"]);
-	let out = err(run_main(p));
-	assert!(out.contains("is not a function"), "{out}");
+		.file("main.oi", ["module main", "use mid.{ P }", "print(P{ x = 7 }.x)"])
+		.file("mid/lib.oi", ["module mid", "pub use base.P"])
+		.file("base/lib.oi", ["module base", "pub P :: struct { x: int }"]);
+	assert_eq!(ok(run_main(p)), "7");
 }
 
 #[test]
@@ -130,7 +171,7 @@ fn narrowed_import() {
 fn narrowed_import_fails() {
 	for (main, expected) in [
 		("io :: use foo.{ hi }\nprint(io.yo())", "not part of"),
-		("io :: use foo.{ nope }\nprint(io.nope())", "has no function `nope`"),
+		("io :: use foo.{ nope }\nprint(io.nope())", "has no `nope`"),
 	] {
 		let p = Project::new().file("main.oi", ["module main", main]).file(
 			"foo/lib.oi",
