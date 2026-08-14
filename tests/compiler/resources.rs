@@ -32,7 +32,12 @@ fn arg_borrows_and_drops_once() {
 #[test]
 fn callee_cannot_steal_a_borrowed_arg() {
 	fail_with(
-		[FILE, "steal :: fn(f: File) { g :: f }", "f :: File.{fd = 1}", "steal(f)"],
+		[
+			FILE,
+			"steal :: fn(f: File) { g :: f }",
+			"f :: File.{fd = 1}",
+			"steal(f)",
+		],
 		"it is borrowed here",
 	);
 }

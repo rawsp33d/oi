@@ -203,19 +203,13 @@ impl<'a> Translator<'a> {
 				} else {
 					let (recv_val, recv_typ) = self.expr(recv)?;
 					let recv_typ = self.peeled(&recv_typ);
-					if method == "str" && args.is_empty() && !matches!(recv_typ, Typ::Struct(..) | Typ::TupleStruct(..))
+					if method == "str"
+						&& args.is_empty() && !matches!(recv_typ, Typ::Struct(..) | Typ::TupleStruct(..) | Typ::Enum(..))
 					{
 						return Ok((self.derived_str(recv_val, &recv_typ), Typ::Str));
 					}
 					if let Typ::Trait(tn) = &recv_typ {
 						return self.dyn_call(recv_val, tn, method, args, expr.1);
-					}
-					if let Typ::Enum(enum_name) = &recv_typ {
-						return Err(Diagnostic::new(
-							format!("enum `{enum_name}` has no method `{method}`"),
-							expr.1.into_range(),
-						)
-						.with_label("no such method"));
 					}
 
 					// `Error` trait
@@ -229,7 +223,9 @@ impl<'a> Translator<'a> {
 						);
 					}
 					match &recv_typ {
-						Typ::Struct(name, _) | Typ::TupleStruct(name, _) => (name.clone(), Some((recv_val, recv_typ))),
+						Typ::Struct(name, _) | Typ::TupleStruct(name, _) | Typ::Enum(name) => {
+							(name.clone(), Some((recv_val, recv_typ)))
+						}
 						_ => {
 							return Err(
 								Diagnostic::new(format!("`{recv_typ}` has no methods"), recv.1.into_range())

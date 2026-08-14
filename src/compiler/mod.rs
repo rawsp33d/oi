@@ -372,7 +372,9 @@ impl Compiler {
 					);
 					self.register_fills(name, type_params, fills, scope, &mut others)?;
 				}
-				Expr::StructDef { name, fields, fills, .. } => {
+				Expr::StructDef {
+					name, fields, fills, ..
+				} => {
 					struct_items.push((name.as_str(), fields.as_slice()));
 					self.register_fills(name, &[], fills, scope, &mut others)?;
 				}

@@ -806,3 +806,76 @@ fn backed_array_signed_sextends() {
 		["-3", "yes", "true"],
 	);
 }
+
+#[test]
+fn method_on_receiver() {
+	check(
+		indoc! {r##"
+			Color :: enum { red green blue }
+			Color :{
+				hex :: fn(self) string {
+					match self {
+						.red => "#f00",
+						.green => "#0f0",
+						.blue => "#00f",
+					}
+				}
+			}
+			c :: Color.green
+			c.hex()
+		"##},
+		"#0f0",
+	);
+}
+
+#[test]
+fn method_compares_self() {
+	check(
+		indoc! {"
+			Color :: enum { red green blue }
+			Color :{ is_warm :: fn(self) bool { self == .red } }
+			print(Color.red.is_warm())
+			print(Color.blue.is_warm())
+		"},
+		["true", "false"],
+	);
+}
+
+#[test]
+fn method_on_payload_enum() {
+	check(
+		indoc! {r#"
+			Shape :: enum { point triangle(f64, f64, f64) }
+			Shape :{
+				perimeter :: fn(self) f64 {
+					match self {
+						.triangle(a, b, c) => a + b + c,
+						.point => 0.0,
+					}
+				}
+			}
+			Shape.triangle(2.0, 3.0, 4.0).perimeter()
+		"#},
+		"9.0",
+	);
+}
+
+#[test]
+fn str_fill_overrides_derived() {
+	check(
+		indoc! {r#"
+			E :: enum { a b }
+			E :{ str :: fn(self) string { "custom" } }
+			E.a.str()
+		"#},
+		"custom",
+	);
+}
+
+#[test]
+fn unknown_method_still_errors() {
+	fail_with(
+		"Color :: enum { red green blue }\nColor.red.hex()",
+		"has no method `hex`",
+	);
+}

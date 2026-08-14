@@ -437,7 +437,10 @@ fn array_of_trait_objects_renders() {
 		Cat : Animal { speak :: fn(self) string { "meow" } }
 		print(Animal.[ Dog.{ "collie" }, Cat.{ "mau" } ])
 	"#};
-	check([ANIMAL_DOG_KIND, src], "[Dog.{kind = \"collie\"}, Cat.{kind = \"mau\"}]");
+	check(
+		[ANIMAL_DOG_KIND, src],
+		"[Dog.{kind = \"collie\"}, Cat.{kind = \"mau\"}]",
+	);
 }
 
 #[test]

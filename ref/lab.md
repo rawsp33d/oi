@@ -62,20 +62,6 @@ passthru :: fn(a: int, b: int) (c: int, d: int) {
 	return
 }
 
-# $out
-passthru :: fn(a: int, b: int) (int, int) {
-	$out.0 = a
-	$out.1 = b
-	return
-}
-
-# $out
-passthru :: fn(a: int, b: int) out (c: int, d: int) {
-	out.c = a
-	out.d = b
-	return
-}
-
 new_dude :: fn(name: string) Dude {
 	Dude.{
 		name: name
@@ -86,4 +72,15 @@ new_dude :: fn(name: string) d Dude {
 	d.name = name
 	d
 }
+
+# Odin's keyed entries in fixed array literals for sparse init
+codes := .[0 = "ok", 5 = "err"] # [6]string
+
+# `.()` (Odin, Capy, Jai)
+price := Money.(500)
+half := f32.(1 / 2)
+lime := Color.(2)
+
+# `.{}` with nothing expected infers an anon struct (Capy)
+pos := .{ x = 1, y = 2 }
 ```
