@@ -597,16 +597,28 @@ where
 		// grouping before tuple rule to avoid making 1ples, which are instead made with `(expr,)`
 		let group = paren(expr.clone());
 
-		// tuple literal
+		// tuple literals
 		let tuple = paren(loose_list(struct_field_entry)).map_with(|elems, ex| (Expr::Tuple(elems), ex.span()));
 
-		// map literal
+		// map literals
 		let type_init = type_expr
 			.clone()
-			.filter(|t| matches!(t, TypeExpr::Array(_) | TypeExpr::FixedArray(..) | TypeExpr::Map(..)))
+			.filter(|t| matches!(t, TypeExpr::Map(..)))
 			.then_ignore(just(Token::Dot))
 			.then(brace(loose_list(expr.clone())))
 			.map_with(|(te, elems), ex| (Expr::TypeInit((te, ex.span()), elems), ex.span()));
+
+		// typed array literals
+		let array_init = type_expr
+			.clone()
+			.then_ignore(just(Token::Dot))
+			.then(bracket(loose_list(expr.clone())))
+			.map_with(|(elem, elems), ex| {
+				(
+					Expr::TypeInit((TypeExpr::Array(Box::new(elem)), ex.span()), elems),
+					ex.span(),
+				)
+			});
 
 		let option_init = just(Token::Question)
 			.ignore_then(type_expr.clone())
@@ -621,7 +633,7 @@ where
 				)
 			});
 
-		// result literal
+		// result literals
 		let result_shape = type_expr.clone().then(paren(expr.clone()));
 		let result_init = just(Token::Not).ignore_then(result_shape.clone()).map_with(|(elem, arg), ex| {
 			(
@@ -633,10 +645,10 @@ where
 			)
 		});
 
-		// array literal
+		// array literals
 		let array = bracket(loose_list(expr.clone())).map_with(|elems, ex| (Expr::Array(elems), ex.span()));
 
-		// record literal
+		// record literals
 		let record = brace(record_entries.clone().or_not().map(Option::unwrap_or_default))
 			.map_with(|entries, ex| (Expr::Record(entries), ex.span()));
 
@@ -784,6 +796,7 @@ where
 		// atoms
 		let atom = choice((
 			type_init,
+			array_init,
 			map_lit,
 			leaf,
 			enum_shorthand,

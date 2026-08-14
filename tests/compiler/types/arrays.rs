@@ -447,7 +447,7 @@ fn chain_of_copies_is_independent() {
 
 #[test]
 fn copy_of_zero_value_appends() {
-	check(["a :: []int.{}", "b := a", "b << 1", "b"], "[1]");
+	check(["a :: int.[]", "b := a", "b << 1", "b"], "[1]");
 }
 
 #[test]
@@ -562,18 +562,18 @@ fn if_no_else_array_zero() {
 
 #[test]
 fn fixed_zeroed() {
-	check("[3]int.{}", "[0, 0, 0]");
+	check("a: [3]int\na", "[0, 0, 0]");
 }
 
 #[test]
 fn fixed_len_is_constant() {
-	check("a :: [4]int.{}\na.len", "4");
+	check("a: [4]int\na.len", "4");
 }
 
 #[test]
 fn fixed_index_write_read() {
 	check(
-		r#"three := [3]string.{}
+		r#"three: [3]string
 		three[0] = "larry"
 		three[1] = "curly"
 		three"#,
@@ -583,7 +583,7 @@ fn fixed_index_write_read() {
 
 #[test]
 fn fixed_dot_index() {
-	check(["a := [2]int.{}", "a[0] = 9", "a.0"], "9");
+	check(["a: [2]int", "a[0] = 9", "a.0"], "9");
 }
 
 #[test]
@@ -593,30 +593,45 @@ fn fixed_annotated_zero_decl() {
 
 #[test]
 fn fixed_value_semantics() {
-	check(["a := [2]int.{}", "b := a", "a[0] = 9", "b[0]"], "0");
+	check(["a: [2]int", "b := a", "a[0] = 9", "b[0]"], "0");
 }
 
 #[test]
 fn fixed_index_out_of_range() {
-	fail_with("a :: [2]int.{}\na[5]", "out of range");
+	fail_with("a: [2]int\na[5]", "out of range");
 }
 
 #[test]
 fn empty_dynamic_via_init() {
-	check("a :: []int.{}\na.len", "0");
+	check("a :: int.[]\na.len", "0");
 }
 
 #[test]
 fn typed_literal() {
-	check("[]int.{1, 2}", "[1, 2]");
+	check("int.[1, 2]", "[1, 2]");
 }
 
 #[test]
 fn typed_literal_index() {
-	check("a :: []int.{10, 20, 30}\na[1]", "20");
+	check("a :: int.[10, 20, 30]\na[1]", "20");
 }
 
 #[test]
 fn typed_literal_mismatch() {
-	fail_with(r#"a :: []int.{1, "x"}"#, "share a type");
+	fail_with(r#"a :: int.[1, "x"]"#, "share a type");
+}
+
+#[test]
+fn typed_literal_empty_then_append() {
+	check(["a := int.[]", "a << 3", "a"], "[3]");
+}
+
+#[test]
+fn typed_literal_i32() {
+	check("i32.[1, 2, 3]", "[1, 2, 3]");
+}
+
+#[test]
+fn typed_literal_no_comma() {
+	check("int.[1 2 3]", "[1, 2, 3]");
 }
