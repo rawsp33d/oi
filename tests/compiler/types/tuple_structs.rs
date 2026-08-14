@@ -222,3 +222,51 @@ fn builtin_name_errors_at_def() {
 	fail_with("int :: struct (bool)", "is a builtin type");
 	fail_with("f32 :: struct (float)", "is a builtin type");
 }
+
+#[test]
+fn dot_tuple_construct() {
+	check(
+		indoc! {"
+			Money :: struct (int)
+			m: Money = .(500)
+			m.0
+		"},
+		"500",
+	);
+	check(
+		indoc! {"
+			Point :: struct (x: float, y: float)
+			p: Point = .(1.0, 2.0)
+			p.x
+		"},
+		"1.0",
+	);
+}
+
+#[test]
+fn dot_tuple_as_call_arg() {
+	check(
+		indoc! {"
+			Money :: struct (int)
+			pay :: fn(m: Money) int { m.0 }
+			pay(.(500))
+		"},
+		"500",
+	);
+}
+
+#[test]
+fn dot_tuple_wrong_arity() {
+	fail_with(
+		indoc! {"
+			Money :: struct (int)
+			m: Money = .(1, 2)
+		"},
+		"takes 1 field(s)",
+	);
+}
+
+#[test]
+fn dot_tuple_no_context() {
+	fail_with("m := .(1)", "cannot infer");
+}

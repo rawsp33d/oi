@@ -602,6 +602,11 @@ where
 			.then(bracket(loose_list(expr.clone())))
 			.map_with(|(elem, elems), ex| (Expr::DotArray(elem.map(|t| (t, ex.span())), elems), ex.span()));
 
+		// dot tuple literals
+		let dot_tuple = just(Token::Dot)
+			.ignore_then(paren(loose_list(expr.clone())))
+			.map_with(|elems, ex| (Expr::DotTuple(elems), ex.span()));
+
 		let option_init = just(Token::Question)
 			.ignore_then(type_expr.clone())
 			.then(paren(expr.clone()))
@@ -789,6 +794,7 @@ where
 		// atoms
 		let atom = choice((
 			dot_array,
+			dot_tuple,
 			leaf,
 			enum_shorthand,
 			group,

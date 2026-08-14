@@ -469,6 +469,13 @@ impl<'a> Translator<'a> {
 						.with_label(format!("this is {target}")),
 				),
 			},
+			Expr::DotTuple(args) => match target {
+				Typ::TupleStruct(name, _) => self.construct_tuple_struct(name, args, value.1),
+				_ => Err(
+					Diagnostic::new("no tuple struct is expected in this position", value.1.into_range())
+						.with_label(format!("this is {target}, write a plain tuple `( ... )` instead")),
+				),
+			},
 			Expr::If { cond, then, els } => {
 				match self.conditional(cond, then, els.as_deref(), Some(target), value.1)? {
 					Some(vt) => Ok(vt),

@@ -381,6 +381,11 @@ impl<'a> Translator<'a> {
 
 			Expr::DotArray(None, elems) => self.fixed_infer(elems, expr.1),
 
+			Expr::DotTuple(_) => Err(
+				Diagnostic::new("cannot infer the tuple struct here", expr.1.into_range())
+					.with_label("annotate the binding, or construct with `Name( ... )`"),
+			),
+
 			Expr::DotArray(Some((te, span)), elems) => {
 				let elem = self.types().resolve(te, *span)?;
 				if elems.is_empty() {

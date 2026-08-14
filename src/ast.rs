@@ -120,6 +120,8 @@ pub enum Expr {
 	Array(Vec<Spanned<Expr>>),
 	// `.[ ...expr ]`, `T.[ ...expr ]`
 	DotArray(Option<Spanned<TypeExpr>>, Vec<Spanned<Expr>>),
+	// `.( ...expr )`
+	DotTuple(Vec<Spanned<Expr>>),
 	// `collection[index]`
 	// TODO: handle negative indices
 	Index {
