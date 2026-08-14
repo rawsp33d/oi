@@ -221,6 +221,29 @@ fn record_empty_against_target() {
 }
 
 #[test]
+fn anon_empty_against_target() {
+	check(
+		indoc! {r#"
+			m: Map[string, int] = .{}
+			m["a"] = 3
+			m["a"]
+		"#},
+		"3",
+	);
+}
+
+#[test]
+fn anon_with_fields_against_target() {
+	check(
+		indoc! {r#"
+			m: Map[string, int] = .{ one = 1 }
+			m["one"]
+		"#},
+		"1",
+	);
+}
+
+#[test]
 fn record_pun() {
 	check(
 		indoc! {r#"

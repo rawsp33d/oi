@@ -635,3 +635,41 @@ fn typed_literal_i32() {
 fn typed_literal_no_comma() {
 	check("int.[1 2 3]", "[1, 2, 3]");
 }
+
+// anon array literals
+
+#[test]
+fn anon_against_fixed_target() {
+	check(["a: [3]int = .[1 2 3]", "a"], "[1, 2, 3]");
+}
+
+#[test]
+fn anon_fixed_count_mismatch() {
+	fail_with("a: [3]int = .[1 2]", "expected 3 elements, got 2");
+}
+
+#[test]
+fn anon_against_dynamic_target() {
+	check(["a: []int = .[1 2]", "a"], "[1, 2]");
+}
+
+#[test]
+fn anon_as_call_arg() {
+	let src = indoc! {"
+		three :: fn(xs: [3]int) int {
+			xs.0
+		}
+		three(.[1 2 3])
+	"};
+	check(src, "1");
+}
+
+#[test]
+fn anon_no_annotation_fails() {
+	fail_with("a := .[1 2]", "cannot infer");
+}
+
+#[test]
+fn anon_fixed_value_semantics() {
+	check(["a: [2]int = .[1 2]", "b := a", "a[0] = 9", "b[0]"], "1");
+}

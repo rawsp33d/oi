@@ -98,7 +98,9 @@ pub(super) fn collect(expr: &Expr, out: &mut HashSet<String>) {
 			child(value);
 		}
 		OptionInit { arg, .. } | ResultInit { arg, .. } => child(arg),
-		Call { args, .. } | Array(args) | EnumShorthand { args, .. } => args.iter().for_each(&mut child),
+		Call { args, .. } | Array(args) | AnonArray(args) | EnumShorthand { args, .. } => {
+			args.iter().for_each(&mut child)
+		}
 		MethodCall { recv, args, .. } => {
 			child(recv);
 			args.iter().for_each(&mut child);

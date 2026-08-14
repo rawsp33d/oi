@@ -121,6 +121,8 @@ pub enum Expr {
 
 	// arrays
 	Array(Vec<Spanned<Expr>>),
+	// `.[ ...expr ]`
+	AnonArray(Vec<Spanned<Expr>>),
 	// `collection[index]`
 	// TODO: handle negative indices
 	Index {

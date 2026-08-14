@@ -455,9 +455,16 @@ impl<'a> Translator<'a> {
 			return Ok((v, target.clone()));
 		}
 		match &value.0 {
-			Expr::Array(elems) if matches!(target, Typ::Array(_)) => {
+			Expr::Array(elems) | Expr::AnonArray(elems) if matches!(target, Typ::Array(_)) => {
 				self.array_lit(elems, Some(&array_elem(target).clone()), value.1)
 			}
+			Expr::AnonArray(elems) => match target {
+				Typ::FixedArray(elem, n) => self.fixed_lit(elems, elem, *n, value.1),
+				_ => Err(
+					Diagnostic::new("no array type is expected in this position", value.1.into_range())
+						.with_label(format!("this is {target}")),
+				),
+			},
 			Expr::If { cond, then, els } => {
 				match self.conditional(cond, then, els.as_deref(), Some(target), value.1)? {
 					Some(vt) => Ok(vt),
@@ -623,6 +630,16 @@ impl<'a> Translator<'a> {
 		span: Span,
 		target: Option<&Typ>,
 	) -> Result<TypedVal, Diagnostic> {
+		if name.is_empty() && matches!(target, Some(Typ::Map(..))) {
+			let entry = |(fname, v): &(Option<String>, Spanned<Expr>)| match fname {
+				Some(n) => Ok(((Expr::Ident(n.clone()), v.1), v.clone())),
+				None => {
+					Err(Diagnostic::new("map entries need a key", v.1.into_range()).with_label("write `key = value`"))
+				}
+			};
+			let entries = fields.iter().map(entry).collect::<Result<Vec<_>, _>>()?;
+			return self.record_lit(&entries, span, target);
+		}
 		// `Self {}` inside a method resolves to the impl's type
 		let name = match name {
 			"" => match target {

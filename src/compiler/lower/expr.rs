@@ -379,6 +379,11 @@ impl<'a> Translator<'a> {
 
 			Expr::Array(elems) => self.array_lit(elems, None, expr.1),
 
+			Expr::AnonArray(_) => Err(
+				Diagnostic::new("cannot infer the element type here", expr.1.into_range())
+					.with_label("annotate the binding, or write `T.[...]`"),
+			),
+
 			Expr::TypeInit((te, span), elems) => {
 				let typ = self.types().resolve(te, *span)?;
 				match &typ {

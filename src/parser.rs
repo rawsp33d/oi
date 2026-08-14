@@ -590,6 +590,11 @@ where
 			})
 			.boxed();
 
+		// anonymous array literals
+		let anon_array = just(Token::Dot)
+			.ignore_then(bracket(loose_list(expr.clone())))
+			.map_with(|elems, ex| (Expr::AnonArray(elems), ex.span()));
+
 		// a lexer error token
 		let bad = select! { Token::Error(text) => text }
 			.try_map(|text, span| Err(Rich::custom(span, format!("unexpected character `{text}`"))));
@@ -800,6 +805,7 @@ where
 			map_lit,
 			leaf,
 			enum_shorthand,
+			anon_array,
 			group,
 			tuple,
 			option_init,

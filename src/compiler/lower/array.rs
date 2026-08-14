@@ -68,6 +68,29 @@ impl<'a> Translator<'a> {
 		Ok((self.make_array(data, len, &typ), typ))
 	}
 
+	// Build a fixed-size array literal.
+	pub(super) fn fixed_lit(
+		&mut self,
+		elems: &[Spanned<Expr>],
+		elem: &Typ,
+		n: usize,
+		span: Span,
+	) -> Result<TypedVal, Diagnostic> {
+		if elems.len() != n {
+			let msg = format!("expected {n} elements, got {}", elems.len());
+			return Err(Diagnostic::new(msg, span.into_range()).with_label("wrong number of elements"));
+		}
+		let stride = self.elem_stride(elem);
+		let ptr = self.stack_slot((n as i64 * stride) as u32);
+		for (i, e) in elems.iter().enumerate() {
+			let val = self.check_typed(e, elem, "array elements must match the declared type")?;
+			closure_escape(elem, e.1.into_range(), "stored in an array")?;
+			let val = self.copy_in(val, elem);
+			self.store_elem(ptr, (i as i64 * stride) as i32, elem, val);
+		}
+		Ok((ptr, Typ::FixedArray(Box::new(elem.clone()), n)))
+	}
+
 	// Copy-in point for rc'd handles.
 	// RC bump.
 	// The underlying buffer clone waits for a write.
