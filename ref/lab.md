@@ -12,8 +12,8 @@ Things I'm playing with that might not work or make it.
 # TODO: revisit.exe
 #       I was trying to take good parts of GDScript here but it feels confusing.
 #       I forget the situations I thought of where you can't just put the type on LHS.
-empty := Stack{} as Stack[int]
-meters := Tagged{ value: 5.0 } as Tagged[Meters]
+empty := Stack.{} as Stack[int]
+meters := Tagged.{ value: 5.0 } as Tagged[Meters]
 
 # normie
 add :: fn(a: int, b: int) int {
@@ -77,7 +77,7 @@ passthru :: fn(a: int, b: int) out (c: int, d: int) {
 }
 
 new_dude :: fn(name: string) Dude {
-	Dude{
+	Dude.{
 		name: name
 	}
 }

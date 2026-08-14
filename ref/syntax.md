@@ -1250,8 +1250,8 @@ main :: fn() {
 	}
 
 	# first value is default
-	c := Color.{} # .red
-	s := Shape.{} # .circle { radius = 0.0 }
+	c: Color # .red
+	s: Shape # .circle { radius = 0.0 }
 
 	# methods
 
@@ -1306,7 +1306,7 @@ main :: fn() {
 	// create enum from value
 	print(Cycle.from(10) or { Cycle.three })
 	print(Cycle.from("two")?)
-	print(Cycle.from(:three) or Cycle.{})
+	print(Cycle.from(:three) or .one)
 
 	// convert an enum value to a string
 	print(Cycle.one.str())

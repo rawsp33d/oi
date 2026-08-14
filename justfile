@@ -60,5 +60,6 @@ check: build && fmt test lint
 
 # start an interactive Oi REPL
 [group("oi")]
+[default]
 @repl:
 	cargo run --quiet -- repl
