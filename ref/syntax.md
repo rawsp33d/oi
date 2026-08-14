@@ -56,7 +56,7 @@ pub use math
 # definitions
 pub quack :: fn() string { "quack!" }
 pub Foo :: struct { bar: bool }
-pub foo :: Foo{ true }
+pub foo :: Foo.{ true }
 pub strange :: "dr strange love"
 
 ## functions
@@ -84,7 +84,7 @@ add :: fn(x: int, y: int) int {
 }
 
 random_user :: fn() User {
-	user := User{}
+	user := User.{}
 	user.name = "I Dunno"
 	user
 }
@@ -127,7 +127,7 @@ two :: fn() result: int {
 assert!(two() == 2)
 
 random_user :: fn() u: User {
-	print(u) # User{}
+	print(u) # User.{}
 	u.name = "I Dunno"
 }
 ru :: random_user()
@@ -196,16 +196,16 @@ Point :: struct {
 	y: int
 }
 
-point :: Point{
+point :: Point.{
 	x = 19
 	y = 90
 }
 
 # one line
-point :: Point{ x = 19, y = 88 }
+point :: Point.{ x = 19, y = 88 }
 
 # zero values when unspecified
-origin :: Point{}
+origin :: Point.{}
 
 # support default field values
 User :: struct {
@@ -217,7 +217,7 @@ User :: struct {
 # heap structs
 # structs are allocated on the stack, but can be allocated on the heap with the `&` prefix
 # this returns a reference
-u := &User{}
+u := &User.{}
 
 # required fields
 Foo :: struct {
@@ -225,11 +225,11 @@ Foo :: struct {
 }
 
 # short struct literals
-normal :: Point{
+normal :: Point.{
 	x = 2
 	y = 1
 }
-short :: Point{3, 2}
+short :: Point.{3, 2}
 
 # the type name can be dropped when it's known from context (typed decl, call arg, return, field value)
 p : Point = { x = 2, y = 1 }
@@ -237,7 +237,7 @@ p : Point = { x = 2, y = 1 }
 # `{x, y}` is sugar for `{x = x, y = y}` (punning)
 x :: 2
 y :: 1
-q :: Point{x, y}
+q :: Point.{x, y}
 
 # tuple structs
 
@@ -284,13 +284,13 @@ User :: struct {
 }
 
 register :: fn(u: User) User {
-	return User{
+	return User.{
 		...u
 		is_registered = true
 	}
 }
 
-user := User{
+user := User.{
 	name = "abc"
 	age = 23
 }
@@ -307,9 +307,9 @@ User :{
 		print(opt)
 	}
 }
-user :: User{}
+user :: User.{}
 user.with_options(bar = true, foo = 4)
-# same record literal as `Options{ bar = true, foo = 4 }`, just braceless, coerced against the last param's struct type
+# same record literal as `Options.{ bar = true, foo = 4 }`, just braceless, coerced against the last param's struct type
 
 # annotating with `@params` lets a trailing record be omitted
 # otherwise you need to specify at least one field or the compiler will error
@@ -343,7 +343,7 @@ Food :: struct {
 	}
 }
 
-apple := Food{
+apple := Food.{
 	name = "apple"
 	nutrition = struct {
 		calories = 4
@@ -351,7 +351,7 @@ apple := Food{
 }
 
 # you can (maybe?) use short struct literals in the assignment
-pear := Food{
+pear := Food.{
 	name = "pear"
 	nutrition = struct { 5 }
 }
@@ -381,20 +381,20 @@ Profile :: struct {
 	name: string
 }
 
-profile :: Profile{
+profile :: Profile.{
 	foo = 4
 	name = "one cool dude"
 }
 assert! profile.foo == profile.Options.foo
 
 # you can refer to and assign to embedded structs directly
-profile := Profile{
-	Options = Options{
+profile := Profile.{
+	Options = Options.{
 		foo = 200
 	}
 }
 print(profile.Options)
-profile.Options = Options{}
+profile.Options = Options.{}
 
 # operator overloading
 
@@ -404,15 +404,15 @@ Point :: struct {
 }
 
 Point :{
-	zero :: fn() Self { Point{0, 0} }
+	zero :: fn() Self { Point.{0, 0} }
 }
 
 Point : Add {
 	add :: fn(self, other: Self) Self {
-		Self{ self.x + other.x, self.y + other.y }
+		Self.{ self.x + other.x, self.y + other.y }
 	}
 }
-assert!(Point{1, 0} + Point{2, 3} == Point{3, 3})
+assert!(Point.{1, 0} + Point.{2, 3} == Point.{3, 3})
 
 ## traits
 
@@ -453,8 +453,8 @@ Enemy :: struct {
 Enemy : Animal { speak :: fn(self) string { "rawr" } }
 
 demo_traits :: fn() {
-	dog :: Dog{"Collie"}
-	cat :: Cat{"Egyptian Mau"}
+	dog :: Dog.{"Collie"}
+	cat :: Cat.{"Egyptian Mau"}
 	animals :: Animal.[dog, cat]
 
 	loop animal in animals {
@@ -623,8 +623,8 @@ Lookup[V] :: Map[string, ?V]
 grid[x][y] = 0
 
 # the sandwich middle names the type when there's nothing to infer from
-empty : Stack[int] = Stack{}
-meters : Tagged[Meters] = Tagged{ value = 5.0 }
+empty : Stack[int] = Stack.{}
+meters : Tagged[Meters] = Tagged.{ value = 5.0 }
 
 ## main entrypoint
 
@@ -636,13 +636,13 @@ main :: fn() {
 	# declaration without assignment
 	foo: int # 0
 	bar: string # ""
-	p: Point # Point{}
+	p: Point # Point.{}
 	grid: [3]string # ["", "", ""]
 
 	# declaration with assignment
 	a: int = 2
 	b: string = "hi"
-	c: Car = Car{}
+	c: Car = Car.{}
 	m: Map[int, string] = []
 
 	# inferred
@@ -949,8 +949,8 @@ main :: fn() {
 	User :: struct {
 		stat: Stat
 	}
-	user1 := User{ stat = .mana }
-	user2 := User{ stat = :mana }
+	user1 := User.{ stat = .mana }
+	user2 := User.{ stat = :mana }
 	assert!(user1.stat == user2.stat)
 
 	# this might be useful for quick prototyping?
@@ -994,7 +994,7 @@ main :: fn() {
 	print(op(4, fn { $ * 4 })) # 16
 
 	# all types have zeroed values
-	u := User{}
+	u := User.{}
 	assert!(u.age == 0)
 	assert!(u.name == "")
 
@@ -1134,7 +1134,7 @@ main :: fn() {
 	}
 
 	# or block can yield a fallback value of the same type
-	user := repo.find_user(7) or { User{ name = "guest" } }
+	user := repo.find_user(7) or { User.{ name = "guest" } }
 
 	# check error type in the or block
 	file := fs.open(path) or {
@@ -1182,7 +1182,7 @@ main :: fn() {
 
 	parse :: fn(src: string) !Ast {
 		...
-		return ParseError{ line = 4, col = 2 } # auto-cast to Error
+		return ParseError.{ line = 4, col = 2 } # auto-cast to Error
 	}
 
 	parse(src) or { panic!($.message()) }
@@ -1250,8 +1250,8 @@ main :: fn() {
 	}
 
 	# first value is default
-	c := Color{} # .red
-	s := Shape{} # .circle { radius = 0.0 }
+	c := Color.{} # .red
+	s := Shape.{} # .circle { radius = 0.0 }
 
 	# methods
 
@@ -1306,7 +1306,7 @@ main :: fn() {
 	// create enum from value
 	print(Cycle.from(10) or { Cycle.three })
 	print(Cycle.from("two")?)
-	print(Cycle.from(:three) or Cycle{})
+	print(Cycle.from(:three) or Cycle.{})
 
 	// convert an enum value to a string
 	print(Cycle.one.str())
@@ -1398,8 +1398,9 @@ main :: fn() {
 	# if you want a map with shorthand keys, add a trailing comma
 	{ x, } # `{ x = x }`
 
-	# in conditionals a top-level `{` always opens the body, so a record or `Name{}` literal there needs parens
-	if p == (Point{}) { ... }
+	# in conditionals a top-level `{` always opens the body - `.{` carries no ambiguity, bare records need parens
+	if p == Point.{} { ... }
+	if p == ({ x = 1, y = 1 }) { ... }
 
 	## anonymous functions
 
@@ -1633,8 +1634,8 @@ main :: fn() {
 	" foo-bar " |> trim |> upper |> replace("-", "_") # "FOO_BAR"
 
 	# fn literals chain by the same rule
-	f :: fn(x: int) (int, int) { (x, x) } |> fn(x: int, y: int) Point { Point{ x, y } }
-	assert!(f(2) == Point{ 2, 2 })
+	f :: fn(x: int) (int, int) { (x, x) } |> fn(x: int, y: int) Point { Point.{ x, y } }
+	assert!(f(2) == Point.{ 2, 2 })
 
 	# compositions are expressions
 	nums.map(double |> negate)
