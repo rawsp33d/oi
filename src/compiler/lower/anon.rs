@@ -1,6 +1,12 @@
 use super::*;
 use crate::ast::{Capture, Param};
 
+// An anon fn's return type.
+pub(super) enum AnonRet<'a> {
+	Explicit(&'a Spanned<TypeExpr>),
+	Inferred(Typ),
+}
+
 impl<'a> Translator<'a> {
 	// Declare an anon fn literal.
 	pub(super) fn declare_anon_fn(
@@ -8,7 +14,7 @@ impl<'a> Translator<'a> {
 		captures: &Option<Vec<Capture>>,
 		params: &[Param],
 		params_tuple: bool,
-		ret: &Spanned<TypeExpr>,
+		ret: AnonRet,
 		body: &[Spanned<Expr>],
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
@@ -41,15 +47,22 @@ impl<'a> Translator<'a> {
 			resolved.push((name.clone(), local.typ, boxed, val));
 		}
 
+		let (ret_te, subst) = match ret {
+			AnonRet::Explicit(te) => (te.clone(), HashMap::new()),
+			AnonRet::Inferred(t) => (
+				(TypeExpr::Name("$ret".to_string()), span),
+				HashMap::from([("$ret".to_string(), t)]),
+			),
+		};
 		let def = GenericFnDef {
 			params: params.to_vec(),
 			params_tuple,
-			ret: Some(ret.clone()),
+			ret: Some(ret_te),
 			body: body.to_vec(),
 			type_params: vec![],
 			captures: resolved.iter().map(|(n, t, boxed, _)| (n.clone(), t.clone(), *boxed)).collect(),
 		};
-		let sig = self.declare_instance(&format!("anon${}_{}", span.start, span.end), &def, HashMap::new())?;
+		let sig = self.declare_instance(&format!("anon${}_{}", span.start, span.end), &def, subst)?;
 		let func_ref = self.module.declare_func_in_func(sig.id, self.b.func);
 		let addr = self.b.ins().func_addr(self.int, func_ref);
 		let params = sig.value_params();

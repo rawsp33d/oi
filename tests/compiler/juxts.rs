@@ -15,7 +15,7 @@ fn bare_block_desugars_to_anon_fn() {
 		retry :: fn(n: int, f: fn() int) int { f() }
 		retry(2) { 21 }
 	"};
-	fail_with(src, "explicit return type");
+	check(src, "21");
 }
 
 #[test]

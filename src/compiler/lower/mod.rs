@@ -34,6 +34,7 @@ mod rc;
 mod stmt;
 mod value;
 
+use self::anon::AnonRet;
 use self::helpers::*;
 
 pub(super) struct Translator<'a> {

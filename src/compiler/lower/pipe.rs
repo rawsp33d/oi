@@ -46,7 +46,7 @@ impl Translator<'_> {
 		}
 		let ret = self.stage_ret(step)?;
 		let body = [piped(self.feed(value), step.clone(), span)];
-		self.declare_anon_fn(&None, &params, params.len() != 1, &ret, &body, span)
+		self.declare_anon_fn(&None, &params, params.len() != 1, AnonRet::Explicit(&ret), &body, span)
 	}
 
 	// The pipeline with its head turned into a stage that `$` flows into.

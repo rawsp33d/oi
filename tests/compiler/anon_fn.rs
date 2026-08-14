@@ -331,3 +331,47 @@ fn implicit_capture_ignores_match_bound_name() {
 	"#};
 	check(src, "14");
 }
+
+#[test]
+fn trailing_block_infers_ret() {
+	let src = indoc! {"
+		retry :: fn(n: int, f: fn() int) int { f() + n }
+		retry(2) { 21 }
+	"};
+	check(src, "23");
+}
+
+#[test]
+fn trailing_fn_infers_ret() {
+	let src = indoc! {"
+		retry :: fn(n: int, f: fn() int) int { f() + n }
+		retry(2) fn { 21 }
+	"};
+	check(src, "23");
+}
+
+#[test]
+fn trailing_block_unit() {
+	let src = indoc! {r#"
+		run :: fn(f: fn() ()) { f() }
+		run { print("hi") }
+	"#};
+	check(src, "hi");
+}
+
+#[test]
+fn inline_arg_infers_ret() {
+	let src = indoc! {"
+		apply :: fn(f: fn() int) int { f() }
+		apply(fn { 7 })
+	"};
+	check(src, "7");
+}
+
+#[test]
+fn bare_fn_still_needs_ret_without_context() {
+	let src = indoc! {"
+		f := fn { 21 }
+	"};
+	fail_with(src, "explicit return type");
+}

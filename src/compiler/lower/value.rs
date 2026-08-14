@@ -514,6 +514,23 @@ impl<'a> Translator<'a> {
 				}
 				_ => self.expr(value),
 			},
+			Expr::AnonFn {
+				captures,
+				params,
+				params_tuple,
+				ret: None,
+				body,
+			} if matches!(target, Typ::Fn(..)) => {
+				let Typ::Fn(_, ret) = target else { unreachable!() };
+				self.declare_anon_fn(
+					captures,
+					params,
+					*params_tuple,
+					AnonRet::Inferred((**ret).clone()),
+					body,
+					value.1,
+				)
+			}
 			_ => {
 				let (val, vt) = self.expr(value)?;
 				// a fixed array widens to a dynamic one at the boundary
