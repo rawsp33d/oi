@@ -91,6 +91,52 @@ impl<'a> Translator<'a> {
 		Ok((ptr, Typ::FixedArray(Box::new(elem.clone()), n)))
 	}
 
+	// Infer a fixed array from its elements.
+	pub(super) fn fixed_infer(&mut self, elems: &[Spanned<Expr>], span: Span) -> Result<TypedVal, Diagnostic> {
+		let Some((first, rest)) = elems.split_first() else {
+			return Err(Diagnostic::new("cannot infer the element type here", span.into_range())
+				.with_label("needs at least one element to infer its type"));
+		};
+		let (first_val, elem) = self.expr(first)?;
+		closure_escape(&elem, first.1.into_range(), "stored in an array")?;
+		let mut vals = vec![first_val];
+		for e in rest {
+			let (val, typ) = self.check_expr(e, &elem)?;
+			if typ != elem {
+				let msg = format!("array elements must share a type: expected {elem}, got {typ}");
+				return Err(Diagnostic::new(msg, e.1.into_range()).with_label("mismatched element type"));
+			}
+			closure_escape(&typ, e.1.into_range(), "stored in an array")?;
+			vals.push(val);
+		}
+		let n = vals.len();
+		let stride = self.elem_stride(&elem);
+		let ptr = self.stack_slot((n as i64 * stride) as u32);
+		for (i, val) in vals.into_iter().enumerate() {
+			let val = self.copy_in(val, &elem);
+			self.store_elem(ptr, (i as i64 * stride) as i32, &elem, val);
+		}
+		Ok((ptr, Typ::FixedArray(Box::new(elem), n)))
+	}
+
+	// Autocast a fixed array into a fresh rc'd dynamic buffer.
+	pub(super) fn fixed_to_array(&mut self, ptr: Value, elem: &Typ, n: usize) -> Value {
+		let stride = self.elem_stride(elem);
+		let base = self.call_alloc_bytes(n as i64 * stride + 8);
+		let one = self.b.ins().iconst(self.int, 1);
+		self.b.ins().store(MemFlags::new(), one, base, 0);
+		let data = self.b.ins().iadd_imm(base, 8);
+		for i in 0..n {
+			let off = (i as i64 * stride) as i32;
+			let val = self.load_elem(ptr, off, elem);
+			let val = self.copy_in(val, elem);
+			self.store_elem(data, off, elem, val);
+		}
+		let len = self.b.ins().iconst(self.int, n as i64);
+		let typ = Typ::Array(Box::new(elem.clone()));
+		self.make_array(data, len, &typ)
+	}
+
 	// Copy-in point for rc'd handles.
 	// RC bump.
 	// The underlying buffer clone waits for a write.

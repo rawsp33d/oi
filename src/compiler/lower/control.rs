@@ -524,6 +524,13 @@ impl<'a> Translator<'a> {
 				self.b.def_var(v, zero);
 				(v, len, Some((data, *elem)))
 			}
+			Typ::FixedArray(elem, n) => {
+				let zero = self.b.ins().iconst(self.int, 0);
+				let len = self.b.ins().iconst(self.int, n as i64);
+				let v = self.b.declare_var(self.int);
+				self.b.def_var(v, zero);
+				(v, len, Some((val, *elem)))
+			}
 			_ => {
 				return Err(
 					Diagnostic::new(format!("cannot iterate over {typ}"), iter.1.into_range())

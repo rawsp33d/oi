@@ -454,6 +454,29 @@ fn trait_declared_str_dyn_dispatches() {
 }
 
 #[test]
+fn fixed_trait_array_loops_and_dispatches() {
+	let src = indoc! {r#"
+		Cat :: struct { kind: string }
+		Cat : Animal { speak :: fn(self) string { "meow" } }
+		zoo := Animal.[ Dog.{ "collie" }, Cat.{ "mau" } ]
+		loop a in zoo { print("a " + a.kind + " says " + a.speak()) }
+	"#};
+	check([ANIMAL_KIND, src], ["a collie says woof", "a mau says meow"]);
+}
+
+#[test]
+fn append_boxes_struct_literal_into_trait_array() {
+	let src = indoc! {r#"
+		Cat :: struct {}
+		Cat : Animal { speak :: fn(self) string { "meow" } }
+		zoo: []Animal = [ Dog.{} ]
+		zoo << Cat.{}
+		loop a in zoo { print(a.speak()) }
+	"#};
+	check([ANIMAL_DOG, src], ["woof", "meow"]);
+}
+
+#[test]
 fn rejects_non_implementing_trait_object() {
 	let src = indoc! {"
 		Rock :: struct {}

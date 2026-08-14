@@ -643,7 +643,7 @@ main :: fn() {
 	a: int = 2
 	b: string = "hi"
 	c: Car = Car{}
-	m: Map[int, string] = Map.{}
+	m: Map[int, string] = []
 
 	# inferred
 	no_mute :: "immutable"
@@ -778,33 +778,35 @@ main :: fn() {
 	assert!(even.len == 3)
 
 	# array init
-	arr := int.[]
+	arr: []int
 	arr << 3
-	nums := i32.[1 2 3]
 
 	# fixed size arrays
+
+	# dot literals are exact values, with static size, copy semantics, no growth, no allocation
+	nums := i32.[1 2 3] # [3]i32
+	# anonymous `.{}`, `.[]`, and `.()` resolve against the expected type
 	stooges: [3]string = .["Larry" "Curly" "Moe"]
 	stooges.2 = "Emil Sitka"
 
+	# a fixed array coerces (and makes copy) to `[]T` where one is expected
+	roster: []string = stooges
+
 	# maps
 
-	# ident keys are string sugar
-	# with no expected type this infers Map[string, int]
-	num_map := Map.{
-		one = 1
-		two = 2
-	}
+	# `key = value` entries make a bracket literal a map
+	# keys are literals or variables
+	by_id := [1 = "one", 2 = "two"] # Map[int, string]
+	by_status := [:ok = 200, :not_found = 404]
+	k :: "one"
+	num_map := [k = 1, "two" = 2]
 	print(num_map["one"])
 	typed_map: Map[string, int]
 	typed_map["three"] = 4
 	typed_map.delete["three"]
 
-	# literals as keys
-	by_id := Map.{ 1 = "one", 2 = "two" }
-	by_status := Map.{ :ok = 200, :not_found = 404 }
-
-	# anonymous `.{}` and `.[]` resolve against the expected type
-	empty Map[string, int] := .{}
+	# empty `[]` resolves against the expected collection type
+	empty Map[string, int] := []
 
 	# array slices are array subsets of another array
 	# proper array

@@ -379,16 +379,18 @@ impl<'a> Translator<'a> {
 
 			Expr::Array(elems) => self.array_lit(elems, None, expr.1),
 
-			Expr::AnonArray(_) => Err(
-				Diagnostic::new("cannot infer the element type here", expr.1.into_range())
-					.with_label("annotate the binding, or write `T.[...]`"),
-			),
+			Expr::AnonArray(elems) => self.fixed_infer(elems, expr.1),
 
 			Expr::TypeInit((te, span), elems) => {
 				let typ = self.types().resolve(te, *span)?;
 				match &typ {
+					Typ::Array(elem) if elems.is_empty() => Err(Diagnostic::new(
+						"an exact array literal needs elements",
+						expr.1.into_range(),
+					)
+					.with_label(format!("write `[]{elem}` for an empty dynamic array"))),
+					Typ::Array(elem) => self.fixed_lit(elems, elem, elems.len(), expr.1),
 					_ if elems.is_empty() => Ok((self.zero(&typ), typ)),
-					Typ::Array(elem) => self.array_lit(elems, Some(elem), expr.1),
 					_ => Err(Diagnostic::new(
 						format!("only array initializers take elements, not {typ}"),
 						expr.1.into_range(),

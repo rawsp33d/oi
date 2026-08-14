@@ -505,6 +505,12 @@ impl<'a> Translator<'a> {
 			},
 			_ => {
 				let (val, vt) = self.expr(value)?;
+				// a fixed array widens to a dynamic one at the boundary
+				if let (Typ::FixedArray(e, n), Typ::Array(t)) = (&vt, target)
+					&& e == t
+				{
+					return Ok((self.fixed_to_array(val, e, *n), target.clone()));
+				}
 				// same member sets with different order. remap the tag into a fresh box
 				if let (Typ::Sum(src), Typ::Sum(dst)) = (&vt, target)
 					&& src != dst && let Some(map) = sum_remap(src, dst)

@@ -397,3 +397,14 @@ fn mutually_recursive_structs_error() {
 fn unknown_field_type_error() {
 	fail_with("Wallet :: struct { cash: Money }", "unknown type `Money`");
 }
+
+#[test]
+fn append_infers_anon_literal_from_element_type() {
+	let src = indoc! {r#"
+		Point :: struct { x: int, y: int }
+		pts := [ Point.{ 1, 2 } ]
+		pts << .{ 3, 4 }
+		pts[1].y
+	"#};
+	check(src, "4");
+}

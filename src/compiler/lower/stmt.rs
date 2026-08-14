@@ -208,7 +208,7 @@ impl<'a> Translator<'a> {
 							);
 						}
 					};
-					let (val, vtyp) = self.expr(value)?;
+					let (val, vtyp) = self.check_expr(value, &elem)?;
 					let stride = self.elem_stride(&elem);
 					let size = self.b.ins().iconst(self.int, stride);
 					let ptr = self.read_local(&local);

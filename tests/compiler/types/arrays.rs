@@ -447,7 +447,7 @@ fn chain_of_copies_is_independent() {
 
 #[test]
 fn copy_of_zero_value_appends() {
-	check(["a :: int.[]", "b := a", "b << 1", "b"], "[1]");
+	check(["a: []int", "b := a", "b << 1", "b"], "[1]");
 }
 
 #[test]
@@ -603,7 +603,7 @@ fn fixed_index_out_of_range() {
 
 #[test]
 fn empty_dynamic_via_init() {
-	check("a :: int.[]\na.len", "0");
+	check("a: []int\na.len", "0");
 }
 
 #[test]
@@ -618,12 +618,12 @@ fn typed_literal_index() {
 
 #[test]
 fn typed_literal_mismatch() {
-	fail_with(r#"a :: int.[1, "x"]"#, "share a type");
+	fail_with(r#"a :: int.[1, "x"]"#, "declared type");
 }
 
 #[test]
 fn typed_literal_empty_then_append() {
-	check(["a := int.[]", "a << 3", "a"], "[3]");
+	check(["a: []int", "a << 3", "a"], "[3]");
 }
 
 #[test]
@@ -665,11 +665,47 @@ fn anon_as_call_arg() {
 }
 
 #[test]
-fn anon_no_annotation_fails() {
-	fail_with("a := .[1 2]", "cannot infer");
+fn anon_no_annotation_infers_fixed() {
+	check(["primes := .[2 3 5 7]", "primes.len"], "4");
 }
 
 #[test]
 fn anon_fixed_value_semantics() {
 	check(["a: [2]int = .[1 2]", "b := a", "a[0] = 9", "b[0]"], "1");
+}
+
+#[test]
+fn anon_empty_no_context_fails() {
+	fail_with("a := .[]", "cannot infer the element type");
+}
+
+// fixed <-> dynamic
+
+#[test]
+fn typed_literal_is_fixed_value_semantics() {
+	check(["a := int.[1, 2]", "b := a", "a[0] = 9", "b[0]"], "1");
+}
+
+#[test]
+fn typed_literal_empty_fails() {
+	fail_with("int.[]", "an exact array literal needs elements");
+}
+
+#[test]
+fn fixed_coerces_to_dynamic_binding() {
+	check(["a := i32.[1, 2]", "b: []i32 = a", "b << 3", "b"], "[1, 2, 3]");
+}
+
+#[test]
+fn fixed_coerce_leaves_original_unchanged() {
+	check(["a := i32.[1, 2]", "b: []i32 = a", "b << 3", "a"], "[1, 2]");
+}
+
+#[test]
+fn fixed_coerces_as_call_arg() {
+	let src = indoc! {"
+		total :: fn(xs: []int) int { xs.len }
+		total(int.[1, 2, 3])
+	"};
+	check(src, "3");
 }
