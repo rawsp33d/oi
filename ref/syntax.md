@@ -455,7 +455,7 @@ Enemy : Animal { speak :: fn(self) string { "rawr" } }
 demo_traits :: fn() {
 	dog :: Dog{"Collie"}
 	cat :: Cat{"Egyptian Mau"}
-	animals :: []Animal{ dog, cat }
+	animals :: Animal.[dog, cat]
 
 	loop animal in animals {
 		print "a {animal.kind} says: {animal.speak()}"
@@ -496,7 +496,7 @@ assert!(Bike is not Fruit)
 greet[A: Animal] :: fn(a: A) { print(a.shout()) }
 
 # A trait used directly as a type is dynamic: a trait object behind a vtable.
-zoo := []Animal{ Dog{"collie"}, Cat{"mau"}, Enemy{ kind = "boss", hp = 9 } }
+zoo := Animal.[Dog.{"collie"}, Cat.{"mau"}, Enemy.{ kind = "boss", hp = 9 }]
 loop a in zoo { print "a {a.kind} says {a.speak()}" }
 
 ## associated types
@@ -778,14 +778,13 @@ main :: fn() {
 	assert!(even.len == 3)
 
 	# array init
-	arr := []int{}
+	arr := int.[]
 	arr << 3
+	nums := i32.[1 2 3]
 
 	# fixed size arrays
-	three := [3]string{}
-	three.0 = "larry"
-	three.1 = "curly"
-	three.2 = "moe"
+	stooges: [3]string = .["Larry" "Curly" "Moe"]
+	stooges.2 = "Emil Sitka"
 
 	# maps
 
@@ -804,8 +803,8 @@ main :: fn() {
 	by_id := Map.{ 1 = "one", 2 = "two" }
 	by_status := Map.{ :ok = 200, :not_found = 404 }
 
-	# `{}` resolves against the expected type
-	empty Map[string, int] := {}
+	# anonymous `.{}` and `.[]` resolve against the expected type
+	empty Map[string, int] := .{}
 
 	# array slices are array subsets of another array
 	# proper array
