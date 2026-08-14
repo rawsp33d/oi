@@ -521,15 +521,7 @@ impl<'a> Translator<'a> {
 				ret: None,
 				body,
 			} if matches!(target, Typ::Fn(..)) => {
-				let Typ::Fn(_, ret) = target else { unreachable!() };
-				self.declare_anon_fn(
-					captures,
-					params,
-					*params_tuple,
-					AnonRet::Inferred((**ret).clone()),
-					body,
-					value.1,
-				)
+				self.declare_anon_fn(captures, params, *params_tuple, AnonSig::Inferred(target.clone()), body, value.1)
 			}
 			_ => {
 				let (val, vt) = self.expr(value)?;

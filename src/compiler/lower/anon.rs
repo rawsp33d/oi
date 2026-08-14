@@ -1,8 +1,8 @@
 use super::*;
 use crate::ast::{Capture, Param};
 
-// An anon fn's return type.
-pub(super) enum AnonRet<'a> {
+// An anon fn's signature.
+pub(super) enum AnonSig<'a> {
 	Explicit(&'a Spanned<TypeExpr>),
 	Inferred(Typ),
 }
@@ -14,7 +14,7 @@ impl<'a> Translator<'a> {
 		captures: &Option<Vec<Capture>>,
 		params: &[Param],
 		params_tuple: bool,
-		ret: AnonRet,
+		sig: AnonSig,
 		body: &[Spanned<Expr>],
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
@@ -47,15 +47,34 @@ impl<'a> Translator<'a> {
 			resolved.push((name.clone(), local.typ, boxed, val));
 		}
 
-		let (ret_te, subst) = match ret {
-			AnonRet::Explicit(te) => (te.clone(), HashMap::new()),
-			AnonRet::Inferred(t) => (
-				(TypeExpr::Name("$ret".to_string()), span),
-				HashMap::from([("$ret".to_string(), t)]),
-			),
+		let (params, params_tuple, ret_te, subst) = match sig {
+			AnonSig::Explicit(te) => (params.to_vec(), params_tuple, te.clone(), HashMap::new()),
+			AnonSig::Inferred(Typ::Fn(ptyps, ret)) => {
+				let name = |i: usize| format!("${i}");
+				let (params, tuple) = match params.is_empty() {
+					true => (
+						(0..ptyps.len())
+							.map(|i| Param {
+								typ: TypeExpr::Name(name(i)),
+								name: name(i),
+								span,
+								default: None,
+								mutable: false,
+							})
+							.collect(),
+						ptyps.len() != 1,
+					),
+					false => (params.to_vec(), params_tuple),
+				};
+				let subst = (ptyps.into_iter().enumerate().map(|(i, t)| (name(i), t)))
+					.chain([("$ret".into(), *ret)])
+					.collect();
+				(params, tuple, (TypeExpr::Name("$ret".into()), span), subst)
+			}
+			AnonSig::Inferred(_) => unreachable!("a fn literal is only inferred against a fn target"),
 		};
 		let def = GenericFnDef {
-			params: params.to_vec(),
+			params,
 			params_tuple,
 			ret: Some(ret_te),
 			body: body.to_vec(),

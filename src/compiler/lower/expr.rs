@@ -527,7 +527,7 @@ impl<'a> Translator<'a> {
 					)
 					.with_label("add a return type, e.g. `fn [] () int { ... }`"));
 				};
-				self.declare_anon_fn(captures, params, *params_tuple, AnonRet::Explicit(ret), body, expr.1)
+				self.declare_anon_fn(captures, params, *params_tuple, AnonSig::Explicit(ret), body, expr.1)
 			}
 
 			Expr::Bind { .. } => unreachable!("bind in expression position"),

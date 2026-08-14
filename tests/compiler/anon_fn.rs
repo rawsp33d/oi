@@ -375,3 +375,22 @@ fn bare_fn_still_needs_ret_without_context() {
 	"};
 	fail_with(src, "explicit return type");
 }
+
+#[test]
+fn param_inferred_from_fn_target() {
+	let src = indoc! {"
+		op :: fn(n: int, f: fn(int) int) int { f(n) }
+		print(op(4, fn { $ * 4 }))
+		print(op(4) { $ + 1 })
+	"};
+	check(src, ["16", "5"]);
+}
+
+#[test]
+fn params_tuple_inferred() {
+	let src = indoc! {r#"
+		apply :: fn(f: fn(int, string) string) string { f(1, "x") }
+		apply(fn { $.1 + "{$.0}" })
+	"#};
+	check(src, "x1");
+}
