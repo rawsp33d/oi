@@ -574,12 +574,6 @@ where
 			.boxed();
 		let record_arg = brace(record_entries.clone()).map_with(|es, ex| vec![(Expr::Record(es), ex.span())]);
 
-		// map literals
-		let map_lit = just(Token::Ident("Map".to_string()))
-			.ignore_then(just(Token::Dot))
-			.ignore_then(brace(record_entries.clone().or_not().map(Option::unwrap_or_default)))
-			.map_with(|entries, ex| (Expr::Record(entries), ex.span()));
-
 		// enum shorthand
 		let enum_shorthand = just(Token::Dot)
 			.ignore_then(select! { Token::Ident(v) => v, Token::None => "none".to_string() })
@@ -589,11 +583,6 @@ where
 				(Expr::EnumShorthand { variant, args }, ex.span())
 			})
 			.boxed();
-
-		// anonymous array literals
-		let anon_array = just(Token::Dot)
-			.ignore_then(bracket(loose_list(expr.clone())))
-			.map_with(|elems, ex| (Expr::AnonArray(elems), ex.span()));
 
 		// a lexer error token
 		let bad = select! { Token::Error(text) => text }
@@ -605,25 +594,13 @@ where
 		// tuple literals
 		let tuple = paren(loose_list(struct_field_entry)).map_with(|elems, ex| (Expr::Tuple(elems), ex.span()));
 
-		// map literals
-		let type_init = type_expr
+		// dot array literals
+		let dot_array = type_expr
 			.clone()
-			.filter(|t| matches!(t, TypeExpr::Map(..)))
-			.then_ignore(just(Token::Dot))
-			.then(brace(loose_list(expr.clone())))
-			.map_with(|(te, elems), ex| (Expr::TypeInit((te, ex.span()), elems), ex.span()));
-
-		// typed array literals
-		let array_init = type_expr
-			.clone()
+			.or_not()
 			.then_ignore(just(Token::Dot))
 			.then(bracket(loose_list(expr.clone())))
-			.map_with(|(elem, elems), ex| {
-				(
-					Expr::TypeInit((TypeExpr::Array(Box::new(elem)), ex.span()), elems),
-					ex.span(),
-				)
-			});
+			.map_with(|(elem, elems), ex| (Expr::DotArray(elem.map(|t| (t, ex.span())), elems), ex.span()));
 
 		let option_init = just(Token::Question)
 			.ignore_then(type_expr.clone())
@@ -649,6 +626,17 @@ where
 				ex.span(),
 			)
 		});
+
+		// map literals
+		let map_entry = expr.clone().then_ignore(just(Token::Assign)).then(expr.clone());
+		let map = bracket(
+			map_entry
+				.separated_by(just(Token::Comma).or_not())
+				.allow_trailing()
+				.at_least(1)
+				.collect::<Vec<_>>(),
+		)
+		.map_with(|entries, ex| (Expr::Map(entries), ex.span()));
 
 		// array literals
 		let array = bracket(loose_list(expr.clone())).map_with(|elems, ex| (Expr::Array(elems), ex.span()));
@@ -800,16 +788,14 @@ where
 
 		// atoms
 		let atom = choice((
-			type_init,
-			array_init,
-			map_lit,
+			dot_array,
 			leaf,
 			enum_shorthand,
-			anon_array,
 			group,
 			tuple,
 			option_init,
 			result_init,
+			map,
 			array,
 			record,
 			if_expr,

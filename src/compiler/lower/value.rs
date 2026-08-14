@@ -455,10 +455,14 @@ impl<'a> Translator<'a> {
 			return Ok((v, target.clone()));
 		}
 		match &value.0 {
-			Expr::Array(elems) | Expr::AnonArray(elems) if matches!(target, Typ::Array(_)) => {
+			Expr::Array(elems) | Expr::DotArray(None, elems) if matches!(target, Typ::Array(_)) => {
 				self.array_lit(elems, Some(&array_elem(target).clone()), value.1)
 			}
-			Expr::AnonArray(elems) => match target {
+			Expr::Array(elems) if elems.is_empty() && matches!(target, Typ::Map(..)) => {
+				self.map_lit(&[], value.1, Some(target))
+			}
+			Expr::Map(entries) if matches!(target, Typ::Map(..)) => self.map_lit(entries, value.1, Some(target)),
+			Expr::DotArray(None, elems) => match target {
 				Typ::FixedArray(elem, n) => self.fixed_lit(elems, elem, *n, value.1),
 				_ => Err(
 					Diagnostic::new("no array type is expected in this position", value.1.into_range())
@@ -589,28 +593,44 @@ impl<'a> Translator<'a> {
 		span: Span,
 		target: Option<&Typ>,
 	) -> Result<TypedVal, Diagnostic> {
-		let (key_typ, mut val_typ) = match (target, entries.first()) {
-			(Some(Typ::Map(k, v)), _) => ((**k).clone(), Some((**v).clone())),
-			(_, Some((key, _))) => {
-				let kt = match &key.0 {
-					Expr::Ident(_) | Expr::String(_) => Typ::Str,
-					Expr::Int(n) if i32::try_from(*n).is_ok() => Typ::Int(32),
-					Expr::Int(_) => Typ::Int(64),
-					Expr::Atom(_) => Typ::Atom,
-					_ => unreachable!(),
-				};
-				(kt, None)
-			}
-			_ => {
-				return Err(Diagnostic::new("cannot infer the type of `{}` here", span.into_range())
-					.with_label("no map type is expected in this position"));
-			}
+		let entries: Vec<_> = entries
+			.iter()
+			.map(|(k, v)| match &k.0 {
+				Expr::Ident(n) => ((Expr::String(n.clone()), k.1), v.clone()),
+				_ => (k.clone(), v.clone()),
+			})
+			.collect();
+		self.map_lit(&entries, span, target)
+	}
+
+	pub(super) fn map_lit(
+		&mut self,
+		entries: &[(Spanned<Expr>, Spanned<Expr>)],
+		span: Span,
+		target: Option<&Typ>,
+	) -> Result<TypedVal, Diagnostic> {
+		let (key_typ, mut val_typ, mut first_bits) = match target {
+			Some(Typ::Map(k, v)) => ((**k).clone(), Some((**v).clone()), None),
+			_ => match entries.first() {
+				Some((first_key, _)) => {
+					let (kv, kt) = self.expr(first_key)?;
+					let tag = map_key_tag(&kt).ok_or_else(|| {
+						Diagnostic::new(format!("{kt} cannot be used as a map key"), first_key.1.into_range())
+							.with_label("unsupported key type")
+					})?;
+					(kt, None, Some((tag, self.map_bits(kv))))
+				}
+				None => {
+					return Err(Diagnostic::new("cannot infer the type of `[]` here", span.into_range())
+						.with_label("no map type is expected in this position"));
+				}
+			},
 		};
 		let map = self.call_map_new();
 		for (key, value) in entries {
-			let (tag, key_bits) = match &key.0 {
-				Expr::Ident(n) => self.map_key(&(Expr::String(n.clone()), key.1), &key_typ)?,
-				_ => self.map_key(key, &key_typ)?,
+			let (tag, key_bits) = match first_bits.take() {
+				Some(tb) => tb,
+				None => self.map_key(key, &key_typ)?,
 			};
 			let (val, vt) = match &val_typ {
 				Some(t) => (self.check_typed(value, t, "type mismatch")?, t.clone()),
@@ -636,16 +656,6 @@ impl<'a> Translator<'a> {
 		span: Span,
 		target: Option<&Typ>,
 	) -> Result<TypedVal, Diagnostic> {
-		if name.is_empty() && matches!(target, Some(Typ::Map(..))) {
-			let entry = |(fname, v): &(Option<String>, Spanned<Expr>)| match fname {
-				Some(n) => Ok(((Expr::Ident(n.clone()), v.1), v.clone())),
-				None => {
-					Err(Diagnostic::new("map entries need a key", v.1.into_range()).with_label("write `key = value`"))
-				}
-			};
-			let entries = fields.iter().map(entry).collect::<Result<Vec<_>, _>>()?;
-			return self.record_lit(&entries, span, target);
-		}
 		// `Self {}` inside a method resolves to the impl's type
 		let name = match name {
 			"" => match target {

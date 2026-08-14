@@ -98,7 +98,7 @@ pub(super) fn collect(expr: &Expr, out: &mut HashSet<String>) {
 			child(value);
 		}
 		OptionInit { arg, .. } | ResultInit { arg, .. } => child(arg),
-		Call { args, .. } | Array(args) | AnonArray(args) | EnumShorthand { args, .. } => {
+		Call { args, .. } | Array(args) | DotArray(_, args) | EnumShorthand { args, .. } => {
 			args.iter().for_each(&mut child)
 		}
 		MethodCall { recv, args, .. } => {
@@ -120,6 +120,10 @@ pub(super) fn collect(expr: &Expr, out: &mut HashSet<String>) {
 			body.iter().for_each(&mut child);
 		}
 		Tuple(elems) | StructLit { fields: elems, .. } => elems.iter().for_each(|(_, e)| child(e)),
+		Record(entries) | Map(entries) => entries.iter().for_each(|(k, v)| {
+			child(k);
+			child(v);
+		}),
 		Field { tuple, .. } => child(tuple),
 		Index { collection, index } => {
 			child(collection);

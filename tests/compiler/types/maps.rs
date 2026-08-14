@@ -17,7 +17,7 @@ fn declare_and_set_get() {
 fn init_expr_declare_and_set_get() {
 	check(
 		indoc! {r#"
-			m := Map[string, int].{}
+			m: Map[string, int] = []
 			m["one"] = 1
 			m["one"]
 		"#},
@@ -26,15 +26,9 @@ fn init_expr_declare_and_set_get() {
 }
 
 #[test]
-fn bare_map_lit_from_annotation() {
-	check(
-		indoc! {r#"
-			m: Map[string, int] = Map.{}
-			m["one"] = 1
-			m["one"]
-		"#},
-		"1",
-	);
+fn dot_brace_map_syntax_is_gone() {
+	fail_with("Map.{ one = 1 }", "unknown struct");
+	fail_with(r#"Map[string, int].{"x"}"#, "undefined variable");
 }
 
 #[test]
@@ -221,23 +215,51 @@ fn record_empty_against_target() {
 }
 
 #[test]
-fn anon_empty_against_target() {
+fn empty_array_against_array_target() {
+	check("a: []int = []\na.len", "0");
+}
+
+#[test]
+fn bracket_lit_infers_from_first_entry() {
+	check(r#"[1 = "one", 2 = "two"][1]"#, "one");
+}
+
+#[test]
+fn bracket_lit_atom_keys() {
+	check("[:ok = 200, :not_found = 404][:ok]", "200");
+}
+
+#[test]
+fn bracket_lit_var_key_uses_value_not_name() {
 	check(
 		indoc! {r#"
-			m: Map[string, int] = .{}
-			m["a"] = 3
-			m["a"]
+			k :: "one"
+			m := [k = 1, "two" = 2]
+			m["one"]
 		"#},
-		"3",
+		"1",
+	);
+	assert!(
+		fail(indoc! {r#"
+			k :: "one"
+			m := [k = 1]
+			m["k"]
+		"#})
+		.contains("key not found")
 	);
 }
 
 #[test]
-fn anon_with_fields_against_target() {
+fn bracket_lit_undefined_ident_key_fails() {
+	fail_with("[one = 1]", "undefined variable `one`");
+}
+
+#[test]
+fn bracket_lit_as_call_arg() {
 	check(
 		indoc! {r#"
-			m: Map[string, int] = .{ one = 1 }
-			m["one"]
+			f :: fn(m: Map[string, int]) int { m["one"] }
+			f(["one" = 1])
 		"#},
 		"1",
 	);
@@ -258,20 +280,6 @@ fn record_pun() {
 #[test]
 fn record_mixed_value_types_fail() {
 	fail_with(r#"m :: { a = 1, b = "two" }"#, "expected int, got str");
-}
-
-#[test]
-fn map_prefix_lit() {
-	check(
-		indoc! {r#"
-			num_map := Map.{
-				one = 1
-				two = 2
-			}
-			num_map["one"]
-		"#},
-		"1",
-	);
 }
 
 #[test]
@@ -316,11 +324,6 @@ fn deleted_key_then_lookup_panics() {
 		"#},
 		"key not found",
 	);
-}
-
-#[test]
-fn init_with_elements_fails() {
-	fail_with(r#"Map[string, int].{"x"}"#, "only array initializers take elements");
 }
 
 #[test]

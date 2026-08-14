@@ -618,7 +618,7 @@ fn typed_literal_index() {
 
 #[test]
 fn typed_literal_mismatch() {
-	fail_with(r#"a :: int.[1, "x"]"#, "declared type");
+	fail_with(r#"a :: int.[1, "x"]"#, "must share a type");
 }
 
 #[test]

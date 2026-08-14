@@ -379,24 +379,17 @@ impl<'a> Translator<'a> {
 
 			Expr::Array(elems) => self.array_lit(elems, None, expr.1),
 
-			Expr::AnonArray(elems) => self.fixed_infer(elems, expr.1),
+			Expr::DotArray(None, elems) => self.fixed_infer(elems, expr.1),
 
-			Expr::TypeInit((te, span), elems) => {
-				let typ = self.types().resolve(te, *span)?;
-				match &typ {
-					Typ::Array(elem) if elems.is_empty() => Err(Diagnostic::new(
-						"an exact array literal needs elements",
-						expr.1.into_range(),
-					)
-					.with_label(format!("write `[]{elem}` for an empty dynamic array"))),
-					Typ::Array(elem) => self.fixed_lit(elems, elem, elems.len(), expr.1),
-					_ if elems.is_empty() => Ok((self.zero(&typ), typ)),
-					_ => Err(Diagnostic::new(
-						format!("only array initializers take elements, not {typ}"),
-						expr.1.into_range(),
-					)
-					.with_label("expected empty braces here")),
+			Expr::DotArray(Some((te, span)), elems) => {
+				let elem = self.types().resolve(te, *span)?;
+				if elems.is_empty() {
+					return Err(
+						Diagnostic::new("an exact array literal needs elements", expr.1.into_range())
+							.with_label(format!("write `[]{elem}` for an empty dynamic array")),
+					);
 				}
+				self.fixed_lit(elems, &elem, elems.len(), expr.1)
 			}
 
 			Expr::Index { collection, index } => {
@@ -490,6 +483,8 @@ impl<'a> Translator<'a> {
 			}
 
 			Expr::Record(entries) => self.record_lit(entries, expr.1, None),
+
+			Expr::Map(entries) => self.map_lit(entries, expr.1, None),
 
 			Expr::Range { start, end } => {
 				let start_val = match start {

@@ -26,9 +26,6 @@ pub enum Expr {
 		value: Option<Box<Spanned<Expr>>>,
 	},
 
-	// `T{}`
-	TypeInit(Spanned<TypeExpr>, Vec<Spanned<Expr>>),
-
 	// `?T(value)`, `?T(none)`
 	OptionInit {
 		inner: Spanned<TypeExpr>,
@@ -121,8 +118,8 @@ pub enum Expr {
 
 	// arrays
 	Array(Vec<Spanned<Expr>>),
-	// `.[ ...expr ]`
-	AnonArray(Vec<Spanned<Expr>>),
+	// `.[ ...expr ]`, `T.[ ...expr ]`
+	DotArray(Option<Spanned<TypeExpr>>, Vec<Spanned<Expr>>),
 	// `collection[index]`
 	// TODO: handle negative indices
 	Index {
@@ -191,6 +188,8 @@ pub enum Expr {
 	Ref(Box<Spanned<Expr>>),
 	// `{ k = v }`
 	Record(Vec<(Spanned<Expr>, Spanned<Expr>)>),
+	// `[ k = v, ]`
+	Map(Vec<(Spanned<Expr>, Spanned<Expr>)>),
 	// `name.field = value`
 	FieldAssign {
 		name: String,

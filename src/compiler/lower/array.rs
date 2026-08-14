@@ -24,13 +24,12 @@ impl<'a> Translator<'a> {
 		header
 	}
 
-	// Build an array literal.
-	pub(super) fn array_lit(
+	// Check each element against `want`, collecting values.
+	fn collect_elems(
 		&mut self,
 		elems: &[Spanned<Expr>],
 		want: Option<&Typ>,
-		span: Span,
-	) -> Result<TypedVal, Diagnostic> {
+	) -> Result<(Vec<Value>, Option<Typ>), Diagnostic> {
 		let mut elem = want.cloned();
 		let mut vals = Vec::with_capacity(elems.len());
 		for e in elems {
@@ -48,22 +47,44 @@ impl<'a> Translator<'a> {
 			}
 			vals.push(val);
 		}
+		Ok((vals, elem))
+	}
+
+	// Copy each value into `base` at its stride-sized slot.
+	fn store_all(&mut self, base: Value, vals: Vec<Value>, elem: &Typ) {
+		let stride = self.elem_stride(elem);
+		for (i, val) in vals.into_iter().enumerate() {
+			let val = self.copy_in(val, elem);
+			self.store_elem(base, (i as i64 * stride) as i32, elem, val);
+		}
+	}
+
+	// Fresh rc'd heap buffer holding `vals`.
+	fn heap_alloc(&mut self, vals: Vec<Value>, elem: &Typ) -> (Value, Value) {
+		let n = vals.len();
+		let base = self.call_alloc_bytes(n as i64 * self.elem_stride(elem) + 8);
+		let one = self.b.ins().iconst(self.int, 1);
+		self.b.ins().store(MemFlags::new(), one, base, 0);
+		let data = self.b.ins().iadd_imm(base, 8);
+		self.store_all(data, vals, elem);
+		(data, self.b.ins().iconst(self.int, n as i64))
+	}
+
+	// Build an array literal.
+	pub(super) fn array_lit(
+		&mut self,
+		elems: &[Spanned<Expr>],
+		want: Option<&Typ>,
+		span: Span,
+	) -> Result<TypedVal, Diagnostic> {
+		let (vals, elem) = self.collect_elems(elems, want)?;
 		let Some(elem) = elem else {
 			return Err(
 				Diagnostic::new("empty array literals aren't supported yet", span.into_range())
 					.with_label("needs at least one element to infer its type"),
 			);
 		};
-		let size = self.elem_stride(&elem);
-		let base = self.call_alloc_bytes(vals.len() as i64 * size + 8);
-		let one = self.b.ins().iconst(self.int, 1);
-		self.b.ins().store(MemFlags::new(), one, base, 0);
-		let data = self.b.ins().iadd_imm(base, 8);
-		for (i, val) in vals.into_iter().enumerate() {
-			let val = self.copy_in(val, &elem);
-			self.store_elem(data, (i as i64 * size) as i32, &elem, val);
-		}
-		let len = self.b.ins().iconst(self.int, elems.len() as i64);
+		let (data, len) = self.heap_alloc(vals, &elem);
 		let typ = Typ::Array(Box::new(elem));
 		Ok((self.make_array(data, len, &typ), typ))
 	}
@@ -80,59 +101,31 @@ impl<'a> Translator<'a> {
 			let msg = format!("expected {n} elements, got {}", elems.len());
 			return Err(Diagnostic::new(msg, span.into_range()).with_label("wrong number of elements"));
 		}
-		let stride = self.elem_stride(elem);
-		let ptr = self.stack_slot((n as i64 * stride) as u32);
-		for (i, e) in elems.iter().enumerate() {
-			let val = self.check_typed(e, elem, "array elements must match the declared type")?;
-			closure_escape(elem, e.1.into_range(), "stored in an array")?;
-			let val = self.copy_in(val, elem);
-			self.store_elem(ptr, (i as i64 * stride) as i32, elem, val);
-		}
-		Ok((ptr, Typ::FixedArray(Box::new(elem.clone()), n)))
+		let (vals, elem) = self.collect_elems(elems, Some(elem))?;
+		let elem = elem.expect("want given");
+		let ptr = self.stack_slot((n as i64 * self.elem_stride(&elem)) as u32);
+		self.store_all(ptr, vals, &elem);
+		Ok((ptr, Typ::FixedArray(Box::new(elem), n)))
 	}
 
 	// Infer a fixed array from its elements.
 	pub(super) fn fixed_infer(&mut self, elems: &[Spanned<Expr>], span: Span) -> Result<TypedVal, Diagnostic> {
-		let Some((first, rest)) = elems.split_first() else {
+		let (vals, elem) = self.collect_elems(elems, None)?;
+		let Some(elem) = elem else {
 			return Err(Diagnostic::new("cannot infer the element type here", span.into_range())
 				.with_label("needs at least one element to infer its type"));
 		};
-		let (first_val, elem) = self.expr(first)?;
-		closure_escape(&elem, first.1.into_range(), "stored in an array")?;
-		let mut vals = vec![first_val];
-		for e in rest {
-			let (val, typ) = self.check_expr(e, &elem)?;
-			if typ != elem {
-				let msg = format!("array elements must share a type: expected {elem}, got {typ}");
-				return Err(Diagnostic::new(msg, e.1.into_range()).with_label("mismatched element type"));
-			}
-			closure_escape(&typ, e.1.into_range(), "stored in an array")?;
-			vals.push(val);
-		}
 		let n = vals.len();
-		let stride = self.elem_stride(&elem);
-		let ptr = self.stack_slot((n as i64 * stride) as u32);
-		for (i, val) in vals.into_iter().enumerate() {
-			let val = self.copy_in(val, &elem);
-			self.store_elem(ptr, (i as i64 * stride) as i32, &elem, val);
-		}
+		let ptr = self.stack_slot((n as i64 * self.elem_stride(&elem)) as u32);
+		self.store_all(ptr, vals, &elem);
 		Ok((ptr, Typ::FixedArray(Box::new(elem), n)))
 	}
 
 	// Autocast a fixed array into a fresh rc'd dynamic buffer.
 	pub(super) fn fixed_to_array(&mut self, ptr: Value, elem: &Typ, n: usize) -> Value {
 		let stride = self.elem_stride(elem);
-		let base = self.call_alloc_bytes(n as i64 * stride + 8);
-		let one = self.b.ins().iconst(self.int, 1);
-		self.b.ins().store(MemFlags::new(), one, base, 0);
-		let data = self.b.ins().iadd_imm(base, 8);
-		for i in 0..n {
-			let off = (i as i64 * stride) as i32;
-			let val = self.load_elem(ptr, off, elem);
-			let val = self.copy_in(val, elem);
-			self.store_elem(data, off, elem, val);
-		}
-		let len = self.b.ins().iconst(self.int, n as i64);
+		let vals = (0..n).map(|i| self.load_elem(ptr, (i as i64 * stride) as i32, elem)).collect();
+		let (data, len) = self.heap_alloc(vals, elem);
 		let typ = Typ::Array(Box::new(elem.clone()));
 		self.make_array(data, len, &typ)
 	}
