@@ -150,6 +150,8 @@ fn explicit_type_arg_on_non_generic_errors() {
 #[test]
 fn bounded_type_param_parses_and_runs() {
 	let src = indoc! {"
+		Ord :: trait {}
+		int : Ord
 		biggest[T: Ord] :: fn(a: T, b: T) T {
 			if a > b { a } else { b }
 		}
@@ -161,10 +163,39 @@ fn bounded_type_param_parses_and_runs() {
 #[test]
 fn bounded_type_param_with_explicit_type_arg() {
 	let src = indoc! {"
+		Ord :: trait {}
+		int : Ord
 		biggest[T: Ord] :: fn(a: T, b: T) T {
 			if a > b { a } else { b }
 		}
 		biggest[int](3, 7)
 	"};
 	check(src, "7");
+}
+
+#[test]
+fn bound_violated() {
+	fail_with(
+		indoc! {"
+			Ord :: trait {}
+			biggest[T: Ord] :: fn(a: T, b: T) T {
+				if a > b { a } else { b }
+			}
+			biggest(3, 7)
+		"},
+		"does not claim",
+	);
+}
+
+#[test]
+fn unknown_bound_trait() {
+	fail_with(
+		indoc! {"
+			biggest[T: Odr] :: fn(a: T, b: T) T {
+				if a > b { a } else { b }
+			}
+			biggest(3, 7)
+		"},
+		"unknown trait",
+	);
 }

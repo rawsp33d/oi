@@ -123,6 +123,21 @@ impl<'a> Translator<'a> {
 			)
 			.with_label("not determined by any argument"));
 		}
+		for p in &def.type_params {
+			let Some(bound) = &p.bound else { continue };
+			if !self.traits.contains_key(bound.as_str()) {
+				return Err(
+					Diagnostic::new(format!("unknown trait `{bound}`"), span.into_range()).with_label("no such trait")
+				);
+			}
+			let typ = &subst[&p.name];
+			if !self.trait_impls.contains(&(typ.to_string(), bound.clone())) {
+				return Err(
+					Diagnostic::new(format!("`{typ}` does not claim `{bound}`"), span.into_range())
+						.with_label(format!("required by `{}: {bound}`", p.name)),
+				);
+			}
+		}
 		let sig = self.declare_instance(name, def, subst)?;
 		let out = self.emit_call(&sig, &vals);
 		self.reload_lent(&lent);
