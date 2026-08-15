@@ -272,6 +272,27 @@ fn const_reexport() {
 }
 
 #[test]
+fn module_cannot_call_main_private_fn() {
+	let p = Project::new()
+		.file(
+			"main.oi",
+			["module main", "secret :: fn() int { 1 }", "use foo", "print(foo.hi())"],
+		)
+		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { secret() }"]);
+	let out = err(run_main(p));
+	assert!(out.contains("undefined function"), "{out}");
+}
+
+#[test]
+fn module_fn_uses_builtins_and_prints() {
+	let p = Project::new().file("main.oi", ["module main", "use foo", "foo.go()"]).file(
+		"foo/lib.oi",
+		["module foo", "pub go :: fn() { n: int = 3\nprint(n + 1) }"],
+	);
+	assert_eq!(ok(run_main(p)), "4");
+}
+
+#[test]
 fn exec_resolves_imports_against_cwd() {
 	let p = Project::new().file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 99 }"]);
 	let out = ok(oi(&["exec", "use foo\nprint(foo.hi())"]).current_dir(&p).run(None));

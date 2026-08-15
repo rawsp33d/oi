@@ -358,7 +358,6 @@ impl TypeCtx<'_> {
 		if let Some(typ) = self.type_params.get(name) {
 			return Ok(typ.clone());
 		}
-		let name = self.scope.env.get(name).map_or(name, String::as_str);
 		match name {
 			"int" => return Ok(Typ::Int(32)),
 			"isize" => return Ok(Typ::ISize),
@@ -390,6 +389,15 @@ impl TypeCtx<'_> {
 				),
 			};
 		}
+		let name = match self.scope.env.get(name) {
+			Some(q) => q.as_str(),
+			None if !self.scope.module.is_empty() && name != "Self" && !name.contains("::") => {
+				return Err(
+					Diagnostic::new(format!("unknown type `{name}`"), span.into_range()).with_label("not a known type")
+				);
+			}
+			_ => name,
+		};
 		if let Some(te) = self.aliases.get(name) {
 			return self.resolve(te, span);
 		}

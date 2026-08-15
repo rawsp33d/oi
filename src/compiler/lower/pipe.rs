@@ -56,7 +56,7 @@ impl Translator<'_> {
 		let head = match &expr.0 {
 			Expr::Pipe { value, step } => return piped(self.feed(value), (**step).clone(), span),
 			Expr::Ident(n) if self.vars.contains_key(n) => called(n.clone(), vec![], dollar, span),
-			Expr::Ident(n) => called(self.qualify(n).into(), vec![], dollar, span),
+			Expr::Ident(n) => called(self.qualify(n).into_owned(), vec![], dollar, span),
 			_ => expr.clone(),
 		};
 		piped((Expr::Dollar, span), head, span)
@@ -105,7 +105,7 @@ impl Translator<'_> {
 			};
 			return Some((ps.clone(), (**ret).clone()));
 		}
-		let sig = self.funcs.get(self.qualify(name))?;
+		let sig = self.funcs.get(self.qualify(name).as_ref())?;
 		Some((sig.params.clone(), sig.ret.clone()))
 	}
 
@@ -123,7 +123,7 @@ impl Translator<'_> {
 		if let Some((params, _)) = self.callable(name) {
 			return Ok(Some(params));
 		}
-		if self.vars.contains_key(name) || !self.generic_fns.contains_key(self.qualify(name)) {
+		if self.vars.contains_key(name) || !self.generic_fns.contains_key(self.qualify(name).as_ref()) {
 			return Ok(None);
 		}
 		let msg = format!("cannot compose a generic function `{name}`");

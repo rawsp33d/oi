@@ -25,6 +25,7 @@ pub struct Module {
 pub struct Scope {
 	pub env: HashMap<String, String>,
 	pub visible: HashMap<String, Visible>,
+	pub module: String,
 }
 
 // A visible module.
@@ -311,7 +312,14 @@ impl Loader<'_> {
 		let mut module = Module {
 			name: name.to_string(),
 			items: vec![],
-			scope: Scope::default(),
+			scope: Scope {
+				module: if name == "main" {
+					String::new()
+				} else {
+					name.to_string()
+				},
+				..Scope::default()
+			},
 		};
 		let mut imports = vec![];
 		for path in files {

@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use super::*;
 
 impl<'a> Translator<'a> {
@@ -15,8 +17,12 @@ impl<'a> Translator<'a> {
 	}
 
 	// Qualify a bare top-level name against the module's own items.
-	pub(super) fn qualify<'n>(&'n self, name: &'n str) -> &'n str {
-		self.scope.env.get(name).map_or(name, String::as_str)
+	pub(super) fn qualify<'n>(&'n self, name: &'n str) -> Cow<'n, str> {
+		match self.scope.env.get(name) {
+			Some(q) => Cow::Borrowed(q.as_str()),
+			None if self.scope.module.is_empty() || name.contains("::") => Cow::Borrowed(name),
+			None => Cow::Owned(format!("{}::{name}", self.scope.module)),
+		}
 	}
 
 	// Look up the binding that a mutation targets.

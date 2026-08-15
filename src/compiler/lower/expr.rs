@@ -68,13 +68,13 @@ impl<'a> Translator<'a> {
 					let val = self.read_local(&local);
 					Ok((val, local.typ))
 				}
-				Err(e) => match self.funcs.get(self.qualify(name)).cloned() {
+				Err(e) => match self.funcs.get(self.qualify(name).as_ref()).cloned() {
 					Some(sig) => {
 						let func_ref = self.module.declare_func_in_func(sig.id, self.b.func);
 						let addr = self.b.ins().func_addr(self.int, func_ref);
 						Ok((addr, Typ::Fn(sig.value_params(), Box::new(sig.ret))))
 					}
-					None => match self.consts.get(self.qualify(name)).cloned() {
+					None => match self.consts.get(self.qualify(name).as_ref()).cloned() {
 						Some(c) => self.expr(&c),
 						None => Err(e),
 					},
@@ -183,7 +183,7 @@ impl<'a> Translator<'a> {
 				// enum payload
 				if let Expr::Ident(name) = &recv.0
 					&& !self.vars.contains_key(name)
-					&& self.enums.contains_key(self.qualify(name))
+					&& self.enums.contains_key(self.qualify(name).as_ref())
 				{
 					let name = self.qualify(name).to_string();
 					return if method == "from" {
@@ -196,9 +196,11 @@ impl<'a> Translator<'a> {
 				// method call is static when `recv` names a struct
 				let (sname, bound) = if let Expr::Ident(name) = &recv.0
 					&& !self.vars.contains_key(name)
-					&& (self.structs.contains_key(self.qualify(name))
-						|| matches!(self.aliases.get(self.qualify(name)), Some(TypeExpr::TupleStruct(..))))
-				{
+					&& (self.structs.contains_key(self.qualify(name).as_ref())
+						|| matches!(
+							self.aliases.get(self.qualify(name).as_ref()),
+							Some(TypeExpr::TupleStruct(..))
+						)) {
 					(self.qualify(name).to_string(), None)
 				} else {
 					let (recv_val, recv_typ) = self.expr(recv)?;
@@ -301,7 +303,7 @@ impl<'a> Translator<'a> {
 				// enum variants
 				if let Expr::Ident(name) = &tuple.0
 					&& !self.vars.contains_key(name)
-					&& self.enums.contains_key(self.qualify(name))
+					&& self.enums.contains_key(self.qualify(name).as_ref())
 				{
 					let name = self.qualify(name).to_string();
 					return self.construct_variant(&name, field, &[], expr.1);
