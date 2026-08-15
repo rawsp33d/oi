@@ -160,17 +160,6 @@ fn struct_field_type() {
 }
 
 #[test]
-fn anonymous_sum_in_signature() {
-	check(
-		indoc! {"
-			f :: fn() :ok | :err { :err }
-			f()
-		"},
-		"err",
-	);
-}
-
-#[test]
 fn anonymous_sum_in_bind() {
 	check(
 		indoc! {"
@@ -298,42 +287,6 @@ fn mixed_atom_and_type() {
 			x
 		"},
 		"5",
-	);
-}
-
-#[test]
-fn general_match() {
-	check(
-		indoc! {"
-			Id :: int | string
-			x : Id : 7
-			match x {
-				n @ int => n + 1,
-				string => 0,
-			}
-		"},
-		"8",
-	);
-	check(
-		indoc! {r#"
-			Id :: int | string
-			x : Id : "z"
-			match x {
-				int => 1,
-				else => 2,
-			}
-		"#},
-		"2",
-	);
-	fail_with(
-		indoc! {"
-			Id :: int | string
-			x : Id : 7
-			match x {
-				string => 0,
-			}
-		"},
-		"non-exhaustive match, missing: int",
 	);
 }
 

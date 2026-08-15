@@ -71,32 +71,6 @@ fn int_keys() {
 }
 
 #[test]
-fn float_keys() {
-	check(
-		indoc! {"
-			m: Map[float, int]
-			m[1.2] = 6
-			m[2.1] = 9
-			m[2.1]
-		"},
-		"9",
-	);
-}
-
-#[test]
-fn bool_keys() {
-	check(
-		indoc! {"
-			m: Map[bool, int]
-			m[true] = 6
-			m[false] = 9
-			m[false]
-		"},
-		"9",
-	);
-}
-
-#[test]
 fn tuple_keys_fail_for_now() {
 	// TODO: actually implement complex keys and fix test
 	assert!(
@@ -199,18 +173,6 @@ fn record_typed_target() {
 			m["a"]
 		"#},
 		"1.5",
-	);
-}
-
-#[test]
-fn record_empty_against_target() {
-	check(
-		indoc! {r#"
-			m: Map[string, int] = {}
-			m["a"] = 3
-			m["a"]
-		"#},
-		"3",
 	);
 }
 

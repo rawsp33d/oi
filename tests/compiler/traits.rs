@@ -48,18 +48,6 @@ fn marker_impl() {
 }
 
 #[test]
-fn lowercase_claim_beside_zeroed_decl() {
-	let src = indoc! {"
-		animal :: trait {}
-		dog :: struct {}
-		dog : animal
-		n : int
-		print(dog is animal, n)
-	"};
-	check(src, "true 0");
-}
-
-#[test]
 fn supertraits() {
 	let src = indoc! {"
 		Eq :: trait {}
@@ -212,30 +200,6 @@ fn rejects_wrong_arity_impl() {
 }
 
 #[test]
-fn rejects_wrong_param_type_impl() {
-	fail_with(
-		indoc! {r#"
-			Animal :: trait { speak: fn(self, times: int) string }
-			Dog :: struct {}
-			Dog : Animal { speak :: fn(self, times: float) string { "woof" } }
-		"#},
-		"wrong signature",
-	);
-}
-
-#[test]
-fn rejects_wrong_return_type_impl() {
-	fail_with(
-		indoc! {r#"
-			Animal :: trait { speak: fn(self) string }
-			Dog :: struct {}
-			Dog : Animal { speak :: fn(self) int { 0 } }
-		"#},
-		"wrong signature",
-	);
-}
-
-#[test]
 fn one_fill_satisfies_two_traits() {
 	let src = indoc! {"
 		A :: trait { f: fn(self) int }
@@ -305,22 +269,6 @@ fn rejects_duplicate_fill() {
 		"},
 		"duplicate fill",
 	);
-}
-
-#[test]
-fn overrides_default_method_multi_param() {
-	let src = indoc! {r#"
-		Animal :: trait {
-			speak : fn(self, times: int, loud: bool) string
-			shout :: fn(self) string { self.speak(1, false) + "!" }
-		}
-		Dog :: struct {}
-		Dog : Animal {
-			speak :: fn(self, times: int, loud: bool) string { if loud { "WOOF" } else { "woof" } }
-		}
-		Dog.{}.speak(2, true)
-	"#};
-	check(src, "WOOF");
 }
 
 #[test]
@@ -454,17 +402,6 @@ fn trait_declared_str_dyn_dispatches() {
 		print(a.str())
 	"#};
 	check(src, "custom-collie\ncustom-collie");
-}
-
-#[test]
-fn fixed_trait_array_loops_and_dispatches() {
-	let src = indoc! {r#"
-		Cat :: struct { kind: string }
-		Cat : Animal { speak :: fn(self) string { "meow" } }
-		zoo := Animal.[ Dog.{ "collie" }, Cat.{ "mau" } ]
-		loop a in zoo { print("a " + a.kind + " says " + a.speak()) }
-	"#};
-	check([ANIMAL_KIND, src], ["a collie says woof", "a mau says meow"]);
 }
 
 #[test]

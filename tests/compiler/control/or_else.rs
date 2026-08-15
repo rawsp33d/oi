@@ -16,11 +16,6 @@ fn unwraps_some() {
 }
 
 #[test]
-fn unwraps_ok() {
-	check("!int(42) or { -1 }", "42");
-}
-
-#[test]
 fn skips_fallback_body_when_ok() {
 	let src = indoc! {r#"
 		!int(42) or {

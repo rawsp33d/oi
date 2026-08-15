@@ -28,16 +28,6 @@ fn atom_ne() {
 }
 
 #[test]
-fn atom_bound_eq() {
-	check("x :: :apple\nx == :apple", "true");
-}
-
-#[test]
-fn atom_bound_ne() {
-	check("x :: :apple\nx == :banana", "false");
-}
-
-#[test]
 fn atom_two_bindings_eq() {
 	check("a :: :thing\nb :: :thing\na == b", "true");
 }

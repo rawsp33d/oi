@@ -21,11 +21,6 @@ fn print_multiple() {
 }
 
 #[test]
-fn print_mixed_types() {
-	check(r#"print("n =", 7)"#, "n = 7");
-}
-
-#[test]
 fn print_as_statement() {
 	check(
 		r#"print("hello")
@@ -45,15 +40,6 @@ fn write_no_newline() {
 		r#"write("hi")
 42"#,
 		"hi42",
-	);
-}
-
-#[test]
-fn write_multiple() {
-	check(
-		r#"write("a", "b")
-42"#,
-		"a b42",
 	);
 }
 

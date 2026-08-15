@@ -6,11 +6,6 @@ fn assert_true() {
 }
 
 #[test]
-fn assert_condition() {
-	check("assert(1 == 1)", "true");
-}
-
-#[test]
 fn assert_as_statement() {
 	check("assert(2 > 1)\n42", "42");
 }

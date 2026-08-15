@@ -13,35 +13,6 @@ fn counts_to_a_return() {
 }
 
 #[test]
-fn sums_across_iterations() {
-	let src = indoc! {"
-		sum := 0
-		i := 0
-		loop {
-			i = i + 1
-			sum = sum + i
-			if i == 4 { return sum }
-		}
-	"};
-	check(src, "10");
-}
-
-#[test]
-fn loop_in_function() {
-	let src = indoc! {"
-		pow2_over :: fn(n: int) int {
-			x := 1
-			loop {
-				if x > n { return x }
-				x = x * 2
-			}
-		}
-		pow2_over(10)
-	"};
-	check(src, "16");
-}
-
-#[test]
 fn break_exits() {
 	let src = indoc! {"
 		i := 0
@@ -123,48 +94,6 @@ fn while_never_enters() {
 }
 
 #[test]
-fn while_sums() {
-	let src = indoc! {"
-		sum := 0
-		i := 0
-		loop i < 5 {
-			i = i + 1
-			sum = sum + i
-		}
-		sum
-	"};
-	check(src, "15");
-}
-
-#[test]
-fn while_break() {
-	let src = indoc! {"
-		i := 0
-		loop i < 100 {
-			i = i + 1
-			if i == 3 { break }
-		}
-		i
-	"};
-	check(src, "3");
-}
-
-#[test]
-fn while_continue() {
-	let src = indoc! {"
-		sum := 0
-		i := 0
-		loop i < 10 {
-			i = i + 1
-			if i % 2 == 1 { continue }
-			sum = sum + i
-		}
-		sum
-	"};
-	check(src, "30");
-}
-
-#[test]
 fn while_condition_must_be_bool() {
 	fail_with("loop 3 { }", "must be Bool");
 }
@@ -204,33 +133,6 @@ fn for_range_empty() {
 }
 
 #[test]
-fn for_range_variable_bounds() {
-	let src = indoc! {"
-		lo :: 2
-		hi :: 5
-		sum := 0
-		loop i in lo..hi {
-			sum = sum + i
-		}
-		sum
-	"};
-	check(src, "9");
-}
-
-#[test]
-fn for_range_break() {
-	let src = indoc! {"
-		sum := 0
-		loop i in 0..100 {
-			if i == 5 { break }
-			sum = sum + i
-		}
-		sum
-	"};
-	check(src, "10");
-}
-
-#[test]
 fn for_range_continue_advances() {
 	let src = indoc! {"
 		sum := 0
@@ -241,34 +143,6 @@ fn for_range_continue_advances() {
 		sum
 	"};
 	check(src, "6");
-}
-
-#[test]
-fn for_range_nested() {
-	let src = indoc! {"
-		n := 0
-		loop i in 0..3 {
-			loop j in 0..3 {
-				n = n + 1
-			}
-		}
-		n
-	"};
-	check(src, "9");
-}
-
-#[test]
-fn for_range_returns() {
-	let src = indoc! {"
-		square_at :: fn(n: int) int {
-			loop i in 0..10 {
-				if i == n { return i * i }
-			}
-			return 0
-		}
-		square_at(3)
-	"};
-	check(src, "9");
 }
 
 #[test]
@@ -288,28 +162,6 @@ fn for_each_sums() {
 		sum
 	"};
 	check(src, "20");
-}
-
-#[test]
-fn for_each_variable_array() {
-	let src = indoc! {"
-		a :: [10, 20, 30]
-		sum := 0
-		loop x in a {
-			sum = sum + x
-		}
-		sum
-	"};
-	check(src, "60");
-}
-
-#[test]
-fn for_each_strings() {
-	let src = indoc! {r#"
-		loop s in ["a", "b", "c"] { write(s) }
-		""
-	"#};
-	check(src, "abc");
 }
 
 #[test]

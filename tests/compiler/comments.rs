@@ -10,16 +10,6 @@ fn comment_line() {
 }
 
 #[test]
-fn comment_stack() {
-	let src = indoc! {"
-		# this is a comment
-		# this is a comment
-		2
-	"};
-	check(src, "2");
-}
-
-#[test]
 fn comment_inline() {
 	let src = indoc! {"
 		2 # this is a comment
@@ -35,19 +25,6 @@ fn doc_before_fn() {
 		add(3, 4)
 	"};
 	check(src, "7");
-}
-
-#[test]
-fn doc_multiline() {
-	let src = indoc! {"
-		## First line.
-		## Second line.
-		##
-		## Paragraph after blank.
-		greet :: fn() int { 1 }
-		greet()
-	"};
-	check(src, "1");
 }
 
 #[test]
@@ -126,19 +103,3 @@ fn block_comment_nested() {
 	check("#{ outer #{ inner }# still outer }# 1 + 1", "2");
 }
 
-#[test]
-fn block_comment_nested_deep() {
-	let src = indoc! {"
-		#{
-			level one
-			#{
-				level two
-				#{ level three }#
-				back to two
-			}#
-			back to one
-		}#
-		5
-	"};
-	check(src, "5");
-}

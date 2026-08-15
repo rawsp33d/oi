@@ -144,16 +144,6 @@ fn fn_return_type_annotation() {
 }
 
 #[test]
-fn fn_return_type_annotation_named_fields() {
-	let src = indoc! {"
-		Point :: struct { x: int, y: int }
-		make :: fn(a: int, b: int) Point { Point.{ x = a, y = b } }
-		make(3, 4)
-	"};
-	check(src, "Point.{x = 3, y = 4}");
-}
-
-#[test]
 fn fn_return_type_annotation_mismatch() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }

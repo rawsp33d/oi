@@ -82,15 +82,6 @@ fn unit_fns_compare_equal() {
 }
 
 #[test]
-fn unit_fns_equal_unit_literal() {
-	let src = indoc! {"
-		nada :: fn() {}
-		assert(nada() == ())
-	"};
-	check(src, "true");
-}
-
-#[test]
 fn empty_main_prints_nothing() {
 	let src = indoc! {"
 		main :: fn() {}

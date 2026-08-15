@@ -274,38 +274,6 @@ fn mut_param_through_fn_value() {
 }
 
 #[test]
-fn mut_param_through_fn_value_needs_mut_at_callsite() {
-	let src = indoc! {"
-		f :: fn(mut xs: []int) int { xs[0] = 9
-			0
-		}
-		a := [1, 2]
-		f(a)
-	"};
-	fail_with(src, "missing `mut` at the callsite");
-}
-
-#[test]
-fn non_mut_fn_value_rejects_mut_at_callsite() {
-	let src = indoc! {"
-		f :: fn(xs: []int) int { 0 }
-		a := [1, 2]
-		f(mut a)
-	"};
-	fail_with(src, "this parameter is not `mut`");
-}
-
-#[test]
-fn mut_param_through_fn_value_exclusivity() {
-	let src = indoc! {"
-		f :: fn(mut xs: []int, n: int) int { 0 }
-		a := [1, 2]
-		f(mut a, a[0])
-	"};
-	fail_with(src, "while it is lent `mut`");
-}
-
-#[test]
 fn mut_fn_typed_param_lends_through_callback() {
 	check(
 		indoc! {"

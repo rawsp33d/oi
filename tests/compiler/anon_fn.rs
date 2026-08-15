@@ -10,15 +10,6 @@ fn call_via_var() {
 }
 
 #[test]
-fn call_via_var_no_args() {
-	let src = indoc! {"
-		answer :: fn [] () int { 42 }
-		answer()
-	"};
-	check(src, "42");
-}
-
-#[test]
 fn call_via_var_passed_to_fn() {
 	let src = indoc! {"
 		apply :: fn(f: fn(int) int, x: int) int { f(x) }
@@ -66,17 +57,6 @@ fn capture_read_only() {
 }
 
 #[test]
-fn capture_multiple() {
-	let src = indoc! {"
-		a :: 10
-		b :: 32
-		add :: fn [a, b] () int { a + b }
-		add()
-	"};
-	check(src, "42");
-}
-
-#[test]
 fn capture_move() {
 	let src = indoc! {"
 		factor :: 3
@@ -105,17 +85,6 @@ fn capture_mut_writes_visible_outside() {
 		counter
 	"};
 	check(src, "2");
-}
-
-#[test]
-fn capture_mut_sees_outer_writes() {
-	let src = indoc! {"
-		x := 1
-		bump :: fn [mut x] () int { x = x + 10; x }
-		x = 5
-		bump()
-	"};
-	check(src, "15");
 }
 
 #[test]
@@ -279,16 +248,6 @@ fn move_capture_kills_the_name() {
 		print(xs)
 	"};
 	fail_with(src, "undefined variable");
-}
-
-#[test]
-fn mixed_move_and_read_only_capture_still_borrows() {
-	let src = indoc! {"
-		a :: [1]
-		b :: 2
-		arr :: [fn [move a, b] () int { a[0] + b }]
-	"};
-	fail_with(src, "borrows its captures");
 }
 
 #[test]

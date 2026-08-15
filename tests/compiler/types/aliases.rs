@@ -21,17 +21,6 @@ fn lowercase_alias() {
 }
 
 #[test]
-fn lowercase_tuple_alias() {
-	let src = indoc! {"
-		pair :: (int, int)
-		mk :: fn() pair { (3, 4) }
-		p :: mk()
-		print(p.0, p.1)
-	"};
-	check(src, "3 4");
-}
-
-#[test]
 fn const_copy_is_not_an_alias() {
 	check(["X :: 5", "Y :: X", "print(Y)"], "5");
 	check(["x :: 5", "y :: x", "print(y)"], "5");

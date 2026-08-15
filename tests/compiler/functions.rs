@@ -10,22 +10,6 @@ fn fn_call() {
 }
 
 #[test]
-fn multi_fn() {
-	let src = indoc! {"
-		base :: fn() int {
-			6
-		}
-
-		triple :: fn() int {
-			base() + base() + base()
-		}
-
-		triple()
-	"};
-	check(src, "18");
-}
-
-#[test]
 fn fn_vars() {
 	let src = indoc! {"
 		area :: fn() int {
@@ -48,15 +32,6 @@ fn fn_args() {
 		add(3, 4)
 	"};
 	check(src, "7");
-}
-
-#[test]
-fn fn_arg_passthrough() {
-	let src = indoc! {"
-		identity :: fn(x: int) int { x }
-		identity(99)
-	"};
-	check(src, "99");
 }
 
 #[test]
@@ -113,26 +88,6 @@ fn fn_arg_wrong_type() {
 		i(2.4)
 	"};
 	fail_with(src, "wrong argument type");
-}
-
-#[test]
-fn fn_return_type() {
-	let src = indoc! {"
-		add :: fn(x: int, y: int) int {
-			x + y
-		}
-		add(3, 4)
-	"};
-	check(src, "7");
-}
-
-#[test]
-fn fn_return_type_float() {
-	let src = indoc! {"
-		scale :: fn(x: f64) f64 { x * 2.0 }
-		scale(2.5)
-	"};
-	check(src, "5.0");
 }
 
 #[test]

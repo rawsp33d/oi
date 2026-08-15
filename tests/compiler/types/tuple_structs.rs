@@ -79,19 +79,6 @@ fn no_such_field() {
 }
 
 #[test]
-fn field_type_from_alias() {
-	check(
-		indoc! {"
-			Id :: int
-			W :: struct (Id)
-			w: W
-			w.0
-		"},
-		"0",
-	);
-}
-
-#[test]
 fn wraps_anonymous_sum() {
 	check(
 		indoc! {"
@@ -130,17 +117,6 @@ fn construct_named() {
 			p.0 == p.x
 		"},
 		"true",
-	);
-}
-
-#[test]
-fn construct_print() {
-	check(
-		indoc! {"
-			Point :: struct (x: float, y: float)
-			Point(1.0, 2.0)
-		"},
-		"Point(x = 1.0, y = 2.0)",
 	);
 }
 

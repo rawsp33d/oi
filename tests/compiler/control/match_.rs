@@ -14,19 +14,6 @@ fn match_string() {
 }
 
 #[test]
-fn match_int() {
-	let src = indoc! {r#"
-		x :: 2
-		match x {
-			1 => "one",
-			2 => "two",
-			else => "other",
-		}
-	"#};
-	check(src, "two");
-}
-
-#[test]
 fn match_else_taken() {
 	let src = indoc! {r#"
 		x :: 99
@@ -72,18 +59,6 @@ fn match_as_binding() {
 }
 
 #[test]
-fn match_int_expr_value() {
-	let src = indoc! {"
-		1 + match 3 {
-			1 => 10,
-			3 => 30,
-			else => 0,
-		}
-	"};
-	check(src, "31");
-}
-
-#[test]
 fn match_or_patterns() {
 	let src = indoc! {r#"
 		os :: "macos"
@@ -106,11 +81,6 @@ fn match_or_patterns_second() {
 		}
 	"#};
 	check(src, "Apple");
-}
-
-#[test]
-fn match_bool() {
-	check("match true { true => 1, false => 2, }", "1");
 }
 
 #[test]

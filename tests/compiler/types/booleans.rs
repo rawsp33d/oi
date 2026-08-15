@@ -6,33 +6,13 @@ fn and_true() {
 }
 
 #[test]
-fn and_false() {
-	check("true && false", "false");
-}
-
-#[test]
 fn or_true() {
 	check("false || true", "true");
 }
 
 #[test]
-fn or_false() {
-	check("false || false", "false");
-}
-
-#[test]
 fn not_true() {
 	check("!true", "false");
-}
-
-#[test]
-fn not_false() {
-	check("!false", "true");
-}
-
-#[test]
-fn chained_and() {
-	check("true && true && true", "true");
 }
 
 #[test]

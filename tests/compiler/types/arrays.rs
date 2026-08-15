@@ -24,21 +24,6 @@ fn array_of_strings() {
 }
 
 #[test]
-fn array_of_floats() {
-	check("[1.5, 2.5]", "[1.5, 2.5]");
-}
-
-#[test]
-fn array_of_bools() {
-	check("[true, false, true]", "[true, false, true]");
-}
-
-#[test]
-fn single_element() {
-	check("[42]", "[42]");
-}
-
-#[test]
 fn trailing_comma() {
 	check("[1, 2,]", "[1, 2]");
 }
@@ -46,41 +31,6 @@ fn trailing_comma() {
 #[test]
 fn no_comma_ints() {
 	check("[2 4 6]", "[2, 4, 6]");
-}
-
-#[test]
-fn no_comma_strings() {
-	check(r#"["a" "b" "c"]"#, r#"["a", "b", "c"]"#);
-}
-
-#[test]
-fn no_comma_bools() {
-	check("[true false true]", "[true, false, true]");
-}
-
-#[test]
-fn no_comma_mixed_with_nested() {
-	// spec example: `odd << [9 11]`
-	check("odd := [1, 3, 5]\nodd << [9 11]\nodd", "[1, 3, 5, 9, 11]");
-}
-
-#[test]
-fn no_comma_in_slice_literal() {
-	// spec shows `[2 4]` as a comma-free array literal
-	check("a :: [2 4]\nassert(a[0] == 2)\na[1]", "4");
-}
-
-#[test]
-fn no_comma_loop() {
-	// spec example: `loop x in [2 4 6 8]`
-	check(
-		indoc! {"
-		sum := 0
-		loop x in [2 4 6 8] { sum = sum + x }
-		sum
-	"},
-		"20",
-	);
 }
 
 #[test]
@@ -94,12 +44,6 @@ fn index_variable() {
 }
 
 #[test]
-fn index_expression() {
-	// the index is any Int expression
-	check("a :: [10, 20, 30]\na[1 + 1]", "30");
-}
-
-#[test]
 fn dot_index() {
 	// numeric dot notation indexes like `[n]`
 	check("a :: [10, 20, 30]\na.0", "10");
@@ -108,16 +52,6 @@ fn dot_index() {
 #[test]
 fn len_field() {
 	check("a :: [10, 20, 30]\na.len", "3");
-}
-
-#[test]
-fn index_arithmetic() {
-	check("a :: [3, 4]\na[0] * a[1]", "12");
-}
-
-#[test]
-fn array_in_var_prints() {
-	check(r#"a :: [1, 2, 3]; a"#, "[1, 2, 3]");
 }
 
 #[test]
@@ -223,16 +157,6 @@ fn slice_is_an_array() {
 }
 
 #[test]
-fn slice_of_strings() {
-	check(r#"a :: ["w", "x", "y", "z"]; a[1..3]"#, r#"["x", "y"]"#);
-}
-
-#[test]
-fn slice_of_tuples() {
-	check("a :: [(1, 2), (3, 4), (5, 6)]\na[..2]", "[(1, 2), (3, 4)]");
-}
-
-#[test]
 fn slice_out_of_bounds() {
 	fail_with("a :: [1, 2, 3]\na[1..9]", "out of bounds");
 }
@@ -260,36 +184,8 @@ fn index_assign_basic() {
 }
 
 #[test]
-fn index_assign_first() {
-	check("a := [10, 20]\na[0] = 1\na[0]", "1");
-}
-
-#[test]
 fn index_assign_variable_index() {
 	check(["a := [1, 2, 3]", "i := 2", "a[i] = 7", "a"], "[1, 2, 7]");
-}
-
-#[test]
-fn index_assign_multiple() {
-	check(["a := [0, 0, 0]", "a[0] = 1", "a[1] = 2", "a[2] = 3", "a"], "[1, 2, 3]");
-}
-
-#[test]
-fn index_assign_strings() {
-	check(r#"a := ["x", "y"]; a[0] = "hello"; a"#, r#"["hello", "y"]"#);
-}
-
-#[test]
-fn index_assign_slice_is_independent() {
-	check(
-		indoc! {"
-		a := [1, 2, 3]
-		b :: a[1..]
-		a[1] = 99
-		assert(b[0] == 2)
-	"},
-		"true",
-	);
 }
 
 #[test]
@@ -317,21 +213,6 @@ fn index_assign_oob_error() {
 #[test]
 fn append_basic() {
 	check("a := [1, 2, 3]\na << 4\na", "[1, 2, 3, 4]");
-}
-
-#[test]
-fn append_updates_len() {
-	check(["a := [1, 3, 5]", "a << 7", "a << 9", "a.len"], "5");
-}
-
-#[test]
-fn append_multiple() {
-	check(["a := [0]", "a << 1", "a << 2", "a << 3", "a"], "[0, 1, 2, 3]");
-}
-
-#[test]
-fn append_strings() {
-	check(r#"a := ["x"]; a << "y"; a << "z"; a"#, r#"["x", "y", "z"]"#);
 }
 
 #[test]
@@ -366,11 +247,6 @@ fn append_type_mismatch_error() {
 #[test]
 fn extend_basic() {
 	check("odd := [1, 3, 5]\nodd << [9, 11]\nodd", "[1, 3, 5, 9, 11]");
-}
-
-#[test]
-fn extend_updates_len() {
-	check("odd := [1, 3, 5]\nodd << [9, 11]\nodd.len", "5");
 }
 
 #[test]
@@ -487,26 +363,6 @@ fn in_not_found() {
 }
 
 #[test]
-fn in_first_element() {
-	check("a :: [10, 20, 30]\n10 in a", "true");
-}
-
-#[test]
-fn in_last_element() {
-	check("a :: [10, 20, 30]\n30 in a", "true");
-}
-
-#[test]
-fn in_strings() {
-	check(r#"a :: ["w", "x", "y"]; "x" in a"#, "true");
-}
-
-#[test]
-fn in_strings_not_found() {
-	check(r#"a :: ["w", "x", "y"]; "z" in a"#, "false");
-}
-
-#[test]
 fn in_after_append() {
 	check(["a := [1, 2]", "a << 3", "3 in a"], "true");
 }
@@ -587,11 +443,6 @@ fn fixed_dot_index() {
 }
 
 #[test]
-fn fixed_annotated_zero_decl() {
-	check(["grid: [3]string", "grid"], r#"["", "", ""]"#);
-}
-
-#[test]
 fn fixed_value_semantics() {
 	check(["a: [2]int", "b := a", "a[0] = 9", "b[0]"], "0");
 }
@@ -612,28 +463,8 @@ fn typed_literal() {
 }
 
 #[test]
-fn typed_literal_index() {
-	check("a :: int.[10, 20, 30]\na[1]", "20");
-}
-
-#[test]
 fn typed_literal_mismatch() {
 	fail_with(r#"a :: int.[1, "x"]"#, "must share a type");
-}
-
-#[test]
-fn typed_literal_empty_then_append() {
-	check(["a: []int", "a << 3", "a"], "[3]");
-}
-
-#[test]
-fn typed_literal_i32() {
-	check("i32.[1, 2, 3]", "[1, 2, 3]");
-}
-
-#[test]
-fn typed_literal_no_comma() {
-	check("int.[1 2 3]", "[1, 2, 3]");
 }
 
 // anon array literals

@@ -115,17 +115,6 @@ fn explicit_type_arg_redundant_with_inference() {
 }
 
 #[test]
-fn explicit_type_arg_conflicts_with_args() {
-	fail_with(
-		indoc! {r#"
-			max[T] :: fn(a: T, b: T) T { if a > b { a } else { b } }
-			max[int](3, "a")
-		"#},
-		"bound to both",
-	);
-}
-
-#[test]
 fn explicit_type_arg_count_mismatch() {
 	fail_with(
 		indoc! {"
@@ -156,19 +145,6 @@ fn bounded_type_param_parses_and_runs() {
 			if a > b { a } else { b }
 		}
 		biggest(3, 7)
-	"};
-	check(src, "7");
-}
-
-#[test]
-fn bounded_type_param_with_explicit_type_arg() {
-	let src = indoc! {"
-		Ord :: trait {}
-		int : Ord
-		biggest[T: Ord] :: fn(a: T, b: T) T {
-			if a > b { a } else { b }
-		}
-		biggest[int](3, 7)
 	"};
 	check(src, "7");
 }

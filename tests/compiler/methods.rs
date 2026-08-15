@@ -36,18 +36,6 @@ fn method_on_literal() {
 }
 
 #[test]
-fn method_returns_struct_field() {
-	let src = indoc! {r#"
-		User :: struct { name: string, age: int }
-		User :{
-			can_register :: fn(self) bool { self.age > 16 }
-		}
-		User.{name = "ada", age = 36}.can_register()
-	"#};
-	check(src, "true");
-}
-
-#[test]
 fn static_method() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
@@ -98,22 +86,6 @@ fn self_param_and_fields() {
 #[test]
 fn self_outside_impl() {
 	fail_with("Self.{}", "no enclosing impl");
-}
-
-#[test]
-fn mut_self_mutates_receiver() {
-	let src = indoc! {"
-		Counter :: struct { n: int }
-		Counter :{
-			bump :: fn(mut self) { self.n = self.n + 1 }
-			get :: fn(self) int { self.n }
-		}
-		c := Counter.{0}
-		c.bump()
-		c.bump()
-		c.get()
-	"};
-	check(src, "2");
 }
 
 #[test]

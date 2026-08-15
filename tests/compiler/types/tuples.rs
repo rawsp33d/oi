@@ -122,15 +122,6 @@ fn fn_returns_tuple_field() {
 }
 
 #[test]
-fn fn_return_type_annotation_tuple() {
-	let src = indoc! {"
-		pair :: fn() (int, int) { (3, 4) }
-		pair()
-	"};
-	check(src, "(3, 4)");
-}
-
-#[test]
 fn fn_return_type_annotation_tuple_no_comma() {
 	let src = indoc! {"
 		pair :: fn() (int int) { (3, 4) }

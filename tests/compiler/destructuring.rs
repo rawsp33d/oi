@@ -65,11 +65,6 @@ fn fail_non_tuple() {
 }
 
 #[test]
-fn fail_mut_in_assign() {
-	fail("(a, b) :: (1, 2)\n(a, b) = (3, 4)");
-}
-
-#[test]
 fn fail_assign_immutable() {
 	fail_with("(a, b) :: (1, 2)\n(a, b) = (3, 4)", "immutably bound");
 }

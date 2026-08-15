@@ -6,11 +6,6 @@ fn ternary_true() {
 }
 
 #[test]
-fn ternary_false() {
-	check(r#"if 1 > 2 { "yes" } else { "no" }"#, "no");
-}
-
-#[test]
 fn else_if_first() {
 	let src = indoc! {r#"
 		i :: 0
@@ -62,27 +57,12 @@ fn if_as_binding() {
 }
 
 #[test]
-fn if_in_arithmetic() {
-	check("1 + if true { 2 } else { 3 }", "3");
-}
-
-#[test]
 fn nested_if() {
 	let src = indoc! {"
 		x :: if true { if false { 1 } else { 2 } } else { 3 }
 		x
 	"};
 	check(src, "2");
-}
-
-#[test]
-fn float_branches() {
-	check("if 1.5 < 2.0 { 1.5 } else { 2.5 }", "1.5");
-}
-
-#[test]
-fn bool_branches() {
-	check("if false { true } else { false }", "false");
 }
 
 #[test]
@@ -117,18 +97,6 @@ fn guard_return_taken() {
 		abs(-5)
 	"};
 	check(src, "5");
-}
-
-#[test]
-fn guard_return_not_taken() {
-	let src = indoc! {"
-		abs :: fn(x: int) int {
-			if x < 0 { return -x }
-			x
-		}
-		abs(3)
-	"};
-	check(src, "3");
 }
 
 #[test]

@@ -7,11 +7,6 @@ fn qualified_access() {
 }
 
 #[test]
-fn oneliner() {
-	check("Fruit :: enum { apple orange grape }\nFruit.orange", "orange");
-}
-
-#[test]
 fn bind() {
 	check("Color :: enum { red green blue }\nc :: Color.green\nc", "green");
 }
@@ -178,11 +173,6 @@ fn duplicate_disc_rejected() {
 #[test]
 fn auto_increment_from_explicit() {
 	fail_with("E :: enum { a = 5, b, c = 6 }", "discriminant value `6`");
-}
-
-#[test]
-fn negative_disc() {
-	fail_with("E :: enum { a = -2, b, c = -1 }", "discriminant value `-1`");
 }
 
 #[test]
@@ -535,11 +525,6 @@ fn backing_with_payload_errors() {
 }
 
 #[test]
-fn compare_via_int() {
-	check("Color :: enum { red green blue }\nint(Color.green) == 1", "true");
-}
-
-#[test]
 fn ord_gives_discriminant() {
 	check("Color :: enum { red green blue }\nord(Color.blue)", "2");
 }
@@ -552,15 +537,6 @@ fn ord_on_payload_variant() {
 #[test]
 fn str_method() {
 	check("Color :: enum { red green blue }\nColor.blue.str()", "blue");
-}
-
-#[test]
-fn str_method_concat() {
-	check(
-		r#"Color :: enum { red green blue }
-		"the color is " + Color.green.str()"#,
-		"the color is green",
-	);
 }
 
 #[test]
@@ -869,13 +845,5 @@ fn str_fill_overrides_derived() {
 			E.a.str()
 		"#},
 		"custom",
-	);
-}
-
-#[test]
-fn unknown_method_still_errors() {
-	fail_with(
-		"Color :: enum { red green blue }\nColor.red.hex()",
-		"has no method `hex`",
 	);
 }

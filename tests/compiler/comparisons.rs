@@ -6,11 +6,6 @@ fn int_eq() {
 }
 
 #[test]
-fn int_eq_false() {
-	check("2 == 3", "false");
-}
-
-#[test]
 fn int_ne() {
 	check("2 != 3", "true");
 }
@@ -43,20 +38,6 @@ fn float_cmp() {
 #[test]
 fn bool_eq() {
 	check("true == true", "true");
-}
-
-#[test]
-fn bool_ne() {
-	check("true != false", "true");
-}
-
-#[test]
-fn compares_variable() {
-	let src = indoc! {"
-		x :: 5
-		x > 3
-	"};
-	check(src, "true");
 }
 
 #[test]

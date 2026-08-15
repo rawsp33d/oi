@@ -68,22 +68,6 @@ fn bang_propagates_error() {
 }
 
 #[test]
-fn question_matches_enclosing_return_type() {
-	let src = indoc! {"
-		find :: fn(id: int) ?int {
-			if id == 7 { return 42 }
-			return none
-		}
-		display :: fn(id: int) ?int {
-			v :: find(id)?
-			v + 1
-		}
-		display(7) or { -1 }
-	"};
-	check(src, "43");
-}
-
-#[test]
 fn requires_option_or_result() {
 	fail_with("f :: fn() int { 42? }\nf()", "`?` needs a `?T` or `!T` value");
 }

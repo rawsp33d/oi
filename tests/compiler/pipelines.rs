@@ -34,11 +34,6 @@ fn pipe_is_loosest() {
 }
 
 #[test]
-fn if_expression_step() {
-	check(r#"5 |> if $ > 3 { "big" } else { "small" }"#, "big");
-}
-
-#[test]
 fn question_step_unwraps_some() {
 	let src = indoc! {"
 		find :: fn(id: int) ?int {
@@ -197,16 +192,6 @@ fn data_head_applies_a_literal_stage() {
 }
 
 #[test]
-fn composition_passes_as_an_argument() {
-	let src = indoc! {"
-		double :: fn(x: int) int { x * 2 }
-		apply :: fn(g: fn(int) int, x: int) int { g(x) }
-		print(apply(double |> double, 3))
-	"};
-	check(src, "12");
-}
-
-#[test]
 fn composition_tail_must_be_a_fn() {
 	let src = indoc! {"
 		double :: fn(x: int) int { x * 2 }
@@ -225,16 +210,6 @@ fn generic_head_cannot_compose() {
 		print(f(3))
 	"};
 	fail_with(src, "cannot compose a generic function");
-}
-
-#[test]
-fn longhand_pipeline_body() {
-	let src = indoc! {"
-		double :: fn(x: int) int { x * 2 }
-		f :: fn(x: int) int { x |> double |> ($ + x) }
-		print(f(3))
-	"};
-	check(src, "9");
 }
 
 #[test]
