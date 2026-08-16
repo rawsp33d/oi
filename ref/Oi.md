@@ -83,6 +83,8 @@ tags: []
 	- [x] `import` -> `use`
 	- [x] V-like `mut ` -> Capy-ish `::` sandwich `capy`
 	- [ ] do another pass on anon fns. All fns should now be the same `capy`
+	- [ ] allow omitting fn header if it's in type sig
+	- [ ] revisit trailing fns
 	- [ ] revisit modules to vet incorporating `::` bindings
 - [ ] `comp assert`
 - [x] pipeline examples with `!` postfix collide with macros
@@ -91,6 +93,8 @@ tags: []
 	- maybe I can do away with the `!` macros postfix entirely, solving the clash with `Result`
 - [ ] implicit context
 - [ ] computed values `swift`
+- [ ] thread version through repl and cli and docs and everything
+- [ ] consider writing some blog posts for some of the bigger decisions and changes in the language as I make them
 - [ ] ptr type (ptr, voidptr, rawptr) `nim v odin`
 - [ ] better errors. atom and int code support?
 - [x] make another pass on generics. I don't love what I have now
@@ -124,6 +128,7 @@ tags: []
 	- back on the table now that `|x|` lambda fences are gone
 	- that said, `|>` has grown on me
 - mutable `$` by default or opt-in?
+- opening up trailing fns to trailing anything, or at least anything with `.` + `{[(`
 - `loop <expr>` rather than any special case dispatch
 - adding colon before return type sig `fn foo(x int, y int): z int { ... }`
 - I kind of like Rust's `pub(scope)` concept where you specify what it's public for
