@@ -102,4 +102,3 @@ fn block_comment_inline() {
 fn block_comment_nested() {
 	check("#{ outer #{ inner }# still outer }# 1 + 1", "2");
 }
-
