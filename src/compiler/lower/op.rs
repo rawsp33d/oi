@@ -133,8 +133,8 @@ impl<'a> Translator<'a> {
 	) -> Result<TypedVal, Diagnostic> {
 		let (lv, lt) = self.expr(l)?;
 
-		// operator overloads
 		if let Typ::Struct(name, _) = &lt {
+			// overloads
 			let tn = match op {
 				BinOp::Add => "Add",
 				BinOp::Sub => "Sub",
@@ -292,6 +292,23 @@ impl<'a> Translator<'a> {
 				let eq = self.emit_eq(lv, rv, &Typ::Str);
 				// emit_eq returns 1 for equal, invert for Ne
 				// wrap in icmp so uextend below works consistently
+				if icc == IntCC::NotEqual {
+					self.b.ins().icmp_imm(IntCC::Equal, eq, 0)
+				} else {
+					self.b.ins().icmp_imm(IntCC::NotEqual, eq, 0)
+				}
+			}
+			(Typ::Struct(name, _), _) if lt == rt && (icc == IntCC::Equal || icc == IntCC::NotEqual) => {
+				// overloads
+				let claimed = self.trait_impls.contains(&(name.clone(), "Eq".into()));
+				let sig = self.funcs.get(&format!("{name}.eq")).cloned();
+				let Some(sig) = sig.filter(|s| claimed && s.params.len() == 2) else {
+					return Err(
+						Diagnostic::new(format!("cannot compare {lt} and {rt}"), span.into_range())
+							.with_label(format!("implement `Eq` for `{name}` to overload `==`")),
+					);
+				};
+				let (eq, _) = self.emit_call(&sig, &[lv, rv]);
 				if icc == IntCC::NotEqual {
 					self.b.ins().icmp_imm(IntCC::Equal, eq, 0)
 				} else {

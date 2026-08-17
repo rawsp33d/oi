@@ -15,6 +15,33 @@ fn struct_op_dispatches() {
 }
 
 #[test]
+fn eq_dispatches_to_the_fill() {
+	let src = indoc! {"
+		Point :: struct { x: int, y: int }
+		Point : Add {
+			add :: fn(self, other: Self) Self {
+				Self.{ self.x + other.x, self.y + other.y }
+			}
+		}
+		Point : Eq {
+			eq :: fn(self, other: Self) bool { self.x == other.x && self.y == other.y }
+		}
+		assert(Point.{1, 0} + Point.{2, 3} == Point.{3, 3})
+		print(Point.{1, 0} != .{1, 0})
+	"};
+	check(src, "false");
+}
+
+#[test]
+fn unclaimed_eq_is_rejected() {
+	let src = indoc! {"
+		Point :: struct { x: int }
+		Point.{1} == Point.{1}
+	"};
+	fail_with(src, "implement `Eq` for `Point` to overload `==`");
+}
+
+#[test]
 fn unclaimed_struct_is_rejected() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
