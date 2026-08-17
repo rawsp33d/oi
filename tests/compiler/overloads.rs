@@ -33,12 +33,39 @@ fn eq_dispatches_to_the_fill() {
 }
 
 #[test]
-fn unclaimed_eq_is_rejected() {
+fn eq_is_structural_by_default() {
+	let src = indoc! {r#"
+		Inner :: struct { n: int }
+		Rec :: struct { a: int, s: str, f: float, i: Inner }
+		a := Rec.{1, "hi", 1.5, Inner.{2}}
+		b := Rec.{1, "hi", 1.5, Inner.{2}}
+		c := Rec.{1, "hi", 1.5, Inner.{3}}
+		print(a == b)
+		print(a != c)
+	"#};
+	check(src, "true\ntrue");
+}
+
+#[test]
+fn claimed_eq_beats_the_structural_default() {
 	let src = indoc! {"
-		Point :: struct { x: int }
-		Point.{1} == Point.{1}
+		Frac :: struct { num: int, den: int }
+		Frac : Eq {
+			eq :: fn(self, other: Self) bool { self.num * other.den == other.num * self.den }
+		}
+		print(Frac.{1, 2} == Frac.{2, 4})
 	"};
-	fail_with(src, "implement `Eq` for `Point` to overload `==`");
+	check(src, "true");
+}
+
+#[test]
+fn incomparable_field_is_rejected() {
+	let src = indoc! {"
+		Holder :: struct { f: fn(int) int }
+		a := Holder.{ fn(x: int) int { x } }
+		a == a
+	"};
+	fail_with(src, "cannot compare Holder: field `f` is fn(int) int");
 }
 
 #[test]

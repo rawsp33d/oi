@@ -1,5 +1,15 @@
 use super::*;
 
+// What `emit_eq` compares directly.
+fn comparable(t: &Typ) -> bool {
+	use Typ::*;
+	t.is_enumish()
+		|| matches!(
+			t,
+			Int(_) | UInt(_) | ISize | USize | Bool | Atom | Float(_) | Str | Error
+		)
+}
+
 impl<'a> Translator<'a> {
 	pub(super) fn emit_eq(&mut self, a: Value, b: Value, typ: &Typ) -> Value {
 		match typ {
@@ -54,6 +64,46 @@ impl<'a> Translator<'a> {
 		self.b.switch_to_block(merge);
 		self.b.seal_block(merge);
 		self.b.use_var(eq)
+	}
+
+	// The `Eq` fill claimed for `name`, if any.
+	fn eq_fill(&self, name: &str) -> Option<FnSig> {
+		let claimed = self.trait_impls.contains(&(name.to_string(), "Eq".into()));
+		self.funcs
+			.get(&format!("{name}.eq"))
+			.cloned()
+			.filter(|s| claimed && s.params.len() == 2)
+	}
+
+	// Compare two structs field by field.
+	pub(super) fn emit_struct_eq(&mut self, a: Value, b: Value, typ: &Typ, span: Span) -> Result<Value, Diagnostic> {
+		let Typ::Struct(name, fields) = typ else {
+			unreachable!("emit_struct_eq on {typ}")
+		};
+		let mut acc = self.b.ins().iconst(types::I8, 1);
+		for (i, f) in fields.iter().enumerate() {
+			let cl = cl_type(&f.typ, self.int);
+			let fa = self.b.ins().load(cl, MemFlags::new(), a, (i * 8) as i32);
+			let fb = self.b.ins().load(cl, MemFlags::new(), b, (i * 8) as i32);
+			let eq = match &f.typ {
+				Typ::Struct(n, _) => match self.eq_fill(n) {
+					Some(sig) => self.emit_call(&sig, &[fa, fb]).0,
+					None => self.emit_struct_eq(fa, fb, &f.typ, span)?,
+				},
+				t if t.is_enumish() && enum_boxed(&self.variants_of(t)) && !rc::opt_ref(t) => {
+					self.emit_enum_eq(fa, fb, t)
+				}
+				t if comparable(t) => self.emit_eq(fa, fb, t),
+				ft => {
+					let msg = format!("cannot compare {name}: field `{}` is {ft}", f.name);
+					return Err(Diagnostic::new(msg, span.into_range())
+						.with_label(format!("claim `Eq` for `{name}` to define equality")));
+				}
+			};
+			let eq = self.b.ins().icmp_imm(IntCC::NotEqual, eq, 0);
+			acc = self.b.ins().band(acc, eq);
+		}
+		Ok(acc)
 	}
 
 	// Cast int-like to int-like.
@@ -299,16 +349,10 @@ impl<'a> Translator<'a> {
 				}
 			}
 			(Typ::Struct(name, _), _) if lt == rt && (icc == IntCC::Equal || icc == IntCC::NotEqual) => {
-				// overloads
-				let claimed = self.trait_impls.contains(&(name.clone(), "Eq".into()));
-				let sig = self.funcs.get(&format!("{name}.eq")).cloned();
-				let Some(sig) = sig.filter(|s| claimed && s.params.len() == 2) else {
-					return Err(
-						Diagnostic::new(format!("cannot compare {lt} and {rt}"), span.into_range())
-							.with_label(format!("implement `Eq` for `{name}` to overload `==`")),
-					);
+				let eq = match self.eq_fill(name) {
+					Some(sig) => self.emit_call(&sig, &[lv, rv]).0,
+					None => self.emit_struct_eq(lv, rv, &lt, span)?,
 				};
-				let (eq, _) = self.emit_call(&sig, &[lv, rv]);
 				if icc == IntCC::NotEqual {
 					self.b.ins().icmp_imm(IntCC::Equal, eq, 0)
 				} else {

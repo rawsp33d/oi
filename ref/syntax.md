@@ -414,6 +414,8 @@ profile.Options = Options.{}
 
 # operator overloading
 
+# can override by claiming built-in traits, like `Add`, `Sub`, `Mul`, `Div`, `Mod`
+
 Point :: struct {
 	x: int
 	y: int
@@ -429,6 +431,16 @@ Point : Add {
 	}
 }
 assert!(Point.{1, 0} + Point.{2, 3} == Point.{3, 3})
+
+# `==` compares structs field by field out of the box, and `!=` negates it
+# claim `Eq` to define equality yourself
+Frac :: struct { num: int, den: int }
+Frac : Eq {
+	eq :: fn(self, other: Self) bool {
+		self.num * other.den == other.num * self.den
+	}
+}
+assert!(Frac.{1, 2} == Frac.{2, 4})
 
 ## traits
 
@@ -1812,10 +1824,10 @@ main :: fn() {
 		fields := input.struct_fields()
 		impls := traits.items().map(fn (t) {
 			match t.name() {
-				"Eq" => {
-					checks := fields.map(fn (f) { `self.%f == other.%f` })
-					`%name : Eq {
-						eq :: fn(self, other Self) bool { %{checks.reduce(fn (a, b) { `%a && %b` })} }
+				"Hash" => {
+					hashes := fields.map(fn (f) { `self.%f.hash()` })
+					`%name : Hash {
+						hash :: fn(self) int { %{hashes.reduce(fn (a, b) { `%a * 31 + %b` })} }
 					}`
 				}
 				"Debug" => `%name : Debug { ... }`,
@@ -1825,7 +1837,7 @@ main :: fn() {
 	}
 
 	# `@name!` runs a macro on the following expression
-	@derive!(Eq, Debug)
+	@derive!(Hash, Debug)
 	Point :: struct { x: int, y: int }
 
 	# inline calls
