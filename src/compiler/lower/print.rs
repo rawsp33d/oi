@@ -262,8 +262,12 @@ impl<'a> Translator<'a> {
 						panic!("f128 printing not yet supported by the JIT backend")
 					}
 					Typ::Float(w) => panic!("unsupported float width f{w}"),
-					Typ::Int(w) if *w < 64 => (self.b.ins().sextend(self.int, val), 0),
-					Typ::UInt(w) if *w < 64 => (self.b.ins().uextend(self.int, val), 0),
+					Typ::Int(w) if cl_int_for_width(*w).bits() < self.int.bits() => {
+						(self.b.ins().sextend(self.int, val), 0)
+					}
+					Typ::UInt(w) if cl_int_for_width(*w).bits() < self.int.bits() => {
+						(self.b.ins().uextend(self.int, val), 0)
+					}
 					_ => (val, 0),
 				};
 				self.emit_frag(tag, bits, float_width, quote, sink);
