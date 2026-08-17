@@ -457,5 +457,5 @@ fn rejects_headerless_fill_the_trait_does_not_declare() {
 		Foo :: struct {}
 		Foo : Dbl { nope :: { 1 } }
 	"};
-	fail(src);
+	fail_with(src, "no trait method `nope` supplies a signature");
 }
