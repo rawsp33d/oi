@@ -392,3 +392,25 @@ fn named_fn_param_needs_a_type() {
 	"};
 	fail_with(src, "needs a type");
 }
+
+#[test]
+fn field_default_block_literal() {
+	let src = indoc! {"
+		B :: struct { f: fn(int) int = { $ * 2 } }
+		b := B.{}
+		g := b.f
+		print(g(4))
+	"};
+	check(src, "8");
+}
+
+#[test]
+fn map_value_block_literal() {
+	let src = indoc! {r#"
+		Handler :: fn(string) string
+		routes : Map[string, Handler] : ["/" = { "home:{$}" }]
+		h := routes["/"]
+		print(h("x"))
+	"#};
+	check(src, "home:x");
+}

@@ -654,7 +654,10 @@ where
 		});
 
 		// map literals
-		let map_entry = expr.clone().then_ignore(just(Token::Assign)).then(expr.clone());
+		let map_entry = expr
+			.clone()
+			.then_ignore(just(Token::Assign))
+			.then(expr.clone().or(block_lit.clone()));
 		let map = bracket(
 			map_entry
 				.separated_by(just(Token::Comma).or_not())
@@ -1058,7 +1061,7 @@ where
 	let struct_field = ident()
 		.then_ignore(just(Token::Colon))
 		.then(type_expr.clone())
-		.then(just(Token::Assign).ignore_then(expr.clone()).or_not())
+		.then(just(Token::Assign).ignore_then(expr.clone().or(block_lit.clone())).or_not())
 		.map_with(|((name, typ), default), ex| Param {
 			name,
 			typ,

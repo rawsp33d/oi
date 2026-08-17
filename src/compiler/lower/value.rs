@@ -755,14 +755,7 @@ impl<'a> Translator<'a> {
 		let ptr = self.stack_slot((struct_fields.len() * 8) as u32);
 		for (i, f) in struct_fields.iter().enumerate() {
 			let init = if let Some(default_expr) = &f.default {
-				let (val, vtyp) = self.expr(default_expr)?;
-				if vtyp != f.typ {
-					return Err(Diagnostic::new(
-						format!("default value type mismatch: expected {}, got {vtyp}", f.typ),
-						default_expr.1.into_range(),
-					)
-					.with_label("type mismatch"));
-				}
+				let val = self.check_typed(default_expr, &f.typ, "not a valid default for this field")?;
 				self.copy_in(val, &f.typ)
 			} else {
 				self.zero(&f.typ)
