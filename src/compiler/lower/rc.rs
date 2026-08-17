@@ -99,7 +99,7 @@ impl<'a> Translator<'a> {
 	}
 
 	// Declare a named binding that owns its value.
-	pub(super) fn bind_local(&mut self, name: &str, val: Value, typ: Typ, mutable: bool) {
+	pub fn bind_local(&mut self, name: &str, val: Value, typ: Typ, mutable: bool) {
 		let var = self.b.declare_var(self.b.func.dfg.value_type(val));
 		self.b.def_var(var, val);
 		if releasable(&typ) || self.is_resource(&typ) {

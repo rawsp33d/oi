@@ -18,6 +18,7 @@ impl<'a> Translator<'a> {
 		body: &[Spanned<Expr>],
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
+		let self_name = self.self_name.take();
 		let inferred;
 		let captures: &[Capture] = match captures {
 			Some(list) => list,
@@ -96,6 +97,7 @@ impl<'a> Translator<'a> {
 			body: body.to_vec(),
 			type_params: vec![],
 			captures: resolved.iter().map(|(n, t, boxed, _)| (n.clone(), t.clone(), *boxed)).collect(),
+			self_name: resolved.is_empty().then_some(self_name).flatten(),
 		};
 		let sig = self.declare_instance(&format!("anon${}_{}", span.start, span.end), &def, subst)?;
 		let func_ref = self.module.declare_func_in_func(sig.id, self.b.func);

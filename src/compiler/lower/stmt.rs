@@ -44,6 +44,9 @@ impl<'a> Translator<'a> {
 						continue;
 					}
 					let annot = typ.as_ref().map(|(t, span)| self.types().resolve(t, *span)).transpose()?;
+					if !*mutable && matches!(value.as_deref(), Some((Expr::AnonFn { .. }, _))) {
+						self.self_name = Some(name.clone());
+					}
 					let (val, typ) = match (value, annot) {
 						(Some(value), Some(target)) => match self.coerce_lit(value, &target)? {
 							Some(val) => (val, target),
@@ -64,6 +67,7 @@ impl<'a> Translator<'a> {
 						}
 						(None, None) => unreachable!("binding has neither a type nor a value"),
 					};
+					self.self_name = None;
 					if let Some(v) = value {
 						self.move_resource(v, &typ)?;
 					}

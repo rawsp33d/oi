@@ -414,3 +414,23 @@ fn map_value_block_literal() {
 	"#};
 	check(src, "home:x");
 }
+
+#[test]
+fn local_fn_recurses() {
+	let src = indoc! {"
+		run :: fn() int {
+			fac :: fn(n: int) int { if n < 2 { 1 } else { n * fac(n - 1) } }
+			fac(5)
+		}
+		print(run())
+	"};
+	check(src, "120");
+	let src = indoc! {"
+		run :: fn() int {
+			fac : fn(int) int : fn(n) { if n < 2 { 1 } else { n * fac(n - 1) } }
+			fac(5)
+		}
+		print(run())
+	"};
+	check(src, "120");
+}

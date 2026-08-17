@@ -67,6 +67,7 @@ pub(super) struct Translator<'a> {
 	pub scopes: Vec<Vec<(Variable, Typ)>>,
 	pub self_type: Option<String>,
 	pub is_main: bool,
+	pub self_name: Option<String>,
 }
 
 // A statement that writes through an existing, mutable binding.

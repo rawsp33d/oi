@@ -60,6 +60,7 @@ pub(crate) struct GenericFnDef {
 	pub body: Vec<Spanned<Expr>>,
 	pub type_params: Vec<TypeParam>,
 	pub captures: Vec<(String, Typ, bool)>,
+	pub self_name: Option<String>,
 }
 
 // A monomorphized instance whose sig is declared but body not yet compiled.
@@ -75,6 +76,7 @@ struct FnDef<'a> {
 	self_type: Option<&'a str>,
 	is_main: bool,
 	captures: &'a [(String, Typ, bool)],
+	self_fn: Option<(&'a str, &'a FnSig)>,
 }
 
 // A generic struct definition.
@@ -314,6 +316,7 @@ impl Compiler {
 					body: body.clone(),
 					type_params: all_params,
 					captures: vec![],
+					self_name: None,
 				},
 			);
 		}
@@ -466,6 +469,7 @@ impl Compiler {
 							body: body.clone(),
 							type_params: type_params.clone(),
 							captures: vec![],
+							self_name: None,
 						},
 					);
 				}
@@ -721,6 +725,7 @@ impl Compiler {
 			let types = TypeCtx::new(&structs, &enums, &aliases, &subst, &generics, &traits);
 			let (params, ret) = types.resolve_params_ret(&def.params, &def.ret)?;
 			let ret = ret.or_else(|| Some((self.mono[&sym].ret.clone(), (0..0).into())));
+			let self_sig = self.mono[&sym].clone();
 			self.translate(
 				FnDef {
 					params: &params,
@@ -728,6 +733,7 @@ impl Compiler {
 					ret,
 					body: &def.body,
 					captures: &def.captures,
+					self_fn: def.self_name.as_deref().map(|n| (n, &self_sig)),
 					..FnDef::default()
 				},
 				&funcs,
@@ -831,6 +837,7 @@ impl Compiler {
 			scopes: vec![vec![]],
 			self_type: def.self_type.map(str::to_owned),
 			is_main: def.is_main,
+			self_name: None,
 		};
 
 		(trans, block)
@@ -871,6 +878,14 @@ impl Compiler {
 				};
 				trans.vars.insert(name.clone(), local);
 			}
+		}
+
+		// fn literal is bound in its own body and so it can refer to itself
+		if let Some((name, sig)) = def.self_fn {
+			let func_ref = trans.module.declare_func_in_func(sig.id, trans.b.func);
+			let addr = trans.b.ins().func_addr(trans.int, func_ref);
+			let typ = Typ::Fn(sig.value_params(), Box::new(sig.ret.clone()));
+			trans.bind_local(name, addr, typ, false);
 		}
 
 		let tail_target = trans.ret.as_ref().map(|(t, _)| t.clone());
