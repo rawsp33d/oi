@@ -358,6 +358,12 @@ impl TypeCtx<'_> {
 		if let Some(typ) = self.type_params.get(name) {
 			return Ok(typ.clone());
 		}
+		if name == "$?" {
+			// an omitted param type that no expected fn type filled in
+			return Err(
+				Diagnostic::new("parameter needs a type", span.into_range()).with_label("nothing here supplies one")
+			);
+		}
 		match name {
 			"int" => return Ok(Typ::Int(32)),
 			"isize" => return Ok(Typ::ISize),

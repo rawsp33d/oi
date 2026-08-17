@@ -51,6 +51,11 @@ impl<'a> Translator<'a> {
 			AnonSig::Explicit(te) => (params.to_vec(), params_tuple, te.clone(), HashMap::new()),
 			AnonSig::Inferred(Typ::Fn(ptyps, ret)) => {
 				let name = |i: usize| format!("${i}");
+				if !params.is_empty() && params.len() != ptyps.len() {
+					let msg = format!("this fn literal expects {} param(s), got {}", ptyps.len(), params.len());
+					return Err(Diagnostic::new(msg, span.into_range()).with_label("wrong number of params"));
+				}
+				// a fn header keeps its names and fills its omitted types from the type sig
 				let (params, tuple) = match params.is_empty() {
 					true => (
 						(0..ptyps.len())
@@ -64,7 +69,18 @@ impl<'a> Translator<'a> {
 							.collect(),
 						ptyps.len() != 1,
 					),
-					false => (params.to_vec(), params_tuple),
+					false => (
+						(params.iter().enumerate())
+							.map(|(i, p)| match &p.typ {
+								TypeExpr::Name(n) if n == "$?" => Param {
+									typ: TypeExpr::Name(name(i)),
+									..p.clone()
+								},
+								_ => p.clone(),
+							})
+							.collect(),
+						params_tuple,
+					),
 				};
 				let subst = (ptyps.into_iter().enumerate().map(|(i, t)| (name(i), t)))
 					.chain([("$ret".into(), *ret)])

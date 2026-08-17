@@ -124,6 +124,7 @@ where
 	// Declare `expr` up front so the statement parsers can reference it before it is defined.
 	let mut expr = Recursive::declare();
 	let mut header_expr = Recursive::declare();
+	let mut block = Recursive::declare();
 
 	let ident = || select! { Token::Ident(name) => name };
 
@@ -193,14 +194,17 @@ where
 					None => TypeExpr::Array(Box::new(elem)),
 				});
 			let fn_param = just(Token::Mut).or_not().then(te.clone());
-			let fn_type =
-				just(Token::Fn)
-					.ignore_then(paren(loose_list(fn_param)))
-					.then(base.clone())
-					.map(|(params, ret)| {
-						let (muts, params) = params.into_iter().map(|(m, t)| (m.is_some(), t)).unzip();
-						TypeExpr::Fn(params, muts, Box::new(ret))
-					});
+			let fn_ret = base
+				.clone()
+				.then_ignore(one_of([Token::DoubleColon, Token::Bind, Token::LParen, Token::Dot, Token::LtLt]).not())
+				.or_not();
+			let fn_type = just(Token::Fn)
+				.ignore_then(paren(loose_list(fn_param)))
+				.then(fn_ret)
+				.map(|(params, ret)| {
+					let (muts, params) = params.into_iter().map(|(m, t)| (m.is_some(), t)).unzip();
+					TypeExpr::Fn(params, muts, Box::new(ret.unwrap_or(TypeExpr::Tuple(vec![]))))
+				});
 			// options
 			let option = just(Token::Question)
 				.ignore_then(base.clone())
@@ -274,7 +278,7 @@ where
 		.then(ident())
 		.then(just(Token::Colon).ignore_then(type_expr.clone()).or_not())
 		.map_with(|((mutable, name), typ), ex| Param {
-			typ: typ.unwrap_or(TypeExpr::Name("Self".into())),
+			typ: typ.unwrap_or_else(|| TypeExpr::Name(if name == "self" { "Self" } else { "$?" }.into())),
 			name,
 			span: ex.span(),
 			default: None,
@@ -302,6 +306,23 @@ where
 		.map(|(name, bound)| TypeParam { name, bound });
 	let type_params = bracket(list(type_param)).or_not().map(Option::unwrap_or_default).boxed();
 
+	// a bare block is a fn literal wherever a fn type is expected
+	let block_lit = block
+		.clone()
+		.map_with(|body, ex| {
+			(
+				Expr::AnonFn {
+					captures: None,
+					params: vec![],
+					params_tuple: true,
+					ret: None,
+					body,
+				},
+				ex.span(),
+			)
+		})
+		.boxed();
+
 	// bindings
 	let annot = spanned(type_expr.clone());
 	let value_tail = just(Token::Bind)
@@ -315,7 +336,7 @@ where
 			just(Token::Assign)
 				.to(true)
 				.or(just(Token::Colon).to(false))
-				.then(expr.clone())
+				.then(expr.clone().or(block_lit.clone()))
 				.or_not(),
 		)
 		.map(|(typ, tail)| match tail {
@@ -339,7 +360,7 @@ where
 	// assignment
 	let assign = ident()
 		.then_ignore(just(Token::Assign))
-		.then(expr.clone())
+		.then(expr.clone().or(block_lit.clone()))
 		.map_with(|(name, value), ex| {
 			(
 				Expr::Assign {
@@ -460,7 +481,7 @@ where
 		.boxed();
 
 	// blocks
-	let block = brace(stmt.clone().repeated().collect::<Vec<_>>()).boxed();
+	block.define(brace(stmt.clone().repeated().collect::<Vec<_>>()));
 
 	let definition = {
 		let literal = select! {
@@ -955,18 +976,7 @@ where
 			.boxed();
 
 		// juxts (leading literals and trailing functions)
-		let trailing = anon_fn.clone().or(block.clone().map_with(|body, ex| {
-			(
-				Expr::AnonFn {
-					captures: None,
-					params: vec![],
-					params_tuple: true,
-					ret: None,
-					body,
-				},
-				ex.span(),
-			)
-		}));
+		let trailing = anon_fn.clone().or(block_lit.clone());
 		let lit_arg = spanned(literal);
 		let juxt = choice((
 			lit_arg.then(trailing.clone().or_not()).map(|(l, t)| (Some(l), t)),

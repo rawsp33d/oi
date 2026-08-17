@@ -353,3 +353,42 @@ fn params_tuple_inferred() {
 	"#};
 	check(src, "x1");
 }
+
+#[test]
+fn block_literal_against_middle() {
+	let src = indoc! {"
+		double : fn(int) int : { $ * 2 }
+		print(double(4))
+	"};
+	check(src, "8");
+}
+
+#[test]
+fn headed_literal_elides_against_alias() {
+	let src = indoc! {"
+		Op :: fn(int) int
+		t : Op : fn(n) { n * 3 }
+		print(t(3))
+	"};
+	check(src, "9");
+}
+
+#[test]
+fn unit_fn_var_rebinds() {
+	let src = indoc! {"
+		f : fn(int) = { print($) }
+		f(7)
+		f = { print($ + 1) }
+		f(7)
+	"};
+	check(src, ["7", "8"]);
+}
+
+#[test]
+fn named_fn_param_needs_a_type() {
+	let src = indoc! {"
+		f :: fn(x) { x + 1 }
+		print(f(1))
+	"};
+	fail_with(src, "needs a type");
+}
