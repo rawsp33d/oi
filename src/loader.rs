@@ -4,6 +4,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
+use std::sync::LazyLock;
 
 use chumsky::{input::Stream, prelude::*};
 
@@ -78,6 +79,17 @@ fn parse_file(map: &SourceMap, base: usize) -> Result<Vec<Spanned<Expr>>, Report
 			Reported
 		})
 }
+
+// The prelude, embedded at build time.
+pub(crate) static PRELUDE: LazyLock<Vec<Spanned<Expr>>> = LazyLock::new(|| {
+	let src = include_str!("prelude.oi");
+	let toks = lex_at(src, 0);
+	let eoi = (src.len()..src.len()).into();
+	parser(src, 0)
+		.parse(Stream::from_iter(toks).map(eoi, |t| t))
+		.into_result()
+		.expect("prelude parses")
+});
 
 struct Loader<'a> {
 	root: &'a Path,
