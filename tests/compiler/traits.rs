@@ -424,3 +424,38 @@ fn rejects_non_implementing_trait_object() {
 	"};
 	fail([ANIMAL_DOG, src]);
 }
+
+#[test]
+fn fill_headers_come_from_the_trait() {
+	let src = indoc! {"
+		Dbl :: trait { dbl: fn(n: int) int }
+		Foo :: struct {}
+		Bar :: struct {}
+		Foo : Dbl { dbl :: fn(i) int { i * 2 } }
+		Bar : Dbl { dbl :: { $ * 2 } }
+		print(Foo.dbl(3))
+		print(Bar.dbl(4))
+	"};
+	check(src, ["6", "8"]);
+}
+
+#[test]
+fn headerless_fill_binds_self() {
+	let src = indoc! {"
+		Shape :: trait { area: fn(self) int }
+		Sq :: struct { s: int }
+		Sq : Shape { area :: { self.s * self.s } }
+		print(Sq.{ 3 }.area())
+	"};
+	check(src, "9");
+}
+
+#[test]
+fn rejects_headerless_fill_the_trait_does_not_declare() {
+	let src = indoc! {"
+		Dbl :: trait { dbl: fn(n: int) int }
+		Foo :: struct {}
+		Foo : Dbl { nope :: { 1 } }
+	"};
+	fail(src);
+}

@@ -1256,7 +1256,11 @@ where
 		.boxed();
 
 	// impl blocks
-	let fill_block = brace(func.clone().repeated().collect::<Vec<_>>());
+	let bare_fill = ident()
+		.then_ignore(just(Token::DoubleColon))
+		.then(block.clone())
+		.map_with(|(name, body), ex| fn_def((name, vec![]), Some((vec![], false)), None, body, ex.span()));
+	let fill_block = brace(func.clone().or(bare_fill).repeated().collect::<Vec<_>>());
 	let claim = ident()
 		.then(type_params.clone())
 		.then_ignore(just(Token::Colon))

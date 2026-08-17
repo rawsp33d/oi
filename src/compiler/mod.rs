@@ -24,9 +24,9 @@ pub(crate) use typ::*;
 struct FnItem<'a> {
 	key: String,
 	scope: &'a Scope,
-	params: &'a [Param],
+	params: Vec<Param>,
 	params_tuple: bool,
-	ret: &'a Option<Spanned<TypeExpr>>,
+	ret: Option<Spanned<TypeExpr>>,
 	body: &'a [Spanned<Expr>],
 }
 
@@ -261,6 +261,7 @@ impl Compiler {
 		fills: &'a [Spanned<Expr>],
 		scope: &'a Scope,
 		others: &mut Vec<FnItem<'a>>,
+		decls: &[TraitFn],
 	) -> Result<(), Diagnostic> {
 		for m in fills {
 			let Expr::Fn {
@@ -281,11 +282,19 @@ impl Compiler {
 				return Err(Diagnostic::new(msg, m.1.into_range()).with_label("one fill per name"));
 			}
 			if type_params.is_empty() && mtp.is_empty() {
+				let (params, params_tuple, ret) = match decls.iter().find(|(n, ..)| *n == name) {
+					Some(decl) => fill_from_decl(params, *params_tuple, ret, *decl, m.1)?,
+					None if params.is_empty() && !params_tuple => {
+						let msg = format!("no trait method `{name}` supplies a signature");
+						return Err(Diagnostic::new(msg, m.1.into_range()).with_label("write the `fn` header out"));
+					}
+					None => (params.clone(), *params_tuple, ret.clone()),
+				};
 				others.push(FnItem {
-					key: format!("{typ}.{name}"),
+					key,
 					scope,
 					params,
-					params_tuple: *params_tuple,
+					params_tuple,
 					ret,
 					body,
 				});
@@ -385,13 +394,13 @@ impl Compiler {
 							fields: fields.clone(),
 						},
 					);
-					self.register_fills(name, type_params, fills, scope, &mut others)?;
+					self.register_fills(name, type_params, fills, scope, &mut others, &[])?;
 				}
 				Expr::StructDef {
 					name, fields, fills, ..
 				} => {
 					struct_items.push((name.as_str(), fields.as_slice()));
-					self.register_fills(name, &[], fills, scope, &mut others)?;
+					self.register_fills(name, &[], fills, scope, &mut others, &[])?;
 				}
 				Expr::EnumDef {
 					name,
@@ -407,7 +416,7 @@ impl Compiler {
 							variants: variants.clone(),
 						},
 					);
-					self.register_fills(name, type_params, fills, scope, &mut others)?;
+					self.register_fills(name, type_params, fills, scope, &mut others, &[])?;
 				}
 				Expr::EnumDef {
 					name,
@@ -417,7 +426,7 @@ impl Compiler {
 					..
 				} => {
 					enum_items.push((name.as_str(), backing.as_ref(), variants.as_slice()));
-					self.register_fills(name, &[], fills, scope, &mut others)?;
+					self.register_fills(name, &[], fills, scope, &mut others, &[])?;
 				}
 				Expr::TypeAlias { name, typ } => {
 					if matches!(typ, TypeExpr::TupleStruct(..)) && TypeCtx::builtin_type(name) {
@@ -461,7 +470,12 @@ impl Compiler {
 						});
 						self.trait_impls.insert((typ.clone(), tn.clone()));
 					}
-					self.register_fills(typ, type_params, fills, scope, &mut others)?;
+					let decls: Vec<TraitFn> = claimed
+						.iter()
+						.filter_map(|tn| traits.get(tn.as_str()))
+						.flat_map(|(_, _, ms)| trait_fns(ms))
+						.collect();
+					self.register_fills(typ, type_params, fills, scope, &mut others, &decls)?;
 				}
 				Expr::Fn { name, body, .. } if name == "main" => main_body = Some(body),
 				Expr::Fn {
@@ -495,9 +509,9 @@ impl Compiler {
 				} => others.push(FnItem {
 					key: name.clone(),
 					scope,
-					params,
+					params: params.clone(),
 					params_tuple: *params_tuple,
-					ret,
+					ret: ret.clone(),
 					body,
 				}),
 				Expr::Doc(_) => {}
@@ -610,7 +624,7 @@ impl Compiler {
 				.map(|p| types.resolve(&p.typ, p.span))
 				.collect::<Result<_, _>>()?;
 			let muts: Vec<bool> = item.params.iter().map(|p| p.mutable).collect();
-			let ret = match item.ret {
+			let ret = match &item.ret {
 				Some((ret_te, ret_span)) => types.resolve(ret_te, *ret_span)?,
 				None => Typ::unit(),
 			};
@@ -626,7 +640,7 @@ impl Compiler {
 			}
 			let types =
 				TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits).with_scope(item.scope);
-			let (params, ret) = types.resolve_params_ret(item.params, item.ret)?;
+			let (params, ret) = types.resolve_params_ret(&item.params, &item.ret)?;
 			let ret = ret.or_else(|| Some((funcs[&item.key].ret.clone(), (0..0).into())));
 			self.translate(
 				FnDef {

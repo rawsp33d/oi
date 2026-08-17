@@ -8,6 +8,9 @@ pub(crate) type TraitItem<'a> = (&'a [String], &'a [Param], &'a [Spanned<Expr>])
 // A trait method's name, params, and return annotation.
 pub(crate) type TraitFn<'a> = (&'a str, &'a [Param], &'a Option<Spanned<TypeExpr>>);
 
+// A fill's params, tuple-ness, and return annotation.
+pub(crate) type FillSig = (Vec<Param>, bool, Option<Spanned<TypeExpr>>);
+
 // A trait impl body.
 pub(crate) struct TraitBody<'a> {
 	pub span: Span,
@@ -22,6 +25,52 @@ pub(crate) fn trait_fns(methods: &[Spanned<Expr>]) -> impl Iterator<Item = Trait
 		Expr::Fn { name, params, ret, .. } => Some((name.as_str(), params.as_slice(), ret)),
 		_ => None,
 	})
+}
+
+// Complete a fill's signature from the trait's declaration.
+// An empty, non-tuple param list means the header was omitted entirely.
+pub(crate) fn fill_from_decl(
+	params: &[Param],
+	params_tuple: bool,
+	ret: &Option<Spanned<TypeExpr>>,
+	(_, dps, dret): TraitFn,
+	span: Span,
+) -> Result<FillSig, Diagnostic> {
+	let ret = ret.clone().or_else(|| dret.clone());
+	if params.is_empty() && !params_tuple {
+		let ps = (dps.iter().enumerate())
+			.map(|(i, d)| {
+				let name = if d.name == "self" {
+					d.name.clone()
+				} else {
+					format!("${i}")
+				};
+				Param {
+					name,
+					span,
+					default: None,
+					..d.clone()
+				}
+			})
+			.collect();
+		return Ok((ps, dps.len() != 1, ret));
+	}
+	let omitted = |p: &Param| matches!(&p.typ, TypeExpr::Name(n) if n == "$?");
+	// a spelled-out header of the wrong arity is left for the signature check to report
+	if params.len() != dps.len() && params.iter().any(omitted) {
+		let msg = format!("this fn literal expects {} param(s), got {}", dps.len(), params.len());
+		return Err(Diagnostic::new(msg, span.into_range()).with_label("wrong number of params"));
+	}
+	let ps = (params.iter().enumerate())
+		.map(|(i, p)| match dps.get(i) {
+			Some(d) if omitted(p) => Param {
+				typ: d.typ.clone(),
+				..p.clone()
+			},
+			_ => p.clone(),
+		})
+		.collect();
+	Ok((ps, params_tuple, ret))
 }
 
 // Check trait impl bodies.
@@ -93,13 +142,21 @@ pub(super) fn check_impls<'p>(
 			Ok(Typ::Fn(params, Box::new(ret)))
 		};
 		for m in methods {
-			let Expr::Fn { name, params, ret, .. } = &m.0 else {
+			let Expr::Fn {
+				name,
+				params,
+				params_tuple,
+				ret,
+				..
+			} = &m.0
+			else {
 				continue;
 			};
-			let Some((_, tp, tr)) = trait_fns(tmethods).find(|(n, ..)| n == name) else {
+			let Some(decl @ (_, tp, tr)) = trait_fns(tmethods).find(|(n, ..)| n == name) else {
 				continue;
 			};
-			let (got, want) = (sig(params, ret)?, sig(tp, tr)?);
+			let (params, _, ret) = fill_from_decl(params, *params_tuple, ret, decl, m.1)?;
+			let (got, want) = (sig(&params, &ret)?, sig(tp, tr)?);
 			if got != want {
 				let msg = format!("`{typ}.{name}` is `{got}`, trait `{tn}` declares `{want}`");
 				return Err(Diagnostic::new(msg, m.1.into_range()).with_label("wrong signature"));
@@ -125,7 +182,7 @@ pub(super) fn check_impls<'p>(
 			if !defaults.contains_key(&key)
 				&& let Some(f) = others.iter().find(|f| f.key == format!("{typ}.{name}"))
 			{
-				let (got, want) = (sig(f.params, f.ret)?, sig(params, ret)?);
+				let (got, want) = (sig(&f.params, &f.ret)?, sig(params, ret)?);
 				if got != want {
 					let msg = format!("`{typ}.{name}` is `{got}`, trait `{tn}` declares `{want}`");
 					return Err(Diagnostic::new(msg, span.into_range()).with_label("wrong signature"));
@@ -146,9 +203,9 @@ pub(super) fn check_impls<'p>(
 			others.push(FnItem {
 				key: format!("{typ}.{name}"),
 				scope,
-				params,
+				params: params.clone(),
 				params_tuple: *params_tuple,
-				ret,
+				ret: ret.clone(),
 				body,
 			});
 		}
