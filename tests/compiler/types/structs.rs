@@ -398,3 +398,15 @@ fn append_infers_anon_literal_from_element_type() {
 	"#};
 	check(src, "4");
 }
+
+#[test]
+fn punned_record_still_wins_as_call_arg() {
+	let src = indoc! {"
+		Point :: struct { x: int, y: int }
+		sum :: fn(p: Point) int { p.x + p.y }
+		x :: 3
+		y :: 4
+		sum({ x, y })
+	"};
+	check(src, "7");
+}

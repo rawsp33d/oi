@@ -802,7 +802,14 @@ impl<'a> Translator<'a> {
 						.with_label("no such field")
 				})?,
 			};
-			let (val, vtyp) = self.expr(value)?;
+			let fte = &def.fields[idx].typ;
+			let (val, vtyp) = match def.type_params.iter().any(|p| mentions(fte, &p.name)) {
+				true => self.expr(value)?,
+				false => {
+					let want = self.types().resolve(fte, value.1)?;
+					self.check_expr(value, &want)?
+				}
+			};
 			unify(&def.fields[idx].typ, &vtyp, &def.type_params, &mut subst, self.generics)
 				.map_err(|msg| Diagnostic::new(msg, value.1.into_range()).with_label("type mismatch"))?;
 			let val = self.copy_in(val, &vtyp);

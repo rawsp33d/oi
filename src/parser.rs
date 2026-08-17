@@ -395,7 +395,7 @@ where
 	// array appending
 	let append = ident()
 		.then_ignore(just(Token::LtLt))
-		.then(expr.clone())
+		.then(expr.clone().or(block_lit.clone()))
 		.map_with(|(name, value), ex| {
 			(
 				Expr::Append {
@@ -507,7 +507,7 @@ where
 		// variable vs. call vs. struct literal
 		let args = paren(
 			named_arg
-				.or(mut_arg.or(expr.clone()).map(|e| (None, e)))
+				.or(mut_arg.or(expr.clone()).or(block_lit.clone()).map(|e| (None, e)))
 				.separated_by(just(Token::Comma))
 				.allow_trailing()
 				.collect::<Vec<_>>(),
@@ -530,7 +530,10 @@ where
 		.boxed();
 
 		// named or positional field entry
-		let struct_field_entry = ident().then_ignore(just(Token::Assign)).or_not().then(expr.clone());
+		let struct_field_entry = ident()
+			.then_ignore(just(Token::Assign))
+			.or_not()
+			.then(expr.clone().or(block_lit.clone()));
 		let struct_body = brace(loose_list(struct_field_entry.clone()));
 
 		// struct literals
@@ -580,7 +583,7 @@ where
 			Token::String(s) => Expr::String(s),
 			Token::Atom(a) => Expr::Atom(a),
 		};
-		let keyed = spanned(key).then(just(Token::Assign).ignore_then(expr.clone()));
+		let keyed = spanned(key).then(just(Token::Assign).ignore_then(expr.clone().or(block_lit.clone())));
 		let pun = ident().map_with(|n, ex| ((Expr::Ident(n.clone()), ex.span()), (Expr::Ident(n), ex.span())));
 
 		let record_entries = keyed

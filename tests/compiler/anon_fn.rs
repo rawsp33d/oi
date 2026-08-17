@@ -434,3 +434,23 @@ fn local_fn_recurses() {
 	"};
 	check(src, "120");
 }
+
+#[test]
+fn non_trailing_arg_block_literal() {
+	let src = indoc! {"
+		op :: fn(n: int, f: fn(int) int) int { f(n) }
+		print(op(4, { $ * 4 }))
+	"};
+	check(src, "16");
+}
+
+#[test]
+fn struct_literal_field_block_literal() {
+	let src = indoc! {"
+		B :: struct { f: fn(int) int = { $ } }
+		b := B.{ f = { $ * 2 } }
+		g := b.f
+		print(g(4))
+	"};
+	check(src, "8");
+}
