@@ -25,7 +25,7 @@ tags: []
 	- `return` `rust`
 	- `self` `lua revo`
 	- `Self` `rust`
-	- context `jai odin`
+	- context `jai`
 - opt-in mutable `rust v`
 - pipes `Nushell revo`
 	- error-specific pipes (revo uses `|>~` though I won't) `revo`
@@ -82,17 +82,18 @@ tags: []
 	- [x] backport these obsidian notes into the Oi repo
 	- [x] `import` -> `use`
 	- [x] V-like `mut ` -> Capy-ish `::` sandwich `capy`
-	- [ ] do another pass on anon fns. All fns should now be the same `capy`
-	- [ ] allow omitting fn header if it's in type sig
-	- [ ] revisit trailing fns
+	- [x] do another pass on anon fns. All fns should now be the same `capy`
+	- [x] allow omitting fn header if it's in type sig
+	- [x] revisit trailing fns
 	- [x] revisit modules to vet incorporating `::` bindings
 - [ ] `comp assert`
 - [x] pipeline examples with `!` postfix collide with macros
 - [x] revisit needing `print`, `assert`, et al to be macros
 	- V allows this without macros: `error('User ${id} not found')`
 	- maybe I can do away with the `!` macros postfix entirely, solving the clash with `Result`
-- [ ] implicit context
-- [ ] computed values `swift`
+- [ ] implicit context `jai`
+- [ ] computed values `swift gdscript`
+- [ ] `main` return types (unit, uint, bool, ?int, ?atom) `capy`
 - [ ] thread version through repl and cli and docs and everything
 - [ ] consider writing some blog posts for some of the bigger decisions and changes in the language as I make them
 - [ ] ptr type (ptr, voidptr, rawptr) `nim v odin`
@@ -112,7 +113,7 @@ tags: []
 - [ ] `unsafe`
 - [ ] `@noinit` `v`
 - [ ] `@nozero`
-- [ ] ownership / memory model
+- [x] ownership / memory model
 - [ ] `discard` and/or `pass`
 - [x] sum types
 - [ ] async

@@ -1448,17 +1448,15 @@ main :: fn() {
 	if p == Point.{} { ... }
 	if p == ({ x = 1, y = 1 }) { ... }
 
-	## anonymous functions
+	## fn literals
 
 	#{
-		Anonymous functions may be created with `fn`.
+		Oi has only one way to make a function, which is a fn literal.
+		`name :: func` is a named fucntion, a fill in a type body is a method.
 		The syntax scales from tiny closures to fully typed, explicitly captured functions.
-		All parts behave just as they do in named functions (except captures, which are unique to anon fns).
 		```
-		# NOTE: `ret` takes precedence over `name`: if only one identifier is present Oi treats it as the return spec, which is far more common than naming an anon fn.
-		fn name? [captures]? (params)? ret? { body }
+		fn [captures]? (params)? ret? { body }
 		```
-		- name: optional name declaration
 		- captures: optional capture spec
 			- omitted: fn implicitly captures any enclosing locals it references as read-only borrows
 			- []: non-capturing. holds no closure environment, so it coerces to a plain function-pointer type and can be stored freely.
@@ -1471,6 +1469,9 @@ main :: fn() {
 		- params: optional param spec
 		- ret: optional return spec
 	}#
+
+	# a `::` binding is visible in its own body
+	fac :: fn(n: int) int { if n < 2 { 1 } else { n * fac(n - 1) } }
 
 	# implicit capture
 	n := 10
@@ -1532,11 +1533,30 @@ main :: fn() {
 		$.insert(order)
 	}
 
-	# named (and typed) params may optionally be provided
-	db.transaction fn (tx) {
+	# a fn header may be provided to name the params
+	db.transaction fn(tx) {
 		tx.insert(user)
 		tx.insert(order)
 	}
+
+	## blocks where fns are expected
+
+	# a bare block is a function literal against any expected function type
+	double : fn(int) int : { $ * 2 }
+
+	# a literal may omit whatever the expected type supplies: param types, return, or the entire header.
+	# names in a fn type are purely optional documentation and never bind
+	Handler :: fn(Event) Event
+	onclick : Handler : fn(ev) { log(ev); ev }
+
+	# all the same function, because of a couple different composable rules
+	onclick :: fn(ev: Event) Event { log(ev); ev }
+	onclick : fn(ev: Event) Event : { log($); $ }
+	onclick : fn(Event) Event : fn(ev) { log(ev); ev }
+	onclick : Handler : fn(ev) { log(ev); ev }
+
+	# `= {}` makes a reassignable fn variable
+	on_click : fn(Event) = { log($) }
 
 	## misc.
 
