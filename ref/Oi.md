@@ -85,7 +85,7 @@ tags: []
 	- [ ] do another pass on anon fns. All fns should now be the same `capy`
 	- [ ] allow omitting fn header if it's in type sig
 	- [ ] revisit trailing fns
-	- [ ] revisit modules to vet incorporating `::` bindings
+	- [x] revisit modules to vet incorporating `::` bindings
 - [ ] `comp assert`
 - [x] pipeline examples with `!` postfix collide with macros
 - [x] revisit needing `print`, `assert`, et al to be macros

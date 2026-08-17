@@ -73,9 +73,20 @@ pub bar :: fn() {
 }
 
 # param modifiers
+
+# a plain param is a read-only borrow
+# `mut` is an exclusive borrow
 pub baz :: fn(mut i: int) {
 	i += 2
 }
+
+# callsites specify modifiers too
+n := 1
+baz(mut n)
+assert!(n == 3)
+
+# while a mutable variable is lent, nothing else may touch it for the call
+# f(mut a, a) # error
 
 # implicit return
 
@@ -214,10 +225,14 @@ User :: struct {
 	swag: int = 5
 }
 
-# heap structs
-# structs are allocated on the stack, but can be allocated on the heap with the `&` prefix
-# this returns a reference
+# references
+# this is an explicit heap allocation
+# `&User.{}` makes one shared value, copies of the reference are aliases
 u := &User.{}
+v := u # same user, not a copy
+v.swag = 9
+assert!(u.swag == 9)
+# writing through a reference requires a `mut` binding
 
 # required fields
 Foo :: struct {
@@ -369,6 +384,7 @@ User :{
 	can_register :: fn(self) bool {
 		self.age > 16
 	}
+	# calling a `mut self` method requires the receiver to be a `mut` binding
 	set_age :: fn(mut self, age: int) {
 		self.age = age
 	}
@@ -584,7 +600,7 @@ Car : Animal via Horn { speak :: fn(self) string { "HONK HONK" } }
 	| `(A, B)` | Tuple | `(A, B)` |
 	| `?T` | Optional | `Option<T>` |
 	| `!T` | Result | `Result<T, _>` (error is any `Error`) |
-	| `&T` | Reference / heap | `&T` |
+	| `&T` | Shared reference | `Rc<T>` |
 	| `fn (A) R` | Function | `fn(A) -> R` |
 	| `Foo[T]` | Generic instance | `Foo<T>` |
 	| `Trait` | Trait object | `&dyn Trait` |
@@ -808,7 +824,8 @@ main :: fn() {
 	# empty `[]` resolves against the expected collection type
 	empty Map[string, int] := []
 
-	# array slices are array subsets of another array
+	# array slices are subsets of another array
+	# used in place a slice is a free view. stored, it is an independent COW value
 	# proper array
 	even := [0 2 4 6 8]
 	# slices of it
@@ -1239,6 +1256,35 @@ main :: fn() {
 		server_error = 500
 	}
 
+	# `ord` gives the discriminant, which defaults to declaration position
+	assert!(ord(Color.blue) == 2)
+	assert!(ord(Status.not_found) == 404)
+
+	# enums are int-backed by default
+	assert!(int(Status.ok) == 200)
+
+	# backed enums
+
+	Code : u8 : enum { ok = 200, err = 250 }
+	codes: [2]Code # 2 bytes
+	assert!(u8(Code.err) == 250)
+
+	# a string backing swaps discriminants for raw values
+	# raws default to the variant name and must be unique
+	Suit : string : enum {
+		hearts = "♥"
+		spades = "♠"
+		clubs
+	}
+	# the cast gives the raw, `.str()` gives the variant name
+	assert!(string(Suit.spades) == "♠")
+	assert!(string(Suit.clubs) == "clubs")
+	assert!(Suit.spades.str() == "spades")
+	# discriminants stay positional
+	assert!(ord(Suit.spades) == 1)
+
+	# a backed enum cannot have payload variants
+
 	# ?T and !T are syntax suger for these:
 	Option[T] :: enum {
 		some(T)
@@ -1414,13 +1460,14 @@ main :: fn() {
 		```
 		- name: optional name declaration
 		- captures: optional capture spec
-			- omitted: fn implicitly captures any enclosing locals it references, read-only by reference
+			- omitted: fn implicitly captures any enclosing locals it references as read-only borrows
 			- []: non-capturing. holds no closure environment, so it coerces to a plain function-pointer type and can be stored freely.
 				can still call named functions and read module-level consts/types
-			- [x]: captures `x` read-only (by reference), and nothing else
-			- [mut x, y]: captures `x` mutably, `y` read-only, and nothing else
-			- [move x]: moves/owns `x` so it can escape the enclosing scope, and nothing else
+			- [x]: captures `x` as a read-only borrow, and nothing else
+			- [mut x, y]: captures `x` as an exclusive scoped borrow, `y` read-only, and nothing else
+			- [move x]: moves `x` into the fn (using `x` after is an error), and nothing else
 			- any bracket (empty or populated) turns implicit capture off, and all referenced locals must then be listed explicitly
+			- a fn holding any borrowed capture cannot escape the enclosing scope (unless it `move`s)
 		- params: optional param spec
 		- ret: optional return spec
 	}#
