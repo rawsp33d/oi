@@ -454,3 +454,15 @@ fn struct_literal_field_block_literal() {
 	"};
 	check(src, "8");
 }
+
+#[test]
+fn ret_less_fn_type_ends_its_line() {
+	let src = indoc! {"
+		Handler :: fn(int)
+		x := 0
+		x = 1
+		call :: fn(n: int, h: Handler) { h(n) }
+		call(x) { print($) }
+	"};
+	check(src, "1");
+}

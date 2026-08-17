@@ -115,8 +115,12 @@ fn or_else((value, body): (Spanned<Expr>, Option<Vec<Spanned<Expr>>>), span: Spa
 	}
 }
 
-pub fn parser<'token, I>() -> impl Parser<'token, I, Vec<Spanned<Expr>>, extra::Err<Rich<'token, Token>>>
+pub fn parser<'src, 'token, I>(
+	src: &'src str,
+	origin: usize,
+) -> impl Parser<'token, I, Vec<Spanned<Expr>>, extra::Err<Rich<'token, Token>>>
 where
+	'src: 'token,
 	I: ValueInput<'token, Token = Token, Span = SimpleSpan>,
 {
 	// `expr` and the statement/block parsers are mutually recursive
@@ -194,9 +198,15 @@ where
 					None => TypeExpr::Array(Box::new(elem)),
 				});
 			let fn_param = just(Token::Mut).or_not().then(te.clone());
-			let fn_ret = base
-				.clone()
-				.then_ignore(one_of([Token::DoubleColon, Token::Bind, Token::LParen, Token::Dot, Token::LtLt]).not())
+			let fn_ret = empty()
+				.map_with(|_, ex| ex.span())
+				.try_map(move |sp: Span, _| match src.get(sp.end - origin..sp.start - origin) {
+					Some(gap) if gap.contains('\n') => {
+						Err(Rich::custom(sp, "a return type must open on the same line"))
+					}
+					_ => Ok(()),
+				})
+				.ignore_then(base.clone())
 				.or_not();
 			let fn_type = just(Token::Fn)
 				.ignore_then(paren(loose_list(fn_param)))

@@ -68,7 +68,7 @@ fn parse_file(map: &SourceMap, base: usize) -> Result<Vec<Spanned<Expr>>, Report
 	let src = map.last_src();
 	let toks = lex_at(src, base);
 	let eoi = (base + src.len()..base + src.len()).into();
-	parser()
+	parser(src, base)
 		.parse(Stream::from_iter(toks).map(eoi, |t| t))
 		.into_result()
 		.map_err(|errs| {
