@@ -66,13 +66,13 @@ impl<'a> Translator<'a> {
 		self.b.use_var(eq)
 	}
 
-	// The `Eq` fill claimed for `name`, if any.
-	fn eq_fill(&self, name: &str) -> Option<FnSig> {
-		let claimed = self.trait_impls.contains(&(name.to_string(), "Eq".into()));
+	// The `method` fill of trait `tn` claimed for `name`, if any.
+	pub(super) fn fill(&self, name: &str, tn: &str, method: &str, arity: usize) -> Option<FnSig> {
+		let claimed = self.trait_impls.contains(&(name.to_string(), tn.to_string()));
 		self.funcs
-			.get(&format!("{name}.eq"))
+			.get(&format!("{name}.{method}"))
 			.cloned()
-			.filter(|s| claimed && s.params.len() == 2)
+			.filter(|s| claimed && s.params.len() == arity)
 	}
 
 	// Compare two structs field by field.
@@ -86,7 +86,7 @@ impl<'a> Translator<'a> {
 			let fa = self.b.ins().load(cl, MemFlags::new(), a, (i * 8) as i32);
 			let fb = self.b.ins().load(cl, MemFlags::new(), b, (i * 8) as i32);
 			let eq = match &f.typ {
-				Typ::Struct(n, _) => match self.eq_fill(n) {
+				Typ::Struct(n, _) => match self.fill(n, "Eq", "eq", 2) {
 					Some(sig) => self.emit_call(&sig, &[fa, fb]).0,
 					None => self.emit_struct_eq(fa, fb, &f.typ, span)?,
 				},
@@ -193,9 +193,7 @@ impl<'a> Translator<'a> {
 				BinOp::Mod => "Mod",
 				_ => unreachable!("non-arithmetic op in binop"),
 			};
-			let claimed = self.trait_impls.contains(&(name.clone(), tn.to_string()));
-			let sig = self.funcs.get(&format!("{name}.{}", tn.to_ascii_lowercase())).cloned();
-			let Some(sig) = sig.filter(|s| claimed && s.params.len() == 2) else {
+			let Some(sig) = self.fill(name, tn, &tn.to_ascii_lowercase(), 2) else {
 				return Err(
 					Diagnostic::new(format!("cannot apply `{op}` to {lt}"), span.into_range())
 						.with_label(format!("implement `{tn}` for `{name}` to overload `{op}`")),
@@ -348,16 +346,28 @@ impl<'a> Translator<'a> {
 					self.b.ins().icmp_imm(IntCC::NotEqual, eq, 0)
 				}
 			}
-			(Typ::Struct(name, _), _) if lt == rt && (icc == IntCC::Equal || icc == IntCC::NotEqual) => {
-				let eq = match self.eq_fill(name) {
-					Some(sig) => self.emit_call(&sig, &[lv, rv]).0,
-					None => self.emit_struct_eq(lv, rv, &lt, span)?,
+			(Typ::Struct(name, _), _) if lt == rt => {
+				// overloads
+				let eq_op = matches!(icc, IntCC::Equal | IntCC::NotEqual);
+				let negate = matches!(
+					icc,
+					IntCC::NotEqual | IntCC::SignedLessThanOrEqual | IntCC::SignedGreaterThanOrEqual
+				);
+				let swap = matches!(icc, IntCC::SignedGreaterThan | IntCC::SignedLessThanOrEqual);
+				let (a, b) = if swap { (rv, lv) } else { (lv, rv) };
+				let (tn, method) = if eq_op { ("Eq", "eq") } else { ("Ord", "lt") };
+				let raw = match self.fill(name, tn, method, 2) {
+					Some(sig) => self.emit_call(&sig, &[a, b]).0,
+					None if eq_op => self.emit_struct_eq(a, b, &lt, span)?,
+					None => {
+						return Err(
+							Diagnostic::new(format!("cannot compare {lt} and {rt}"), span.into_range())
+								.with_label(format!("claim `Ord` for `{name}` to define ordering")),
+						);
+					}
 				};
-				if icc == IntCC::NotEqual {
-					self.b.ins().icmp_imm(IntCC::Equal, eq, 0)
-				} else {
-					self.b.ins().icmp_imm(IntCC::NotEqual, eq, 0)
-				}
+				let cc = if negate { IntCC::Equal } else { IntCC::NotEqual };
+				self.b.ins().icmp_imm(cc, raw, 0)
 			}
 			_ => {
 				return Err(

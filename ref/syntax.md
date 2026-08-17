@@ -442,6 +442,18 @@ Frac : Eq {
 }
 assert!(Frac.{1, 2} == Frac.{2, 4})
 
+# unary `-` dispatches to a `Neg` claim
+Point : Neg {
+	neg :: fn(self) Self { Self.{ -self.x, -self.y } }
+}
+assert!(-Point.{1, 2} == Point.{-1, -2})
+
+# `Ord` orders a type with a single `lt`. `< > <= >=` all derive from it
+Frac : Ord {
+	lt :: fn(self, other: Self) bool { self.num * other.den < other.num * self.den }
+}
+assert!(Frac.{1, 3} < Frac.{1, 2})
+
 ## traits
 
 # a trait is a set of behaviors and/or data

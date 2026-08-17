@@ -1,9 +1,11 @@
 # operator overloads
 
-# equality
+# comparison
 Eq :: trait { eq: fn(self, other: Self) bool }
+Ord :: trait { lt: fn(self, other: Self) bool }
 
-# arithemetic
+# arithmetic
+Neg :: trait { neg: fn(self) Self }
 Add :: trait { add: fn(self, other: Self) Self }
 Sub :: trait { sub: fn(self, other: Self) Self }
 Mul :: trait { mul: fn(self, other: Self) Self }

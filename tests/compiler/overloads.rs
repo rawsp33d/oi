@@ -43,7 +43,7 @@ fn eq_is_structural_by_default() {
 		print(a == b)
 		print(a != c)
 	"#};
-	check(src, "true\ntrue");
+	check(src, ["true", "true"]);
 }
 
 #[test]
@@ -56,6 +56,42 @@ fn claimed_eq_beats_the_structural_default() {
 		print(Frac.{1, 2} == Frac.{2, 4})
 	"};
 	check(src, "true");
+}
+
+#[test]
+fn neg_dispatches_to_the_fill() {
+	let src = indoc! {"
+		Point :: struct { x: int, y: int }
+		Point : Neg {
+			neg :: fn(self) Self { Self.{ -self.x, -self.y } }
+		}
+		print(-Point.{1, 2})
+	"};
+	check(src, "Point.{x = -1, y = -2}");
+}
+
+#[test]
+fn orderings_derive_from_ord() {
+	let src = indoc! {"
+		Frac :: struct { num: int, den: int }
+		Frac : Ord {
+			lt :: fn(self, other: Self) bool { self.num * other.den < other.num * self.den }
+		}
+		a :: Frac.{1, 3}
+		b :: Frac.{1, 2}
+		print(a < b, b > a, a <= b, b >= a)
+		print(a > b, a >= b, a <= a, a >= a)
+	"};
+	check(src, ["true true true true", "false false true true"]);
+}
+
+#[test]
+fn unordered_struct_is_rejected() {
+	let src = indoc! {"
+		Point :: struct { x: int, y: int }
+		Point.{1, 2} < Point.{3, 4}
+	"};
+	fail_with(src, "claim `Ord` for `Point` to define ordering");
 }
 
 #[test]
