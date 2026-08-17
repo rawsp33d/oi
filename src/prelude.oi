@@ -1,0 +1,5 @@
+Add :: trait { add: fn(self, other: Self) Self }
+Sub :: trait { sub: fn(self, other: Self) Self }
+Mul :: trait { mul: fn(self, other: Self) Self }
+Div :: trait { div: fn(self, other: Self) Self }
+Mod :: trait { mod: fn(self, other: Self) Self }

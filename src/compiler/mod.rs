@@ -358,6 +358,18 @@ impl Compiler {
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("already defined"));
 			}
 		}
+		// prelude traits
+		for (e, _) in crate::loader::PRELUDE.iter() {
+			if let Expr::TraitDef {
+				name,
+				supers,
+				fields,
+				methods,
+			} = e
+			{
+				traits.entry(name.as_str()).or_insert((supers, fields, methods));
+			}
+		}
 		for (scope, item) in program.items() {
 			match &item.0 {
 				Expr::StructDef {

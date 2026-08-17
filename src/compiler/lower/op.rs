@@ -132,6 +132,35 @@ impl<'a> Translator<'a> {
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
 		let (lv, lt) = self.expr(l)?;
+
+		// operator overloads
+		if let Typ::Struct(name, _) = &lt {
+			let tn = match op {
+				BinOp::Add => "Add",
+				BinOp::Sub => "Sub",
+				BinOp::Mul => "Mul",
+				BinOp::Div => "Div",
+				BinOp::Mod => "Mod",
+				_ => unreachable!("non-arithmetic op in binop"),
+			};
+			let claimed = self.trait_impls.contains(&(name.clone(), tn.to_string()));
+			let sig = self.funcs.get(&format!("{name}.{}", tn.to_ascii_lowercase())).cloned();
+			let Some(sig) = sig.filter(|s| claimed && s.params.len() == 2) else {
+				return Err(
+					Diagnostic::new(format!("cannot apply `{op}` to {lt}"), span.into_range())
+						.with_label(format!("implement `{tn}` for `{name}` to overload `{op}`")),
+				);
+			};
+			let (rv, rt) = self.check_expr(r, &sig.params[1])?;
+			if rt != sig.params[1] {
+				return Err(Diagnostic::new(
+					format!("expected {} argument, got {rt}", sig.params[1]),
+					r.1.into_range(),
+				)
+				.with_label("wrong argument type"));
+			}
+			return Ok(self.emit_call(&sig, &[lv, rv]));
+		}
 		let (rv, rt) = self.expr(r)?;
 
 		// string concatenation
