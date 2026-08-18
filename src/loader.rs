@@ -356,9 +356,17 @@ impl Loader<'_> {
 				(alias.clone(), target.clone())
 			})
 			.collect();
+		let mut bare = HashMap::new();
+		for m in self.modules.iter().filter(|m| m.name != "main") {
+			let traits = m.scope.env.iter().filter(|(k, v)| k == v);
+			bare.extend(traits.map(|(k, _)| (format!("{}::{k}", m.name), k.clone())));
+		}
 		for m in &mut self.modules {
 			for target in m.scope.env.values_mut() {
 				if let Some(t) = resolved.get(target) {
+					*target = t.clone();
+				}
+				if let Some(t) = bare.get(target) {
 					*target = t.clone();
 				}
 			}
@@ -379,6 +387,7 @@ impl Loader<'_> {
 								| Expr::StructDef { name, .. }
 								| Expr::EnumDef { name, .. }
 								| Expr::TypeAlias { name, .. }
+								| Expr::TraitDef { name, .. }
 								| Expr::Bind { name, .. } if name == q)
 						})
 					})

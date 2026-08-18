@@ -134,16 +134,29 @@ fn type_import() {
 
 #[test]
 fn type_import_fails() {
-	for (lib, expected) in [
-		("P :: struct { x: int }", "private to module `foo`"),
-		("pub P :: trait {}", "cannot be imported"),
-	] {
+	for lib in ["P :: struct { x: int }", "P :: trait {}"] {
 		let p = Project::new()
 			.file("main.oi", ["module main", "use foo.{ P }", "print(1)"])
 			.file("foo/lib.oi", ["module foo", lib]);
 		let out = err(run_main(p));
-		assert!(out.contains(expected), "{out}");
+		assert!(out.contains("private to module `foo`"), "{out}");
 	}
+}
+
+#[test]
+fn trait_import() {
+	let p = Project::new()
+		.file("main.oi", ["module main", "use foo.{ T, P }", "print(P is T)"])
+		.file(
+			"foo/lib.oi",
+			[
+				"module foo",
+				"pub T :: trait {}",
+				"pub P :: struct { x: int }",
+				"P : T {}",
+			],
+		);
+	assert_eq!(ok(run_main(p)), "true");
 }
 
 #[test]

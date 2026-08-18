@@ -95,7 +95,8 @@ impl<'a> Translator<'a> {
 					));
 				};
 				let typ = self.types().resolve(&TypeExpr::Name(name.clone()), subject.1)?;
-				let holds = self.claims(&typ, trait_name) ^ negated;
+				let tn = self.scope.env.get(trait_name).unwrap_or(trait_name);
+				let holds = self.claims(&typ, tn) ^ negated;
 				Ok((self.b.ins().iconst(self.int, holds as i64), Typ::Bool))
 			}
 

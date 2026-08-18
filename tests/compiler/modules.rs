@@ -23,6 +23,12 @@ fn import_prelude() {
 }
 
 #[test]
+fn import_trait() {
+	check(["use prelude.{ Ord }", "print(int is Ord)"], "true");
+	check(["use prelude.{ Order :: Ord }", "print(int is Order)"], "true");
+}
+
+#[test]
 fn import_nested_path() {
 	fail_with("use a.b.c", "nested module paths aren't supported yet");
 	fail_with("x :: use a.b.{ c }", "nested module paths aren't supported yet");
