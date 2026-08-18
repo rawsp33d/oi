@@ -98,6 +98,7 @@ impl<'a> Translator<'a> {
 			type_params: vec![],
 			captures: resolved.iter().map(|(n, t, boxed, _)| (n.clone(), t.clone(), *boxed)).collect(),
 			self_name: resolved.is_empty().then_some(self_name).flatten(),
+			module: self.scope.module.clone(),
 		};
 		let sig = self.declare_instance(&format!("anon${}_{}", span.start, span.end), &def, subst)?;
 		let func_ref = self.module.declare_func_in_func(sig.id, self.b.func);

@@ -61,6 +61,7 @@ pub(crate) struct GenericFnDef {
 	pub type_params: Vec<TypeParam>,
 	pub captures: Vec<(String, Typ, bool)>,
 	pub self_name: Option<String>,
+	pub module: String,
 }
 
 // A monomorphized instance whose sig is declared but body not yet compiled.
@@ -328,6 +329,7 @@ impl Compiler {
 					type_params: all_params,
 					captures: vec![],
 					self_name: None,
+					module: scope.module.clone(),
 				},
 			);
 		}
@@ -488,6 +490,7 @@ impl Compiler {
 							type_params: type_params.clone(),
 							captures: vec![],
 							self_name: None,
+							module: scope.module.clone(),
 						},
 					);
 				}
@@ -740,7 +743,8 @@ impl Compiler {
 
 		// drain generic instances queued by calls we've seen
 		while let Some((sym, def, subst)) = self.pending.pop() {
-			let types = TypeCtx::new(&structs, &enums, &aliases, &subst, &generics, &traits);
+			let home = scopes[if def.module.is_empty() { "main" } else { &def.module }];
+			let types = TypeCtx::new(&structs, &enums, &aliases, &subst, &generics, &traits).with_scope(home);
 			let (params, ret) = types.resolve_params_ret(&def.params, &def.ret)?;
 			let ret = ret.or_else(|| Some((self.mono[&sym].ret.clone(), (0..0).into())));
 			let self_sig = self.mono[&sym].clone();

@@ -160,6 +160,21 @@ fn trait_import() {
 }
 
 #[test]
+fn generic_fn_uses_local_type() {
+	let p = Project::new()
+		.file("main.oi", ["module main", "use foo", "print(foo.pack(7))"])
+		.file(
+			"foo/lib.oi",
+			[
+				"module foo",
+				"P :: struct { x: int }",
+				"pub pack[T] :: fn(v: T) int { P.{ x = 3 }.x + v }",
+			],
+		);
+	assert_eq!(ok(run_main(p)), "10");
+}
+
+#[test]
 fn type_reexport() {
 	let p = Project::new()
 		.file("main.oi", ["module main", "use mid.{ P }", "print(P.{ x = 7 }.x)"])
