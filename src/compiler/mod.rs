@@ -194,6 +194,7 @@ pub struct Compiler {
 	prelude_traits: HashSet<String>,
 	descs: HashMap<String, DataId>,
 	publics: HashSet<String>,
+	privates: HashMap<String, HashSet<String>>,
 	reexports: HashMap<String, String>,
 	consts: HashMap<String, Spanned<Expr>>,
 }
@@ -249,6 +250,7 @@ impl Default for Compiler {
 			prelude_traits: HashSet::new(),
 			descs: HashMap::new(),
 			publics: HashSet::new(),
+			privates: HashMap::new(),
 			reexports: HashMap::new(),
 			consts: HashMap::new(),
 		}
@@ -267,6 +269,10 @@ impl Compiler {
 		decls: &[TraitFn],
 	) -> Result<(), Diagnostic> {
 		for m in fills {
+			let (public, m) = match &m.0 {
+				Expr::Pub(inner) => (true, &**inner),
+				_ => (false, m),
+			};
 			let Expr::Fn {
 				name,
 				type_params: mtp,
@@ -280,6 +286,10 @@ impl Compiler {
 			};
 			// one fill per name
 			let key = format!("{typ}.{name}");
+			// visibility
+			if !public && decls.is_empty() && typ.contains("::") {
+				self.privates.entry(typ.to_string()).or_default().insert(name.clone());
+			}
 			if others.iter().any(|f| f.key == key) || self.generics.contains_key(&key) {
 				let msg = format!("duplicate fill `{key}`");
 				return Err(Diagnostic::new(msg, m.1.into_range()).with_label("one fill per name"));
@@ -336,6 +346,13 @@ impl Compiler {
 		Ok(())
 	}
 
+	fn note_privates(&mut self, name: &str, fields: &[Param]) {
+		if name.contains("::") {
+			let hidden = fields.iter().filter(|f| !f.public).map(|f| f.name.clone());
+			self.privates.entry(name.to_string()).or_default().extend(hidden);
+		}
+	}
+
 	pub fn compile(&mut self, program: &Program) -> Result<*const u8, Diagnostic> {
 		let mut struct_items: Vec<(&str, &[Param])> = vec![];
 		let mut generics = Generics::default();
@@ -388,12 +405,14 @@ impl Compiler {
 							fields: fields.clone(),
 						},
 					);
+					self.note_privates(name, fields);
 					self.register_fills(name, type_params, fills, scope, &mut others, &[])?;
 				}
 				Expr::StructDef {
 					name, fields, fills, ..
 				} => {
 					struct_items.push((name.as_str(), fields.as_slice()));
+					self.note_privates(name, fields);
 					self.register_fills(name, &[], fills, scope, &mut others, &[])?;
 				}
 				Expr::EnumDef {
@@ -848,6 +867,7 @@ impl Compiler {
 			prelude_traits: &self.prelude_traits,
 			scope: types.scope,
 			publics: &self.publics,
+			privates: &self.privates,
 			reexports: &self.reexports,
 			consts: &self.consts,
 			mono: &mut self.mono,

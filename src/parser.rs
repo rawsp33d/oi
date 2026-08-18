@@ -85,6 +85,7 @@ fn fn_def(
 			span,
 			default: None,
 			mutable: false,
+			public: false,
 		};
 		(vec![param], false)
 	});
@@ -293,6 +294,7 @@ where
 			span: ex.span(),
 			default: None,
 			mutable: mutable.is_some(),
+			public: false,
 		});
 	// NOTE: a trailing comma forces a tuple even for one param
 	let params = paren(
@@ -1071,16 +1073,19 @@ where
 		.boxed();
 
 	// struct defs
-	let struct_field = ident()
+	let struct_field = just(Token::Pub)
+		.or_not()
+		.then(ident())
 		.then_ignore(just(Token::Colon))
 		.then(type_expr.clone())
 		.then(just(Token::Assign).ignore_then(expr.clone().or(block_lit.clone())).or_not())
-		.map_with(|((name, typ), default), ex| Param {
+		.map_with(|(((public, name), typ), default), ex| Param {
 			name,
 			typ,
 			span: ex.span(),
 			default,
 			mutable: false,
+			public: public.is_some(),
 		})
 		.boxed();
 	let struct_def = item_head
@@ -1260,7 +1265,14 @@ where
 		.then_ignore(just(Token::DoubleColon))
 		.then(block.clone())
 		.map_with(|(name, body), ex| fn_def((name, vec![]), Some((vec![], false)), None, body, ex.span()));
-	let fill_block = brace(func.clone().or(bare_fill).repeated().collect::<Vec<_>>());
+	let fill = just(Token::Pub)
+		.or_not()
+		.then(func.clone().or(bare_fill))
+		.map_with(|(p, f), ex| match p {
+			Some(_) => (Expr::Pub(Box::new(f)), ex.span()),
+			None => f,
+		});
+	let fill_block = brace(fill.repeated().collect::<Vec<_>>());
 	let claim = ident()
 		.then(type_params.clone())
 		.then_ignore(just(Token::Colon))

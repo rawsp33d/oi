@@ -746,6 +746,7 @@ impl<'a> Translator<'a> {
 						Diagnostic::new(format!("`{name}` has no field `{fname}`"), value.1.into_range())
 							.with_label("no such field")
 					})?;
+					self.check_member(&name, fname, value.1)?;
 					let val = self.check_typed(value, &struct_fields[idx].typ, "type mismatch")?;
 					let val = self.copy_in(val, &struct_fields[idx].typ);
 					self.b.ins().store(MemFlags::new(), val, ptr, (idx * 8) as i32);
@@ -802,10 +803,13 @@ impl<'a> Translator<'a> {
 							.with_label("missing field name"),
 					);
 				}
-				Some(fname) => def.fields.iter().position(|f| &f.name == fname).ok_or_else(|| {
-					Diagnostic::new(format!("`{name}` has no field `{fname}`"), value.1.into_range())
-						.with_label("no such field")
-				})?,
+				Some(fname) => {
+					self.check_member(name, fname, value.1)?;
+					def.fields.iter().position(|f| &f.name == fname).ok_or_else(|| {
+						Diagnostic::new(format!("`{name}` has no field `{fname}`"), value.1.into_range())
+							.with_label("no such field")
+					})?
+				}
 			};
 			let fte = &def.fields[idx].typ;
 			let (val, vtyp) = match def.type_params.iter().any(|p| mentions(fte, &p.name)) {

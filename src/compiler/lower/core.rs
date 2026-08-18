@@ -25,6 +25,17 @@ impl<'a> Translator<'a> {
 		}
 	}
 
+	// Ensure that no private members are accessed from outside their module.
+	pub(super) fn check_member(&self, typ: &str, member: &str, span: Span) -> Result<(), Diagnostic> {
+		let def = typ.split('[').next().unwrap(); // Box[int] -> Box
+		let owner = def.split_once("::").map_or("", |(m, _)| m);
+		if owner == self.scope.module || !self.privates.get(def).is_some_and(|ms| ms.contains(member)) {
+			return Ok(());
+		}
+		let msg = format!("`{member}` is private to module `{owner}`");
+		Err(Diagnostic::new(msg, span.into_range()).with_label("not public"))
+	}
+
 	// Look up the binding that a mutation targets.
 	pub(super) fn mutable_local(&self, name: &str, span: Range<usize>, op: Mutation) -> Result<Local, Diagnostic> {
 		// how the mutation reads in errors

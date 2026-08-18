@@ -42,6 +42,7 @@ impl Translator<'_> {
 				span,
 				default: None,
 				mutable: false,
+				public: false,
 			});
 		}
 		let ret = self.stage_ret(step)?;

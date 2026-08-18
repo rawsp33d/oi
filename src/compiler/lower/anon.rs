@@ -66,6 +66,7 @@ impl<'a> Translator<'a> {
 								span,
 								default: None,
 								mutable: false,
+								public: false,
 							})
 							.collect(),
 						ptyps.len() != 1,

@@ -56,6 +56,7 @@ pub(super) struct Translator<'a> {
 	pub prelude_traits: &'a HashSet<String>,
 	pub scope: &'a Scope,
 	pub publics: &'a HashSet<String>,
+	pub privates: &'a HashMap<String, HashSet<String>>,
 	pub reexports: &'a HashMap<String, String>,
 	pub consts: &'a HashMap<String, Spanned<Expr>>,
 	pub mono: &'a mut HashMap<String, FnSig>,

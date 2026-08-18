@@ -245,6 +245,7 @@ impl<'a> Translator<'a> {
 					}
 				};
 				let recv_expr = bound.is_some().then(|| recv.as_ref());
+				self.check_member(&sname, method, expr.1)?;
 				let key = format!("{sname}.{method}");
 				if let Some(sig) = self.funcs.get(&key).cloned() {
 					return self.call_sig(&key, sig, bound.map(|(v, _)| v), recv_expr, args, expr.1);
@@ -342,6 +343,10 @@ impl<'a> Translator<'a> {
 								.with_label("arrays only have `.len` and numeric indices"),
 						),
 					};
+				}
+
+				if let Typ::Struct(sname, _) = &typ {
+					self.check_member(sname, field, expr.1)?;
 				}
 
 				// structs are just fully-named tuples at the codegen level

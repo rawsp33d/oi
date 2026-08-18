@@ -112,11 +112,11 @@ fn type_import() {
 	for (main, lib) in [
 		(
 			"use foo.{ P }\np := P.{ x = 3, y = 4 }\nprint(p.x + p.y)",
-			"pub P :: struct { x: int, y: int }",
+			"pub P :: struct { pub x: int, pub y: int }",
 		),
 		(
 			"Q :: use foo.P\nsum :: fn(q: Q) int { q.x + q.y }\nprint(sum(Q.{ x = 3, y = 4 }))",
-			"pub P :: struct { x: int, y: int }",
+			"pub P :: struct { pub x: int, pub y: int }",
 		),
 		(
 			"use foo.{ E }\ne := E.a\nprint(match e { E.a => 7, E.b => 0 })",
@@ -179,7 +179,7 @@ fn type_reexport() {
 	let p = Project::new()
 		.file("main.oi", ["module main", "use mid.{ P }", "print(P.{ x = 7 }.x)"])
 		.file("mid/lib.oi", ["module mid", "pub use base.P"])
-		.file("base/lib.oi", ["module base", "pub P :: struct { x: int }"]);
+		.file("base/lib.oi", ["module base", "pub P :: struct { pub x: int }"]);
 	assert_eq!(ok(run_main(p)), "7");
 }
 

@@ -412,4 +412,5 @@ pub struct Param {
 	pub span: Span,
 	pub default: Option<Spanned<Expr>>,
 	pub mutable: bool,
+	pub public: bool,
 }
