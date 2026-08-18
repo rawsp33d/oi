@@ -214,6 +214,21 @@ fn generic_fn_uses_local_type() {
 }
 
 #[test]
+fn generic_struct_in_module() {
+	let p = Project::new()
+		.file("main.oi", ["module main", "use foo", "print(foo.mk().v)"])
+		.file(
+			"foo/lib.oi",
+			[
+				"module foo",
+				"pub Box[T] :: struct { pub v: T }",
+				"pub mk :: fn() Box[int] { Box.{ v = 7 } }",
+			],
+		);
+	assert_eq!(ok(run_main(p)), "7");
+}
+
+#[test]
 fn type_reexport() {
 	let p = Project::new()
 		.file("main.oi", ["module main", "use mid.{ P }", "print(P.{ x = 7 }.x)"])

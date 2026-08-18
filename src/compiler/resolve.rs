@@ -229,6 +229,7 @@ impl TypeCtx<'_> {
 				Box::new(self.resolve(v, span)?),
 			)),
 			TypeExpr::Generic(name, args) => {
+				let name = self.scope.env.get(name).unwrap_or(name);
 				if let Some(def) = self.generics.structs.get(name) {
 					let subst = self.generic_subst(name, &def.type_params, args, span)?;
 					return self.instantiate(name, def, &subst, span);
