@@ -1,13 +1,15 @@
+module prelude
+
 # operator overloads
 
 # comparison
-Eq :: trait { eq: fn(self, other: Self) bool }
-Ord :: trait { lt: fn(self, other: Self) bool }
+pub Eq :: trait { eq: fn(self, other: Self) bool }
+pub Ord :: trait { lt: fn(self, other: Self) bool }
 
 # arithmetic
-Neg :: trait { neg: fn(self) Self }
-Add :: trait { add: fn(self, other: Self) Self }
-Sub :: trait { sub: fn(self, other: Self) Self }
-Mul :: trait { mul: fn(self, other: Self) Self }
-Div :: trait { div: fn(self, other: Self) Self }
-Mod :: trait { mod: fn(self, other: Self) Self }
+pub Neg :: trait { neg: fn(self) Self }
+pub Add :: trait { add: fn(self, other: Self) Self }
+pub Sub :: trait { sub: fn(self, other: Self) Self }
+pub Mul :: trait { mul: fn(self, other: Self) Self }
+pub Div :: trait { div: fn(self, other: Self) Self }
+pub Mod :: trait { mod: fn(self, other: Self) Self }

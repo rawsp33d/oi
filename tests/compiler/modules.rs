@@ -18,6 +18,11 @@ fn import_missing() {
 }
 
 #[test]
+fn import_prelude() {
+	check(["use prelude", r#"print("ok")"#], "ok");
+}
+
+#[test]
 fn import_nested_path() {
 	fail_with("use a.b.c", "nested module paths aren't supported yet");
 	fail_with("x :: use a.b.{ c }", "nested module paths aren't supported yet");

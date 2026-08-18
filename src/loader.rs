@@ -4,7 +4,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
-use std::sync::LazyLock;
 
 use chumsky::{input::Stream, prelude::*};
 
@@ -19,6 +18,19 @@ pub struct Module {
 	pub name: String,
 	pub items: Vec<Spanned<Expr>>,
 	pub scope: Scope,
+}
+
+impl Module {
+	fn new(name: &str) -> Self {
+		Module {
+			name: name.into(),
+			items: vec![],
+			scope: Scope {
+				module: if name == "main" { String::new() } else { name.into() },
+				..Scope::default()
+			},
+		}
+	}
 }
 
 // A module's view of names.
@@ -79,17 +91,6 @@ fn parse_file(map: &SourceMap, base: usize) -> Result<Vec<Spanned<Expr>>, Report
 			Reported
 		})
 }
-
-// The prelude, embedded at build time.
-pub(crate) static PRELUDE: LazyLock<Vec<Spanned<Expr>>> = LazyLock::new(|| {
-	let src = include_str!("prelude.oi");
-	let toks = lex_at(src, 0);
-	let eoi = (src.len()..src.len()).into();
-	parser(src, 0)
-		.parse(Stream::from_iter(toks).map(eoi, |t| t))
-		.into_result()
-		.expect("prelude parses")
-});
 
 struct Loader<'a> {
 	root: &'a Path,
@@ -301,6 +302,16 @@ impl Loader<'_> {
 		Ok(())
 	}
 
+	// Load one source as a whole module.
+	fn load_source(&mut self, name: &str, file: &str, src: String) -> Result<(), Reported> {
+		let base = self.map.push(file.to_string(), src);
+		let items = parse_file(&self.map, base)?;
+		let mut module = Module::new(name);
+		let mut imports = vec![];
+		self.add_file(&mut module, &mut imports, items).map_err(|d| self.report(d))?;
+		self.seal(module, imports)
+	}
+
 	// Load a dir as one module.
 	fn load_module(&mut self, name: &str, span: Span) -> Result<(), Reported> {
 		if self.loading.iter().any(|m| m == name) {
@@ -321,18 +332,7 @@ impl Loader<'_> {
 		if files.is_empty() {
 			return Err(self.report(err(format!("cannot find module `{name}`"), span, "no such module")));
 		}
-		let mut module = Module {
-			name: name.to_string(),
-			items: vec![],
-			scope: Scope {
-				module: if name == "main" {
-					String::new()
-				} else {
-					name.to_string()
-				},
-				..Scope::default()
-			},
-		};
+		let mut module = Module::new(name);
 		let mut imports = vec![];
 		for path in files {
 			let src = fs::read_to_string(&path).unwrap_or_default();
@@ -413,16 +413,9 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 		loading: vec![],
 		selected: vec![],
 	};
-	let base = loader.map.push(entry_name.to_string(), entry_src);
-	let items = parse_file(&loader.map, base)?;
-	let mut main = Module {
-		name: "main".into(),
-		items: vec![],
-		scope: Scope::default(),
-	};
-	let mut imports = vec![];
-	loader.add_file(&mut main, &mut imports, items).map_err(|d| loader.report(d))?;
-	loader.seal(main, imports)?;
+	// import prelude implicitly
+	loader.load_source("prelude", "prelude.oi", include_str!("prelude.oi").into())?;
+	loader.load_source("main", entry_name, entry_src)?;
 	let reexports = loader.resolve_reexports();
 	loader.check_selected()?;
 	Ok(Program {

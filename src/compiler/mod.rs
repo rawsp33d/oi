@@ -352,8 +352,7 @@ impl Compiler {
 		let scope_of = |key: &str| scopes[key.split_once("::").map_or("main", |(m, _)| m)];
 
 		let mut traits: HashMap<&str, TraitItem> = HashMap::new();
-		for (_, item) in program.items() {
-			let (e, span) = item;
+		for (scope, (e, span)) in program.items() {
 			let Expr::TraitDef {
 				name,
 				supers,
@@ -364,21 +363,11 @@ impl Compiler {
 				continue;
 			};
 			let item = (supers.as_slice(), fields.as_slice(), methods.as_slice());
-			if traits.insert(name.as_str(), item).is_some() {
+			if traits.insert(name.as_str(), item).is_some() && !self.prelude_traits.remove(name.as_str()) {
 				let msg = format!("duplicate trait `{name}`");
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("already defined"));
 			}
-		}
-		// prelude traits
-		for (e, _) in crate::loader::PRELUDE.iter() {
-			if let Expr::TraitDef {
-				name,
-				supers,
-				fields,
-				methods,
-			} = e && !traits.contains_key(name.as_str())
-			{
-				traits.insert(name.as_str(), (supers, fields, methods));
+			if scope.module == "prelude" {
 				self.prelude_traits.insert(name.clone());
 			}
 		}
