@@ -80,7 +80,7 @@ fn supertraits() {
 }
 
 #[test]
-fn builtin_claims_prelude_ord() {
+fn builtin_claims_std_ord() {
 	check("print(int is Ord)", "true");
 }
 

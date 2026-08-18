@@ -18,14 +18,14 @@ fn import_missing() {
 }
 
 #[test]
-fn import_prelude() {
-	check(["use prelude", r#"print("ok")"#], "ok");
+fn import_std() {
+	check(["use std", r#"print("ok")"#], "ok");
 }
 
 #[test]
 fn import_trait() {
-	check(["use prelude.{ Ord }", "print(int is Ord)"], "true");
-	check(["use prelude.{ Order :: Ord }", "print(int is Order)"], "true");
+	check(["use std.{ Ord }", "print(int is Ord)"], "true");
+	check(["use std.{ Order :: Ord }", "print(int is Order)"], "true");
 }
 
 #[test]

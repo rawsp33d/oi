@@ -422,8 +422,8 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 		loading: vec![],
 		selected: vec![],
 	};
-	// import prelude implicitly
-	loader.load_source("prelude", "prelude.oi", include_str!("prelude.oi").into())?;
+	// import std implicitly
+	loader.load_source("std", "std.oi", include_str!("std.oi").into())?;
 	loader.load_source("main", entry_name, entry_src)?;
 	let reexports = loader.resolve_reexports();
 	loader.check_selected()?;

@@ -1,4 +1,4 @@
-module prelude
+module std
 
 # operator overloads
 

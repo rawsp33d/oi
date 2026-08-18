@@ -1794,7 +1794,7 @@ main :: fn() {
 
 	# an annotation is a struct value attached with @
 	# they don't do anything on their own but may be read back through reflection
-	# @pure/@params/@required are builtin annotations, defined in the prelude and consumed by the compiler
+	# @pure/@params/@required are builtin annotations, defined in std and consumed by the compiler
 
 	awesome :: struct {}
 	@awesome
@@ -1877,7 +1877,7 @@ main :: fn() {
 	}
 }
 
-## prelude
+## std
 
 print[T: Display] :: fn(value: T)
 

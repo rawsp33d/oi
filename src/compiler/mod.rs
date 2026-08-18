@@ -191,7 +191,7 @@ pub struct Compiler {
 	mono: HashMap<String, FnSig>,
 	pending: Vec<Pending>,
 	trait_impls: HashSet<(String, String)>,
-	prelude_traits: HashSet<String>,
+	std_traits: HashSet<String>,
 	descs: HashMap<String, DataId>,
 	publics: HashSet<String>,
 	privates: HashMap<String, HashSet<String>>,
@@ -247,7 +247,7 @@ impl Default for Compiler {
 			mono: HashMap::new(),
 			pending: Vec::new(),
 			trait_impls: HashSet::new(),
-			prelude_traits: HashSet::new(),
+			std_traits: HashSet::new(),
 			descs: HashMap::new(),
 			publics: HashSet::new(),
 			privates: HashMap::new(),
@@ -382,12 +382,12 @@ impl Compiler {
 				continue;
 			};
 			let item = (supers.as_slice(), fields.as_slice(), methods.as_slice());
-			if traits.insert(name.as_str(), item).is_some() && !self.prelude_traits.remove(name.as_str()) {
+			if traits.insert(name.as_str(), item).is_some() && !self.std_traits.remove(name.as_str()) {
 				let msg = format!("duplicate trait `{name}`");
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("already defined"));
 			}
-			if scope.module == "prelude" {
-				self.prelude_traits.insert(name.clone());
+			if scope.module == "std" {
+				self.std_traits.insert(name.clone());
 			}
 		}
 		for (scope, item) in program.items() {
@@ -864,7 +864,7 @@ impl Compiler {
 			traits: types.traits,
 			generic_fns: &self.generics,
 			trait_impls: &self.trait_impls,
-			prelude_traits: &self.prelude_traits,
+			std_traits: &self.std_traits,
 			scope: types.scope,
 			publics: &self.publics,
 			privates: &self.privates,

@@ -20,7 +20,7 @@ pub(crate) struct TraitBody<'a> {
 	pub scope: &'a Scope,
 }
 
-// Whether a primitive natively satisfies prelude trait `tn`.
+// Whether a primitive natively satisfies std trait `tn`.
 pub(crate) fn builtin_claim(typ: &Typ, tn: &str) -> bool {
 	use Typ::*;
 	match typ {
