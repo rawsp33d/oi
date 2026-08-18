@@ -131,7 +131,7 @@ impl<'a> Translator<'a> {
 				);
 			}
 			let typ = &subst[&p.name];
-			if !self.trait_impls.contains(&(typ.to_string(), bound.clone())) {
+			if !self.claims(typ, bound) {
 				return Err(
 					Diagnostic::new(format!("`{typ}` does not claim `{bound}`"), span.into_range())
 						.with_label(format!("required by `{}: {bound}`", p.name)),

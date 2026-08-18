@@ -190,6 +190,7 @@ pub struct Compiler {
 	mono: HashMap<String, FnSig>,
 	pending: Vec<Pending>,
 	trait_impls: HashSet<(String, String)>,
+	prelude_traits: HashSet<String>,
 	descs: HashMap<String, DataId>,
 	publics: HashSet<String>,
 	reexports: HashMap<String, String>,
@@ -244,6 +245,7 @@ impl Default for Compiler {
 			mono: HashMap::new(),
 			pending: Vec::new(),
 			trait_impls: HashSet::new(),
+			prelude_traits: HashSet::new(),
 			descs: HashMap::new(),
 			publics: HashSet::new(),
 			reexports: HashMap::new(),
@@ -374,9 +376,10 @@ impl Compiler {
 				supers,
 				fields,
 				methods,
-			} = e
+			} = e && !traits.contains_key(name.as_str())
 			{
-				traits.entry(name.as_str()).or_insert((supers, fields, methods));
+				traits.insert(name.as_str(), (supers, fields, methods));
+				self.prelude_traits.insert(name.clone());
 			}
 		}
 		for (scope, item) in program.items() {
@@ -849,6 +852,7 @@ impl Compiler {
 			traits: types.traits,
 			generic_fns: &self.generics,
 			trait_impls: &self.trait_impls,
+			prelude_traits: &self.prelude_traits,
 			scope: types.scope,
 			publics: &self.publics,
 			reexports: &self.reexports,

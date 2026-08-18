@@ -150,6 +150,17 @@ fn bounded_type_param_parses_and_runs() {
 }
 
 #[test]
+fn prelude_bound_satisfied_by_builtin() {
+	let src = indoc! {"
+		biggest[T: Ord] :: fn(a: T, b: T) T {
+			if a > b { a } else { b }
+		}
+		biggest(3, 7)
+	"};
+	check(src, "7");
+}
+
+#[test]
 fn bound_violated() {
 	fail_with(
 		indoc! {"

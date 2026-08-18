@@ -95,7 +95,7 @@ impl<'a> Translator<'a> {
 					));
 				};
 				let typ = self.types().resolve(&TypeExpr::Name(name.clone()), subject.1)?;
-				let holds = self.trait_impls.contains(&(typ.to_string(), trait_name.clone())) ^ negated;
+				let holds = self.claims(&typ, trait_name) ^ negated;
 				Ok((self.b.ins().iconst(self.int, holds as i64), Typ::Bool))
 			}
 

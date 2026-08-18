@@ -75,6 +75,12 @@ impl<'a> Translator<'a> {
 			.filter(|s| claimed && s.params.len() == arity)
 	}
 
+	// Whether `typ` claims `tn`.
+	pub(super) fn claims(&self, typ: &Typ, tn: &str) -> bool {
+		self.trait_impls.contains(&(typ.to_string(), tn.to_string()))
+			|| (self.prelude_traits.contains(tn) && builtin_claim(typ, tn))
+	}
+
 	// Compare two structs field by field.
 	pub(super) fn emit_struct_eq(&mut self, a: Value, b: Value, typ: &Typ, span: Span) -> Result<Value, Diagnostic> {
 		let Typ::Struct(name, fields) = typ else {

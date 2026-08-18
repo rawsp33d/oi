@@ -80,6 +80,11 @@ fn supertraits() {
 }
 
 #[test]
+fn builtin_claims_prelude_ord() {
+	check("print(int is Ord)", "true");
+}
+
+#[test]
 fn default_methods() {
 	let src = indoc! {r#"
 		Animal :: trait {

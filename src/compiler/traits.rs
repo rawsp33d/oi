@@ -20,6 +20,19 @@ pub(crate) struct TraitBody<'a> {
 	pub scope: &'a Scope,
 }
 
+// Whether a primitive natively satisfies prelude trait `tn`.
+pub(crate) fn builtin_claim(typ: &Typ, tn: &str) -> bool {
+	use Typ::*;
+	match typ {
+		Int(_) => true,
+		UInt(_) | ISize | USize => tn != "Neg",
+		Float(_) => tn != "Mod",
+		Bool | Atom => matches!(tn, "Eq" | "Ord"),
+		Str => matches!(tn, "Eq" | "Add"),
+		_ => false,
+	}
+}
+
 pub(crate) fn trait_fns(methods: &[Spanned<Expr>]) -> impl Iterator<Item = TraitFn<'_>> {
 	methods.iter().filter_map(|m| match &m.0 {
 		Expr::Fn { name, params, ret, .. } => Some((name.as_str(), params.as_slice(), ret)),
