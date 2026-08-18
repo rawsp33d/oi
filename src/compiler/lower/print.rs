@@ -19,9 +19,11 @@ impl<'a> Translator<'a> {
 		self.b.ins().call(func, &[tag, bits, width, quote, sink_v]);
 	}
 
-	// A named type's own `str` impl.
-	fn str_impl(&mut self, name: &str, val: Value) -> Option<Value> {
-		let sig = self.funcs.get(&format!("{name}.str")).cloned()?;
+	// A named type's `str` impl.
+	fn str_impl(&mut self, name: &str, val: Value, typ: &Typ) -> Option<Value> {
+		let base = name.split('[').next().unwrap();
+		let sig = (self.funcs.get(&format!("{name}.str")).cloned())
+			.or_else(|| self.recv_instance(&format!("{base}.str"), typ))?;
 		(sig.params.len() == 1 && sig.ret == Typ::Str).then(|| self.emit_call(&sig, &[val]).0)
 	}
 
@@ -150,7 +152,7 @@ impl<'a> Translator<'a> {
 			}
 
 			Typ::Struct(sname, fields) => {
-				if let Some(s) = self.str_impl(sname, val) {
+				if let Some(s) = self.str_impl(sname, val, typ) {
 					return self.emit_frag(runtime::Tag::Raw, s, 0, false, sink);
 				}
 				let sname = display_name(sname).to_string();
@@ -169,7 +171,7 @@ impl<'a> Translator<'a> {
 			}
 
 			Typ::TupleStruct(name, fields) => {
-				if let Some(s) = self.str_impl(name, val) {
+				if let Some(s) = self.str_impl(name, val, typ) {
 					return self.emit_frag(runtime::Tag::Raw, s, 0, false, sink);
 				}
 				let name = display_name(name).to_string();

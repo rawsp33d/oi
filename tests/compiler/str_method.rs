@@ -53,6 +53,17 @@ fn print_uses_user_str() {
 }
 
 #[test]
+fn print_uses_generic_user_str() {
+	let src = indoc! {r#"
+		Box[T] :: struct { v: T }
+		Box[T] :{ str :: fn(self) string { "box!" } }
+		b :: Box.{5}
+		print(b)
+	"#};
+	check(src, "box!");
+}
+
+#[test]
 fn user_str_nested_in_derived_render() {
 	let src = indoc! {r#"
 		Money :: struct { n: int }

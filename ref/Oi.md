@@ -98,6 +98,7 @@ tags: []
 - [ ] consider writing some blog posts for some of the bigger decisions and changes in the language as I make them
 - [ ] ptr type (ptr, voidptr, rawptr) `nim v odin`
 - [ ] better errors. atom and int code support?
+- [ ] make an `@implicit` trait that expects `str() string`, and use that for the "str/print everything "stuff
 - [x] make another pass on generics. I don't love what I have now
 - [x] make another pass on metaprogramming. I don't love what I have now
 - [ ] varargs

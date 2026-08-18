@@ -144,6 +144,16 @@ impl<'a> Translator<'a> {
 		Ok(out)
 	}
 
+	// Instantiate a generic fill from the receiver type.
+	pub(super) fn recv_instance(&mut self, key: &str, typ: &Typ) -> Option<FnSig> {
+		let def = self.generic_fns.get(key).cloned()?;
+		let mut subst = HashMap::new();
+		let recv = &def.params.first()?.typ;
+		unify(recv, typ, &def.type_params, &mut subst, self.generics).ok()?;
+		def.type_params.iter().all(|p| subst.contains_key(&p.name)).then_some(())?;
+		self.declare_instance(key, &def, subst).ok()
+	}
+
 	// Declare a monomorphed instance's signature, reusing a prior one if it exists.
 	pub(super) fn declare_instance(
 		&mut self,
