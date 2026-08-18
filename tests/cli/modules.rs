@@ -144,6 +144,45 @@ fn type_import_fails() {
 }
 
 #[test]
+fn member_visibility() {
+	for (main, lib) in [
+		// a private field read
+		("use foo.{ make }\nprint(make().x)", "pub P :: struct { x: int }"),
+		// a private field in a literal
+		(
+			"use foo.{ P }\nprint(P.{ x = 1 }.y)",
+			"pub P :: struct { x: int, pub y: int }",
+		),
+		// a private `:{` method call
+		(
+			"use foo.{ make }\nprint(make().hidden())",
+			"pub P :: struct { x: int }\nP :{ hidden :: fn(self) int { 1 } }",
+		),
+	] {
+		let p = Project::new()
+			.file("main.oi", ["module main", main])
+			.file("foo/lib.oi", ["module foo", lib, "pub make :: fn() P { P.{ x = 1 } }"]);
+		let out = err(run_main(p));
+		assert!(out.contains("private to module `foo`"), "{out}");
+	}
+
+	let p = Project::new()
+		.file(
+			"main.oi",
+			["module main", "use foo.{ P }", "print(P.{ x = 3 }.shown())"],
+		)
+		.file(
+			"foo/lib.oi",
+			[
+				"module foo",
+				"pub P :: struct { pub x: int }",
+				"P :{ pub shown :: fn(self) int { self.x * 2 } }",
+			],
+		);
+	assert_eq!(ok(run_main(p)), "6");
+}
+
+#[test]
 fn trait_import() {
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo.{ T, P }", "print(P is T)"])
