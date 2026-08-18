@@ -1,5 +1,6 @@
 +++
-title = "home"
+title = "Oi!"
+template = "homepage.html"
 +++
 
 A language written by human([s?](https://github.com/rawsp33d/oi/fork)), for humans.
@@ -24,7 +25,7 @@ Its features [try to] encourage uninterrupted thought:
 
 # examples
 
-```oi
+```odin
 Shape :: enum {
 	point
 	circle { radius: f64 }

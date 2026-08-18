@@ -1,3 +1,6 @@
 [submodule "www/themes/zap"]
 	path = www/themes/zap
 	url = https://github.com/jimmyff/zola-zap.git
+[submodule "www/themes/apollo"]
+	path = www/themes/apollo
+	url = https://github.com/not-matthias/apollo

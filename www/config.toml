@@ -1,40 +1,41 @@
 title = "Oi"
 description = "Your friendly neighborhood programming language."
-
 base_url = "https://rawsp33d.github.io/oi"
 
 compile_sass = true
 build_search_index = true
 
-theme = "zap"
+theme = "apollo"
 # theme = "adidoks"
 # theme = "book"
 # theme = "terminimal"
 
+taxonomies = [
+	{ name = "tags" }
+]
+
 [markdown]
 
 [markdown.highlighting]
-light_theme = "github-light"
-dark_theme = "github-dark"
 theme = "github-dark"
 
 [extra]
 
 keywords = "oi, language, programming-language, compiler"
 
-# zap
+# apollo
 
-search_path = "$BASE_URL/search/"
+theme = "auto"
 
-inline_icons = true
-icon_path = "themes/zap/static/icons/"
-icons = [ "home", "chat", "search", "light", "asleep", "rss" ]
-
-menu_links = [
-	{ name = "/", url = "$BASE_URL/" },
-	{ name = "/features", url = "$BASE_URL/features" },
-	{ name = "/examples", url = "$BASE_URL/examples" },
-	{ name = "/docs", url = "$BASE_URL/docs/oi" },
-	{ name = "/about", url = "$BASE_URL/about" },
-	{ name = "source", url = "https://github.com/rawsp33d/oi" },
+socials = [
+	{ name = "github", url = "https://github.com/rawsp33d/oi", icon = "github" },
 ]
+menu = [
+	{ name = "features", url = "/features" },
+	{ name = "examples", url = "/examples" },
+	{ name = "docs", url = "/docs/oi" },
+	{ name = "about", url = "/about" },
+]
+
+[extra.analytics]
+enabled = false

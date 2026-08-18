@@ -3,7 +3,7 @@ title = "about"
 description = "idk what"
 +++
 
-## goals & non-goals
+# goals & non-goals
 
 Oi is not trying to be:
 - the smallest
@@ -14,10 +14,10 @@ Oi is not trying to be:
 
 The real goal is building a language that is enjoyable to write.
 
-## philosophy
+# philosophy
 
 
-### write what you mean
+## write what you mean
 
 If a construct is obvious to both the compiler and the reader, Oi tries to let you write it directly.
 
@@ -30,12 +30,12 @@ If a construct is obvious to both the compiler and the reader, Oi tries to let y
 
 The language tries to get the gtfo out of your way.
 
-### everything composes
+## everything composes
 
 Pipelines, expressions, blocks, traits, generics.
 Rather than introducing a one-off syntax for every feature, Oi tries to make small concepts combine nicely together.
 
-```oi
+```odin
 # type composability
 Absurd :: (Map[int, ?[]string], []?string, i69)
 
@@ -74,14 +74,14 @@ result := "spying on pipes"
 assert(result == "spying on pipes")
 ```
 
-### sane defaults
+## sane defaults
 
 - immutable by default
 - private default
 - everything has zero values
 - error handling is required
 
-### practical
+## practical
 
 Oi borrows great ideas where they fit.
 
@@ -90,12 +90,12 @@ Hopefully this doesn't come off as just a grab bag build-a-lang workshop.
 I think (read: hope) that Oi has its own cohesive narrative, working as more than the sum of its parts.
 Some of the more specific plagiarized features (*\***cough**\* `impl` \***cough**\**) will likely get revised/renamed/reworked in the near future, but at least for now it doesn't hide its intent.
 
-### okay, but why?
+## okay, but why?
 Over two decades of learning and using some 50+ programming languages, I developed a taste for ergonomics.
 I've found that 
 > TODO: finish or scrap or something
 
-## Musings from an old man
+# Musings from an old man
 
 Over my life and career I have learned and used and enjoyed a _lot_ of programming languages.
 While my conventions, preferences, and style have all changed considerably over time (oh the cringe of looking at my projects from 20+ years ago...), one thing I have noticed remain largely constant is what I think of as the "good parts" and "bad parts" of languages.
@@ -126,7 +126,7 @@ It too has a lot of parts I'm not in love with, but as a base foundation it is t
 
 At some point I started designing what has become Oi.
 
-## influences
+# influences
 
 - Odin
 - V

@@ -5,7 +5,7 @@ examples:
 	{
 		printf '+++\ntitle = "examples"\n+++\n'
 		for f in examples/*.oi; do
-			printf '\n## %s\n\n```oi\n' "$(basename "$f" .oi)"
+			printf '\n# %s\n\n```odin\n' "$(basename "$f" .oi)"
 			cat "$f"
 			printf '```\n'
 		done

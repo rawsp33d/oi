@@ -2,11 +2,11 @@
 title = "features"
 +++
 
-## [almost] everything is an expression
+# [almost] everything is an expression
 
 It is a goal for absolutely everything to be an expression.
 Right now most things are, like in Rust.
-```oi
+```odin
 # if expressions
 status := if score > 100 {
 	"absolute legend"
@@ -21,9 +21,9 @@ value := match token {
 }
 ```
 
-## bindings
+# bindings
 
-```oi
+```odin
 # immutable ::
 never_change :: "hi there"
 
@@ -40,9 +40,9 @@ Point :{
 }
 ```
 
-## pipelines
+# pipelines
 
-```oi
+```odin
 # basic
 call_to_action :: " let's do this " |> trim |> $ + "!!!" |> upper
 
@@ -54,33 +54,33 @@ nickname := find_user(id)
 	or "anonymous"
 ```
 
-## error handling
+# error handling
 
 Errors are values, and recovery is explicit.
 
-```oi
+```odin
 user := load_user(id) or {
 	return error("unknown user")
 }
 ```
 
-## leading literals
+# leading literals
 
 If there's only one literal argument, function parens may be omitted.
 
-```oi
+```odin
 print "lol"
 foo "bar"
 sleep 1_000
 log.group :process
 ```
 
-## trailing records
+# trailing records
 
 
-## trailing functions
+# trailing functions
 
-```oi
+```odin
 # if a function is the last argument of a call, it may be written after the parens.
 retry(3) fn {
 	fetch(url)?
@@ -97,13 +97,13 @@ spawn {
 }
 ```
 
-## implicit input
+# implicit input
 
 > TODO: rename to something cooler?
 
 `$` is what gets passed to a function.
 
-```oi
+```odin
 print_coord :: fn(x: int, y: int) {
 	print($.0, $.1)
 }
@@ -111,17 +111,17 @@ print_coord :: fn(x: int, y: int) {
 
 This is especially useful inside pipelines.
 
-```oi
+```odin
 # clojure-like threading
 "hello" |> $ + " world"
 "goodbye" |> wrap("[", $, "]")
 ```
 
-## named returns
+# named returns
 
 Bindings may be provided to return signatures, creating a mutable zeroed value.
 
-```oi
+```odin
 divmod :: fn(a: int, b: int) out (int, int) {
 	out.0 = a / b
 	out.1 = a % b
@@ -129,17 +129,17 @@ divmod :: fn(a: int, b: int) out (int, int) {
 }
 ```
 
-## first-class testing
+# first-class testing
 
 Tests are built into the language.
 
-```oi
+```odin
 test "division" {
 	assert(div(8, 2) == 4, "should be the same")
 }
 ```
 
-## comfy tooling
+# comfy tooling
 
 CLI commands you're used to.
 
