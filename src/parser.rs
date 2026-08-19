@@ -130,6 +130,7 @@ where
 	let mut expr = Recursive::declare();
 	let mut header_expr = Recursive::declare();
 	let mut block = Recursive::declare();
+	let mut anon_fields = Recursive::declare();
 
 	let ident = || select! { Token::Ident(name) => name };
 
@@ -239,6 +240,11 @@ where
 			let option_long = just(Token::Ident("Option".to_string()))
 				.ignore_then(bracket(te.clone()))
 				.map(|t| TypeExpr::Option(Box::new(t)));
+			// anonymous structs
+			let anon_struct = just(Token::Struct)
+				.ignore_then(brace(anon_fields.clone()))
+				.map(TypeExpr::AnonStruct);
+
 			// generic struct instantiation
 			let generic_instance = ident()
 				.then(bracket(
@@ -252,6 +258,7 @@ where
 				option,
 				result,
 				atom,
+				anon_struct,
 				map_type,
 				result_long,
 				option_long,
@@ -343,7 +350,12 @@ where
 		.then(expr.clone())
 		.map(|(mutable, value)| (mutable, None, Some(value)));
 	let sandwich_tail = just(Token::Colon)
-		.ignore_then(annot.clone())
+		.ignore_then(annot.clone().validate(|t, _, emitter| {
+			if let (TypeExpr::AnonStruct(_), s) = &t {
+				emitter.emit(Rich::custom(*s, "an anonymous struct type can't be a binding's middle"));
+			}
+			t
+		}))
 		.then(
 			just(Token::Assign)
 				.to(true)
@@ -1070,26 +1082,22 @@ where
 		.boxed();
 
 	// struct defs
-	let struct_field = recursive(|field| {
-		let anon = just(Token::Struct)
-			.ignore_then(brace(loose_list(field)))
-			.map(TypeExpr::AnonStruct);
-		just(Token::Pub)
-			.or_not()
-			.then(ident())
-			.then_ignore(just(Token::Colon))
-			.then(anon.or(type_expr.clone()))
-			.then(just(Token::Assign).ignore_then(expr.clone().or(block_lit.clone())).or_not())
-			.map_with(|(((public, name), typ), default), ex| Param {
-				name,
-				typ,
-				span: ex.span(),
-				default,
-				mutable: false,
-				public: public.is_some(),
-			})
-	})
-	.boxed();
+	let struct_field = just(Token::Pub)
+		.or_not()
+		.then(ident())
+		.then_ignore(just(Token::Colon))
+		.then(type_expr.clone())
+		.then(just(Token::Assign).ignore_then(expr.clone().or(block_lit.clone())).or_not())
+		.map_with(|(((public, name), typ), default), ex| Param {
+			name,
+			typ,
+			span: ex.span(),
+			default,
+			mutable: false,
+			public: public.is_some(),
+		})
+		.boxed();
+	anon_fields.define(loose_list(struct_field.clone()));
 	// embedded structs
 	let embedded = just(Token::Pub).or_not().then(ident()).map_with(|(public, name), ex| Param {
 		typ: TypeExpr::Name(name.clone()),

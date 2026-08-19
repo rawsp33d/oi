@@ -536,6 +536,36 @@ fn anonymous_field_type() {
 }
 
 #[test]
+fn anonymous_type_positions() {
+	check(
+		indoc! {"
+			f :: fn(p: struct { x: int }) { print(p.x) }
+			f(.{ x = 4 })
+		"},
+		"4",
+	);
+	check(
+		indoc! {"
+			f :: fn() struct { x: int } { .{ x = 4 } }
+			f().x
+		"},
+		"4",
+	);
+	check(
+		indoc! {"
+			f :: fn(xs: []struct { x: int }) { print(xs[0].x + xs[1].x) }
+			f(.[ .{ x = 1 }, .{ x = 2 } ])
+		"},
+		"3",
+	);
+}
+
+#[test]
+fn anonymous_type_rejected_as_middle() {
+	fail("x : struct { a: int }");
+}
+
+#[test]
 fn anonymous_structural_identity() {
 	let src = indoc! {"
 		A :: struct { n: struct { calories: int } }

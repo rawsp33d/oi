@@ -370,6 +370,11 @@ pear := Food.{
 	nutrition = .{ 5 }
 }
 
+# anonymous structs are usable in any type signature
+open :: fn(opts: struct { retries: int }) struct { ok: bool } {
+	.{ ok = opts.retries > 0 }
+}
+
 # static struct methods
 User :{
 	new :: fn() Self {
