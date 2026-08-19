@@ -44,20 +44,12 @@ impl<'a> Translator<'a> {
 		span: Span,
 	) -> Result<Option<(usize, usize, Typ)>, Diagnostic> {
 		let mut hit: Option<(usize, usize, Typ)> = None;
-		for (o, f) in fields.iter().enumerate() {
-			let Typ::Struct(sname, inner) = &f.typ else { continue };
-			if sname.rsplit("::").next() != Some(f.name.as_str()) {
-				continue;
-			}
+		for (o, sname, inner) in embeds(fields) {
 			let Some(i) = inner.iter().position(|f| f.name == wanted) else {
 				continue;
 			};
 			if let Some((prev, ..)) = hit {
-				let msg = format!(
-					"`{wanted}` is ambiguous, found in embedded `{}` and `{}`",
-					fields[prev].name, f.name
-				);
-				return Err(Diagnostic::new(msg, span.into_range()).with_label("reach it through the embedded struct"));
+				return Err(ambiguous(wanted, &fields[prev].name, &fields[o].name, span));
 			}
 			self.check_member(sname, wanted, span)?;
 			hit = Some((o, i, inner[i].typ.clone()));
@@ -182,4 +174,21 @@ impl<'a> Translator<'a> {
 		};
 		self.dollar = Some(value);
 	}
+}
+
+// The embedded fields of a struct.
+pub(super) fn embeds(fields: &[FieldDef]) -> impl Iterator<Item = (usize, &str, &[FieldDef])> {
+	fields.iter().enumerate().filter_map(|(o, f)| match &f.typ {
+		Typ::Struct(sn, inner) if sn.rsplit("::").next() == Some(f.name.as_str()) => Some((o, sn.as_str(), &inner[..])),
+		_ => None,
+	})
+}
+
+// Two embeds both supply `wanted`.
+pub(super) fn ambiguous(wanted: &str, a: &str, b: &str, span: Span) -> Diagnostic {
+	Diagnostic::new(
+		format!("`{wanted}` is ambiguous, found in embedded `{a}` and `{b}`"),
+		span.into_range(),
+	)
+	.with_label("reach it through the embedded struct")
 }

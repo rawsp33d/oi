@@ -35,6 +35,7 @@ mod stmt;
 mod value;
 
 use self::anon::AnonSig;
+use self::core::{ambiguous, embeds};
 use self::helpers::*;
 
 pub(super) struct Translator<'a> {

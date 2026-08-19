@@ -261,9 +261,24 @@ impl<'a> Translator<'a> {
 				}
 				if method == "str"
 					&& args.is_empty()
-					&& let Some((v, t)) = bound
+					&& let Some((v, t)) = &bound
 				{
-					return Ok((self.derived_str(v, &t), Typ::Str));
+					return Ok((self.derived_str(*v, t), Typ::Str));
+				}
+				// instance calls pierce embedded structs
+				if let Some((recv_val, Typ::Struct(_, sfields))) = &bound {
+					let mut hits =
+						embeds(sfields).filter(|(_, sn, _)| self.funcs.contains_key(&format!("{sn}.{method}")));
+					if let Some((outer, esn, _)) = hits.next() {
+						if let Some((other, ..)) = hits.next() {
+							return Err(ambiguous(method, &sfields[outer].name, &sfields[other].name, expr.1));
+						}
+						self.check_member(esn, method, expr.1)?;
+						let key = format!("{esn}.{method}");
+						let sig = self.funcs[&key].clone();
+						let embed = self.b.ins().load(self.int, MemFlags::new(), *recv_val, (outer * 8) as i32);
+						return self.call_sig(&key, sig, Some(embed), recv_expr, args, expr.1);
+					}
 				}
 				Err(
 					Diagnostic::new(format!("`{sname}` has no method `{method}`"), expr.1.into_range())

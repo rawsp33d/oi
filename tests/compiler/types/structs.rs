@@ -479,6 +479,23 @@ fn embedded_structs() {
 }
 
 #[test]
+fn embedded_method_promotion() {
+	let src = indoc! {"
+		Options :: struct { foo: int }
+		Options :{
+			show :: fn(self) int { self.foo }
+			bump :: fn(mut self) { self.foo = self.foo + 1 }
+		}
+		Profile :: struct { Options }
+		p := Profile.{ foo = 4 }
+		print(p.show())
+		p.bump()
+		p.foo
+	"};
+	check(src, ["4", "5"]);
+}
+
+#[test]
 fn embedded_ambiguous_field() {
 	fail_with(
 		"A :: struct { x: int }
