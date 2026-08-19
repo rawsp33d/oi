@@ -410,3 +410,45 @@ fn punned_record_still_wins_as_call_arg() {
 	"};
 	check(src, "7");
 }
+
+#[test]
+fn struct_update_spread() {
+	let src = indoc! {r#"
+		User :: struct {
+			name: string
+			age: int
+			is_registered: bool
+		}
+		register :: fn(u: User) User {
+			return User.{
+				...u
+				is_registered = true
+			}
+		}
+		u :: User.{ name = "abc", age = 23 }
+		print(u.is_registered)
+		print(register(u).name)
+		register(u).is_registered
+	"#};
+	check(src, ["false", "abc", "true"]);
+}
+
+#[test]
+fn spread_is_overwritten_by_later_fields() {
+	let src = indoc! {"
+		Point :: struct { x: int, y: int }
+		p :: Point.{ x = 1, y = 2 }
+		Point.{ ...p, y = 9 }.y
+	"};
+	check(src, "9");
+}
+
+#[test]
+fn spread_of_other_struct_error() {
+	fail_with(
+		"A :: struct { x: int }
+		B :: struct { x: int }
+		A.{ ...B.{ x = 1 } }.x",
+		"cannot spread B into `A`",
+	);
+}

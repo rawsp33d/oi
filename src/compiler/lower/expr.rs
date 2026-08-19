@@ -33,6 +33,11 @@ impl<'a> Translator<'a> {
 					.with_label("not a call argument"),
 			),
 
+			Expr::Spread(_) => Err(
+				Diagnostic::new("`...` is only valid inside a struct literal", expr.1.into_range())
+					.with_label("not a struct literal field"),
+			),
+
 			Expr::OptionInit { inner: (te, span), arg } => {
 				let inner_typ = self.types().resolve(te, *span)?;
 				let val = if matches!(arg.0, Expr::None) {

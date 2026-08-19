@@ -77,6 +77,9 @@ pub enum Expr {
 
 	MutArg(Box<Spanned<Expr>>),
 
+	// `...expr`
+	Spread(Box<Spanned<Expr>>),
+
 	MethodCall {
 		recv: Box<Spanned<Expr>>,
 		method: String,

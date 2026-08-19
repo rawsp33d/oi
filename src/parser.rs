@@ -546,7 +546,11 @@ where
 			.then_ignore(just(Token::Assign))
 			.or_not()
 			.then(expr.clone().or(block_lit.clone()));
-		let struct_body = brace(loose_list(struct_field_entry.clone()));
+		// struct update
+		let spread_entry = just(Token::DotDotDot)
+			.ignore_then(expr.clone())
+			.map_with(|e, ex| (None, (Expr::Spread(Box::new(e)), ex.span())));
+		let struct_body = brace(loose_list(spread_entry.or(struct_field_entry.clone())));
 
 		// struct literals
 		let struct_lit = ident()

@@ -718,8 +718,14 @@ impl<'a> Translator<'a> {
 		let ptr = self.struct_slot(&struct_fields)?;
 
 		if !fields.is_empty() {
-			let positional = fields[0].0.is_none();
+			let spread = |e: &Spanned<Expr>| matches!(e.0, Expr::Spread(_));
+			let named = fields.iter().find(|(_, v)| !spread(v));
+			let positional = named.is_some_and(|(n, _)| n.is_none());
 			if positional {
+				if fields.iter().any(|(_, v)| spread(v)) {
+					return Err(Diagnostic::new("spread requires named fields", span.into_range())
+						.with_label("`...` cannot be mixed with positional values"));
+				}
 				if fields.len() != struct_fields.len() {
 					return Err(Diagnostic::new(
 						format!(
@@ -738,6 +744,19 @@ impl<'a> Translator<'a> {
 				}
 			} else {
 				for (field_name, value) in fields {
+					// struct update
+					if let Expr::Spread(src) = &value.0 {
+						let (val, typ) = self.expr(src)?;
+						if !matches!(&typ, Typ::Struct(n, _) if *n == name) {
+							return Err(Diagnostic::new(
+								format!("cannot spread {typ} into `{name}`"),
+								src.1.into_range(),
+							)
+							.with_label("type mismatch"));
+						}
+						self.assign_fields(val, ptr, &struct_fields, false);
+						continue;
+					}
 					let fname = field_name.as_deref().ok_or_else(|| {
 						Diagnostic::new("cannot mix named and positional fields", value.1.into_range())
 							.with_label("missing field name")
@@ -795,6 +814,13 @@ impl<'a> Translator<'a> {
 		let mut subst = HashMap::new();
 		let mut provided = Vec::with_capacity(fields.len());
 		for (i, (field_name, value)) in fields.iter().enumerate() {
+			if matches!(value.0, Expr::Spread(_)) {
+				return Err(Diagnostic::new(
+					"spread in a generic struct literal isn't supported yet",
+					value.1.into_range(),
+				)
+				.with_label("unsupported"));
+			}
 			let idx = match field_name {
 				None if positional => i,
 				None => {
