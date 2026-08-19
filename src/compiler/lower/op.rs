@@ -195,17 +195,17 @@ impl<'a> Translator<'a> {
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
 		let (lv, lt) = self.expr(l)?;
+		let tn = match op {
+			BinOp::Add => "Add",
+			BinOp::Sub => "Sub",
+			BinOp::Mul => "Mul",
+			BinOp::Div => "Div",
+			BinOp::Mod => "Mod",
+			_ => unreachable!("non-arithmetic op in binop"),
+		};
 
 		if let Typ::Struct(name, _) | Typ::Enum(name) = &lt {
 			// overloads
-			let tn = match op {
-				BinOp::Add => "Add",
-				BinOp::Sub => "Sub",
-				BinOp::Mul => "Mul",
-				BinOp::Div => "Div",
-				BinOp::Mod => "Mod",
-				_ => unreachable!("non-arithmetic op in binop"),
-			};
 			let Some(sig) = self.fill(name, tn, &tn.to_ascii_lowercase(), 2) else {
 				return Err(
 					Diagnostic::new(format!("cannot apply `{op}` to {lt}"), span.into_range())
@@ -223,6 +223,16 @@ impl<'a> Translator<'a> {
 			return Ok(self.emit_call(&sig, &[lv, rv]));
 		}
 		let (rv, rt) = self.expr(r)?;
+
+		// commutative operators
+		if matches!(op, BinOp::Add | BinOp::Mul)
+			&& matches!(lt, Typ::Int(_) | Typ::UInt(_) | Typ::ISize | Typ::USize | Typ::Float(_))
+			&& let Typ::Struct(name, _) | Typ::Enum(name) = &rt
+			&& let Some(sig) = self.fill(name, tn, &tn.to_ascii_lowercase(), 2)
+			&& sig.params[1] == lt
+		{
+			return Ok(self.emit_call(&sig, &[rv, lv]));
+		}
 
 		// string concatenation
 		if let (BinOp::Add, Typ::Str, Typ::Str) = (op, &lt, &rt) {

@@ -608,7 +608,14 @@ impl Compiler {
 			structs.extend(done);
 		}
 		let field_types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits);
-		check_impls(trait_bodies, &traits, &self.trait_impls, field_types, &mut others)?;
+		check_impls(
+			trait_bodies,
+			&traits,
+			&self.std_traits,
+			&self.trait_impls,
+			field_types,
+			&mut others,
+		)?;
 
 		let enums: HashMap<String, Vec<VariantInfo>> = enum_items
 			.iter()

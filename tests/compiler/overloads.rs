@@ -153,12 +153,36 @@ fn enum_payloads_compare_structurally() {
 fn fill_must_match_the_trait() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
-		Point : Add {
-			add :: fn(self, other: int) Self { self }
+		Point : Eq {
+			eq :: fn(self, other: int) bool { true }
 		}
 	"};
 	fail_with(
 		src,
-		"`Point.add` is `fn(Point, int) Point`, trait `Add` declares `fn(Point, Point) Point`",
+		"`Point.eq` is `fn(Point, int) bool`, trait `Eq` declares `fn(Point, Point) bool`",
 	);
+}
+
+#[test]
+fn arithmetic_fills_narrow_and_commute() {
+	let src = indoc! {"
+		Scale :: struct { f: int }
+		Scale : Mul {
+			mul :: fn(self, other: int) Self { Self.{ self.f * other } }
+		}
+		print((Scale.{3} * 2).f, (2 * Scale.{3}).f)
+	"};
+	check(src, "6 6");
+}
+
+#[test]
+fn non_commuting_ops_never_reverse() {
+	let src = indoc! {"
+		Scale :: struct { f: int }
+		Scale : Div {
+			div :: fn(self, other: int) Self { Self.{ self.f / other } }
+		}
+		print(2 / Scale.{3})
+	"};
+	fail_with(src, "cannot apply `/` to int and Scale");
 }

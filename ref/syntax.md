@@ -461,6 +461,13 @@ Dir : Ord {
 }
 assert!(Dir.down < Dir.up)
 
+# arithmetic fills don't need to be of the same type
+Scale :: struct { f: int }
+Scale : Mul {
+	mul :: fn(self, other: int) Self { Self.{ self.f * other } }
+}
+assert!(Scale.{3} * 2 == 2 * Scale.{3}) # "+/* are commutative
+
 ## traits
 
 # a trait is a set of behaviors and/or data

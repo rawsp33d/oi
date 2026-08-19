@@ -91,6 +91,7 @@ pub(crate) fn fill_from_decl(
 pub(super) fn check_impls<'p>(
 	trait_bodies: Vec<TraitBody<'p>>,
 	traits: &HashMap<&'p str, TraitItem<'p>>,
+	std_traits: &HashSet<String>,
 	trait_impls: &HashSet<(String, String)>,
 	types: TypeCtx,
 	others: &mut Vec<FnItem<'p>>,
@@ -169,7 +170,14 @@ pub(super) fn check_impls<'p>(
 				continue;
 			};
 			let (params, _, ret) = fill_from_decl(params, *params_tuple, ret, decl, m.1)?;
-			let (got, want) = (sig(&params, &ret)?, sig(tp, tr)?);
+			let (mut got, want) = (sig(&params, &ret)?, sig(tp, tr)?);
+			if matches!(tn, "Add" | "Sub" | "Mul" | "Div" | "Mod")
+				&& std_traits.contains(tn)
+				&& let (Typ::Fn(gp, _), Typ::Fn(wp, _)) = (&mut got, &want)
+				&& let ([_, gother], [_, wother]) = (gp.as_mut_slice(), wp.as_slice())
+			{
+				*gother = wother.clone();
+			}
 			if got != want {
 				let msg = format!("`{typ}.{name}` is `{got}`, trait `{tn}` declares `{want}`");
 				return Err(Diagnostic::new(msg, m.1.into_range()).with_label("wrong signature"));
