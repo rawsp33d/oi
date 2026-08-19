@@ -206,6 +206,20 @@ impl TypeCtx<'_> {
 				Ok(Typ::Sum(atom_sum_variants(names)))
 			}
 			TypeExpr::Sum(ms) => self.resolve_sum(ms, span),
+			TypeExpr::AnonStruct(params) => {
+				let fields = params
+					.iter()
+					.map(|p| {
+						Ok(FieldDef {
+							name: p.name.clone(),
+							typ: self.resolve(&p.typ, p.span)?,
+							default: p.default.clone(),
+						})
+					})
+					.collect::<Result<Vec<_>, Diagnostic>>()?;
+				let shape: Vec<_> = fields.iter().map(|f| format!("{}: {}", f.name, f.typ)).collect();
+				Ok(Typ::Struct(format!("struct{{{}}}", shape.join(", ")), fields))
+			}
 			TypeExpr::TupleStruct(name, fields) => {
 				let fields = fields
 					.iter()

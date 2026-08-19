@@ -332,6 +332,7 @@ pub enum TypeExpr {
 	Map(Box<TypeExpr>, Box<TypeExpr>),
 	Generic(String, Vec<TypeExpr>),
 	Ref(Box<TypeExpr>),
+	AnonStruct(Vec<Param>),
 }
 
 impl TypeExpr {

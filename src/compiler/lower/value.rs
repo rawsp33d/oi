@@ -510,7 +510,7 @@ impl<'a> Translator<'a> {
 							),
 						})
 						.collect::<Result<Vec<_>, _>>()?;
-					self.struct_lit(name, &fields, value.1, None)
+					self.struct_lit(name, &fields, value.1, Some(target))
 				}
 				_ => self.expr(value),
 			},
@@ -705,8 +705,13 @@ impl<'a> Translator<'a> {
 			let typ = Typ::Enum(name.clone());
 			return Ok((self.zero(&typ), typ));
 		}
-		let struct_fields = match self.structs.get(name.as_str()) {
-			Some(fields) => fields.clone(),
+		// anonymous structs are named by their shape
+		let anon = target.and_then(|t| match t {
+			Typ::Struct(n, fs) if *n == name => Some(fs.clone()),
+			_ => None,
+		});
+		let struct_fields = match anon.or_else(|| self.structs.get(name.as_str()).cloned()) {
+			Some(fields) => fields,
 			None => match self.generics.structs.get(name.as_str()).cloned() {
 				Some(def) => return self.generic_struct_lit(&name, def, fields, span, target),
 				None => {

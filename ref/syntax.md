@@ -358,17 +358,18 @@ Food :: struct {
 	}
 }
 
+# records coerce field types
 apple := Food.{
 	name = "apple"
-	nutrition = struct {
+	nutrition = {
 		calories = 4
 	}
 }
 
-# you can (maybe?) use short struct literals in the assignment
+# short struct literals work too, named or positional
 pear := Food.{
 	name = "pear"
-	nutrition = struct { 5 }
+	nutrition = .{ 5 }
 }
 
 # static struct methods

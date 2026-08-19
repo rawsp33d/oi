@@ -114,6 +114,7 @@ fn mentions(te: &TypeExpr, name: &str) -> bool {
 		TypeExpr::Tuple(es) | TypeExpr::Sum(es) | TypeExpr::Generic(_, es) => es.iter().any(|e| mentions(e, name)),
 		TypeExpr::Fn(ps, _, r) => ps.iter().any(|p| mentions(p, name)) || mentions(r, name),
 		TypeExpr::TupleStruct(_, fs) => fs.iter().any(|(_, t)| mentions(t, name)),
+		TypeExpr::AnonStruct(fs) => fs.iter().any(|f| mentions(&f.typ, name)),
 		TypeExpr::Map(k, v) => mentions(k, name) || mentions(v, name),
 		TypeExpr::Ref(e) => mentions(e, name),
 		TypeExpr::AtomSum(_) => false,

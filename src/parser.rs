@@ -1077,21 +1077,26 @@ where
 		.boxed();
 
 	// struct defs
-	let struct_field = just(Token::Pub)
-		.or_not()
-		.then(ident())
-		.then_ignore(just(Token::Colon))
-		.then(type_expr.clone())
-		.then(just(Token::Assign).ignore_then(expr.clone().or(block_lit.clone())).or_not())
-		.map_with(|(((public, name), typ), default), ex| Param {
-			name,
-			typ,
-			span: ex.span(),
-			default,
-			mutable: false,
-			public: public.is_some(),
-		})
-		.boxed();
+	let struct_field = recursive(|field| {
+		let anon = just(Token::Struct)
+			.ignore_then(brace(loose_list(field)))
+			.map(TypeExpr::AnonStruct);
+		just(Token::Pub)
+			.or_not()
+			.then(ident())
+			.then_ignore(just(Token::Colon))
+			.then(anon.or(type_expr.clone()))
+			.then(just(Token::Assign).ignore_then(expr.clone().or(block_lit.clone())).or_not())
+			.map_with(|(((public, name), typ), default), ex| Param {
+				name,
+				typ,
+				span: ex.span(),
+				default,
+				mutable: false,
+				public: public.is_some(),
+			})
+	})
+	.boxed();
 	// embedded structs
 	let embedded = just(Token::Pub).or_not().then(ident()).map_with(|(public, name), ex| Param {
 		typ: TypeExpr::Name(name.clone()),

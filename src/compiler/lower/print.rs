@@ -155,7 +155,9 @@ impl<'a> Translator<'a> {
 				if let Some(s) = self.str_impl(sname, val, typ) {
 					return self.emit_frag(runtime::Tag::Raw, s, 0, false, sink);
 				}
-				let sname = display_name(sname).to_string();
+				// less-noisy anonymous struct names
+				let anon = sname.starts_with("struct{");
+				let sname = if anon { "" } else { display_name(sname) }.to_string();
 				let fields = fields.clone();
 				self.write_lit(&format!("{sname}.{{"), sink);
 				for (i, f) in fields.iter().enumerate() {

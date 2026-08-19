@@ -480,3 +480,34 @@ fn embedded_ambiguous_field() {
 		"`x` is ambiguous, found in embedded `A` and `B`",
 	);
 }
+
+#[test]
+fn anonymous_field_type() {
+	let src = indoc! {r#"
+		Food :: struct {
+			name: string
+			nutrition: struct {
+				calories: int
+			}
+		}
+		apple :: Food.{ name = "apple", nutrition = { calories = 4 } }
+		pear :: Food.{ name = "pear", nutrition = .{ 5 } }
+		print(apple.nutrition.calories)
+		print(pear.nutrition)
+	"#};
+	check(src, ["4", ".{calories = 5}"]);
+}
+
+#[test]
+fn anonymous_structural_identity() {
+	let src = indoc! {"
+		A :: struct { n: struct { calories: int } }
+		B :: struct { m: struct { calories: int } }
+		a :: A.{ n = .{ 4 } }
+		b := B.{ m = .{ 9 } }
+		x := a.n
+		b.m = x
+		b.m.calories
+	"};
+	check(src, "4");
+}
