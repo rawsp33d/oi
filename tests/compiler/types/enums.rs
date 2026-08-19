@@ -300,7 +300,7 @@ fn payload_eq_string_field() {
 fn payload_ordering_rejected() {
 	fail_with(
 		"Opt :: enum { nope some(int) }\nOpt.some(1) < Opt.some(2)",
-		"only `==`&`!=`",
+		"claim `Ord` for `Opt` to define ordering",
 	);
 }
 

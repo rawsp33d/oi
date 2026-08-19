@@ -454,6 +454,13 @@ Frac : Ord {
 }
 assert!(Frac.{1, 3} < Frac.{1, 2})
 
+# enums can claim operator traits too
+Dir :: enum { up, down }
+Dir : Ord {
+	lt :: fn(self, other: Self) bool { other == .up }
+}
+assert!(Dir.down < Dir.up)
+
 ## traits
 
 # a trait is a set of behaviors and/or data

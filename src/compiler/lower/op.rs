@@ -24,9 +24,10 @@ impl<'a> Translator<'a> {
 	}
 
 	// Compare two boxed enums.
-	// Checks that tags match, and for variants that every field matches
-	pub(super) fn emit_enum_eq(&mut self, a: Value, b: Value, typ: &Typ) -> Value {
+	// Checks that tags match, and for the hit variant every payload slot matches.
+	pub(super) fn emit_enum_eq(&mut self, a: Value, b: Value, typ: &Typ, span: Span) -> Result<Value, Diagnostic> {
 		let variants = self.variants_of(typ);
+		let owner = typ.to_string();
 		let ta = self.enum_tag(typ, a);
 		let tb = self.enum_tag(typ, b);
 		let tags_eq = self.b.ins().icmp(IntCC::Equal, ta, tb);
@@ -51,7 +52,7 @@ impl<'a> Translator<'a> {
 					.b
 					.ins()
 					.load(cl_type(ft, self.int), MemFlags::new(), b, ((i + 1) * 8) as i32);
-				let fe = self.emit_eq(fa, fb, ft);
+				let fe = self.emit_val_eq(fa, fb, ft, &owner, span)?;
 				let fe = self.b.ins().icmp_imm(IntCC::NotEqual, fe, 0);
 				let prev = self.b.use_var(eq);
 				let acc = self.b.ins().band(prev, fe);
@@ -63,7 +64,27 @@ impl<'a> Translator<'a> {
 		self.b.ins().jump(merge, &[]);
 		self.b.switch_to_block(merge);
 		self.b.seal_block(merge);
-		self.b.use_var(eq)
+		Ok(self.b.use_var(eq))
+	}
+
+	// `Eq` fill, or structural diff by default.
+	fn emit_val_eq(&mut self, a: Value, b: Value, t: &Typ, owner: &str, span: Span) -> Result<Value, Diagnostic> {
+		if let Typ::Struct(n, _) | Typ::Enum(n) = t
+			&& let Some(sig) = self.fill(n, "Eq", "eq", 2)
+		{
+			return Ok(self.emit_call(&sig, &[a, b]).0);
+		}
+		match t {
+			Typ::Struct(..) => self.emit_struct_eq(a, b, t, span),
+			t if t.is_enumish() && enum_boxed(&self.variants_of(t)) && !rc::opt_ref(t) => {
+				self.emit_enum_eq(a, b, t, span)
+			}
+			t if comparable(t) => Ok(self.emit_eq(a, b, t)),
+			t => Err(
+				Diagnostic::new(format!("cannot compare {owner}: contains {t}"), span.into_range())
+					.with_label(format!("claim `Eq` for `{owner}` to define equality")),
+			),
+		}
 	}
 
 	// The `method` fill of trait `tn` claimed for `name`, if any.
@@ -91,21 +112,7 @@ impl<'a> Translator<'a> {
 			let cl = cl_type(&f.typ, self.int);
 			let fa = self.b.ins().load(cl, MemFlags::new(), a, (i * 8) as i32);
 			let fb = self.b.ins().load(cl, MemFlags::new(), b, (i * 8) as i32);
-			let eq = match &f.typ {
-				Typ::Struct(n, _) => match self.fill(n, "Eq", "eq", 2) {
-					Some(sig) => self.emit_call(&sig, &[fa, fb]).0,
-					None => self.emit_struct_eq(fa, fb, &f.typ, span)?,
-				},
-				t if t.is_enumish() && enum_boxed(&self.variants_of(t)) && !rc::opt_ref(t) => {
-					self.emit_enum_eq(fa, fb, t)
-				}
-				t if comparable(t) => self.emit_eq(fa, fb, t),
-				ft => {
-					let msg = format!("cannot compare {name}: field `{}` is {ft}", f.name);
-					return Err(Diagnostic::new(msg, span.into_range())
-						.with_label(format!("claim `Eq` for `{name}` to define equality")));
-				}
-			};
+			let eq = self.emit_val_eq(fa, fb, &f.typ, name, span)?;
 			let eq = self.b.ins().icmp_imm(IntCC::NotEqual, eq, 0);
 			acc = self.b.ins().band(acc, eq);
 		}
@@ -189,7 +196,7 @@ impl<'a> Translator<'a> {
 	) -> Result<TypedVal, Diagnostic> {
 		let (lv, lt) = self.expr(l)?;
 
-		if let Typ::Struct(name, _) = &lt {
+		if let Typ::Struct(name, _) | Typ::Enum(name) = &lt {
 			// overloads
 			let tn = match op {
 				BinOp::Add => "Add",
@@ -323,22 +330,32 @@ impl<'a> Translator<'a> {
 			| (Typ::USize, Typ::USize)
 			| (Typ::Bool, Typ::Bool)
 			| (Typ::Atom, Typ::Atom) => self.b.ins().icmp(icc, lv, rv),
-			(l, r) if l == r && l.is_enumish() => {
-				if !enum_boxed(&self.variants_of(l)) || rc::opt_ref(l) {
+			(l, _) if lt == rt && (l.is_enumish() || matches!(l, Typ::Struct(..))) => {
+				let reversed = matches!(icc, IntCC::SignedGreaterThan | IntCC::SignedLessThanOrEqual);
+				let negated = matches!(
+					icc,
+					IntCC::NotEqual | IntCC::SignedLessThanOrEqual | IntCC::SignedGreaterThanOrEqual
+				);
+				let cc = if negated { IntCC::Equal } else { IntCC::NotEqual };
+				if let IntCC::Equal | IntCC::NotEqual = icc {
+					let eq = self.emit_val_eq(lv, rv, l, &lt.to_string(), span)?;
+					self.b.ins().icmp_imm(cc, eq, 0)
+				} else if let Typ::Struct(n, _) | Typ::Enum(n) = l
+					&& let Some(sig) = self.fill(n, "Ord", "lt", 2)
+				{
+					let (a, b) = if reversed { (rv, lv) } else { (lv, rv) };
+					let less = self.emit_call(&sig, &[a, b]).0;
+					self.b.ins().icmp_imm(cc, less, 0)
+				} else if l.is_enumish() && (!enum_boxed(&self.variants_of(l)) || rc::opt_ref(l)) {
 					self.b.ins().icmp(icc, lv, rv)
-				} else if let IntCC::Equal | IntCC::NotEqual = icc {
-					let eq = self.emit_enum_eq(lv, rv, l);
-					if icc == IntCC::Equal {
-						eq
-					} else {
-						self.b.ins().icmp_imm(IntCC::Equal, eq, 0)
-					}
 				} else {
-					return Err(Diagnostic::new(
-						format!("only `==`&`!=` are supported because `{l}` has payloads"),
-						span.into_range(),
-					)
-					.with_label("ordering needs a plain value"));
+					let label = match l {
+						Typ::Struct(..) | Typ::Enum(_) => format!("claim `Ord` for `{lt}` to define ordering"),
+						_ => "only `==`&`!=` are supported on payloads".into(),
+					};
+					return Err(
+						Diagnostic::new(format!("cannot compare {lt} and {rt}"), span.into_range()).with_label(label),
+					);
 				}
 			}
 			(Typ::Float(_), Typ::Float(_)) => self.b.ins().fcmp(fcc, lv, rv),
@@ -351,29 +368,6 @@ impl<'a> Translator<'a> {
 				} else {
 					self.b.ins().icmp_imm(IntCC::NotEqual, eq, 0)
 				}
-			}
-			(Typ::Struct(name, _), _) if lt == rt => {
-				// overloads
-				let eq_op = matches!(icc, IntCC::Equal | IntCC::NotEqual);
-				let negate = matches!(
-					icc,
-					IntCC::NotEqual | IntCC::SignedLessThanOrEqual | IntCC::SignedGreaterThanOrEqual
-				);
-				let swap = matches!(icc, IntCC::SignedGreaterThan | IntCC::SignedLessThanOrEqual);
-				let (a, b) = if swap { (rv, lv) } else { (lv, rv) };
-				let (tn, method) = if eq_op { ("Eq", "eq") } else { ("Ord", "lt") };
-				let raw = match self.fill(name, tn, method, 2) {
-					Some(sig) => self.emit_call(&sig, &[a, b]).0,
-					None if eq_op => self.emit_struct_eq(a, b, &lt, span)?,
-					None => {
-						return Err(
-							Diagnostic::new(format!("cannot compare {lt} and {rt}"), span.into_range())
-								.with_label(format!("claim `Ord` for `{name}` to define ordering")),
-						);
-					}
-				};
-				let cc = if negate { IntCC::Equal } else { IntCC::NotEqual };
-				self.b.ins().icmp_imm(cc, raw, 0)
 			}
 			_ => {
 				return Err(

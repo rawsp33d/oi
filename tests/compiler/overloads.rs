@@ -101,7 +101,7 @@ fn incomparable_field_is_rejected() {
 		a := Holder.{ fn(x: int) int { x } }
 		a == a
 	"};
-	fail_with(src, "cannot compare Holder: field `f` is fn(int) int");
+	fail_with(src, "cannot compare Holder: contains fn(int) int");
 }
 
 #[test]
@@ -111,6 +111,42 @@ fn unclaimed_struct_is_rejected() {
 		Point.{1, 2} - Point.{3, 4}
 	"};
 	fail_with(src, "cannot apply `-` to Point");
+}
+
+#[test]
+fn enum_ops_dispatch() {
+	let src = indoc! {"
+		Dir :: enum { up, down }
+		Dir : Add {
+			add :: fn(self, other: Self) Self { if self == .up { other } else { .down } }
+		}
+		Dir : Neg {
+			neg :: fn(self) Self { if self == .up { Dir.down } else { Dir.up } }
+		}
+		print(Dir.up + Dir.down, -Dir.up)
+	"};
+	check(src, "down down");
+}
+
+#[test]
+fn enum_claims_beat_structural_defaults() {
+	let src = indoc! {"
+		Rev :: enum { a, b }
+		Rev : Eq { eq :: fn(self, other: Self) bool { true } }
+		Rev : Ord { lt :: fn(self, other: Self) bool { true } }
+		print(Rev.a == Rev.b, Rev.b < Rev.a)
+	"};
+	check(src, "true true");
+}
+
+#[test]
+fn enum_payloads_compare_structurally() {
+	let src = indoc! {"
+		P :: struct { x: int }
+		E :: enum { a(P), b }
+		print(E.a(P.{1}) == E.a(P.{1}), E.a(P.{1}) == E.a(P.{2}))
+	"};
+	check(src, "true false");
 }
 
 #[test]
