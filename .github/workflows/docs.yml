@@ -62,7 +62,7 @@ jobs:
       - uses: getzola/github-pages@v1
         id: docs
         with:
-          zola_version: v0.22.1
+          zola_version: v0.23.3
           working_directory: "www"
           build_flags: ${{ format('--base-url {0}', steps.pages.outputs.base_url) }}
 
