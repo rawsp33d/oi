@@ -462,6 +462,16 @@ impl<'a> Translator<'a> {
 				self.map_lit(&[], value.1, Some(target))
 			}
 			Expr::Map(entries) if matches!(target, Typ::Map(..)) => self.map_lit(entries, value.1, Some(target)),
+			Expr::Tuple(elems) if !elems.is_empty() && matches!(target, Typ::Tuple(f) if f.len() == elems.len()) => {
+				let Typ::Tuple(fs) = target else { unreachable!() };
+				let ptr = self.call_alloc(elems.len());
+				for (i, ((_, e), (_, t))) in elems.iter().zip(fs).enumerate() {
+					let val = self.check_typed(e, t, "type mismatch")?;
+					let val = self.copy_in(val, t);
+					self.b.ins().store(MemFlags::new(), val, ptr, (i * 8) as i32);
+				}
+				Ok((ptr, target.clone()))
+			}
 			Expr::DotArray(None, elems) => match target {
 				Typ::FixedArray(elem, n) => self.fixed_lit(elems, elem, *n, value.1),
 				_ => Err(

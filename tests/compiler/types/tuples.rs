@@ -188,3 +188,17 @@ fn array_slot_is_independent_copy() {
 		"[1]",
 	);
 }
+
+#[test]
+fn elements_take_the_expected_type() {
+	check(
+		indoc! {"
+			F :: struct { x: int }
+			f :: fn(p: (F, int)) { print(p.0.x + p.1) }
+			f((.{ x = 1 }, 2))
+			p : (F, int) = (.{ x = 3 }, 4)
+			p.0.x + p.1
+		"},
+		["3", "7"],
+	);
+}
