@@ -1,5 +1,6 @@
 +++
 title = "Oi!"
+description = "Your friendly neighborhood programming language."
 template = "homepage.html"
 +++
 

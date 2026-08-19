@@ -6,18 +6,18 @@ compile_sass = true
 build_search_index = true
 
 theme = "apollo"
+# theme = "devlab"
 # theme = "adidoks"
 # theme = "book"
 # theme = "terminimal"
 
-taxonomies = [
-	{ name = "tags" }
-]
+taxonomies = [{ name = "tags" }]
 
 [markdown]
 
 [markdown.highlighting]
-theme = "github-dark"
+dark_theme = "github-dark"
+light_theme = "github-light"
 
 [extra]
 
@@ -26,6 +26,8 @@ keywords = "oi, language, programming-language, compiler"
 # apollo
 
 theme = "auto"
+
+stylesheets = ["style.css"]
 
 socials = [
 	{ name = "github", url = "https://github.com/rawsp33d/oi", icon = "github" },
@@ -39,3 +41,12 @@ menu = [
 
 [extra.analytics]
 enabled = false
+
+[extra.devlab.navigation]
+links = [
+	{ name = "home", path = "/" },
+	{ name = "features", path = "/features" },
+	{ name = "examples", path = "/examples" },
+	{ name = "about", path = "/about" },
+	{ name = "docs", path = "/docs/oi" },
+]
