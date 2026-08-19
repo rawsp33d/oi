@@ -31,7 +31,7 @@ fn map_inout() {
 	check(
 		indoc! {r#"
 			setk :: fn(mut m: Map[string, int]) { m["k"] = 1 }
-			m := {a = 0}
+			m := ["a" = 0]
 			setk(mut m)
 			m["k"]
 		"#},

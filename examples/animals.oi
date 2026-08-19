@@ -10,7 +10,7 @@ Dog :{
 }
 
 dog := Dog.{
-	"Larry"
+	name = "Larry"
 	greeting = "bark"
 }
 dog.greet()

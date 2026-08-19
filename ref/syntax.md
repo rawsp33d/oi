@@ -247,12 +247,10 @@ normal :: Point.{
 short :: Point.{3, 2}
 
 # the type name can be dropped when it's known from context (typed decl, call arg, return, field value)
-p : Point = { x = 2, y = 1 }
+p : Point = .{ x = 2, y = 1 }
 
-# `{x, y}` is sugar for `{x = x, y = y}` (punning)
-x :: 2
-y :: 1
-q :: Point.{x, y}
+# positional values go before named fields, like call args
+q :: Point.{3, y = 1}
 
 # tuple structs
 
@@ -328,7 +326,7 @@ user.with_options(bar = true, foo = 4)
 
 # annotating with `@params` lets a trailing record be omitted
 # otherwise you need to specify at least one field or the compiler will error
-# (@params means the empty record `{}` is allowed too)
+# (@params means the empty literal `.{}` is allowed too)
 @params
 Settings :: struct {
 	idk: int
@@ -358,10 +356,10 @@ Food :: struct {
 	}
 }
 
-# records coerce field types
+# the dot literal coerces to the field's type
 apple := Food.{
 	name = "apple"
-	nutrition = {
+	nutrition = .{
 		calories = 4
 	}
 }
@@ -1480,12 +1478,6 @@ main :: fn() {
 	# blocks are eager and run in place
 	# they can fully read and mutate the enclosing scope
 	{ x }
-	# if you want a map with shorthand keys, add a trailing comma
-	{ x, } # `{ x = x }`
-
-	# in conditionals a top-level `{` always opens the body - `.{` carries no ambiguity, bare records need parens
-	if p == Point.{} { ... }
-	if p == ({ x = 1, y = 1 }) { ... }
 
 	## fn literals
 

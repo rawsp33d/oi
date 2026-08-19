@@ -600,13 +600,10 @@ where
 			Token::Atom(a) => Expr::Atom(a),
 		};
 		let keyed = spanned(key).then(just(Token::Assign).ignore_then(expr.clone().or(block_lit.clone())));
-		let pun = ident().map_with(|n, ex| ((Expr::Ident(n.clone()), ex.span()), (Expr::Ident(n), ex.span())));
-
 		let record_entries = keyed
 			.clone()
-			.or(pun.then_ignore(just(Token::Comma).rewind()))
 			.then_ignore(just(Token::Comma).or_not())
-			.then(loose_list(keyed.clone().or(pun)))
+			.then(loose_list(keyed.clone()))
 			.map(|(first, mut rest)| {
 				rest.insert(0, first);
 				rest
@@ -689,10 +686,6 @@ where
 		// array literals
 		let array = bracket(loose_list(expr.clone())).map_with(|elems, ex| (Expr::Array(elems), ex.span()));
 
-		// record literals
-		let record = brace(record_entries.clone().or_not().map(Option::unwrap_or_default))
-			.map_with(|entries, ex| (Expr::Record(entries), ex.span()));
-
 		let if_expr = recursive(|if_expr| {
 			just(Token::If)
 				.ignore_then(header_expr.clone())
@@ -761,9 +754,10 @@ where
 			.clone()
 			.then_ignore(just(Token::Comma).or_not())
 			.or(expr.clone().map(|e| vec![e]).then_ignore(arm_end));
+		let bind = ident().map_with(|n, ex| ((Expr::Ident(n.clone()), ex.span()), (Expr::Ident(n), ex.span())));
 		let struct_pat = just(Token::Dot)
 			.ignore_then(select! { Token::Ident(v) => v })
-			.then(brace(loose_list(keyed.clone().or(pun))))
+			.then(brace(loose_list(keyed.clone().or(bind))))
 			.map_with(|(variant, es), ex| {
 				let args = vec![(Expr::Record(es), ex.span())];
 				(Expr::EnumShorthand { variant, args }, ex.span())
@@ -846,7 +840,6 @@ where
 			result_init,
 			map,
 			array,
-			record,
 			if_expr,
 			match_expr,
 			for_expr,

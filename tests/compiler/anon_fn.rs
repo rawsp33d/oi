@@ -210,7 +210,7 @@ fn closure_cannot_be_smuggled_through_a_generic_store() {
 fn closure_cannot_be_a_map_value() {
 	let src = indoc! {r#"
 		n :: 10
-		{ "a" = fn [n] () int { n } }
+		["a" = fn [n] () int { n }]
 	"#};
 	fail_with(src, "borrows its captures, so it can't be stored in a map");
 }

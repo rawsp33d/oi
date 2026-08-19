@@ -722,70 +722,80 @@ impl<'a> Translator<'a> {
 		};
 		let ptr = self.struct_slot(&struct_fields)?;
 
-		if !fields.is_empty() {
-			let spread = |e: &Spanned<Expr>| matches!(e.0, Expr::Spread(_));
-			let named = fields.iter().find(|(_, v)| !spread(v));
-			let positional = named.is_some_and(|(n, _)| n.is_none());
-			if positional {
-				if fields.iter().any(|(_, v)| spread(v)) {
+		let arity = |got: usize| {
+			Diagnostic::new(
+				format!(
+					"`{name}` has {} fields but {got} values were provided",
+					struct_fields.len()
+				),
+				span.into_range(),
+			)
+			.with_label("wrong number of fields")
+		};
+		let mut prefix = 0;
+		for (i, (field_name, value)) in fields.iter().enumerate() {
+			// struct update
+			if let Expr::Spread(src) = &value.0 {
+				if prefix > 0 {
 					return Err(Diagnostic::new("spread requires named fields", span.into_range())
 						.with_label("`...` cannot be mixed with positional values"));
 				}
-				if fields.len() != struct_fields.len() {
-					return Err(Diagnostic::new(
-						format!(
-							"`{name}` has {} fields but {} values were provided",
-							struct_fields.len(),
-							fields.len()
-						),
-						span.into_range(),
-					)
-					.with_label("wrong number of fields"));
+				let (val, typ) = self.expr(src)?;
+				if !matches!(&typ, Typ::Struct(n, _) if *n == name) {
+					return Err(
+						Diagnostic::new(format!("cannot spread {typ} into `{name}`"), src.1.into_range())
+							.with_label("type mismatch"),
+					);
 				}
-				for (i, (_, value)) in fields.iter().enumerate() {
-					let val = self.check_typed(value, &struct_fields[i].typ, "type mismatch")?;
-					let val = self.copy_in(val, &struct_fields[i].typ);
-					self.b.ins().store(MemFlags::new(), val, ptr, (i * 8) as i32);
+				self.assign_fields(val, ptr, &struct_fields, false);
+				continue;
+			}
+			let (idx, ftyp, base) = match field_name.as_deref() {
+				None if i != prefix => {
+					return Err(
+						Diagnostic::new("positional fields go before named fields", value.1.into_range())
+							.with_label("positional field after a named one"),
+					);
 				}
-			} else {
-				for (field_name, value) in fields {
-					// struct update
-					if let Expr::Spread(src) = &value.0 {
-						let (val, typ) = self.expr(src)?;
-						if !matches!(&typ, Typ::Struct(n, _) if *n == name) {
-							return Err(Diagnostic::new(
-								format!("cannot spread {typ} into `{name}`"),
-								src.1.into_range(),
-							)
-							.with_label("type mismatch"));
-						}
-						self.assign_fields(val, ptr, &struct_fields, false);
-						continue;
+				None if i >= struct_fields.len() => return Err(arity(fields.len())),
+				None => {
+					prefix += 1;
+					(i, struct_fields[i].typ.clone(), ptr)
+				}
+				Some(fname) => match struct_fields.iter().position(|f| f.name == fname) {
+					Some(idx) if idx < prefix => {
+						return Err(Diagnostic::new(
+							format!("`{fname}` was already set positionally"),
+							value.1.into_range(),
+						)
+						.with_label("set twice"));
 					}
-					let fname = field_name.as_deref().ok_or_else(|| {
-						Diagnostic::new("cannot mix named and positional fields", value.1.into_range())
-							.with_label("missing field name")
-					})?;
-					let Some(idx) = struct_fields.iter().position(|f| f.name == fname) else {
-						let Some((outer, inner, ftyp)) = self.promoted(&struct_fields, fname, value.1)? else {
+					Some(idx) => {
+						self.check_member(&name, fname, value.1)?;
+						(idx, struct_fields[idx].typ.clone(), ptr)
+					}
+					None => match self.promoted(&struct_fields, fname, value.1)? {
+						Some((outer, inner, ftyp)) => {
+							let embed = self.b.ins().load(self.int, MemFlags::new(), ptr, (outer * 8) as i32);
+							(inner, ftyp, embed)
+						}
+						None => {
 							return Err(Diagnostic::new(
 								format!("`{name}` has no field `{fname}`"),
 								value.1.into_range(),
 							)
 							.with_label("no such field"));
-						};
-						let val = self.check_typed(value, &ftyp, "type mismatch")?;
-						let val = self.copy_in(val, &ftyp);
-						let embed = self.b.ins().load(self.int, MemFlags::new(), ptr, (outer * 8) as i32);
-						self.b.ins().store(MemFlags::new(), val, embed, (inner * 8) as i32);
-						continue;
-					};
-					self.check_member(&name, fname, value.1)?;
-					let val = self.check_typed(value, &struct_fields[idx].typ, "type mismatch")?;
-					let val = self.copy_in(val, &struct_fields[idx].typ);
-					self.b.ins().store(MemFlags::new(), val, ptr, (idx * 8) as i32);
-				}
-			}
+						}
+					},
+				},
+			};
+			let val = self.check_typed(value, &ftyp, "type mismatch")?;
+			let val = self.copy_in(val, &ftyp);
+			self.b.ins().store(MemFlags::new(), val, base, (idx * 8) as i32);
+		}
+		// positional alone must cover every field
+		if !fields.is_empty() && prefix == fields.len() && prefix != struct_fields.len() {
+			return Err(arity(prefix));
 		}
 		Ok((ptr, Typ::Struct(name.clone(), struct_fields)))
 	}

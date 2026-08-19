@@ -119,10 +119,10 @@ fn wrong_value_type() {
 }
 
 #[test]
-fn record_literal_infers() {
+fn bracket_lit_string_keys() {
 	check(
 		indoc! {r#"
-			m :: { one = 1, two = 2 }
+			m :: ["one" = 1, "two" = 2]
 			m["one"] + m["two"]
 		"#},
 		"3",
@@ -130,13 +130,13 @@ fn record_literal_infers() {
 }
 
 #[test]
-fn record_literal_multiline() {
+fn bracket_lit_multiline() {
 	check(
 		indoc! {r#"
-			m :: {
-				one = 1
-				two = 2
-			}
+			m :: [
+				"one" = 1
+				"two" = 2
+			]
 			m["two"]
 		"#},
 		"2",
@@ -144,32 +144,10 @@ fn record_literal_multiline() {
 }
 
 #[test]
-fn record_int_keys() {
+fn bracket_lit_typed_target() {
 	check(
 		indoc! {r#"
-			m :: { 1 = "one", 2 = "two" }
-			m[1]
-		"#},
-		"one",
-	);
-}
-
-#[test]
-fn record_atom_keys() {
-	check(
-		indoc! {"
-			m :: { :ok = 200, :not_found = 404 }
-			m[:ok]
-		"},
-		"200",
-	);
-}
-
-#[test]
-fn record_typed_target() {
-	check(
-		indoc! {r#"
-			m: Map[string, f64] : { a = 1.5 }
+			m: Map[string, f64] : ["a" = 1.5]
 			m["a"]
 		"#},
 		"1.5",
@@ -228,25 +206,8 @@ fn bracket_lit_as_call_arg() {
 }
 
 #[test]
-fn record_pun() {
-	check(
-		indoc! {r#"
-			x :: 5
-			m :: {x,}
-			m["x"]
-		"#},
-		"5",
-	);
-}
-
-#[test]
-fn record_mixed_value_types_fail() {
-	fail_with(r#"m :: { a = 1, b = "two" }"#, "expected int, got str");
-}
-
-#[test]
-fn record_empty_needs_target() {
-	fail_with("m :: {}", "cannot infer");
+fn bracket_lit_mixed_value_types_fail() {
+	fail_with(r#"m :: ["a" = 1, "b" = "two"]"#, "expected int, got str");
 }
 
 #[test]

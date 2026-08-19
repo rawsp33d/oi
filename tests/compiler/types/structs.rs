@@ -194,10 +194,10 @@ fn struct_positional_field_access() {
 }
 
 #[test]
-fn record_coerces_to_struct() {
+fn omitted_name_coerces_to_struct() {
 	check(
 		"Point :: struct { x: int, y: int }
-		p : Point : { x = 2, y = 1 }
+		p : Point : .{ x = 2, y = 1 }
 		p.x + p.y",
 		"3",
 	);
@@ -205,57 +205,63 @@ fn record_coerces_to_struct() {
 		"Point :: struct { x: int, y: int }
 		x :: 5
 		y :: 7
-		p : Point : { x, y }
+		p : Point : .{ x, y }
 		p.y",
 		"7",
 	);
 }
 
 #[test]
-fn record_as_call_arg() {
+fn omitted_name_as_call_arg() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
 		sum :: fn(p: Point) int { p.x + p.y }
-		sum({ x = 3, y = 4 })
+		sum(.{ x = 3, y = 4 })
 	"};
 	check(src, "7");
 }
 
 #[test]
-fn record_in_return_position() {
+fn omitted_name_in_return_position() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
-		make :: fn() Point { { x = 1, y = 2 } }
+		make :: fn() Point { .{ x = 1, y = 2 } }
 		make()
 	"};
 	check(src, "Point.{x = 1, y = 2}");
 }
 
 #[test]
-fn empty_record_defaults_struct() {
+fn empty_literal_defaults_struct() {
 	check(
 		"User :: struct { age: int, swag: int = 5 }
-		u : User : {}
+		u : User : .{}
 		u.swag",
 		"5",
 	);
 }
 
 #[test]
-fn record_unknown_field_error() {
+fn unknown_field_error() {
 	fail_with(
 		"Point :: struct { x: int, y: int }
-		p : Point : { z = 1 }",
+		p : Point : .{ z = 1 }",
 		"no field `z`",
 	);
 }
 
 #[test]
-fn record_non_ident_key_error() {
+fn mixed_positional_and_named_fields() {
+	check(
+		"Point :: struct { x: int, y: int }
+		p :: Point.{ 3, y = 9 }
+		p.x + p.y",
+		"12",
+	);
 	fail_with(
-		r#"Point :: struct { x: int, y: int }
-		p : Point : { "x" = 1 }"#,
-		"named by idents",
+		"Point :: struct { x: int, y: int }
+		p :: Point.{ 3, x = 9 }",
+		"`x` was already set positionally",
 	);
 }
 
@@ -400,13 +406,13 @@ fn append_infers_anon_literal_from_element_type() {
 }
 
 #[test]
-fn punned_record_still_wins_as_call_arg() {
+fn omitted_literal_as_call_arg() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
 		sum :: fn(p: Point) int { p.x + p.y }
 		x :: 3
 		y :: 4
-		sum({ x, y })
+		sum(.{ x, y })
 	"};
 	check(src, "7");
 }
@@ -490,7 +496,7 @@ fn anonymous_field_type() {
 				calories: int
 			}
 		}
-		apple :: Food.{ name = "apple", nutrition = { calories = 4 } }
+		apple :: Food.{ name = "apple", nutrition = .{ calories = 4 } }
 		pear :: Food.{ name = "pear", nutrition = .{ 5 } }
 		print(apple.nutrition.calories)
 		print(pear.nutrition)
