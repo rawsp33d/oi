@@ -127,10 +127,11 @@ pub(super) fn check_impls<'p>(
 		}
 		for tf in *tfields {
 			let want = types.resolve(&tf.typ, tf.span)?;
+			// let embedded structs satisfy field requirements
 			if !types
 				.structs
 				.get(typ)
-				.is_some_and(|fs| fs.iter().any(|f| f.name == tf.name && f.typ == want))
+				.is_some_and(|fs| field_slot(fs, &tf.name).is_some_and(|(_, f)| f.typ == want))
 			{
 				let msg = format!("`{typ}` is missing field `{} {want}` required by trait `{tn}`", tf.name);
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("required by the trait"));

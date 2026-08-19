@@ -43,6 +43,25 @@ pub(crate) struct FieldDef {
 	pub default: Option<Spanned<Expr>>,
 }
 
+// The embedded fields of a struct.
+pub(crate) fn embeds(fields: &[FieldDef]) -> impl Iterator<Item = (usize, &str, &[FieldDef])> {
+	fields.iter().enumerate().filter_map(|(o, f)| match &f.typ {
+		Typ::Struct(sn, inner) if sn.rsplit("::").next() == Some(f.name.as_str()) => Some((o, sn.as_str(), &inner[..])),
+		_ => None,
+	})
+}
+
+// A field's encoded vtable slot.
+pub(crate) fn field_slot<'f>(fields: &'f [FieldDef], name: &str) -> Option<(i64, &'f FieldDef)> {
+	let direct = fields.iter().position(|f| f.name == name).map(|i| ((i * 8) as i64, &fields[i]));
+	direct.or_else(|| {
+		embeds(fields).find_map(|(o, _, inner)| {
+			let i = inner.iter().position(|f| f.name == name)?;
+			Some((((i * 8) as i64) << 32 | ((o * 8) as i64) | 1, &inner[i]))
+		})
+	})
+}
+
 impl Typ {
 	pub fn unit() -> Typ {
 		Typ::Tuple(vec![])

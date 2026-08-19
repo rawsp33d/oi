@@ -176,14 +176,6 @@ impl<'a> Translator<'a> {
 	}
 }
 
-// The embedded fields of a struct.
-pub(super) fn embeds(fields: &[FieldDef]) -> impl Iterator<Item = (usize, &str, &[FieldDef])> {
-	fields.iter().enumerate().filter_map(|(o, f)| match &f.typ {
-		Typ::Struct(sn, inner) if sn.rsplit("::").next() == Some(f.name.as_str()) => Some((o, sn.as_str(), &inner[..])),
-		_ => None,
-	})
-}
-
 // Two embeds both supply `wanted`.
 pub(super) fn ambiguous(wanted: &str, a: &str, b: &str, span: Span) -> Diagnostic {
 	Diagnostic::new(

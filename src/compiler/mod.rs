@@ -213,6 +213,7 @@ impl Default for Compiler {
 		builder.symbol(runtime::STR_CONCAT, runtime::str_concat as *const u8);
 		builder.symbol(runtime::STR_MARK, runtime::str_mark as *const u8);
 		builder.symbol(runtime::STR_TAKE, runtime::str_take as *const u8);
+		builder.symbol(runtime::TRAIT_FIELD, runtime::trait_field as *const u8);
 		builder.symbol(runtime::ALLOC, runtime::alloc as *const u8);
 		builder.symbol(runtime::ARRAY_SHARE, runtime::array_share as *const u8);
 		builder.symbol(runtime::ARRAY_COW, runtime::array_cow as *const u8);
@@ -711,11 +712,8 @@ impl Compiler {
 			let f = tfields.len();
 			let mut bytes = vec![0u8; (m + f + 1) * 8];
 			for (i, tf) in tfields.iter().enumerate() {
-				let idx = structs[typ.as_str()]
-					.iter()
-					.position(|fd| fd.name == tf.name)
-					.expect("field checked by trait impl");
-				bytes[(m + i) * 8..(m + i + 1) * 8].copy_from_slice(&((idx * 8) as i64).to_le_bytes());
+				let (enc, _) = field_slot(&structs[typ.as_str()], &tf.name).expect("field checked by trait impl");
+				bytes[(m + i) * 8..(m + i + 1) * 8].copy_from_slice(&enc.to_le_bytes());
 			}
 			let mut desc = DataDescription::new();
 			desc.define(bytes.into_boxed_slice());

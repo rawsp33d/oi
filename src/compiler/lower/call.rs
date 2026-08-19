@@ -456,7 +456,9 @@ impl<'a> Translator<'a> {
 		let m = trait_fns(tmethods).count();
 		// slot offset lives after the method pointers in the vtable
 		let off = self.b.ins().load(self.int, MemFlags::new(), vtable, ((m + idx) * 8) as i32);
-		let addr = self.b.ins().iadd(data, off);
+		let func = self.import_fn(runtime::TRAIT_FIELD, &[self.int, self.int], Some(self.int));
+		let call = self.b.ins().call(func, &[data, off]);
+		let addr = self.b.inst_results(call)[0];
 		let v = self.b.ins().load(cl_type(&ftyp, self.int), MemFlags::new(), addr, 0);
 		Ok((v, ftyp))
 	}

@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 pub const STR_CONCAT: &str = "oi_str_concat";
 pub const STR_MARK: &str = "oi_str_mark";
 pub const STR_TAKE: &str = "oi_str_take";
+pub const TRAIT_FIELD: &str = "oi_trait_field";
 pub const ALLOC: &str = "oi_alloc";
 pub const ARRAY_SHARE: &str = "oi_array_share";
 pub const ARRAY_COW: &str = "oi_array_cow";
@@ -193,6 +194,14 @@ pub unsafe extern "C" fn str_concat(a: *const u8, b: *const u8) -> *const u8 {
 	out.extend_from_slice(b);
 	out.push(0);
 	Box::leak(out.into_boxed_slice()).as_ptr()
+}
+
+// Resolve a trait object's field address.
+pub extern "C" fn trait_field(data: i64, off: i64) -> i64 {
+	match off & 1 {
+		0 => data + off,
+		_ => unsafe { *((data + (off & 0xFFFF_FFFE)) as *const i64) + (off >> 32) },
+	}
 }
 
 // Current buffer length.

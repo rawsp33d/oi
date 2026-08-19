@@ -288,6 +288,18 @@ fn dyn_dispatch_zoo() {
 }
 
 #[test]
+fn embedded_field_satisfies_requirement() {
+	let src = indoc! {r#"
+		Meta :: struct { kind: string, id: int }
+		Enemy :: struct { Meta, hp: int }
+		Enemy : Animal { speak :: fn(self) string { "rawr" } }
+		zoo : []Animal : [ Enemy.{ Meta = Meta.{ kind = "goblin" } } ]
+		loop a in zoo { print("a {a.kind} says {a.speak()}") }
+	"#};
+	check([ANIMAL_KIND, src], "a goblin says rawr");
+}
+
+#[test]
 fn trait_object_array_literal() {
 	let src = indoc! {r#"
 		Cat :: struct { kind: string }
