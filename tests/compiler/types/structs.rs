@@ -496,6 +496,18 @@ fn embedded_method_promotion() {
 }
 
 #[test]
+fn embedded_via_alias() {
+	let src = indoc! {"
+		Widget :: struct { x: int = 3 }
+		W :: Widget
+		Button :: struct { W }
+		assert(Button.{}.x == Button.{}.W.x)
+		Button.{}.x
+	"};
+	check(src, "3");
+}
+
+#[test]
 fn embedded_ambiguous_field() {
 	fail_with(
 		"A :: struct { x: int }

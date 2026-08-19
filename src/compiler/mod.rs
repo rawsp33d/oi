@@ -569,6 +569,7 @@ impl Compiler {
 				name: p.name.clone(),
 				typ,
 				default: p.default.clone(),
+				embedded: embedded(p),
 			})
 		};
 		while !pending.is_empty() {

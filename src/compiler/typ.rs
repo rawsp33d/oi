@@ -4,7 +4,7 @@ use std::fmt;
 
 use cranelift::prelude::*;
 
-use crate::ast::{Expr, Spanned, TypeExpr};
+use crate::ast::{Expr, Param, Spanned, TypeExpr};
 
 #[derive(Clone, Debug)]
 pub(crate) enum Typ {
@@ -41,12 +41,18 @@ pub(crate) struct FieldDef {
 	pub name: String,
 	pub typ: Typ,
 	pub default: Option<Spanned<Expr>>,
+	pub embedded: bool,
+}
+
+// Check whether a field is embedded.
+pub(crate) fn embedded(p: &Param) -> bool {
+	matches!(&p.typ, TypeExpr::Name(n) if *n == p.name)
 }
 
 // The embedded fields of a struct.
 pub(crate) fn embeds(fields: &[FieldDef]) -> impl Iterator<Item = (usize, &str, &[FieldDef])> {
 	fields.iter().enumerate().filter_map(|(o, f)| match &f.typ {
-		Typ::Struct(sn, inner) if sn.rsplit("::").next() == Some(f.name.as_str()) => Some((o, sn.as_str(), &inner[..])),
+		Typ::Struct(sn, inner) if f.embedded => Some((o, sn.as_str(), &inner[..])),
 		_ => None,
 	})
 }

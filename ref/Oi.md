@@ -148,6 +148,7 @@ tags: []
 	- just making structs more lightweight to use might be better, idk
 - CLI help docs, like Nushell and Cargo
 - treat all args as optional since they have zero values?
+- sandwich ops like `a == b == c`, `a < b <= c`, `x == y < z`, etc. `python`
 # stdlib
 - `os`
 - `fs`
