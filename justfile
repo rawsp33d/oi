@@ -40,7 +40,7 @@ check: build && fmt test lint
 # generate and serve static website
 [group("docs")]
 @serve: make::examples
-	zola --root www serve --interface 0.0.0.0
+	zola --root www serve --interface 0.0.0.0 --base-url /
 
 # fix fixable things
 [group("cargo")]
