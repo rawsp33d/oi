@@ -471,9 +471,11 @@ fn embedded_structs() {
 		print(profile.foo == profile.Options.foo)
 		print(profile.bar)
 		profile.Options = Options.{ foo = 1 }
-		profile.foo
+		print(profile.foo)
+		profile.bar = 9
+		profile.bar
 	"#};
-	check(src, ["true", "7", "1"]);
+	check(src, ["true", "7", "1", "9"]);
 }
 
 #[test]

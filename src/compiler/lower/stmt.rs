@@ -313,21 +313,34 @@ impl<'a> Translator<'a> {
 							);
 						}
 					};
-					let idx = fields.iter().position(|f| &f.name == field).ok_or_else(|| {
-						Diagnostic::new(format!("struct has no field `{field}`"), stmt.1.into_range())
-							.with_label("no such field")
-					})?;
+					// writes fall through one embed level
+					let (outer, idx, ftyp) = match fields.iter().position(|f| &f.name == field) {
+						Some(i) => (None, i, fields[i].typ.clone()),
+						None => match self.promoted(&fields, field, stmt.1)? {
+							Some((o, i, t)) => (Some(o), i, t),
+							None => {
+								return Err(Diagnostic::new(
+									format!("struct has no field `{field}`"),
+									stmt.1.into_range(),
+								)
+								.with_label("no such field"));
+							}
+						},
+					};
 					let (val, vtyp) = self.expr(value)?;
-					if vtyp != fields[idx].typ {
+					if vtyp != ftyp {
 						return Err(Diagnostic::new(
-							format!("cannot assign {vtyp} to field `{field}` of type {}", fields[idx].typ),
+							format!("cannot assign {vtyp} to field `{field}` of type {ftyp}"),
 							value.1.into_range(),
 						)
 						.with_label("type mismatch"));
 					}
 					closure_escape(&vtyp, value.1.into_range(), "stored in a field")?;
 					let val = self.copy_in(val, &vtyp);
-					let ptr = self.read_local(&local);
+					let mut ptr = self.read_local(&local);
+					if let Some(o) = outer {
+						ptr = self.b.ins().load(self.int, MemFlags::new(), ptr, (o * 8) as i32);
+					}
 					if rc::releasable(&vtyp) {
 						let cl = self.b.func.dfg.value_type(val);
 						let old = self.b.ins().load(cl, MemFlags::new(), ptr, (idx * 8) as i32);
