@@ -207,6 +207,7 @@ pub enum Expr {
 		typ: String,
 		type_params: Vec<TypeParam>,
 		traits: Vec<String>,
+		via: Option<String>,
 		fills: Vec<Spanned<Expr>>,
 	},
 

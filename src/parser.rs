@@ -1288,23 +1288,27 @@ where
 			None => f,
 		});
 	let fill_block = brace(fill.repeated().collect::<Vec<_>>());
+	let via = just(Token::Via).ignore_then(ident()).or_not();
 	let claim = ident()
 		.then(type_params.clone())
 		.then_ignore(just(Token::Colon))
 		.then(list(ident()))
+		.then(via.clone())
 		.then(fill_block)
 		.or(ident()
 			.then(type_params.clone())
 			.then_ignore(just(Token::Colon))
 			.then(ident().separated_by(just(Token::Comma)).at_least(1).collect::<Vec<_>>())
+			.then(via)
 			.then_ignore(one_of([Token::Colon, Token::Assign, Token::LBracket]).not())
-			.map(|(head, traits)| ((head, traits), vec![])))
-		.map_with(|(((typ, type_params), traits), fills), ex| {
+			.map(|(head, via)| ((head, via), vec![])))
+		.map_with(|((((typ, type_params), traits), via), fills), ex| {
 			(
 				Expr::Claim {
 					typ,
 					type_params,
 					traits,
+					via,
 					fills,
 				},
 				ex.span(),

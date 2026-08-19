@@ -455,9 +455,11 @@ impl Compiler {
 					typ,
 					type_params,
 					traits: ts,
+					via,
 					fills,
 				} if fills.is_empty()
 					&& type_params.is_empty()
+					&& via.is_none()
 					&& !typ.contains("::")
 					&& matches!(ts.as_slice(), [t] if !traits.contains_key(t.as_str())) =>
 				{
@@ -467,6 +469,7 @@ impl Compiler {
 					typ,
 					type_params,
 					traits: claimed,
+					via,
 					fills,
 				} => {
 					for tn in claimed {
@@ -480,6 +483,7 @@ impl Compiler {
 							span: item.1,
 							typ,
 							trait_name: tn,
+							via: via.as_deref(),
 							methods: fills,
 							scope,
 						});

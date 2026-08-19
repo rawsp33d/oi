@@ -287,6 +287,26 @@ fn dyn_dispatch_zoo() {
 	check([ANIMAL_KIND, src], ["a collie says woof", "a mau says meow"]);
 }
 
+const CAR_HORN: &str = indoc! {r#"
+	Horn :: struct { kind: string }
+	Horn : Animal { speak :: fn(self) string { "honk" } }
+	Car :: struct { Horn }
+"#};
+
+#[test]
+fn via_delegation() {
+	let src = indoc! {r#"
+		Car : Animal via Horn
+		zoo : []Animal : [ Car.{ Horn = Horn.{ kind = "vroom" } } ]
+		loop a in zoo { print("a {a.kind} says {a.speak()}") }
+	"#};
+	check([ANIMAL_KIND, CAR_HORN, src], "a vroom says honk");
+
+	let over = r#"Car : Animal via Horn { speak :: fn(self) string { "HONK HONK" } }
+	Car.{ kind = "vroom" }.speak()"#;
+	check([ANIMAL_KIND, CAR_HORN, over], "HONK HONK");
+}
+
 #[test]
 fn embedded_field_satisfies_requirement() {
 	let src = indoc! {r#"

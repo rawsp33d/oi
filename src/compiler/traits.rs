@@ -16,6 +16,7 @@ pub(crate) struct TraitBody<'a> {
 	pub span: Span,
 	pub typ: &'a str,
 	pub trait_name: &'a str,
+	pub via: Option<&'a str>,
 	pub methods: &'a [Spanned<Expr>],
 	pub scope: &'a Scope,
 }
@@ -101,10 +102,26 @@ pub(super) fn check_impls<'p>(
 		span,
 		typ,
 		trait_name: tn,
+		via,
 		methods,
 		scope,
 	} in trait_bodies
 	{
+		// vias
+		if let Some(field) = via {
+			let inner = types
+				.structs
+				.get(typ)
+				.and_then(|fs| embeds(fs).find_map(|(o, sn, _)| (fs[o].name == field).then_some(sn)));
+			let Some(sn) = inner else {
+				let msg = format!("`{typ}` has no embedded field `{field}` to route `{tn}` through");
+				return Err(Diagnostic::new(msg, span.into_range()).with_label("not an embedded field"));
+			};
+			if !trait_impls.contains(&(sn.to_string(), tn.to_string())) {
+				let msg = format!("`{sn}` does not claim `{tn}`, so `{typ}` cannot delegate to it");
+				return Err(Diagnostic::new(msg, span.into_range()).with_label("claim it first"));
+			}
+		}
 		if tn == "Drop" {
 			let well_formed = methods.iter().any(|m| {
 				matches!(&m.0, Expr::Fn { name, params, .. }
@@ -209,6 +226,28 @@ pub(super) fn check_impls<'p>(
 					let msg = format!("`{typ}.{name}` is `{got}`, trait `{tn}` declares `{want}`");
 					return Err(Diagnostic::new(msg, span.into_range()).with_label("wrong signature"));
 				}
+				continue;
+			}
+			// vias
+			if let Some(field) = via {
+				let s = |e| (e, span);
+				let recv = Expr::Field {
+					tuple: Box::new(s(Expr::Ident("self".into()))),
+					field: field.into(),
+				};
+				let call = Expr::MethodCall {
+					recv: Box::new(s(recv)),
+					method: name.clone(),
+					args: params.iter().skip(1).map(|p| s(Expr::Ident(p.name.clone()))).collect(),
+				};
+				others.push(FnItem {
+					key: format!("{typ}.{name}"),
+					scope,
+					params: params.clone(),
+					params_tuple: *params_tuple,
+					ret: ret.clone(),
+					body: Box::leak(Box::new([s(call)])),
+				});
 				continue;
 			}
 			if body.is_empty() {
