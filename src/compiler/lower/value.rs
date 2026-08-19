@@ -761,10 +761,20 @@ impl<'a> Translator<'a> {
 						Diagnostic::new("cannot mix named and positional fields", value.1.into_range())
 							.with_label("missing field name")
 					})?;
-					let idx = struct_fields.iter().position(|f| f.name == fname).ok_or_else(|| {
-						Diagnostic::new(format!("`{name}` has no field `{fname}`"), value.1.into_range())
-							.with_label("no such field")
-					})?;
+					let Some(idx) = struct_fields.iter().position(|f| f.name == fname) else {
+						let Some((outer, inner, ftyp)) = self.promoted(&struct_fields, fname, value.1)? else {
+							return Err(Diagnostic::new(
+								format!("`{name}` has no field `{fname}`"),
+								value.1.into_range(),
+							)
+							.with_label("no such field"));
+						};
+						let val = self.check_typed(value, &ftyp, "type mismatch")?;
+						let val = self.copy_in(val, &ftyp);
+						let embed = self.b.ins().load(self.int, MemFlags::new(), ptr, (outer * 8) as i32);
+						self.b.ins().store(MemFlags::new(), val, embed, (inner * 8) as i32);
+						continue;
+					};
 					self.check_member(&name, fname, value.1)?;
 					let val = self.check_typed(value, &struct_fields[idx].typ, "type mismatch")?;
 					let val = self.copy_in(val, &struct_fields[idx].typ);
@@ -782,6 +792,10 @@ impl<'a> Translator<'a> {
 			let init = if let Some(default_expr) = &f.default {
 				let val = self.check_typed(default_expr, &f.typ, "not a valid default for this field")?;
 				self.copy_in(val, &f.typ)
+			} else if let Typ::Struct(_, inner) = &f.typ {
+				// apply field defaults of inner structs
+				let inner = inner.clone();
+				self.struct_slot(&inner)?
 			} else {
 				self.zero(&f.typ)
 			};

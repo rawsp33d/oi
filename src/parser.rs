@@ -1092,11 +1092,24 @@ where
 			public: public.is_some(),
 		})
 		.boxed();
+	// embedded structs
+	let embedded = just(Token::Pub).or_not().then(ident()).map_with(|(public, name), ex| Param {
+		typ: TypeExpr::Name(name.clone()),
+		name,
+		span: ex.span(),
+		default: None,
+		mutable: false,
+		public: public.is_some(),
+	});
 	let struct_def = item_head
 		.clone()
 		.then_ignore(just(Token::Struct))
 		.then(brace(loose_list(
-			struct_field.clone().map(Member::Field).or(func.clone().map(Member::Fn)),
+			struct_field
+				.clone()
+				.map(Member::Field)
+				.or(func.clone().map(Member::Fn))
+				.or(embedded.map(Member::Field)),
 		)))
 		.map_with(|((name, type_params), members), ex| {
 			let (fields, fills, _) = split_members(members);

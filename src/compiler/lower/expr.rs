@@ -350,8 +350,19 @@ impl<'a> Translator<'a> {
 					};
 				}
 
-				if let Typ::Struct(sname, _) = &typ {
+				if let Typ::Struct(sname, sfields) = &typ {
 					self.check_member(sname, field, expr.1)?;
+					// promote fields from embedded structs if applicable
+					if !sfields.iter().any(|f| f.name == *field)
+						&& let Some((outer, inner, ftyp)) = self.promoted(sfields, field, expr.1)?
+					{
+						let embed = self.b.ins().load(self.int, MemFlags::new(), ptr, (outer * 8) as i32);
+						let v = self
+							.b
+							.ins()
+							.load(cl_type(&ftyp, self.int), MemFlags::new(), embed, (inner * 8) as i32);
+						return Ok((v, ftyp));
+					}
 				}
 
 				// structs are just fully-named tuples at the codegen level

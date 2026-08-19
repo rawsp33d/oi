@@ -36,6 +36,35 @@ impl<'a> Translator<'a> {
 		Err(Diagnostic::new(msg, span.into_range()).with_label("not public"))
 	}
 
+	// Find `wanted` through an embedded struct.
+	pub(super) fn promoted(
+		&self,
+		fields: &[FieldDef],
+		wanted: &str,
+		span: Span,
+	) -> Result<Option<(usize, usize, Typ)>, Diagnostic> {
+		let mut hit: Option<(usize, usize, Typ)> = None;
+		for (o, f) in fields.iter().enumerate() {
+			let Typ::Struct(sname, inner) = &f.typ else { continue };
+			if sname.rsplit("::").next() != Some(f.name.as_str()) {
+				continue;
+			}
+			let Some(i) = inner.iter().position(|f| f.name == wanted) else {
+				continue;
+			};
+			if let Some((prev, ..)) = hit {
+				let msg = format!(
+					"`{wanted}` is ambiguous, found in embedded `{}` and `{}`",
+					fields[prev].name, f.name
+				);
+				return Err(Diagnostic::new(msg, span.into_range()).with_label("reach it through the embedded struct"));
+			}
+			self.check_member(sname, wanted, span)?;
+			hit = Some((o, i, inner[i].typ.clone()));
+		}
+		Ok(hit)
+	}
+
 	// Look up the binding that a mutation targets.
 	pub(super) fn mutable_local(&self, name: &str, span: Range<usize>, op: Mutation) -> Result<Local, Diagnostic> {
 		// how the mutation reads in errors

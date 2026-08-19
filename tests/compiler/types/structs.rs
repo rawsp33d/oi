@@ -452,3 +452,31 @@ fn spread_of_other_struct_error() {
 		"cannot spread B into `A`",
 	);
 }
+
+#[test]
+fn embedded_structs() {
+	let src = indoc! {r#"
+		Options :: struct { foo: int, bar: int = 7 }
+		Profile :: struct {
+			Options
+			name: string
+		}
+		profile := Profile.{ foo = 4, name = "one cool dude" }
+		print(profile.foo == profile.Options.foo)
+		print(profile.bar)
+		profile.Options = Options.{ foo = 1 }
+		profile.foo
+	"#};
+	check(src, ["true", "7", "1"]);
+}
+
+#[test]
+fn embedded_ambiguous_field() {
+	fail_with(
+		"A :: struct { x: int }
+		B :: struct { x: int }
+		C :: struct { A, B }
+		C.{}.x",
+		"`x` is ambiguous, found in embedded `A` and `B`",
+	);
+}
