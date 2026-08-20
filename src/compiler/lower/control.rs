@@ -423,8 +423,8 @@ impl<'a> Translator<'a> {
 			at,
 			Typ::Str | Typ::Atom | Typ::Int(_) | Typ::UInt(_) | Typ::ISize | Typ::USize
 		) {
-			let msg = format!("`{name}.from` needs an int, str, or atom. Got {at}");
-			return Err(Diagnostic::new(msg, args[0].1.into_range()).with_label("not an int, str, or atom"));
+			let msg = format!("`{name}.from` needs an int, string, or atom. Got {at}");
+			return Err(Diagnostic::new(msg, args[0].1.into_range()).with_label("not an int, string, or atom"));
 		}
 
 		let target = Typ::Result(Box::new(Typ::Enum(name.to_string())));

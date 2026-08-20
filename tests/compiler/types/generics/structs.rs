@@ -147,8 +147,8 @@ fn explicit_instance_head() {
 	fail_with(
 		indoc! {"
 			Box[T] :: struct { v: T }
-			Box[str].{ v = 7 }
+			Box[string].{ v = 7 }
 		"},
-		"expected str, got int",
+		"expected string, got int",
 	);
 }

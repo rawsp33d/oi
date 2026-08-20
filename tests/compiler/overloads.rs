@@ -36,7 +36,7 @@ fn eq_dispatches_to_the_fill() {
 fn eq_is_structural_by_default() {
 	let src = indoc! {r#"
 		Inner :: struct { n: int }
-		Rec :: struct { a: int, s: str, f: float, i: Inner }
+		Rec :: struct { a: int, s: string, f: float, i: Inner }
 		a := Rec.{1, "hi", 1.5, Inner.{2}}
 		b := Rec.{1, "hi", 1.5, Inner.{2}}
 		c := Rec.{1, "hi", 1.5, Inner.{3}}

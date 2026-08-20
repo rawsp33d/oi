@@ -214,15 +214,15 @@ impl<'a> Translator<'a> {
 			other => other,
 		};
 
-		if matches!(name, "str" | "string") {
+		if name == "string" {
 			let (val, typ) = self.cast_operand(name, args, span)?;
 			let (val, typ) = self.enum_as_backing(val, typ, args[0].1)?;
 			if typ == Typ::Str {
 				return Ok(Some((val, Typ::Str)));
 			}
 			return Err(
-				Diagnostic::new(format!("cannot cast {typ} to str"), args[0].1.into_range())
-					.with_label("not castable to str"),
+				Diagnostic::new(format!("cannot cast {typ} to string"), args[0].1.into_range())
+					.with_label("not castable to string"),
 			);
 		}
 

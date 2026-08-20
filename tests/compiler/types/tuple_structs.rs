@@ -159,7 +159,7 @@ fn str_override() {
 		indoc! {r#"
 			Money :: struct (int)
 			Money :{
-				str :: fn(self) str {
+				str :: fn(self) string {
 					"money!"
 				}
 			}

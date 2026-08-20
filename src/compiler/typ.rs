@@ -123,7 +123,7 @@ impl fmt::Display for Typ {
 			Typ::Float(64) => write!(f, "float"),
 			Typ::Float(w) => write!(f, "f{w}"),
 			Typ::Bool => write!(f, "bool"),
-			Typ::Str => write!(f, "str"),
+			Typ::Str => write!(f, "string"),
 			Typ::Atom => write!(f, "atom"),
 			Typ::Tuple(fields) if fields.is_empty() => write!(f, "()"),
 			Typ::Tuple(_) => write!(f, "tuple"),

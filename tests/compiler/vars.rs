@@ -56,7 +56,7 @@ fn annotated_binding() {
 
 #[test]
 fn annotation_type_mismatch() {
-	fail_with(r#"x : int : "hi""#, "expected int, got str");
+	fail_with(r#"x : int : "hi""#, "expected int, got string");
 }
 
 #[test]

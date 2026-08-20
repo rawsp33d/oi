@@ -47,7 +47,11 @@ impl<'a> Translator<'a> {
 				self.b.ins().f128const(c)
 			}
 			Typ::Float(w) => panic!("unsupported float width f{w}"),
-			Typ::Str | Typ::Error => self.str_const(""),
+			Typ::Str => self.str_const(""),
+			Typ::Error => {
+				let msg = self.str_const("");
+				self.box_error(msg)
+			}
 			Typ::Atom => self.atom_const(""),
 			Typ::Int(w) => self.b.ins().iconst(cl_type(&Typ::Int(*w), self.int), 0),
 			Typ::UInt(w) => self.b.ins().iconst(cl_type(&Typ::UInt(*w), self.int), 0),
@@ -601,12 +605,24 @@ impl<'a> Translator<'a> {
 					.with_label("no matching impl"),
 			);
 		}
+		Ok((self.box_trait_object(val, name, tn), Typ::Trait(tn.to_string())))
+	}
+
+	// Box `msg` as the builtin str-backed error.
+	pub(super) fn box_error(&mut self, msg: Value) -> Value {
+		let ptr = self.call_alloc(1);
+		self.b.ins().store(MemFlags::new(), msg, ptr, 0);
+		self.box_trait_object(ptr, "std::StrError", "std::Error")
+	}
+
+	// Box `val` (an instance of `name`) behind its `name`/`tn` vtable.
+	pub(super) fn box_trait_object(&mut self, val: Value, name: &str, tn: &str) -> Value {
 		let sym = oi_symbol(&format!("vtable_{name}_{tn}"));
 		let vtable = self.data_addr(&sym);
 		let boxp = self.call_alloc(2);
 		self.b.ins().store(MemFlags::new(), vtable, boxp, 0);
 		self.b.ins().store(MemFlags::new(), val, boxp, 8);
-		Ok((boxp, Typ::Trait(tn.to_string())))
+		boxp
 	}
 
 	pub(super) fn float_lit(&mut self, x: f64, w: u16, span: Span) -> Result<Value, Diagnostic> {

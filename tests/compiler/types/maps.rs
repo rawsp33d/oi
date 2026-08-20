@@ -103,7 +103,7 @@ fn wrong_key_type() {
 			m: Map[string, int]
 			m[1]
 		"#})
-		.contains("expected str key")
+		.contains("expected string key")
 	);
 }
 
@@ -207,7 +207,7 @@ fn bracket_lit_as_call_arg() {
 
 #[test]
 fn bracket_lit_mixed_value_types_fail() {
-	fail_with(r#"m :: ["a" = 1, "b" = "two"]"#, "expected int, got str");
+	fail_with(r#"m :: ["a" = 1, "b" = "two"]"#, "expected int, got string");
 }
 
 #[test]

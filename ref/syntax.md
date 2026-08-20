@@ -1240,7 +1240,6 @@ main :: fn() {
 	}
 	ParseError :{
 		message :: fn(self) string { "parse error at {self.line}:{self.col}" }
-		code :: fn(self) int { 1 }
 	}
 
 	parse :: fn(src: string) !Ast {
@@ -1459,7 +1458,6 @@ main :: fn() {
 	# built-in Error trait
 	trait Error {
 		message :: fn(self) string
-		code :: fn(self) int
 		cause :: fn(self) ?Error { none }
 	}
 

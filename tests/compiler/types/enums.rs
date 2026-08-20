@@ -282,14 +282,14 @@ fn payload_eq() {
 fn payload_eq_string_field() {
 	check(
 		indoc! {r#"
-			Msg :: enum { quit say(str) }
+			Msg :: enum { quit say(string) }
 			Msg.say("hi") == Msg.say("hi")
 		"#},
 		"true",
 	);
 	check(
 		indoc! {r#"
-			Msg :: enum { quit say(str) }
+			Msg :: enum { quit say(string) }
 			Msg.say("hi") == Msg.say("bye")
 		"#},
 		"false",
@@ -615,7 +615,7 @@ fn from_payload_zero_fills() {
 fn from_wrong_type() {
 	fail_with(
 		"Color :: enum { red green blue }\nColor.from(true)",
-		"needs an int, str, or atom",
+		"needs an int, string, or atom",
 	);
 }
 
@@ -746,22 +746,22 @@ fn string_backed_raws() {
 		indoc! {r#"
 			Suit : string : enum { hearts = "♥" spades = "♠" }
 			print(string(Suit.spades))
-			print(str(Suit.hearts))
+			print(string(Suit.hearts))
 			print(Suit.spades.str())
 			print(ord(Suit.spades))
 			print(Suit.hearts == Suit.hearts)
 			a :: [Suit.spades, Suit.hearts]
-			print(str(a[1]))
+			print(string(a[1]))
 			match Suit.spades { .spades => "s", else => "?" }
 		"#},
 		["♠", "♥", "spades", "1", "true", "♥", "s"],
 	);
-	check("S : string : enum { a b }\nstr(S.b)", "b");
+	check("S : string : enum { a b }\nstring(S.b)", "b");
 }
 
 #[test]
 fn string_backed_errors() {
-	fail_with("S : string : enum { a b }\nint(S.a)", "cannot cast str");
+	fail_with("S : string : enum { a b }\nint(S.a)", "cannot cast string");
 	fail_with("S :: enum { a = \"x\" }", "needs a string backing");
 	fail_with("S : string : enum { a = 2 }", "uses raw values");
 	fail_with("S : string : enum { a = \"x\" b = \"x\" }", "assigned more than once");

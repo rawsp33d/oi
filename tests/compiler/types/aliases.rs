@@ -34,7 +34,7 @@ fn top_level_index_bind() {
 #[test]
 fn alias_primitive_in_return() {
 	let src = indoc! {r#"
-		Name :: str
+		Name :: string
 		greet :: fn() Name { "hello" }
 		greet()
 	"#};
