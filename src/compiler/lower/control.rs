@@ -176,7 +176,11 @@ impl<'a> Translator<'a> {
 				) = (&st, &pat.0)
 				{
 					if arm.patterns.len() == 1 {
-						binds = struct_pattern(fdefs, pname, sname, fields, pat.1)?;
+						for (fname, e) in fields {
+							let Expr::Ident(local) = &e.0 else { continue };
+							self.check_member(sname, fname.as_deref().unwrap_or(local), e.1)?;
+						}
+						binds = struct_pattern(fdefs, &self.qualify(pname), sname, fields, pat.1)?;
 					}
 					self.b.ins().iconst(types::I8, 1)
 				} else if let (Typ::Array(elem) | Typ::FixedArray(elem, _), Expr::Array(elems)) = (&st, &pat.0) {

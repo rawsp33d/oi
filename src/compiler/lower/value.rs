@@ -794,6 +794,7 @@ impl<'a> Translator<'a> {
 				}
 				None if i >= struct_fields.len() => return Err(arity(fields.len())),
 				None => {
+					self.check_member(&name, &struct_fields[i].name, value.1)?;
 					prefix += 1;
 					(i, struct_fields[i].typ.clone(), ptr)
 				}
@@ -905,7 +906,10 @@ impl<'a> Translator<'a> {
 				.with_label("unsupported"));
 			}
 			let idx = match field_name {
-				None if positional => i,
+				None if positional => {
+					self.check_member(name, &def.fields[i].name, value.1)?;
+					i
+				}
 				None => {
 					return Err(
 						Diagnostic::new("cannot mix named and positional fields", value.1.into_range())

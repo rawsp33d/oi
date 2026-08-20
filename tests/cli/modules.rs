@@ -153,6 +153,16 @@ fn member_visibility() {
 			"use foo.{ P }\nprint(P.{ x = 1 }.y)",
 			"pub P :: struct { x: int, pub y: int }",
 		),
+		// a private field in a positional literal
+		(
+			"use foo.{ P }\nprint(P.{ 1, 2 }.y)",
+			"pub P :: struct { x: int, pub y: int }",
+		),
+		// a private field in a match pattern
+		(
+			"use foo.{ P, make }\nmatch make() { P.{ x } => print(x), }",
+			"pub P :: struct { x: int }",
+		),
 		// a private `:{` method call
 		(
 			"use foo.{ make }\nprint(make().hidden())",
@@ -180,6 +190,25 @@ fn member_visibility() {
 			],
 		);
 	assert_eq!(ok(run_main(p)), "6");
+
+	let p = Project::new()
+		.file(
+			"main.oi",
+			[
+				"module main",
+				"use foo.{ P, make }",
+				"match make() { P.{ x } => print(x), }",
+			],
+		)
+		.file(
+			"foo/lib.oi",
+			[
+				"module foo",
+				"pub P :: struct { pub x: int }",
+				"pub make :: fn() P { P.{ x = 9 } }",
+			],
+		);
+	assert_eq!(ok(run_main(p)), "9");
 }
 
 #[test]
