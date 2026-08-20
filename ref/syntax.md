@@ -677,10 +677,11 @@ slurp :: fn(path: string) ![]u8 { ... } # error left open
 Grid[T] :: [][]T
 Lookup[V] :: Map[string, ?V]
 
-# in expression position a bracket is always an index
+# in expression position a bracket is an index, unless a literal or call follows
 grid[x][y] = 0
+boxed :: Box[int].{ v = 7 }
 
-# the sandwich middle names the type when there's nothing to infer from
+# the sandwich middle also names the type when there's nothing to infer from
 empty : Stack[int] = Stack.{}
 meters : Tagged[Meters] = Tagged.{ value = 5.0 }
 

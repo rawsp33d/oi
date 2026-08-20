@@ -168,7 +168,13 @@ impl<'a> Translator<'a> {
 						binds = field_binds(pairs, 0, 8)?;
 					}
 					self.b.ins().iconst(types::I8, 1)
-				} else if let (Typ::Struct(sname, fdefs), Expr::StructLit { name: pname, fields }) = (&st, &pat.0) {
+				} else if let (
+					Typ::Struct(sname, fdefs),
+					Expr::StructLit {
+						name: pname, fields, ..
+					},
+				) = (&st, &pat.0)
+				{
 					if arm.patterns.len() == 1 {
 						binds = struct_pattern(fdefs, pname, sname, fields, pat.1)?;
 					}

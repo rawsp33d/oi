@@ -502,7 +502,11 @@ impl<'a> Translator<'a> {
 
 			Expr::For { pat, iter, body } => self.for_loop(pat, iter, body, expr.1),
 
-			Expr::StructLit { name, fields } => self.struct_lit(name, fields, expr.1, None),
+			Expr::StructLit {
+				name,
+				type_args,
+				fields,
+			} => self.struct_lit(name, type_args, fields, expr.1, None),
 
 			Expr::Ref(inner) => {
 				let (ptr, typ) = self.expr(inner)?;

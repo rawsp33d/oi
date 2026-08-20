@@ -28,7 +28,7 @@ fn init_expr_declare_and_set_get() {
 #[test]
 fn dot_brace_map_syntax_is_gone() {
 	fail_with("Map.{ one = 1 }", "unknown struct");
-	fail_with(r#"Map[string, int].{"x"}"#, "undefined variable");
+	fail_with(r#"Map[string, int].{"x"}"#, "unknown type `Map`");
 }
 
 #[test]

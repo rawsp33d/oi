@@ -120,3 +120,22 @@ fn type_args_on_non_generic_struct_error() {
 		"is not generic",
 	);
 }
+
+#[test]
+fn explicit_instance_head() {
+	check(
+		indoc! {"
+			Box[T] :: struct { v: T }
+			b :: Box[int].{ v = 7 }
+			b.v
+		"},
+		"7",
+	);
+	fail_with(
+		indoc! {"
+			Box[T] :: struct { v: T }
+			Box[str].{ v = 7 }
+		"},
+		"expected str, got int",
+	);
+}

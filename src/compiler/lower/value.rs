@@ -506,7 +506,11 @@ impl<'a> Translator<'a> {
 						.with_label("every arm returns, but a value is needed here"),
 				),
 			},
-			Expr::StructLit { name, fields } => self.struct_lit(name, fields, value.1, Some(target)),
+			Expr::StructLit {
+				name,
+				type_args,
+				fields,
+			} => self.struct_lit(name, type_args, fields, value.1, Some(target)),
 			Expr::Record(entries) => match target {
 				Typ::Map(..) => self.record_lit(entries, value.1, Some(target)),
 				Typ::Struct(name, _) => {
@@ -520,7 +524,7 @@ impl<'a> Translator<'a> {
 							),
 						})
 						.collect::<Result<Vec<_>, _>>()?;
-					self.struct_lit(name, &fields, value.1, Some(target))
+					self.struct_lit(name, &[], &fields, value.1, Some(target))
 				}
 				_ => self.expr(value),
 			},
@@ -683,12 +687,13 @@ impl<'a> Translator<'a> {
 	pub(super) fn struct_lit(
 		&mut self,
 		name: &str,
+		type_args: &[Spanned<TypeExpr>],
 		fields: &[(Option<String>, Spanned<Expr>)],
 		span: Span,
 		target: Option<&Typ>,
 	) -> Result<TypedVal, Diagnostic> {
 		// `Self {}` inside a method resolves to the impl's type
-		let name = match name {
+		let mut name = match name {
 			"" => match target {
 				Some(Typ::Struct(n, _)) => n.clone(),
 				_ => {
@@ -715,12 +720,20 @@ impl<'a> Translator<'a> {
 			let typ = Typ::Enum(name.clone());
 			return Ok((self.zero(&typ), typ));
 		}
+		// explicit generics
+		let mut explicit = None;
+		if !type_args.is_empty() {
+			let args = type_args.iter().map(|t| t.0.clone()).collect();
+			if let Typ::Struct(n, fs) = self.types().resolve(&TypeExpr::Generic(name.clone(), args), span)? {
+				(name, explicit) = (n, Some(fs));
+			}
+		}
 		// anonymous structs are named by their shape
 		let anon = target.and_then(|t| match t {
 			Typ::Struct(n, fs) if *n == name => Some(fs.clone()),
 			_ => None,
 		});
-		let struct_fields = match anon.or_else(|| self.structs.get(name.as_str()).cloned()) {
+		let struct_fields = match explicit.or(anon).or_else(|| self.structs.get(name.as_str()).cloned()) {
 			Some(fields) => fields,
 			None => match self.generics.structs.get(name.as_str()).cloned() {
 				Some(def) => return self.generic_struct_lit(&name, def, fields, span, target),

@@ -187,6 +187,7 @@ pub enum Expr {
 	// `Name {}`
 	StructLit {
 		name: String,
+		type_args: Vec<Spanned<TypeExpr>>,
 		fields: Vec<(Option<String>, Spanned<Expr>)>,
 	},
 	// `&Name {}`

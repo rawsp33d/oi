@@ -564,14 +564,27 @@ where
 			.map_with(|e, ex| (None, (Expr::Spread(Box::new(e)), ex.span())));
 		let struct_body = brace(loose_list(spread_entry.or(struct_field_entry.clone())));
 
+		// explicit generic types
+		let call_type_args = bracket(
+			spanned(type_expr.clone())
+				.separated_by(just(Token::Comma))
+				.at_least(1)
+				.collect::<Vec<_>>(),
+		);
+
 		// struct literals
 		let struct_lit = ident()
+			.then(call_type_args.clone().or_not())
 			.or_not()
 			.then_ignore(just(Token::Dot))
 			.then(struct_body)
-			.map(|(name, fields)| Expr::StructLit {
-				name: name.unwrap_or_default(),
-				fields,
+			.map(|(head, fields)| {
+				let (name, type_args) = head.unwrap_or_default();
+				Expr::StructLit {
+					name,
+					type_args: type_args.unwrap_or_default(),
+					fields,
+				}
 			});
 
 		let ref_lit = just(Token::Amp).ignore_then(expr.clone()).try_map(|e, span| match &e.0 {
@@ -581,14 +594,6 @@ where
 				"only a struct literal can be boxed into a reference yet",
 			)),
 		});
-
-		// explicit generic types
-		let call_type_args = bracket(
-			spanned(type_expr.clone())
-				.separated_by(just(Token::Comma))
-				.at_least(1)
-				.collect::<Vec<_>>(),
-		);
 
 		let var_or_call = ident()
 			.then(call_type_args.or_not().then(args.clone()).or_not())
