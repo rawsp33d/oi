@@ -158,7 +158,7 @@ fn error_message_via_dollar() {
 
 #[test]
 fn error_unknown_method() {
-	fail_with(r#"error("oops").code()"#, "`Error` has no method `code`");
+	fail_with(r#"error("oops").nope()"#, "no method `nope`");
 }
 
 #[test]
@@ -209,4 +209,18 @@ fn long_form_rejects_custom_error() {
 		"load :: fn() Result[int, MyError] { 42 }; load()",
 		"custom error types aren't supported yet",
 	);
+}
+
+#[test]
+fn error_cause_defaults_to_none() {
+	let src = indoc! {r#"
+		find :: fn() !int {
+			return error("boom")
+		}
+		find() or {
+			print("{$.cause()}")
+			0
+		}
+	"#};
+	check(src, ["none", "0"]);
 }

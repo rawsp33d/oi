@@ -390,6 +390,7 @@ impl TypeCtx<'_> {
 			"string" | "str" => return Ok(Typ::Str),
 			"range" => return Ok(Typ::Range),
 			"()" => return Ok(Typ::unit()),
+			"Error" => return Ok(Typ::Error),
 			_ => {}
 		}
 		if let Some(result) = int_width(name, 'i', Typ::Int, "integer", span) {

@@ -437,6 +437,14 @@ impl<'a> Translator<'a> {
 		self.call_value(method, fnptr, &Typ::Fn(typs, Box::new(ret)), args, Some(data), span)
 	}
 
+	// Dyn-dispatch `message()` on a boxed `Error`.
+	pub(super) fn error_message(&mut self, boxv: Value) -> Value {
+		let Ok((s, _)) = self.dyn_call(boxv, "std::Error", "message", &[], (0..0).into()) else {
+			unreachable!("std::Error always has `message`")
+		};
+		s
+	}
+
 	// Read a required trait field.
 	pub(super) fn trait_field(
 		&mut self,

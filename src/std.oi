@@ -13,3 +13,14 @@ pub Sub :: trait { sub: fn(self, other: Self) Self }
 pub Mul :: trait { mul: fn(self, other: Self) Self }
 pub Div :: trait { div: fn(self, other: Self) Self }
 pub Mod :: trait { mod: fn(self, other: Self) Self }
+
+# errors
+pub Error :: trait {
+	message: fn(self) string
+	cause :: fn(self) ?Error { none }
+}
+
+StrError :: struct { msg: string }
+StrError : Error {
+	message :: fn(self) string { self.msg }
+}

@@ -14,7 +14,11 @@ impl<'a> Translator<'a> {
 	pub(super) fn emit_eq(&mut self, a: Value, b: Value, typ: &Typ) -> Value {
 		match typ {
 			Typ::Float(_) => self.b.ins().fcmp(FloatCC::Equal, a, b),
-			Typ::Str | Typ::Error => {
+			Typ::Error => {
+				let (a, b) = (self.error_message(a), self.error_message(b));
+				self.emit_eq(a, b, &Typ::Str)
+			}
+			Typ::Str => {
 				let func = self.import_fn(runtime::STR_EQ, &[self.int, self.int], Some(self.int));
 				let call = self.b.ins().call(func, &[a, b]);
 				self.b.inst_results(call)[0]

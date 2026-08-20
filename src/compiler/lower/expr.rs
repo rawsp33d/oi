@@ -229,13 +229,7 @@ impl<'a> Translator<'a> {
 
 					// `Error` trait
 					if recv_typ == Typ::Error {
-						if method == "message" && args.is_empty() {
-							return Ok((recv_val, Typ::Str));
-						}
-						return Err(
-							Diagnostic::new(format!("`Error` has no method `{method}`"), expr.1.into_range())
-								.with_label("no such method"),
-						);
+						return self.dyn_call(recv_val, "std::Error", method, args, expr.1);
 					}
 					match &recv_typ {
 						Typ::Struct(name, _) | Typ::TupleStruct(name, _) | Typ::Enum(name) => {

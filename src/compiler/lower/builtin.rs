@@ -176,7 +176,7 @@ impl<'a> Translator<'a> {
 					)
 					.with_label("not a Str"));
 				}
-				Ok(Some((msg, Typ::Error)))
+				Ok(Some((self.box_error(msg), Typ::Error)))
 			}
 
 			"ord" => {

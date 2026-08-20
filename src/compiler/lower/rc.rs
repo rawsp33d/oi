@@ -74,6 +74,8 @@ impl<'a> Translator<'a> {
 			return None;
 		}
 		let mut desc = DataDescription::new();
+		// TODO: get this offset dynamically like rustc does
+		desc.set_align(8);
 		desc.define(words.iter().flat_map(|w| w.to_le_bytes()).collect());
 		for (off, child) in relocs {
 			let gv = self.module.declare_data_in_data(child, &mut desc);

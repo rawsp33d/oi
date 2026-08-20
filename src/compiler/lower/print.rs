@@ -224,13 +224,18 @@ impl<'a> Translator<'a> {
 				self.emit_frag(runtime::Tag::Raw, s, 0, false, sink);
 			}
 
+			Typ::Error => {
+				let s = self.error_message(val);
+				self.emit_print(s, &Typ::Str, quote, sink);
+			}
+
 			_ => {
 				let tag = match typ {
 					Typ::Bool => runtime::Tag::Bool,
 					Typ::Int(_) | Typ::ISize => runtime::Tag::Int,
 					Typ::UInt(_) | Typ::USize => runtime::Tag::UInt,
 					Typ::Float(_) => runtime::Tag::Float,
-					Typ::Str | Typ::Error => runtime::Tag::Str,
+					Typ::Str => runtime::Tag::Str,
 					Typ::Atom
 					| Typ::Tuple(_)
 					| Typ::Array(_)
@@ -245,6 +250,7 @@ impl<'a> Translator<'a> {
 					| Typ::Fn(..)
 					| Typ::Closure(..)
 					| Typ::Trait(_)
+					| Typ::Error
 					| Typ::Map(..)
 					| Typ::Mut(_)
 					| Typ::Ref(_) => {

@@ -389,7 +389,8 @@ impl<'a> Translator<'a> {
 		self.b.switch_to_block(sad_block);
 		if panic_in_main {
 			let msg = if is_result {
-				self.b.ins().load(self.int, MemFlags::new(), val, 8)
+				let e = self.b.ins().load(self.int, MemFlags::new(), val, 8);
+				self.error_message(e)
 			} else {
 				self.str_const("unwrapped `none`")
 			};
@@ -430,7 +431,8 @@ impl<'a> Translator<'a> {
 		let target_variants = self.variants_of(&target);
 		let variants = self.enum_variants(name);
 
-		let err = self.str_const("no matching variant");
+		let msg = self.str_const("no matching variant");
+		let err = self.box_error(msg);
 		let mut result = self.make_enum(&target_variants, 1, &[err]);
 		for v in &variants {
 			let matched = match at {
