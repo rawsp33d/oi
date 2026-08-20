@@ -696,6 +696,8 @@ impl<'a> Translator<'a> {
 		let mut name = match name {
 			"" => match target {
 				Some(Typ::Struct(n, _)) => n.clone(),
+				// anonymous structs
+				None if !fields.is_empty() && fields.iter().all(|f| f.0.is_some()) => return self.infer_anon(fields),
 				_ => {
 					return Err(
 						Diagnostic::new("cannot infer the struct type of `.{}` here", span.into_range())
@@ -821,6 +823,25 @@ impl<'a> Translator<'a> {
 			return Err(arity(prefix));
 		}
 		Ok((ptr, Typ::Struct(name.clone(), struct_fields)))
+	}
+
+	// A self-typed anonymous struct, named by its shape.
+	fn infer_anon(&mut self, entries: &[(Option<String>, Spanned<Expr>)]) -> Result<TypedVal, Diagnostic> {
+		let ptr = self.stack_slot((entries.len() * 8) as u32);
+		let mut fields: Vec<FieldDef> = Vec::with_capacity(entries.len());
+		for (i, (name, value)) in entries.iter().enumerate() {
+			let (val, typ) = self.expr(value)?;
+			let val = self.copy_in(val, &typ);
+			self.b.ins().store(MemFlags::new(), val, ptr, (i * 8) as i32);
+			fields.push(FieldDef {
+				name: name.clone().expect("guarded by the caller"),
+				typ,
+				default: None,
+				embedded: false,
+			});
+		}
+		let shape: Vec<_> = fields.iter().map(|f| format!("{}: {}", f.name, f.typ)).collect();
+		Ok((ptr, Typ::Struct(format!("struct{{{}}}", shape.join(", ")), fields)))
 	}
 
 	// Allocate a struct on the stack, initializing each field to its default.

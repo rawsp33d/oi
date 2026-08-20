@@ -578,3 +578,23 @@ fn anonymous_structural_identity() {
 	"};
 	check(src, "4");
 }
+
+#[test]
+fn anonymous_inferred_from_the_literal() {
+	check(
+		indoc! {"
+			pos := .{ x = 1, y = 2 }
+			pos.x + pos.y
+		"},
+		"3",
+	);
+	check(
+		indoc! {"
+			f :: fn(p: struct { x: int, y: int }) { print(p.x + p.y) }
+			pos := .{ x = 1, y = 2 }
+			f(pos)
+		"},
+		"3",
+	);
+	fail_with("p := .{ 5 }", "cannot infer the struct type");
+}

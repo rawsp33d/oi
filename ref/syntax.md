@@ -370,6 +370,9 @@ pear := Food.{
 	nutrition = .{ 5 }
 }
 
+# with nothing expected, a fully named literal infers an anonymous struct
+pos := .{ x = 1, y = 2 }
+
 # anonymous structs are usable in any type signature
 open :: fn(opts: struct { retries: int }) struct { ok: bool } {
 	.{ ok = opts.retries > 0 }
