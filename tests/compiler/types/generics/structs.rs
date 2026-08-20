@@ -99,6 +99,19 @@ fn generic_fn_round_trip() {
 }
 
 #[test]
+fn tuple_args_make_distinct_instances() {
+	let src = indoc! {r#"
+		Box[T] :: struct { v: T }
+		unwrap[T] :: fn(b: Box[T]) T { b.v }
+		a := Box.{ v = (1, "a") }
+		b := Box.{ v = (true, false) }
+		print("{unwrap(a)}")
+		print("{unwrap(b)}")
+	"#};
+	check(src, [r#"(1, "a")"#, "(true, false)"]);
+}
+
+#[test]
 fn concrete_field_type_still_checked() {
 	fail_with(
 		indoc! {r#"

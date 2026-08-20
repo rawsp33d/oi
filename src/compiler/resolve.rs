@@ -218,7 +218,7 @@ impl TypeCtx<'_> {
 						})
 					})
 					.collect::<Result<Vec<_>, Diagnostic>>()?;
-				let shape: Vec<_> = fields.iter().map(|f| format!("{}: {}", f.name, f.typ)).collect();
+				let shape: Vec<_> = fields.iter().map(|f| format!("{}: {}", f.name, f.typ.key())).collect();
 				Ok(Typ::Struct(format!("struct{{{}}}", shape.join(", ")), fields))
 			}
 			TypeExpr::TupleStruct(name, fields) => {
@@ -316,7 +316,7 @@ impl TypeCtx<'_> {
 			})
 			.collect::<Result<Vec<_>, _>>()?;
 		let concrete: Vec<Typ> = def.type_params.iter().map(|p| subst[&p.name].clone()).collect();
-		let args: Vec<_> = concrete.iter().map(Typ::to_string).collect();
+		let args: Vec<_> = concrete.iter().map(Typ::key).collect();
 		let display = format!("{name}[{}]", args.join(", "));
 		self.generics
 			.instance_args
@@ -340,7 +340,7 @@ impl TypeCtx<'_> {
 					.with_label("would require infinitely nested variants"),
 			);
 		}
-		let args: Vec<_> = def.type_params.iter().map(|p| subst[&p.name].to_string()).collect();
+		let args: Vec<_> = def.type_params.iter().map(|p| subst[&p.name].key()).collect();
 		let display = format!("{name}[{}]", args.join(", "));
 		if self.generics.instances.borrow().contains_key(&display) {
 			return Ok(Typ::Enum(display));

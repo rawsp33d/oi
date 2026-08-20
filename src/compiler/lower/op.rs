@@ -98,7 +98,7 @@ impl<'a> Translator<'a> {
 
 	// Whether `typ` claims `tn`.
 	pub(super) fn claims(&self, typ: &Typ, tn: &str) -> bool {
-		self.trait_impls.contains(&(typ.to_string(), tn.to_string()))
+		self.trait_impls.contains(&(typ.key(), tn.to_string()))
 			|| (self.std_traits.contains(tn) && builtin_claim(typ, tn))
 	}
 

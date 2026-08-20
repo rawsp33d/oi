@@ -82,6 +82,16 @@ fn omitted_return_type_is_unit() {
 }
 
 #[test]
+fn tuple_substitutions_monomorphize_separately() {
+	let src = indoc! {r#"
+		show[T] :: fn(x: T) { print("{x}") }
+		show((1, "a"))
+		show((true, false))
+	"#};
+	check(src, [r#"(1, "a")"#, "(true, false)"]);
+}
+
+#[test]
 fn omitted_return_type_rejects_a_value() {
 	fail_with(
 		indoc! {"

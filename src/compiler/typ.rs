@@ -80,6 +80,36 @@ impl Typ {
 	pub fn is_enumish(&self) -> bool {
 		matches!(self, Typ::Enum(_) | Typ::Option(_) | Typ::Result(_) | Typ::Sum(..))
 	}
+
+	// 1:1 spelling for identity keys.
+	pub fn key(&self) -> String {
+		let keys = |ts: &[Typ]| ts.iter().map(Typ::key).collect::<Vec<_>>().join(", ");
+		match self {
+			Typ::Tuple(fields) => {
+				let elems: Vec<_> = fields.iter().map(|(_, t)| t.key()).collect();
+				format!("({})", elems.join(", "))
+			}
+			Typ::Array(e) => format!("[]{}", e.key()),
+			Typ::FixedArray(e, n) => format!("[{n}]{}", e.key()),
+			Typ::Option(inner) => format!("?{}", inner.key()),
+			Typ::Result(inner) => format!("!{}", inner.key()),
+			Typ::Map(k, v) => format!("Map[{}, {}]", k.key(), v.key()),
+			Typ::Mut(inner) => format!("mut {}", inner.key()),
+			Typ::Ref(inner) => format!("&{}", inner.key()),
+			Typ::Trait(name) => format!("dyn {name}"),
+			Typ::Fn(params, ret) => format!("fn({}) {}", keys(params), ret.key()),
+			Typ::Closure(params, ret, _) => format!("closure({}) {}", keys(params), ret.key()),
+			Typ::Sum(variants) => variants
+				.iter()
+				.map(|v| match v.payload.is_empty() {
+					true => format!(":{}", v.name),
+					false => format!("{}({})", v.name, keys(&v.payload)),
+				})
+				.collect::<Vec<_>>()
+				.join(" | "),
+			_ => self.to_string(),
+		}
+	}
 }
 
 impl fmt::Display for Typ {

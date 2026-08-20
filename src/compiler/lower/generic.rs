@@ -50,7 +50,7 @@ fn mangle(name: &str, subst: &HashMap<String, Typ>, order: &[TypeParam]) -> Stri
 	let mut sym = oi_symbol(name);
 	for p in order {
 		sym.push('$');
-		sym.push_str(&subst[&p.name].to_string());
+		sym.push_str(&subst[&p.name].key());
 	}
 	sym
 }
