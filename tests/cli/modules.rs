@@ -212,9 +212,17 @@ fn member_visibility() {
 }
 
 #[test]
-fn trait_import() {
+fn traits_are_module_scoped() {
 	let p = Project::new()
-		.file("main.oi", ["module main", "use foo.{ T, P }", "print(P is T)"])
+		.file(
+			"main.oi",
+			[
+				"module main",
+				"use foo.{ FooP :: P, FooT :: T }",
+				"use bar.{ BarP :: P, BarT :: T }",
+				"print(FooP is FooT, BarP is BarT)",
+			],
+		)
 		.file(
 			"foo/lib.oi",
 			[
@@ -223,8 +231,35 @@ fn trait_import() {
 				"pub P :: struct { x: int }",
 				"P : T {}",
 			],
+		)
+		.file(
+			"bar/lib.oi",
+			[
+				"module bar",
+				"pub T :: trait {}",
+				"pub P :: struct { y: int }",
+				"P : T {}",
+			],
 		);
-	assert_eq!(ok(run_main(p)), "true");
+	assert_eq!(ok(run_main(p)), "true true");
+}
+
+#[test]
+fn std_trait_claimed_without_import_in_module() {
+	let p = Project::new()
+		.file(
+			"main.oi",
+			["module main", "use foo.{ P }", "print((P.{ x = 2 } + P.{ x = 3 }).x)"],
+		)
+		.file(
+			"foo/lib.oi",
+			[
+				"module foo",
+				"pub P :: struct { pub x: int }",
+				"P : Add { add :: fn(self, other: P) P { P.{ x = self.x + other.x } } }",
+			],
+		);
+	assert_eq!(ok(run_main(p)), "5");
 }
 
 #[test]

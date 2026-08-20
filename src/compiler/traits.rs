@@ -3,7 +3,7 @@
 use super::*;
 
 // A trait's supertraits, fields, and methods.
-pub(crate) type TraitItem<'a> = (&'a [String], &'a [Param], &'a [Spanned<Expr>]);
+pub(crate) type TraitItem<'a> = (Vec<String>, &'a [Param], &'a [Spanned<Expr>]);
 
 // A trait method's name, params, and return annotation.
 pub(crate) type TraitFn<'a> = (&'a str, &'a [Param], &'a Option<Spanned<TypeExpr>>);
@@ -15,7 +15,7 @@ pub(crate) type FillSig = (Vec<Param>, bool, Option<Spanned<TypeExpr>>);
 pub(crate) struct TraitBody<'a> {
 	pub span: Span,
 	pub typ: &'a str,
-	pub trait_name: &'a str,
+	pub trait_name: String,
 	pub via: Option<&'a str>,
 	pub methods: &'a [Spanned<Expr>],
 	pub scope: &'a Scope,
@@ -26,10 +26,10 @@ pub(crate) fn builtin_claim(typ: &Typ, tn: &str) -> bool {
 	use Typ::*;
 	match typ {
 		Int(_) => true,
-		UInt(_) | ISize | USize => tn != "Neg",
-		Float(_) => tn != "Mod",
-		Bool | Atom => matches!(tn, "Eq" | "Ord"),
-		Str => matches!(tn, "Eq" | "Add"),
+		UInt(_) | ISize | USize => tn != "std::Neg",
+		Float(_) => tn != "std::Mod",
+		Bool | Atom => matches!(tn, "std::Eq" | "std::Ord"),
+		Str => matches!(tn, "std::Eq" | "std::Add"),
 		_ => false,
 	}
 }
@@ -97,7 +97,7 @@ pub(super) fn check_impls<'p>(
 	types: TypeCtx,
 	others: &mut Vec<FnItem<'p>>,
 ) -> Result<(), Diagnostic> {
-	let mut defaults: HashMap<(String, String), &str> = HashMap::new();
+	let mut defaults: HashMap<(String, String), String> = HashMap::new();
 	for TraitBody {
 		span,
 		typ,
@@ -133,10 +133,10 @@ pub(super) fn check_impls<'p>(
 			}
 			continue;
 		}
-		let Some((supers, tfields, tmethods)) = traits.get(tn) else {
+		let Some((supers, tfields, tmethods)) = traits.get(tn.as_str()) else {
 			return Err(Diagnostic::new(format!("unknown trait `{tn}`"), span.into_range()).with_label("no such trait"));
 		};
-		for s in *supers {
+		for s in supers {
 			if !trait_impls.contains(&(typ.to_string(), s.clone())) {
 				let msg = format!("`{typ}` must also implement `{s}`, the supertrait of `{tn}`");
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("missing supertrait impl"));
@@ -189,8 +189,10 @@ pub(super) fn check_impls<'p>(
 			};
 			let (params, _, ret) = fill_from_decl(params, *params_tuple, ret, decl, m.1)?;
 			let (mut got, want) = (sig(&params, &ret)?, sig(tp, tr)?);
-			if matches!(tn, "Add" | "Sub" | "Mul" | "Div" | "Mod")
-				&& std_traits.contains(tn)
+			if matches!(
+				tn.as_str(),
+				"std::Add" | "std::Sub" | "std::Mul" | "std::Div" | "std::Mod"
+			) && std_traits.contains(tn.as_str())
 				&& let (Typ::Fn(gp, _), Typ::Fn(wp, _)) = (&mut got, &want)
 				&& let ([_, gother], [_, wother]) = (gp.as_mut_slice(), wp.as_slice())
 			{
@@ -254,7 +256,7 @@ pub(super) fn check_impls<'p>(
 				let msg = format!("`{typ}` is missing method `{name}` required by trait `{tn}`");
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("provide this method"));
 			}
-			if let Some(prev) = defaults.insert(key, tn)
+			if let Some(prev) = defaults.insert(key, tn.clone())
 				&& prev != tn
 			{
 				let msg = format!("`{typ}` takes default `{name}` from both `{prev}` and `{tn}`");

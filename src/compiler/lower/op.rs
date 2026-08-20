@@ -70,7 +70,7 @@ impl<'a> Translator<'a> {
 	// `Eq` fill, or structural diff by default.
 	fn emit_val_eq(&mut self, a: Value, b: Value, t: &Typ, owner: &str, span: Span) -> Result<Value, Diagnostic> {
 		if let Typ::Struct(n, _) | Typ::Enum(n) = t
-			&& let Some(sig) = self.fill(n, "Eq", "eq", 2)
+			&& let Some(sig) = self.fill(n, "std::Eq", "eq", 2)
 		{
 			return Ok(self.emit_call(&sig, &[a, b]).0);
 		}
@@ -195,18 +195,18 @@ impl<'a> Translator<'a> {
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
 		let (lv, lt) = self.expr(l)?;
-		let tn = match op {
-			BinOp::Add => "Add",
-			BinOp::Sub => "Sub",
-			BinOp::Mul => "Mul",
-			BinOp::Div => "Div",
-			BinOp::Mod => "Mod",
+		let (tn, method) = match op {
+			BinOp::Add => ("std::Add", "add"),
+			BinOp::Sub => ("std::Sub", "sub"),
+			BinOp::Mul => ("std::Mul", "mul"),
+			BinOp::Div => ("std::Div", "div"),
+			BinOp::Mod => ("std::Mod", "mod"),
 			_ => unreachable!("non-arithmetic op in binop"),
 		};
 
 		if let Typ::Struct(name, _) | Typ::Enum(name) = &lt {
 			// overloads
-			let Some(sig) = self.fill(name, tn, &tn.to_ascii_lowercase(), 2) else {
+			let Some(sig) = self.fill(name, tn, method, 2) else {
 				return Err(
 					Diagnostic::new(format!("cannot apply `{op}` to {lt}"), span.into_range())
 						.with_label(format!("implement `{tn}` for `{name}` to overload `{op}`")),
@@ -228,7 +228,7 @@ impl<'a> Translator<'a> {
 		if matches!(op, BinOp::Add | BinOp::Mul)
 			&& matches!(lt, Typ::Int(_) | Typ::UInt(_) | Typ::ISize | Typ::USize | Typ::Float(_))
 			&& let Typ::Struct(name, _) | Typ::Enum(name) = &rt
-			&& let Some(sig) = self.fill(name, tn, &tn.to_ascii_lowercase(), 2)
+			&& let Some(sig) = self.fill(name, tn, method, 2)
 			&& sig.params[1] == lt
 		{
 			return Ok(self.emit_call(&sig, &[rv, lv]));
@@ -351,7 +351,7 @@ impl<'a> Translator<'a> {
 					let eq = self.emit_val_eq(lv, rv, l, &lt.to_string(), span)?;
 					self.b.ins().icmp_imm(cc, eq, 0)
 				} else if let Typ::Struct(n, _) | Typ::Enum(n) = l
-					&& let Some(sig) = self.fill(n, "Ord", "lt", 2)
+					&& let Some(sig) = self.fill(n, "std::Ord", "lt", 2)
 				{
 					let (a, b) = if reversed { (rv, lv) } else { (lv, rv) };
 					let less = self.emit_call(&sig, &[a, b]).0;

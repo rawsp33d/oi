@@ -121,6 +121,13 @@ fn mentions(te: &TypeExpr, name: &str) -> bool {
 	}
 }
 
+// Qualify each type param's trait bound through its defining scope.
+fn qualify_bounds(scope: &Scope, params: &mut [TypeParam]) {
+	for bound in params.iter_mut().filter_map(|p| p.bound.as_mut()) {
+		*bound = scope.qualify_trait(bound);
+	}
+}
+
 // No placeholder struct may appear outside a `&T`.
 fn ref_guarded(typ: &Typ, placeholders: &HashSet<String>) -> bool {
 	match typ {
@@ -331,6 +338,7 @@ impl Compiler {
 			let ret = ret.as_ref().map(|(te, span)| (replace_self(te, &self_ty), *span));
 			let mut all_params = type_params.to_vec();
 			all_params.extend(mtp.clone());
+			qualify_bounds(scope, &mut all_params);
 			self.generics.insert(
 				key,
 				GenericFnDef {
@@ -383,8 +391,9 @@ impl Compiler {
 			else {
 				continue;
 			};
-			let item = (supers.as_slice(), fields.as_slice(), methods.as_slice());
-			if traits.insert(name.as_str(), item).is_some() && !self.std_traits.remove(name.as_str()) {
+			let supers = supers.iter().map(|s| scope.qualify_trait(s)).collect();
+			let item = (supers, fields.as_slice(), methods.as_slice());
+			if traits.insert(name.as_str(), item).is_some() {
 				let msg = format!("duplicate trait `{name}`");
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("already defined"));
 			}
@@ -461,7 +470,7 @@ impl Compiler {
 					&& type_params.is_empty()
 					&& via.is_none()
 					&& !typ.contains("::")
-					&& matches!(ts.as_slice(), [t] if !traits.contains_key(t.as_str())) =>
+					&& matches!(ts.as_slice(), [t] if !traits.contains_key(scope.qualify_trait(t).as_str())) =>
 				{
 					loose_refs.push(item)
 				}
@@ -472,7 +481,8 @@ impl Compiler {
 					via,
 					fills,
 				} => {
-					for tn in claimed {
+					let claimed: Vec<String> = claimed.iter().map(|tn| scope.qualify_trait(tn)).collect();
+					for tn in &claimed {
 						if !type_params.is_empty() {
 							let msg = "generic trait claims aren't supported yet".to_string();
 							return Err(
@@ -482,7 +492,7 @@ impl Compiler {
 						trait_bodies.push(TraitBody {
 							span: item.1,
 							typ,
-							trait_name: tn,
+							trait_name: tn.clone(),
 							via: via.as_deref(),
 							methods: fills,
 							scope,
@@ -505,6 +515,8 @@ impl Compiler {
 					ret,
 					body,
 				} if !type_params.is_empty() => {
+					let mut type_params = type_params.clone();
+					qualify_bounds(scope, &mut type_params);
 					self.generics.insert(
 						name.clone(),
 						GenericFnDef {
@@ -512,7 +524,7 @@ impl Compiler {
 							params_tuple: *params_tuple,
 							ret: ret.clone(),
 							body: body.clone(),
-							type_params: type_params.clone(),
+							type_params,
 							captures: vec![],
 							self_name: None,
 							module: scope.module.clone(),

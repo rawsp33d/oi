@@ -110,7 +110,7 @@ impl<'a> Translator<'a> {
 				let out = match typ {
 					Typ::Int(_) => self.b.ins().ineg(v),
 					Typ::Float(_) => self.b.ins().fneg(v),
-					Typ::Struct(ref name, _) | Typ::Enum(ref name) => match self.fill(name, "Neg", "neg", 1) {
+					Typ::Struct(ref name, _) | Typ::Enum(ref name) => match self.fill(name, "std::Neg", "neg", 1) {
 						Some(sig) => return Ok(self.emit_call(&sig, &[v])),
 						None => {
 							return Err(Diagnostic::new(format!("cannot negate {typ}"), expr.1.into_range())

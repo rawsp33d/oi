@@ -41,6 +41,20 @@ pub struct Scope {
 	pub module: String,
 }
 
+impl Scope {
+	// Resolve a bare trait name through this module's env, qualifying a miss into its own module.
+	pub(crate) fn qualify_trait(&self, name: &str) -> String {
+		if name.contains("::") || name == "Drop" {
+			return name.to_string();
+		}
+		match self.env.get(name) {
+			Some(q) => q.clone(),
+			None if self.module.is_empty() => name.to_string(),
+			None => format!("{}::{name}", self.module),
+		}
+	}
+}
+
 // A visible module.
 pub struct Visible {
 	pub module: String,
@@ -247,8 +261,8 @@ impl Loader<'_> {
 				Expr::Fn { name, .. }
 				| Expr::StructDef { name, .. }
 				| Expr::EnumDef { name, .. }
-				| Expr::TypeAlias { name, .. } => self.define(m, name, !main, public, span)?,
-				Expr::TraitDef { name, .. } => self.define(m, name, false, public, span)?,
+				| Expr::TypeAlias { name, .. }
+				| Expr::TraitDef { name, .. } => self.define(m, name, !main, public, span)?,
 				Expr::Bind {
 					mutable,
 					name,
@@ -356,22 +370,27 @@ impl Loader<'_> {
 				(alias.clone(), target.clone())
 			})
 			.collect();
-		let mut bare = HashMap::new();
-		for m in self.modules.iter().filter(|m| m.name != "main") {
-			let traits = m.scope.env.iter().filter(|(k, v)| k == v);
-			bare.extend(traits.map(|(k, _)| (format!("{}::{k}", m.name), k.clone())));
-		}
 		for m in &mut self.modules {
 			for target in m.scope.env.values_mut() {
 				if let Some(t) = resolved.get(target) {
 					*target = t.clone();
 				}
-				if let Some(t) = bare.get(target) {
-					*target = t.clone();
-				}
 			}
 		}
 		resolved
+	}
+
+	// Every module implicitly uses std.
+	fn seed_prelude(&mut self) {
+		let std_pub: Vec<&String> = self.publics.iter().filter(|q| q.starts_with("std::")).collect();
+		for m in self.modules.iter_mut().filter(|m| m.name != "std") {
+			for q in &std_pub {
+				m.scope
+					.env
+					.entry(q.strip_prefix("std::").unwrap().to_string())
+					.or_insert_with(|| (*q).clone());
+			}
+		}
 	}
 
 	// Ensure selected names are public within their module.
@@ -426,6 +445,7 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 	loader.load_source("std", "std.oi", include_str!("std.oi").into())?;
 	loader.load_source("main", entry_name, entry_src)?;
 	let reexports = loader.resolve_reexports();
+	loader.seed_prelude();
 	loader.check_selected()?;
 	Ok(Program {
 		map: loader.map,
