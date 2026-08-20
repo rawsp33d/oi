@@ -81,6 +81,10 @@ price := Money.(500)
 half := f32.(1 / 2)
 lime := Color.(2)
 
-# `.{}` with nothing expected infers an anon struct (Capy)
-pos := .{ x = 1, y = 2 }
+# punning with `$x -> x = x`, since just `x` had some issues and I had to take it out. idk
+cfg :: Config.{ $verbose, $debug }
+# it actually would make it clear enough to use in fn calls, where naked `x` would just look positional...
+save(user, $overwrite)
+# idk sigil, was thinking `$` but that might be confusing with Oi's implicit `$` input
+# IIRC Ruby uses `@x` and OCaml uses `x~`
 ```
