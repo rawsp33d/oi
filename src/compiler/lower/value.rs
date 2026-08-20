@@ -692,6 +692,16 @@ impl<'a> Translator<'a> {
 		span: Span,
 		target: Option<&Typ>,
 	) -> Result<TypedVal, Diagnostic> {
+		for (i, (fname, value)) in fields.iter().enumerate() {
+			// ensure no duplicate named fields
+			if let Some(fname) = fname
+				&& fields[..i].iter().any(|(n, _)| n.as_ref() == Some(fname))
+			{
+				return Err(
+					Diagnostic::new(format!("`{fname}` is repeated"), value.1.into_range()).with_label("repeated")
+				);
+			}
+		}
 		// `Self {}` inside a method resolves to the impl's type
 		let mut name = match name {
 			"" => match target {

@@ -598,3 +598,15 @@ fn anonymous_inferred_from_the_literal() {
 	);
 	fail_with("p := .{ 5 }", "cannot infer the struct type");
 }
+
+#[test]
+fn duplicate_field_errors() {
+	fail_with(
+		indoc! {"
+			F :: struct { x: int }
+			F.{ x = 1, x = 2 }
+		"},
+		"`x` is repeated",
+	);
+	fail_with("p := .{ x = 1, x = 2 }", "`x` is repeated");
+}
