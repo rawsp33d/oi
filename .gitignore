@@ -2,6 +2,8 @@
 /target/
 
 # docs
+/ref/
+/www/content/examples.md
 /www/public/
 /www/themes/
-/www/content/examples.md
+TODO.md

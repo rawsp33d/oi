@@ -6,6 +6,9 @@ set positional-arguments
 [parallel]
 check: build && fmt test lint
 
+# used by the CI pipeline
+ci: build fmt-check lint test
+
 # build
 [group("cargo")]
 @build:
@@ -16,10 +19,15 @@ check: build && fmt test lint
 @fmt:
 	cargo fmt
 
+# run formatter in check-only mode
+[group("cargo")]
+@fmt-check:
+	cargo fmt --check
+
 # run lints
 [group("cargo")]
 @lint:
-	cargo clippy --no-deps -- -D warnings
+	cargo clippy --all-targets --no-deps -- -D warnings
 
 # run tests
 [group("cargo")]

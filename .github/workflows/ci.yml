@@ -31,11 +31,9 @@ jobs:
       with:
         components: clippy, rustfmt
 
-    - name: rust:build
-      run: cargo build --verbose
+    - uses: Swatinem/rust-cache@v2
 
-    - name: rust:clippy
-      run: cargo clippy --all -- -D warnings
+    - uses: extractions/setup-just@v4
 
-    - name: rust:tests
-      run: cargo test --verbose
+    - name: ci
+      run: just ci
