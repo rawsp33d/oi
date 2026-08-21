@@ -167,6 +167,17 @@ impl<'a> Translator<'a> {
 				};
 				self.make_enum(&variants, v.disc, &[])
 			}
+			(Expr::EnumShorthand { variant, .. } | Expr::Atom(variant), Typ::Result(ok, err)) => {
+				let has =
+					|t: &Typ| matches!(t, Typ::Enum(n) if self.enum_variants(n).iter().any(|v| v.name == *variant));
+				let Some((disc, side)) = [ok, err].into_iter().enumerate().find(|(_, t)| has(t)) else {
+					return Ok(None);
+				};
+				match self.coerce_lit(value, side)? {
+					Some(v) => self.make_enum(&result_variants(ok, err), disc as i64, &[v]),
+					None => return Ok(None),
+				}
+			}
 			_ => return Ok(None),
 		};
 		Ok(Some(v))

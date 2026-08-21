@@ -355,3 +355,24 @@ fn pinned_shorthand_signature() {
 	"};
 	check(src, ["true", "0"]);
 }
+
+#[test]
+fn pinned_variant_shorthand() {
+	let src = indoc! {"
+		NetError :: enum { timeout refused }
+		fetch :: fn(x: int) NetError!int {
+			if x == 0 { return .timeout }
+			if x < 0 { return error(.refused) }
+			x
+		}
+		fetch(0) or {
+			print($ == NetError.timeout)
+			0
+		}
+		fetch(-1) or {
+			print($ == NetError.refused)
+			0
+		}
+	"};
+	check(src, ["true", "true", "0"]);
+}

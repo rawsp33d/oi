@@ -168,7 +168,11 @@ impl<'a> Translator<'a> {
 					)
 					.with_label("wrong number of arguments"));
 				}
-				let (av, at) = self.expr(&args[0])?;
+				let (av, at) = match self.ret.clone() {
+					// resolve enum shorthands
+					Some((Typ::Result(_, err), _)) if *err != Typ::Error => self.check_expr(&args[0], &err)?,
+					_ => self.expr(&args[0])?,
+				};
 				match self.ret.clone() {
 					Some((Typ::Result(ok, err), _)) if at == *err => {
 						let v = self.make_enum(&result_variants(&ok, &err), 1, &[av]);
