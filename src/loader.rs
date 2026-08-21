@@ -289,7 +289,9 @@ impl Loader<'_> {
 						return Err(err(msg, span, label));
 					}
 				}
-				Expr::Claim { typ, .. } if !main => *typ = format!("{}::{typ}", m.name),
+				Expr::Claim { typ, .. } if !main && !crate::compiler::TypeCtx::builtin_type(typ) => {
+					*typ = format!("{}::{typ}", m.name)
+				}
 				Expr::Claim { .. } | Expr::Doc(_) => {}
 				_ if !main => {
 					return Err(err(

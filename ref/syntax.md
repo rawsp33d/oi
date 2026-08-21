@@ -672,7 +672,7 @@ World :: struct {
 # ?T and !T are shorthands
 # `?T` -> `Option[T]`
 # `!T` -> `Result[T, Error]`
-# the long form may be used for naming / constraining the error, or clearer nesting
+# the long form pins the error to a specific type
 read :: fn(path: string) Result[[]u8, io.Error] { ... } # error pinned
 slurp :: fn(path: string) ![]u8 { ... } # error left open
 
@@ -1229,6 +1229,32 @@ main :: fn() {
 		(a / b, a % b)
 	}
 	(q, r) := checked_divmod(10, 3)?
+
+	# pinned errors
+
+	# the error type can be specified using the longform: `Result[T, E]`
+	NetError :: enum { timeout refused }
+	fetch :: fn(url: string) Result[Response, NetError] {
+		# ...
+		return .timeout
+	}
+
+	# `$` in the `or` block is the return from the called fn, which by definition means it will always be the specified error type
+	# TODO: I'm realizing as I write this that they could just use the `res` binding. Is that always true? It might avoid confusion.
+	# TODO: what does `return` mean in `or`? Does it flow through to resolve `res` in this case?
+	res := fetch(url) or {
+		if $ == NetError.timeout { return retry(url) }
+		panic!("refused")
+	}
+
+	# the "error" type can be anything
+	lookup : fn() Result[int, string]
+
+	# `error()` can be used to disambiguate when ok/err are both the same type
+	foo :: fn() int!int {
+		if something_went_wrong() { return error(-42) }
+		return 42
+	}
 
 	# custom error types
 	# embed Error for default impls, only override what you need

@@ -60,7 +60,7 @@ impl<'a> Translator<'a> {
 			Typ::Mut(_) => unreachable!("mut only marks params inside a fn/closure type"),
 			Typ::Option(inner) => self.make_option(inner, None),
 			// default to first variant, with zero'd payload fields
-			Typ::Enum(_) | Typ::Result(_) | Typ::Sum(..) => {
+			Typ::Enum(_) | Typ::Result(..) | Typ::Sum(..) => {
 				let variants = self.variants_of(typ);
 				let v = variants.first().cloned();
 				let disc = v.as_ref().map_or(0, |v| v.disc);
@@ -196,7 +196,7 @@ impl<'a> Translator<'a> {
 		match typ {
 			Typ::Enum(name) => self.enum_variants(name),
 			Typ::Option(inner) => option_variants(inner),
-			Typ::Result(inner) => result_variants(inner),
+			Typ::Result(ok, err) => result_variants(ok, err),
 			Typ::Sum(variants) => variants.clone(),
 			_ => Vec::new(),
 		}
@@ -608,11 +608,9 @@ impl<'a> Translator<'a> {
 		Ok((self.box_trait_object(val, name, tn), Typ::Trait(tn.to_string())))
 	}
 
-	// Box `msg` as the builtin str-backed error.
+	// Box `msg` (a str handle) directly as the builtin `Error`.
 	pub(super) fn box_error(&mut self, msg: Value) -> Value {
-		let ptr = self.call_alloc(1);
-		self.b.ins().store(MemFlags::new(), msg, ptr, 0);
-		self.box_trait_object(ptr, "std::StrError", "std::Error")
+		self.box_trait_object(msg, "string", "std::Error")
 	}
 
 	// Box `val` (an instance of `name`) behind its `name`/`tn` vtable.

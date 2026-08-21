@@ -373,8 +373,9 @@ impl<'a> Translator<'a> {
 				}
 			}
 			(Typ::Float(_), Typ::Float(_)) => self.b.ins().fcmp(fcc, lv, rv),
-			(Typ::Str, Typ::Str) if icc == IntCC::Equal || icc == IntCC::NotEqual => {
-				let eq = self.emit_eq(lv, rv, &Typ::Str);
+			(Typ::Str, Typ::Str) | (Typ::Error, Typ::Error) if icc == IntCC::Equal || icc == IntCC::NotEqual => {
+				let typ = lt.clone();
+				let eq = self.emit_eq(lv, rv, &typ);
 				// emit_eq returns 1 for equal, invert for Ne
 				// wrap in icmp so uextend below works consistently
 				if icc == IntCC::NotEqual {

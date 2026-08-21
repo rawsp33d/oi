@@ -133,7 +133,8 @@ fn ref_guarded(typ: &Typ, placeholders: &HashSet<String>) -> bool {
 	match typ {
 		Typ::Ref(_) => true,
 		Typ::Struct(n, fs) => !placeholders.contains(n) && fs.iter().all(|f| ref_guarded(&f.typ, placeholders)),
-		Typ::Option(i) | Typ::Result(i) | Typ::Array(i) | Typ::FixedArray(i, _) => ref_guarded(i, placeholders),
+		Typ::Option(i) | Typ::Array(i) | Typ::FixedArray(i, _) => ref_guarded(i, placeholders),
+		Typ::Result(ok, err) => ref_guarded(ok, placeholders) && ref_guarded(err, placeholders),
 		Typ::Map(k, v) => ref_guarded(k, placeholders) && ref_guarded(v, placeholders),
 		Typ::Tuple(fs) | Typ::TupleStruct(_, fs) => fs.iter().all(|(_, t)| ref_guarded(t, placeholders)),
 		Typ::Sum(vs) => vs.iter().all(|v| v.payload.iter().all(|t| ref_guarded(t, placeholders))),

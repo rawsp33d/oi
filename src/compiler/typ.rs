@@ -24,7 +24,7 @@ pub(crate) enum Typ {
 	Enum(String),
 	Trait(String),
 	Option(Box<Typ>),
-	Result(Box<Typ>),
+	Result(Box<Typ>, Box<Typ>),
 	Sum(Vec<VariantInfo>),
 	Error,
 	Range,
@@ -78,7 +78,7 @@ impl Typ {
 	}
 
 	pub fn is_enumish(&self) -> bool {
-		matches!(self, Typ::Enum(_) | Typ::Option(_) | Typ::Result(_) | Typ::Sum(..))
+		matches!(self, Typ::Enum(_) | Typ::Option(_) | Typ::Result(..) | Typ::Sum(..))
 	}
 
 	// 1:1 spelling for identity keys.
@@ -92,7 +92,8 @@ impl Typ {
 			Typ::Array(e) => format!("[]{}", e.key()),
 			Typ::FixedArray(e, n) => format!("[{n}]{}", e.key()),
 			Typ::Option(inner) => format!("?{}", inner.key()),
-			Typ::Result(inner) => format!("!{}", inner.key()),
+			Typ::Result(ok, err) if **err == Typ::Error => format!("!{}", ok.key()),
+			Typ::Result(ok, err) => format!("Result[{}, {}]", ok.key(), err.key()),
 			Typ::Map(k, v) => format!("Map[{}, {}]", k.key(), v.key()),
 			Typ::Mut(inner) => format!("mut {}", inner.key()),
 			Typ::Ref(inner) => format!("&{}", inner.key()),
@@ -134,7 +135,8 @@ impl fmt::Display for Typ {
 			Typ::Enum(name) => write!(f, "{name}"),
 			Typ::Trait(name) => write!(f, "{name}"),
 			Typ::Option(inner) => write!(f, "?{inner}"),
-			Typ::Result(inner) => write!(f, "!{inner}"),
+			Typ::Result(ok, err) if **err == Typ::Error => write!(f, "!{ok}"),
+			Typ::Result(ok, err) => write!(f, "Result[{ok}, {err}]"),
 			Typ::Sum(variants) => {
 				write!(
 					f,
@@ -185,9 +187,8 @@ impl PartialEq for Typ {
 			(Typ::Struct(n, a), Typ::Struct(m, b)) => n == m && a == b,
 			(Typ::Enum(a), Typ::Enum(b)) => a == b,
 			(Typ::Trait(a), Typ::Trait(b)) => a == b,
-			(Typ::Option(a), Typ::Option(b)) | (Typ::Result(a), Typ::Result(b)) | (Typ::Array(a), Typ::Array(b)) => {
-				a == b
-			}
+			(Typ::Option(a), Typ::Option(b)) | (Typ::Array(a), Typ::Array(b)) => a == b,
+			(Typ::Result(a, e), Typ::Result(b, f)) => a == b && e == f,
 			(Typ::FixedArray(a, n), Typ::FixedArray(b, m)) => a == b && n == m,
 			(Typ::Sum(a), Typ::Sum(b)) => a == b,
 			(Typ::Fn(p, r), Typ::Fn(q, s)) | (Typ::Closure(p, r, _), Typ::Closure(q, s, _)) => p == q && r == s,
@@ -214,7 +215,14 @@ pub(crate) fn type_expr(typ: &Typ) -> Option<TypeExpr> {
 		Typ::Array(e) => TypeExpr::Array(Box::new(type_expr(e)?)),
 		Typ::FixedArray(e, n) => TypeExpr::FixedArray(Box::new(type_expr(e)?), *n),
 		Typ::Option(e) => TypeExpr::Option(Box::new(type_expr(e)?)),
-		Typ::Result(e) => TypeExpr::Result(Box::new(type_expr(e)?), None),
+		Typ::Result(ok, err) => {
+			let err = if **err == Typ::Error {
+				None
+			} else {
+				Some(Box::new(type_expr(err)?))
+			};
+			TypeExpr::Result(Box::new(type_expr(ok)?), err)
+		}
 		Typ::Map(k, v) => TypeExpr::Map(Box::new(type_expr(k)?), Box::new(type_expr(v)?)),
 		Typ::Tuple(fs) => TypeExpr::Tuple(fs.iter().map(|(_, t)| type_expr(t)).collect::<Option<_>>()?),
 		Typ::Fn(ps, r) => TypeExpr::Fn(
@@ -329,10 +337,10 @@ pub(crate) fn option_variants(inner: &Typ) -> Vec<VariantInfo> {
 	]
 }
 
-pub(crate) fn result_variants(inner: &Typ) -> Vec<VariantInfo> {
+pub(crate) fn result_variants(ok: &Typ, err: &Typ) -> Vec<VariantInfo> {
 	vec![
-		VariantInfo::new("ok", 0, vec![inner.clone()]),
-		VariantInfo::new("err", 1, vec![Typ::Error]),
+		VariantInfo::new("ok", 0, vec![ok.clone()]),
+		VariantInfo::new("err", 1, vec![err.clone()]),
 	]
 }
 

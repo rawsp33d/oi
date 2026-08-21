@@ -50,22 +50,23 @@ impl<'a> Translator<'a> {
 			}
 
 			Expr::ResultInit { inner: (te, span), arg } => {
-				let inner_typ = self.types().resolve(te, *span)?;
-				let variants = result_variants(&inner_typ);
-				let (fv, at) = self.check_expr(arg, &inner_typ)?;
-				let disc = if at == inner_typ {
+				let ok_typ = self.types().resolve(te, *span)?;
+				let err_typ = Typ::Error;
+				let variants = result_variants(&ok_typ, &err_typ);
+				let (fv, at) = self.check_expr(arg, &ok_typ)?;
+				let disc = if at == ok_typ {
 					0
-				} else if at == Typ::Error {
+				} else if at == err_typ {
 					1
 				} else {
 					return Err(Diagnostic::new(
-						format!("expected {inner_typ} or Error, got {at}"),
+						format!("expected {ok_typ} or {err_typ}, got {at}"),
 						arg.1.into_range(),
 					)
 					.with_label("type mismatch"));
 				};
 				let val = self.make_enum(&variants, disc, &[fv]);
-				Ok((val, Typ::Result(Box::new(inner_typ))))
+				Ok((val, Typ::Result(Box::new(ok_typ), Box::new(err_typ))))
 			}
 
 			Expr::Ident(name) => match self.local(name, expr.1.into_range()) {

@@ -185,15 +185,11 @@ impl TypeCtx<'_> {
 				Ok(Typ::Ref(Box::new(it)))
 			}
 			TypeExpr::Result(inner, err) => {
-				if let Some(e) = err
-					&& !matches!(e.as_ref(), TypeExpr::Name(n) if n == "Error")
-				{
-					return Err(
-						Diagnostic::new("custom error types aren't supported yet", span.into_range())
-							.with_label("`Error` is the only accepted error type"),
-					);
-				}
-				Ok(Typ::Result(Box::new(self.resolve(inner, span)?)))
+				let err = match err {
+					Some(e) => self.resolve(e, span)?,
+					None => Typ::Error,
+				};
+				Ok(Typ::Result(Box::new(self.resolve(inner, span)?), Box::new(err)))
 			}
 			TypeExpr::AtomSum(names) => {
 				let mut seen = HashSet::new();

@@ -186,7 +186,7 @@ impl<'a> Translator<'a> {
 				self.emit_frag(runtime::Tag::Raw, val, 0, false, sink);
 			}
 
-			Typ::Enum(_) | Typ::Option(_) | Typ::Result(_) => {
+			Typ::Enum(_) | Typ::Option(_) | Typ::Result(..) => {
 				self.emit_variant(&typ.clone(), val, quote, true, sink);
 			}
 
@@ -244,7 +244,7 @@ impl<'a> Translator<'a> {
 					| Typ::TupleStruct(..)
 					| Typ::Enum(_)
 					| Typ::Option(_)
-					| Typ::Result(_)
+					| Typ::Result(..)
 					| Typ::Sum(..)
 					| Typ::Range
 					| Typ::Fn(..)

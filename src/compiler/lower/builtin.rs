@@ -168,15 +168,20 @@ impl<'a> Translator<'a> {
 					)
 					.with_label("wrong number of arguments"));
 				}
-				let (msg, msg_typ) = self.expr(&args[0])?;
-				if msg_typ != Typ::Str {
-					return Err(Diagnostic::new(
-						format!("`error` message must be Str, got {msg_typ}"),
-						args[0].1.into_range(),
-					)
-					.with_label("not a Str"));
+				let (av, at) = self.expr(&args[0])?;
+				if at == Typ::Str {
+					return Ok(Some((self.box_error(av), Typ::Error)));
 				}
-				Ok(Some((self.box_error(msg), Typ::Error)))
+				match self.ret.clone() {
+					Some((Typ::Result(ok, err), _)) if at == *err => {
+						let v = self.make_enum(&result_variants(&ok, &err), 1, &[av]);
+						Ok(Some((v, Typ::Result(ok, err))))
+					}
+					_ => {
+						let msg = format!("`error` needs an enclosing fn returning Result[_, {at}]");
+						Err(Diagnostic::new(msg, args[0].1.into_range()).with_label("no matching pinned error type"))
+					}
+				}
 			}
 
 			"ord" => {

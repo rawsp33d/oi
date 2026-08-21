@@ -301,9 +301,9 @@ impl<'a> Translator<'a> {
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
 		let (val, typ) = self.expr(value)?;
-		let (inner, happy) = match &typ {
-			Typ::Option(inner) => ((**inner).clone(), 1),
-			Typ::Result(inner) => ((**inner).clone(), 0),
+		let (inner, happy, err) = match &typ {
+			Typ::Option(inner) => ((**inner).clone(), 1, None),
+			Typ::Result(inner, err) => ((**inner).clone(), 0, Some((**err).clone())),
 			_ => {
 				return Err(
 					Diagnostic::new(format!("`or` needs a `?T`/`!T` value, got {typ}"), value.1.into_range())
@@ -331,10 +331,9 @@ impl<'a> Translator<'a> {
 
 		self.b.switch_to_block(fallback_block);
 		let saved_dollar = self.dollar.take();
-		self.dollar = Some(if matches!(typ, Typ::Result(_)) {
-			(self.b.ins().load(self.int, MemFlags::new(), val, 8), Typ::Error)
-		} else {
-			self.unit_value()
+		self.dollar = Some(match err {
+			Some(err) => (self.b.ins().load(self.int, MemFlags::new(), val, 8), err),
+			None => self.unit_value(),
 		});
 		let flow = self.scoped(|s| s.block(body))?;
 		self.dollar = saved_dollar;
@@ -350,9 +349,9 @@ impl<'a> Translator<'a> {
 	// Panics when called in `main`.
 	pub(super) fn propagate(&mut self, value: &Spanned<Expr>, span: Span) -> Result<TypedVal, Diagnostic> {
 		let (val, typ) = self.expr(value)?;
-		let (is_result, inner) = match &typ {
-			Typ::Option(inner) => (false, (**inner).clone()),
-			Typ::Result(inner) => (true, (**inner).clone()),
+		let (is_result, inner, err_typ) = match &typ {
+			Typ::Option(inner) => (false, (**inner).clone(), Typ::Error),
+			Typ::Result(inner, err) => (true, (**inner).clone(), (**err).clone()),
 			_ => {
 				let msg = format!("`?` needs a `?T` or `!T` value, got {typ}");
 				return Err(Diagnostic::new(msg, value.1.into_range()).with_label("not a `?T` or `!T` value"));
@@ -362,7 +361,14 @@ impl<'a> Translator<'a> {
 		let panic_in_main = self.ret.is_none() && self.is_main;
 		let target = match &self.ret {
 			Some((Typ::Option(t), _)) if !is_result => (**t).clone(),
-			Some((Typ::Result(t), _)) if is_result => (**t).clone(),
+			Some((Typ::Result(t, e), _)) if is_result => {
+				if **e != err_typ {
+					let declared = Typ::Result(t.clone(), e.clone());
+					let msg = format!("cannot propagate `{err_typ}` into a fn returning {declared}");
+					return Err(Diagnostic::new(msg, span.into_range()).with_label("mismatched error type"));
+				}
+				(**t).clone()
+			}
 			Some((other, _)) => {
 				let msg = format!("`?` needs an enclosing fn returning `{shape}`, found {other}");
 				return Err(Diagnostic::new(msg, span.into_range()).with_label(format!("not a `{shape}` fn")));
@@ -370,7 +376,7 @@ impl<'a> Translator<'a> {
 			None => inner.clone(),
 		};
 		let target_typ = if is_result {
-			Typ::Result(Box::new(target.clone()))
+			Typ::Result(Box::new(target.clone()), Box::new(err_typ.clone()))
 		} else {
 			Typ::Option(Box::new(target.clone()))
 		};
@@ -390,7 +396,7 @@ impl<'a> Translator<'a> {
 		if panic_in_main {
 			let msg = if is_result {
 				let e = self.b.ins().load(self.int, MemFlags::new(), val, 8);
-				self.error_message(e)
+				self.derived_str(e, &err_typ)
 			} else {
 				self.str_const("unwrapped `none`")
 			};
@@ -400,7 +406,7 @@ impl<'a> Translator<'a> {
 		} else {
 			let sad_val = if is_result {
 				let e = self.b.ins().load(self.int, MemFlags::new(), val, 8);
-				self.make_enum(&result_variants(&target), 1, &[e])
+				self.make_enum(&result_variants(&target, &err_typ), 1, &[e])
 			} else {
 				self.make_option(&target, None)
 			};
@@ -427,7 +433,7 @@ impl<'a> Translator<'a> {
 			return Err(Diagnostic::new(msg, args[0].1.into_range()).with_label("not an int, string, or atom"));
 		}
 
-		let target = Typ::Result(Box::new(Typ::Enum(name.to_string())));
+		let target = Typ::Result(Box::new(Typ::Enum(name.to_string())), Box::new(Typ::Error));
 		let target_variants = self.variants_of(&target);
 		let variants = self.enum_variants(name);
 

@@ -25,7 +25,13 @@ pub(super) fn unify(
 		(TypeExpr::Array(e), Typ::Array(c)) => unify(e, c, params, subst, generics),
 		(TypeExpr::FixedArray(e, n), Typ::FixedArray(c, cn)) if n == cn => unify(e, c, params, subst, generics),
 		(TypeExpr::Option(e), Typ::Option(c)) => unify(e, c, params, subst, generics),
-		(TypeExpr::Result(e, _), Typ::Result(c)) => unify(e, c, params, subst, generics),
+		(TypeExpr::Result(e, err), Typ::Result(c, ce)) => {
+			unify(e, c, params, subst, generics)?;
+			match err {
+				Some(err) => unify(err, ce, params, subst, generics),
+				None => Ok(()),
+			}
+		}
 		(TypeExpr::Tuple(elems), Typ::Tuple(fields)) if elems.len() == fields.len() => elems
 			.iter()
 			.zip(fields)

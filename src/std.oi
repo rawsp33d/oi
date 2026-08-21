@@ -20,7 +20,6 @@ pub Error :: trait {
 	cause :: fn(self) ?Error { none }
 }
 
-StrError :: struct { msg: string }
-StrError : Error {
-	message :: fn(self) string { self.msg }
+string : Error {
+	message :: fn(self) string { self }
 }

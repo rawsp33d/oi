@@ -204,11 +204,65 @@ fn long_form_nested() {
 }
 
 #[test]
-fn long_form_rejects_custom_error() {
-	fail_with(
-		"load :: fn() Result[int, MyError] { 42 }; load()",
-		"custom error types aren't supported yet",
-	);
+fn pinned_enum_error() {
+	let src = indoc! {"
+		NetError :: enum { timeout refused }
+		fetch :: fn(x: int) Result[int, NetError] {
+			if x > 0 { return x }
+			return error(NetError.timeout)
+		}
+		fetch(-1) or {
+			print($ == NetError.timeout)
+			0
+		}
+	"};
+	check(src, ["true", "0"]);
+}
+
+#[test]
+fn pinned_bare_err_return() {
+	let src = indoc! {r#"
+		parse :: fn(x: int) Result[int, string] {
+			if x > 0 { return x }
+			return "nope"
+		}
+		parse(-1) or {
+			print($)
+			0
+		}
+	"#};
+	check(src, ["nope", "0"]);
+}
+
+#[test]
+fn pinned_error_propagates() {
+	let src = indoc! {"
+		NetError :: enum { timeout refused }
+		fetch :: fn(x: int) Result[int, NetError] {
+			if x > 0 { return x }
+			return error(NetError.timeout)
+		}
+		retry :: fn(x: int) Result[int, NetError] {
+			v :: fetch(x)?
+			v * 2
+		}
+		retry(-1) or { -1 }
+	"};
+	check(src, "-1");
+}
+
+#[test]
+fn pinned_error_mismatch_rejected() {
+	let src = indoc! {"
+		NetError :: enum { timeout refused }
+		fetch :: fn(x: int) Result[int, NetError] { x }
+		load :: fn() !int {
+			v :: fetch(1)?
+			v
+		}
+		load()
+	"};
+	fail_with(src, "cannot propagate `NetError` into a fn returning !int");
 }
 
 #[test]

@@ -406,13 +406,13 @@ impl<'a> Translator<'a> {
 				let v = self.make_option(&inner, Some(val));
 				(v, Typ::Option(inner))
 			}
-			Some(Typ::Result(inner)) if typ == *inner => {
-				let v = self.make_enum(&result_variants(&inner), 0, &[val]);
-				(v, Typ::Result(inner))
+			Some(Typ::Result(ok, err)) if typ == *ok => {
+				let v = self.make_enum(&result_variants(&ok, &err), 0, &[val]);
+				(v, Typ::Result(ok, err))
 			}
-			Some(Typ::Result(inner)) if typ == Typ::Error => {
-				let v = self.make_enum(&result_variants(&inner), 1, &[val]);
-				(v, Typ::Result(inner))
+			Some(Typ::Result(ok, err)) if typ == *err => {
+				let v = self.make_enum(&result_variants(&ok, &err), 1, &[val]);
+				(v, Typ::Result(ok, err))
 			}
 			_ => (val, typ),
 		}
