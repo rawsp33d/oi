@@ -179,6 +179,13 @@ where
 
 	// type annotations
 	let type_expr = recursive(|te| {
+		// a guard that the next token opens on the same line
+		let same_line = empty().map_with(|_, ex| ex.span()).try_map(move |sp: Span, _| {
+			match src.get(sp.end - origin..sp.start - origin) {
+				Some(gap) if gap.contains('\n') => Err(Rich::custom(sp, "must continue on the same line")),
+				_ => Ok(()),
+			}
+		});
 		let base = recursive(|base| {
 			let name = ident().map(TypeExpr::Name);
 			let unit = just(Token::LParen).then(just(Token::RParen)).to(TypeExpr::Tuple(vec![]));
@@ -200,16 +207,7 @@ where
 					None => TypeExpr::Array(Box::new(elem)),
 				});
 			let fn_param = just(Token::Mut).or_not().then(te.clone());
-			let fn_ret = empty()
-				.map_with(|_, ex| ex.span())
-				.try_map(move |sp: Span, _| match src.get(sp.end - origin..sp.start - origin) {
-					Some(gap) if gap.contains('\n') => {
-						Err(Rich::custom(sp, "a return type must open on the same line"))
-					}
-					_ => Ok(()),
-				})
-				.ignore_then(base.clone())
-				.or_not();
+			let fn_ret = same_line.ignore_then(base.clone()).or_not();
 			let fn_type = just(Token::Fn)
 				.ignore_then(paren(loose_list(fn_param)))
 				.then(fn_ret)
@@ -270,7 +268,13 @@ where
 			.or(ref_type)
 		});
 
-		base.separated_by(just(Token::Pipe))
+		base.clone()
+			.then(same_line.ignore_then(just(Token::Not)).ignore_then(base).or_not())
+			.map(|(e, ok)| match ok {
+				Some(ok) => TypeExpr::Result(Box::new(ok), Some(Box::new(e))),
+				None => e,
+			})
+			.separated_by(just(Token::Pipe))
 			.at_least(1)
 			.collect::<Vec<_>>()
 			.map(|mut ms| {

@@ -645,6 +645,7 @@ Car : Animal via Horn { speak :: fn(self) string { "HONK HONK" } }
 	| `(A, B)` | Tuple | `(A, B)` |
 	| `?T` | Optional | `Option<T>` |
 	| `!T` | Result | `Result<T, _>` (error is any `Error`) |
+	| `E!T` | Result | `Result<T, E>` (error pinned to `E`) |
 	| `&T` | Shared reference | `Rc<T>` |
 	| `fn (A) R` | Function | `fn(A) -> R` |
 	| `Foo[T]` | Generic instance | `Foo<T>` |
@@ -672,9 +673,11 @@ World :: struct {
 # ?T and !T are shorthands
 # `?T` -> `Option[T]`
 # `!T` -> `Result[T, Error]`
-# the long form pins the error to a specific type
+# `E!T` -> `Result[T, E]`
+# the long form and `E!T` pin the error to a specific type
 read :: fn(path: string) Result[[]u8, io.Error] { ... } # error pinned
 slurp :: fn(path: string) ![]u8 { ... } # error left open
+parse :: fn(src: string) ParseError!Ast { ... } # shorthand pin
 
 # generics may nest
 Grid[T] :: [][]T
@@ -1232,9 +1235,10 @@ main :: fn() {
 
 	# pinned errors
 
-	# the error type can be specified using the longform: `Result[T, E]`
+	# the error type can be specified with `E!T`
+	# this is shorthand for `Result[T, E]`, which is equivalent
 	NetError :: enum { timeout refused }
-	fetch :: fn(url: string) Result[Response, NetError] {
+	fetch :: fn(url: string) NetError!Response {
 		# ...
 		return .timeout
 	}

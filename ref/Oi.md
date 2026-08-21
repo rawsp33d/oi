@@ -87,7 +87,7 @@ tags: []
 	- [x] revisit trailing fns
 	- [x] revisit modules to vet incorporating `::` bindings
 	- [ ] make zeroed fns runnable
-	- [ ] add `E!T` shorthand for `Result[T, E]`
+	- [x] add `E!T` shorthand for `Result[T, E]`
 	- [ ] make `atom` a usable type
 - [ ] `comp assert`
 - [x] pipeline examples with `!` postfix collide with macros

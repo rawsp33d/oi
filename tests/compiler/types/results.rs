@@ -339,3 +339,19 @@ fn error_disambiguates_pinned() {
 	"};
 	check(src, ["-42", "0"]);
 }
+
+#[test]
+fn pinned_shorthand_signature() {
+	let src = indoc! {"
+		NetError :: enum { timeout refused }
+		fetch :: fn(x: int) NetError!int {
+			if x > 0 { return x }
+			return NetError.timeout
+		}
+		fetch(-1) or {
+			print($ == NetError.timeout)
+			0
+		}
+	"};
+	check(src, ["true", "0"]);
+}
