@@ -169,17 +169,15 @@ impl<'a> Translator<'a> {
 					.with_label("wrong number of arguments"));
 				}
 				let (av, at) = self.expr(&args[0])?;
-				if at == Typ::Str {
-					return Ok(Some((self.box_error(av), Typ::Error)));
-				}
 				match self.ret.clone() {
 					Some((Typ::Result(ok, err), _)) if at == *err => {
 						let v = self.make_enum(&result_variants(&ok, &err), 1, &[av]);
 						Ok(Some((v, Typ::Result(ok, err))))
 					}
+					_ if self.open_error(&at) => Ok(Some((self.box_error(av, &at), Typ::Error))),
 					_ => {
-						let msg = format!("`error` needs an enclosing fn returning Result[_, {at}]");
-						Err(Diagnostic::new(msg, args[0].1.into_range()).with_label("no matching pinned error type"))
+						let msg = format!("`{at}` doesn't claim Error, and no enclosing fn returns Result[_, {at}]");
+						Err(Diagnostic::new(msg, args[0].1.into_range()).with_label("not usable as an error"))
 					}
 				}
 			}

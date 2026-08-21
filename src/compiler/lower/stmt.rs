@@ -414,6 +414,11 @@ impl<'a> Translator<'a> {
 				let v = self.make_enum(&result_variants(&ok, &err), 1, &[val]);
 				(v, Typ::Result(ok, err))
 			}
+			Some(Typ::Result(ok, err)) if *err == Typ::Error && self.open_error(&typ) => {
+				let boxed = self.box_error(val, &typ);
+				let v = self.make_enum(&result_variants(&ok, &err), 1, &[boxed]);
+				(v, Typ::Result(ok, err))
+			}
 			_ => (val, typ),
 		}
 	}

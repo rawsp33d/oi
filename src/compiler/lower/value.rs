@@ -50,7 +50,7 @@ impl<'a> Translator<'a> {
 			Typ::Str => self.str_const(""),
 			Typ::Error => {
 				let msg = self.str_const("");
-				self.box_error(msg)
+				self.box_error(msg, &Typ::Str)
 			}
 			Typ::Atom => self.atom_const(""),
 			Typ::Int(w) => self.b.ins().iconst(cl_type(&Typ::Int(*w), self.int), 0),
@@ -453,6 +453,13 @@ impl<'a> Translator<'a> {
 			let (val, vt) = self.expr(value)?;
 			return self.make_trait_object(val, &vt, tn, value.1);
 		}
+		if *target == Typ::Error {
+			let (val, vt) = self.expr(value)?;
+			if vt != Typ::Error && self.open_error(&vt) {
+				return Ok((self.box_error(val, &vt), Typ::Error));
+			}
+			return Ok((val, vt));
+		}
 		if matches!(value.0, Expr::EnumShorthand { .. } | Expr::Atom(_) | Expr::None)
 			&& let Some(v) = self.coerce_lit(value, target)?
 		{
@@ -608,9 +615,14 @@ impl<'a> Translator<'a> {
 		Ok((self.box_trait_object(val, name, tn), Typ::Trait(tn.to_string())))
 	}
 
-	// Box `msg` (a str handle) directly as the builtin `Error`.
-	pub(super) fn box_error(&mut self, msg: Value) -> Value {
-		self.box_trait_object(msg, "string", "std::Error")
+	// Whether `typ` claims std `Error`, boxing into the open `Error` type.
+	pub(super) fn open_error(&self, typ: &Typ) -> bool {
+		self.trait_impls.contains(&(typ.key(), "std::Error".to_string()))
+	}
+
+	// Box a claimer of `Error` behind its vtable.
+	pub(super) fn box_error(&mut self, val: Value, typ: &Typ) -> Value {
+		self.box_trait_object(val, &typ.key(), "std::Error")
 	}
 
 	// Box `val` (an instance of `name`) behind its `name`/`tn` vtable.

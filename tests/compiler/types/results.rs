@@ -252,7 +252,7 @@ fn pinned_error_propagates() {
 }
 
 #[test]
-fn pinned_error_mismatch_rejected() {
+fn unclaimed_error_propagation_rejected() {
 	let src = indoc! {"
 		NetError :: enum { timeout refused }
 		fetch :: fn(x: int) Result[int, NetError] { x }
@@ -262,7 +262,7 @@ fn pinned_error_mismatch_rejected() {
 		}
 		load()
 	"};
-	fail_with(src, "cannot propagate `NetError` into a fn returning !int");
+	fail_with(src, "does not claim Error");
 }
 
 #[test]
@@ -277,4 +277,65 @@ fn error_cause_defaults_to_none() {
 		}
 	"#};
 	check(src, ["none", "0"]);
+}
+
+#[test]
+fn claimed_error_bare_return() {
+	let src = indoc! {r#"
+		NetError :: enum { timeout refused }
+		NetError : Error {
+			message :: fn(self) string { "net down" }
+		}
+		f :: fn() !int { return NetError.timeout }
+		f() or {
+			print($.message())
+			0
+		}
+	"#};
+	check(src, ["net down", "0"]);
+}
+
+#[test]
+fn claimed_error_wrapped() {
+	let src = indoc! {r#"
+		NetError :: enum { timeout refused }
+		NetError : Error {
+			message :: fn(self) string { "net down" }
+		}
+		f :: fn() !int { return error(NetError.timeout) }
+		f() or {
+			print($.message())
+			0
+		}
+	"#};
+	check(src, ["net down", "0"]);
+}
+
+#[test]
+fn pinned_propagates_into_open() {
+	let src = indoc! {r#"
+		NetError :: enum { timeout refused }
+		NetError : Error {
+			message :: fn(self) string { "net down" }
+		}
+		a :: fn() Result[int, NetError] { return NetError.refused }
+		b :: fn() !int { a()? }
+		b() or {
+			print($.message())
+			0
+		}
+	"#};
+	check(src, ["net down", "0"]);
+}
+
+#[test]
+fn error_disambiguates_pinned() {
+	let src = indoc! {"
+		f :: fn() Result[int, int] { return error(-42) }
+		f() or {
+			print($)
+			0
+		}
+	"};
+	check(src, ["-42", "0"]);
 }

@@ -332,7 +332,7 @@ impl<'a> Translator<'a> {
 		self.b.switch_to_block(fallback_block);
 		let saved_dollar = self.dollar.take();
 		self.dollar = Some(match err {
-			Some(err) => (self.b.ins().load(self.int, MemFlags::new(), val, 8), err),
+			Some(err) => (self.b.ins().load(cl_type(&err, self.int), MemFlags::new(), val, 8), err),
 			None => self.unit_value(),
 		});
 		let flow = self.scoped(|s| s.block(body))?;
@@ -359,14 +359,20 @@ impl<'a> Translator<'a> {
 		};
 		let shape = if is_result { "!T" } else { "?T" };
 		let panic_in_main = self.ret.is_none() && self.is_main;
+		let mut target_err = err_typ.clone();
 		let target = match &self.ret {
 			Some((Typ::Option(t), _)) if !is_result => (**t).clone(),
 			Some((Typ::Result(t, e), _)) if is_result => {
-				if **e != err_typ {
+				if **e != err_typ && !(**e == Typ::Error && self.open_error(&err_typ)) {
 					let declared = Typ::Result(t.clone(), e.clone());
 					let msg = format!("cannot propagate `{err_typ}` into a fn returning {declared}");
-					return Err(Diagnostic::new(msg, span.into_range()).with_label("mismatched error type"));
+					let label = match **e == Typ::Error {
+						true => format!("`{err_typ}` does not claim Error"),
+						false => "mismatched error type".to_string(),
+					};
+					return Err(Diagnostic::new(msg, span.into_range()).with_label(label));
 				}
+				target_err = (**e).clone();
 				(**t).clone()
 			}
 			Some((other, _)) => {
@@ -376,7 +382,7 @@ impl<'a> Translator<'a> {
 			None => inner.clone(),
 		};
 		let target_typ = if is_result {
-			Typ::Result(Box::new(target.clone()), Box::new(err_typ.clone()))
+			Typ::Result(Box::new(target.clone()), Box::new(target_err.clone()))
 		} else {
 			Typ::Option(Box::new(target.clone()))
 		};
@@ -406,7 +412,12 @@ impl<'a> Translator<'a> {
 		} else {
 			let sad_val = if is_result {
 				let e = self.b.ins().load(self.int, MemFlags::new(), val, 8);
-				self.make_enum(&result_variants(&target, &err_typ), 1, &[e])
+				let e = if err_typ == target_err {
+					e
+				} else {
+					self.box_error(e, &err_typ)
+				};
+				self.make_enum(&result_variants(&target, &target_err), 1, &[e])
 			} else {
 				self.make_option(&target, None)
 			};
@@ -438,7 +449,7 @@ impl<'a> Translator<'a> {
 		let variants = self.enum_variants(name);
 
 		let msg = self.str_const("no matching variant");
-		let err = self.box_error(msg);
+		let err = self.box_error(msg, &Typ::Str);
 		let mut result = self.make_enum(&target_variants, 1, &[err]);
 		for v in &variants {
 			let matched = match at {
