@@ -75,6 +75,12 @@ pub enum Expr {
 		args: Vec<Spanned<Expr>>,
 	},
 
+	// `name!(args)`, `name! expr`
+	MacroCall {
+		name: String,
+		args: Vec<Spanned<Expr>>,
+	},
+
 	MutArg(Box<Spanned<Expr>>),
 
 	// `...expr`

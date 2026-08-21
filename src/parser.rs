@@ -134,6 +134,14 @@ where
 
 	let ident = || select! { Token::Ident(name) => name };
 
+	// a guard that the next token has no token gap following it
+	let adjacent = empty().map_with(|_, ex| ex.span()).try_map(move |sp: Span, _| {
+		match src.get(sp.end - origin..sp.start - origin) {
+			Some("") => Ok(()),
+			_ => Err(Rich::custom(sp, "must immediately follow, with no space")),
+		}
+	});
+
 	fn paren<'token, I, O, P>(p: P) -> impl Parser<'token, I, O, extra::Err<Rich<'token, Token>>> + Clone
 	where
 		I: ValueInput<'token, Token = Token, Span = SimpleSpan>,
@@ -495,6 +503,14 @@ where
 		.map_with(|lines, ex| (Expr::Doc(lines), ex.span()))
 		.then_ignore(just(Token::DocBreak).or_not());
 
+	// paren-less macro statement
+	let macro_stmt = ident()
+		.then_ignore(adjacent)
+		.then_ignore(just(Token::Not))
+		.then_ignore(adjacent.then(just(Token::LParen)).not())
+		.then(expr.clone())
+		.map_with(|(name, arg), ex| (Expr::MacroCall { name, args: vec![arg] }, ex.span()));
+
 	// statements
 	let stmt = doc
 		.or(ret_stmt)
@@ -505,6 +521,7 @@ where
 		.or(index_assign)
 		.or(map_delete)
 		.or(append)
+		.or(macro_stmt)
 		.or(expr.clone())
 		.boxed();
 
@@ -690,6 +707,14 @@ where
 			)
 		});
 
+		// inline macro call
+		let macro_call = ident()
+			.then_ignore(adjacent)
+			.then_ignore(just(Token::Not))
+			.then_ignore(adjacent)
+			.then(paren(loose_list(expr.clone())))
+			.map_with(|(name, args), ex| (Expr::MacroCall { name, args }, ex.span()));
+
 		// map literals
 		let map_entry = expr
 			.clone()
@@ -853,6 +878,7 @@ where
 		let atom = choice((
 			dot_array,
 			dot_tuple,
+			macro_call,
 			leaf,
 			enum_shorthand,
 			group,

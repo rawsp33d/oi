@@ -7,6 +7,7 @@ use chumsky::error::{Rich, RichReason};
 use crate::lexer::Token;
 
 // A source file at its program-wide byte offset.
+#[derive(Clone)]
 struct File {
 	base: usize,
 	name: String,
@@ -14,7 +15,7 @@ struct File {
 }
 
 // Source files laid out at increasing byte offsets so one span space covers the whole program.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct SourceMap {
 	files: Vec<File>,
 }
@@ -36,6 +37,13 @@ impl SourceMap {
 		let i = self.files.partition_point(|f| f.base <= span.start).saturating_sub(1);
 		let f = &self.files[i];
 		(f, span.start - f.base..span.end - f.base)
+	}
+
+	// Get actual source/metadata for a program-wide span.
+	pub fn locate_span(&self, span: Range<usize>) -> (&str, usize, &str) {
+		let (file, local) = self.locate(&span);
+		let line = file.src[..local.start].matches('\n').count() + 1;
+		(&file.name, line, &file.src[local])
 	}
 }
 

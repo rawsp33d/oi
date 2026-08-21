@@ -167,6 +167,10 @@ impl<'a> Translator<'a> {
 							None if matches!(self.aliases.get(&qn), Some(TypeExpr::TupleStruct(..))) => {
 								self.construct_tuple_struct(&qn, args, expr.1)
 							}
+							None if matches!(name.as_str(), "assert" | "panic") => {
+								Err(Diagnostic::new(format!("`{name}` is a macro"), expr.1.into_range())
+									.with_label(format!("write `{name}!(...)`")))
+							}
 							None => Err(
 								Diagnostic::new(format!("undefined function `{name}`"), expr.1.into_range())
 									.with_label("not defined"),
@@ -175,6 +179,8 @@ impl<'a> Translator<'a> {
 					},
 				}
 			}
+
+			Expr::MacroCall { name, args } => self.macro_call(name, args, expr.1),
 
 			Expr::MethodCall { recv, method, args } => {
 				// qualified access to an imported module's function

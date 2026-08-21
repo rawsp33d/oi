@@ -26,7 +26,7 @@ fn eq_dispatches_to_the_fill() {
 		Point : Eq {
 			eq :: fn(self, other: Self) bool { self.x == other.x && self.y == other.y }
 		}
-		assert(Point.{1, 0} + Point.{2, 3} == Point.{3, 3})
+		assert!(Point.{1, 0} + Point.{2, 3} == Point.{3, 3})
 		print(Point.{1, 0} != .{1, 0})
 	"};
 	check(src, "false");

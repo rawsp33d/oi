@@ -501,7 +501,7 @@ fn embedded_via_alias() {
 		Widget :: struct { x: int = 3 }
 		W :: Widget
 		Button :: struct { W }
-		assert(Button.{}.x == Button.{}.W.x)
+		assert!(Button.{}.x == Button.{}.W.x)
 		Button.{}.x
 	"};
 	check(src, "3");

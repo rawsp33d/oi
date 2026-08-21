@@ -1,0 +1,109 @@
+use super::*;
+
+impl<'a> Translator<'a> {
+	// Call the runtime panic path with `msg` and mark the current block unreachable.
+	fn abort(&mut self, msg: Value) -> TypedVal {
+		let func = self.import_fn(runtime::PANIC, &[self.int], None);
+		self.b.ins().call(func, &[msg]);
+		self.b.ins().trap(TrapCode::HEAP_OUT_OF_BOUNDS);
+
+		// unreachable paths
+		let dead = self.b.create_block();
+		self.b.seal_block(dead);
+		self.b.switch_to_block(dead);
+		self.unit_value()
+	}
+
+	// The optional message argument for the aborting macros.
+	fn msg_arg(&mut self, name: &str, arg: Option<&Spanned<Expr>>, default: &str) -> Result<Value, Diagnostic> {
+		let Some(arg) = arg else {
+			return Ok(self.str_const(default));
+		};
+		match self.expr(arg)? {
+			(val, Typ::Str) => Ok(val),
+			(_, typ) => Err(
+				Diagnostic::new(format!("`{name}!` message must be Str, got {typ}"), arg.1.into_range())
+					.with_label("not a Str"),
+			),
+		}
+	}
+
+	pub(super) fn macro_call(
+		&mut self,
+		name: &str,
+		args: &[Spanned<Expr>],
+		span: Span,
+	) -> Result<TypedVal, Diagnostic> {
+		let (min, max) = match name {
+			"dbg" => (1, 1),
+			"assert" => (1, 2),
+			"panic" | "unreachable" => (0, 1),
+			"todo" => (0, 0),
+			_ => {
+				return Err(
+					Diagnostic::new(format!("no macro named `{name}!`"), span.into_range()).with_label("unknown macro")
+				);
+			}
+		};
+		if !(min..=max).contains(&args.len()) {
+			let want = match (min, max) {
+				(1, 1) => "1 argument".into(),
+				(a, b) if a == b => format!("{a} arguments"),
+				(a, b) => format!("{a} or {b} arguments"),
+			};
+			return Err(
+				Diagnostic::new(format!("`{name}!` takes {want}, got {}", args.len()), span.into_range())
+					.with_label("wrong number of arguments"),
+			);
+		}
+
+		match name {
+			"dbg" => {
+				let (val, typ) = self.expr(&args[0])?;
+				let (file, line, snippet) = self.map.locate_span(args[0].1.into_range());
+				self.write_lit(&format!("[{file}:{line}] {snippet} = "), runtime::Sink::Err);
+				self.emit_print(val, &typ, false, runtime::Sink::Err);
+				self.write_lit("\n", runtime::Sink::Err);
+				Ok((val, typ))
+			}
+
+			"assert" => {
+				let (cond, typ) = self.expr(&args[0])?;
+				if typ != Typ::Bool {
+					return Err(Diagnostic::new(
+						format!("`assert!` condition must be Bool, got {typ}"),
+						args[0].1.into_range(),
+					)
+					.with_label("not a Bool"));
+				}
+				// the failure message defaults to the condition's source
+				let snippet = self.map.locate_span(args[0].1.into_range()).2;
+				let msg = self.msg_arg(name, args.get(1), snippet)?;
+
+				let fail_block = self.b.create_block();
+				let ok_block = self.b.create_block();
+				self.b.ins().brif(cond, ok_block, &[], fail_block, &[]);
+				self.b.seal_block(fail_block);
+				self.b.seal_block(ok_block);
+
+				self.b.switch_to_block(fail_block);
+				let func = self.import_fn(runtime::ASSERT_FAIL, &[self.int], None);
+				self.b.ins().call(func, &[msg]);
+				self.b.ins().trap(TrapCode::HEAP_OUT_OF_BOUNDS);
+
+				self.b.switch_to_block(ok_block);
+				Ok(self.unit_value())
+			}
+
+			_ => {
+				let default = match name {
+					"panic" => "panicked",
+					"todo" => "not yet implemented",
+					_ => "entered unreachable code",
+				};
+				let msg = self.msg_arg(name, args.first(), default)?;
+				Ok(self.abort(msg))
+			}
+		}
+	}
+}

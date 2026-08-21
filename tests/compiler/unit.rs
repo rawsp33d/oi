@@ -76,7 +76,7 @@ fn unit_fns_compare_equal() {
 	let src = indoc! {"
 		nada :: fn() {}
 		zilch :: fn() () {}
-		assert(nada() == zilch())
+		nada() == zilch()
 	"};
 	check(src, "true");
 }

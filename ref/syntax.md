@@ -1936,7 +1936,6 @@ dbg! :: fn(expr)
 assert! :: fn(expr, msg: string?)
 panic! :: fn(msg: string?)
 todo! :: fn()
-unimplemented! :: fn()
 unreachable! :: fn(msg: string?)
 
 ## stdlib

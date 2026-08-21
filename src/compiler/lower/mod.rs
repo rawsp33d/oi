@@ -14,7 +14,7 @@ use super::{
 	mentions, oi_symbol, option_variants, result_variants, sum_remap, trait_fns, type_expr,
 };
 use crate::ast::{BinOp, Expr, MatchArm, Pattern, Span, Spanned, TypeExpr};
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Diagnostic, SourceMap};
 use crate::loader::Scope;
 use crate::runtime;
 
@@ -27,6 +27,7 @@ mod core;
 mod expr;
 mod generic;
 mod helpers;
+mod macros;
 mod op;
 mod pipe;
 mod print;
@@ -56,6 +57,7 @@ pub(super) struct Translator<'a> {
 	pub trait_impls: &'a HashSet<(String, String)>,
 	pub std_traits: &'a HashSet<String>,
 	pub scope: &'a Scope,
+	pub map: &'a SourceMap,
 	pub publics: &'a HashSet<String>,
 	pub privates: &'a HashMap<String, HashSet<String>>,
 	pub reexports: &'a HashMap<String, String>,

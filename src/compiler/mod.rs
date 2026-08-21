@@ -7,7 +7,7 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{DataDescription, DataId, FuncId, Linkage, Module};
 
 use crate::ast::{EnumVariant, Expr, Param, Span, Spanned, TypeExpr, TypeParam};
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Diagnostic, SourceMap};
 use crate::loader::{Program, Scope};
 use crate::runtime;
 
@@ -206,6 +206,7 @@ pub struct Compiler {
 	privates: HashMap<String, HashSet<String>>,
 	reexports: HashMap<String, String>,
 	consts: HashMap<String, Spanned<Expr>>,
+	map: SourceMap,
 }
 
 impl Default for Compiler {
@@ -263,6 +264,7 @@ impl Default for Compiler {
 			privates: HashMap::new(),
 			reexports: HashMap::new(),
 			consts: HashMap::new(),
+			map: SourceMap::default(),
 		}
 	}
 }
@@ -378,6 +380,7 @@ impl Compiler {
 		self.publics = program.publics.clone();
 		self.reexports = program.reexports.clone();
 		self.consts = program.consts.clone();
+		self.map = program.map.clone();
 		let scopes: HashMap<&str, &Scope> = program.modules.iter().map(|m| (m.name.as_str(), &m.scope)).collect();
 		let scope_of = |key: &str| scopes[key.split_once("::").map_or("main", |(m, _)| m)];
 
@@ -890,6 +893,7 @@ impl Compiler {
 			trait_impls: &self.trait_impls,
 			std_traits: &self.std_traits,
 			scope: types.scope,
+			map: &self.map,
 			publics: &self.publics,
 			privates: &self.privates,
 			reexports: &self.reexports,

@@ -15,7 +15,7 @@ area :: fn(s: Shape) f64 {
 
 Shape.rect(w = 3.0, h = 4.0)
 	|> area
-	|> assert($ == 12.0)
+	|> assert!($ == 12.0)
 
 shape := Shape.triangle(3.0, 4.0, 5.0)
 

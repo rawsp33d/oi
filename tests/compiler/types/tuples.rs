@@ -69,7 +69,7 @@ fn field_by_name() {
 
 #[test]
 fn named_and_positional_agree() {
-	check("t :: (a = 1, b = 2); assert(t.a == t.0)", "true");
+	check("t :: (a = 1, b = 2); t.a == t.0", "true");
 }
 
 #[test]

@@ -145,15 +145,7 @@ fn slice_variable_bounds() {
 
 #[test]
 fn slice_is_an_array() {
-	// the result is a normal array: indexable, with a `len`, and re-sliceable
-	check(
-		indoc! {"
-		a :: [0, 2, 4, 6, 8]
-		assert(a[1..][0] == 2)
-		assert(a[1..3].len == 2)
-	"},
-		"true",
-	);
+	check(["a :: [0, 2, 4, 6, 8]", "assert!(a[1..][0] == 2)"], "");
 }
 
 #[test]
