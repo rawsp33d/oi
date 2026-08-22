@@ -198,7 +198,7 @@ impl<'a> Translator<'a> {
 			let mut touched = HashSet::new();
 			let others = args.iter().enumerate().filter(|&(j, _)| j != i).map(|(_, a)| a);
 			for e in recv.into_iter().chain(others) {
-				super::anon::collect(&e.0, &mut touched);
+				e.0.idents(&mut touched);
 			}
 			if touched.contains(name) {
 				let msg = format!("cannot use `{name}` while it is lent `mut`");

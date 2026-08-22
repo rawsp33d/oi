@@ -131,6 +131,7 @@ where
 	let mut header_expr = Recursive::declare();
 	let mut block = Recursive::declare();
 	let mut anon_fields = Recursive::declare();
+	let mut item = Recursive::declare();
 
 	let ident = || select! { Token::Ident(name) => name };
 
@@ -139,6 +140,13 @@ where
 		match src.get(sp.end - origin..sp.start - origin) {
 			Some("") => Ok(()),
 			_ => Err(Rich::custom(sp, "must immediately follow, with no space")),
+		}
+	});
+	// a guard that the next token opens on the same line
+	let same_line = empty().map_with(|_, ex| ex.span()).try_map(move |sp: Span, _| {
+		match src.get(sp.end - origin..sp.start - origin) {
+			Some(gap) if gap.contains('\n') => Err(Rich::custom(sp, "must continue on the same line")),
+			_ => Ok(()),
 		}
 	});
 
@@ -187,13 +195,6 @@ where
 
 	// type annotations
 	let type_expr = recursive(|te| {
-		// a guard that the next token opens on the same line
-		let same_line = empty().map_with(|_, ex| ex.span()).try_map(move |sp: Span, _| {
-			match src.get(sp.end - origin..sp.start - origin) {
-				Some(gap) if gap.contains('\n') => Err(Rich::custom(sp, "must continue on the same line")),
-				_ => Ok(()),
-			}
-		});
 		let base = recursive(|base| {
 			let name = ident().map(TypeExpr::Name);
 			let unit = just(Token::LParen).then(just(Token::RParen)).to(TypeExpr::Tuple(vec![]));
@@ -379,7 +380,13 @@ where
 			Some((mutable, value)) => (mutable, Some(typ), Some(value)),
 			None => (true, Some(typ), None),
 		});
-	let bind = ident()
+	// macro bindings
+	let bind_name = just(Token::Percent)
+		.then_ignore(adjacent)
+		.ignore_then(ident())
+		.map(|n| format!("%{n}"))
+		.or(ident());
+	let bind = bind_name
 		.then(value_tail.or(sandwich_tail))
 		.map_with(|(name, (mutable, typ, value)), ex| {
 			(
@@ -503,7 +510,16 @@ where
 		.map_with(|lines, ex| (Expr::Doc(lines), ex.span()))
 		.then_ignore(just(Token::DocBreak).or_not());
 
-	// paren-less macro statement
+	let macro_def = ident()
+		.then_ignore(adjacent)
+		.then_ignore(just(Token::Not))
+		.then_ignore(just(Token::DoubleColon))
+		.then_ignore(just(Token::Fn))
+		.then(params.clone())
+		.then_ignore(ret.clone())
+		.then(block.clone())
+		.map_with(|((name, (params, _)), body), ex| (Expr::MacroDef { name, params, body }, ex.span()));
+
 	let macro_stmt = ident()
 		.then_ignore(adjacent)
 		.then_ignore(just(Token::Not))
@@ -521,6 +537,7 @@ where
 		.or(index_assign)
 		.or(map_delete)
 		.or(append)
+		.or(macro_def)
 		.or(macro_stmt)
 		.or(expr.clone())
 		.boxed();
@@ -707,6 +724,22 @@ where
 			)
 		});
 
+		// backtick-delimited seq, evaluating to `Ast`
+		let quote = item
+			.clone()
+			.or(stmt.clone())
+			.repeated()
+			.at_least(1)
+			.collect::<Vec<_>>()
+			.delimited_by(just(Token::Backtick), just(Token::Backtick))
+			.map_with(|stmts, ex| (Expr::Quote(stmts), ex.span()));
+
+		// unquote a macro param
+		let unquote = just(Token::Percent)
+			.then_ignore(adjacent)
+			.ignore_then(ident())
+			.map_with(|name, ex| (Expr::Unquote(name), ex.span()));
+
 		// inline macro call
 		let macro_call = ident()
 			.then_ignore(adjacent)
@@ -879,6 +912,8 @@ where
 			dot_array,
 			dot_tuple,
 			macro_call,
+			quote,
+			unquote,
 			leaf,
 			enum_shorthand,
 			group,
@@ -990,7 +1025,9 @@ where
 				// arithmetic
 				binop(7, Token::Asterisk, BinOp::Mul),
 				binop(7, Token::Slash, BinOp::Div),
-				binop(7, Token::Percent, BinOp::Mod),
+				infix(left(7), same_line.ignore_then(just(Token::Percent)), |l, _, r, ex| {
+					(Expr::Binary(BinOp::Mod, Box::new(l), Box::new(r)), ex.span())
+				}),
 				binop(6, Token::Plus, BinOp::Add),
 				binop(6, Token::Minus, BinOp::Sub),
 				// relational
@@ -1368,6 +1405,7 @@ where
 		.or(claim)
 		.or(type_alias)
 		.boxed();
+	item.define(def.clone());
 	let module_decl = just(Token::Module)
 		.ignore_then(ident())
 		.map_with(|name, ex| (Expr::Module(name), ex.span()));

@@ -1852,7 +1852,7 @@ main :: fn() {
 
 	## macros
 
-	# a macro is a comptime fn over `Ast`, defined with `fn name!`
+	# a macro is a comptime fn over `Ast`, defined with `name! :: fn`
 	# macros end in a !, which suspends normal parsing and collects the body
 	# args arrive as parsed `Ast` by default
 
@@ -1874,7 +1874,7 @@ main :: fn() {
 		_ => expr,
 	}
 
-	fn derive!(input: Ast, traits: Ast) Ast {
+	derive! :: fn(input: Ast, traits: Ast) Ast {
 		# input is the parsed struct, traits is the list passed to @derive!()
 		name := input.type_name()
 		fields := input.struct_fields()
@@ -1903,7 +1903,7 @@ main :: fn() {
 	assert! foo.bar() == 5
 
 	# a Tokens param opts a macro into the raw stream, for embedded DSLs whose bodies aren't valid Oi
-	fn sql!(body: Tokens) Ast { ... }
+	sql! :: fn(body: Tokens) Ast { ... }
 	sql! { SELECT * FROM users WHERE id = {id} }
 
 	# reflection in `comp`

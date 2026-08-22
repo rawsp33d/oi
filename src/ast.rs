@@ -51,6 +51,10 @@ pub enum Expr {
 		bind: bool,
 	},
 
+	// `...expr`
+	Spread(Box<Spanned<Expr>>),
+
+	// functions
 	Fn {
 		name: String,
 		type_params: Vec<TypeParam>,
@@ -75,17 +79,6 @@ pub enum Expr {
 		args: Vec<Spanned<Expr>>,
 	},
 
-	// `name!(args)`, `name! expr`
-	MacroCall {
-		name: String,
-		args: Vec<Spanned<Expr>>,
-	},
-
-	MutArg(Box<Spanned<Expr>>),
-
-	// `...expr`
-	Spread(Box<Spanned<Expr>>),
-
 	MethodCall {
 		recv: Box<Spanned<Expr>>,
 		method: String,
@@ -93,6 +86,29 @@ pub enum Expr {
 	},
 
 	Return(Option<Box<Spanned<Expr>>>),
+
+	// macros
+
+	// `name! :: fn(params) Ast { body }`
+	MacroDef {
+		name: String,
+		params: Vec<Param>,
+		body: Vec<Spanned<Expr>>,
+	},
+
+	// `name!(args)`, `name! expr`
+	MacroCall {
+		name: String,
+		args: Vec<Spanned<Expr>>,
+	},
+	// quasi-quote
+	Quote(Vec<Spanned<Expr>>),
+	// `%name`
+	Unquote(String),
+	// a macro expansion scoped block
+	Block(Vec<Spanned<Expr>>),
+
+	MutArg(Box<Spanned<Expr>>),
 
 	// control flow
 	If {
@@ -283,6 +299,155 @@ pub enum Expr {
 
 	// meta
 	Doc(Vec<String>),
+}
+
+// A child of `Expr`.
+pub enum Child<'a> {
+	List(&'a mut Vec<Spanned<Expr>>),
+	One(&'a mut Spanned<Expr>),
+}
+
+use Child::{List, One};
+
+impl Expr {
+	// Visit every direct child, in whichever shape it's stored.
+	pub fn for_children(&mut self, mut f: impl FnMut(Child)) {
+		match self {
+			Expr::Bind { value, .. } | Expr::Return(value) => value.iter_mut().for_each(|v| f(One(v))),
+			Expr::OptionInit { arg: v, .. }
+			| Expr::ResultInit { arg: v, .. }
+			| Expr::Assign { value: v, .. }
+			| Expr::Destructure { value: v, .. }
+			| Expr::MutArg(v)
+			| Expr::Spread(v)
+			| Expr::Ref(v)
+			| Expr::Pub(v)
+			| Expr::Propagate(v)
+			| Expr::Negative(v)
+			| Expr::Not(v)
+			| Expr::Field { tuple: v, .. }
+			| Expr::Append { value: v, .. }
+			| Expr::FieldAssign { value: v, .. }
+			| Expr::MapDelete { key: v, .. }
+			| Expr::Is { subject: v, .. } => f(One(v)),
+			Expr::Index {
+				collection: a,
+				index: b,
+			}
+			| Expr::IndexAssign { index: a, value: b, .. }
+			| Expr::Pipe { value: a, step: b }
+			| Expr::Binary(_, a, b) => {
+				f(One(a));
+				f(One(b));
+			}
+			Expr::Fn { body, .. }
+			| Expr::AnonFn { body, .. }
+			| Expr::MacroDef { body, .. }
+			| Expr::Block(body)
+			| Expr::Quote(body)
+			| Expr::StructDef { fills: body, .. }
+			| Expr::Claim { fills: body, .. }
+			| Expr::EnumDef { fills: body, .. }
+			| Expr::TraitDef { methods: body, .. } => f(List(body)),
+			Expr::Call { args, .. }
+			| Expr::MacroCall { args, .. }
+			| Expr::EnumShorthand { args, .. }
+			| Expr::Array(args)
+			| Expr::DotArray(_, args)
+			| Expr::DotTuple(args) => args.iter_mut().for_each(|a| f(One(a))),
+			Expr::MethodCall { recv, args, .. } => {
+				f(One(recv));
+				args.iter_mut().for_each(|a| f(One(a)));
+			}
+			Expr::If { cond, then, els } => {
+				f(One(cond));
+				f(List(then));
+				els.iter_mut().for_each(|e| f(List(e)));
+			}
+			Expr::Loop { cond, body } => {
+				cond.iter_mut().for_each(|c| f(One(c)));
+				f(List(body));
+			}
+			Expr::For { iter: v, body, .. } | Expr::OrElse { value: v, body } => {
+				f(One(v));
+				f(List(body));
+			}
+			Expr::Tuple(fields) | Expr::StructLit { fields, .. } => fields.iter_mut().for_each(|(_, v)| f(One(v))),
+			Expr::Record(entries) | Expr::Map(entries) => entries.iter_mut().for_each(|(k, v)| {
+				f(One(k));
+				f(One(v));
+			}),
+			Expr::Slice { collection, start, end } => {
+				f(One(collection));
+				[start, end].into_iter().flatten().for_each(|x| f(One(x)));
+			}
+			Expr::Range { start, end } => [start, end].into_iter().flatten().for_each(|x| f(One(x))),
+			Expr::Match {
+				subject,
+				arms,
+				else_body,
+			} => {
+				f(One(subject));
+				for arm in arms {
+					arm.patterns.iter_mut().for_each(|p| f(One(p)));
+					f(List(&mut arm.body));
+				}
+				else_body.iter_mut().for_each(|e| f(List(e)));
+			}
+			Expr::Bool(_)
+			| Expr::Int(_)
+			| Expr::Float(_)
+			| Expr::String(_)
+			| Expr::Atom(_)
+			| Expr::Ident(_)
+			| Expr::Dollar
+			| Expr::None
+			| Expr::Break
+			| Expr::Continue
+			| Expr::Unquote(_)
+			| Expr::TypeAlias { .. }
+			| Expr::Module(_)
+			| Expr::Use { .. }
+			| Expr::Doc(_) => {}
+		}
+	}
+
+	// Apply `f` to this expression and every one beneath it.
+	pub fn walk(&mut self, f: &mut impl FnMut(&mut Expr)) {
+		f(self);
+		self.for_children(|c| match c {
+			List(list) => list.iter_mut().for_each(|(e, _)| e.walk(f)),
+			One((e, _)) => e.walk(f),
+		});
+	}
+
+	pub fn try_children<E>(&mut self, mut f: impl FnMut(Child) -> Result<(), E>) -> Result<(), E> {
+		let mut err = None;
+		self.for_children(|c| {
+			if err.is_none() {
+				err = f(c).err();
+			}
+		});
+		err.map_or(Ok(()), Err)
+	}
+
+	// Every referenced identifier.
+	pub fn idents(&self, out: &mut std::collections::HashSet<String>) {
+		self.clone().walk(&mut |e| match e {
+			Expr::Ident(n) => {
+				out.insert(n.clone());
+			}
+			Expr::AnonFn {
+				captures: Some(list), ..
+			} => {
+				for c in list {
+					let (Capture::ReadOnly(n) | Capture::Mut(n) | Capture::Move(n)) = c;
+					out.insert(n.clone());
+				}
+			}
+			_ => {}
+		});
+	}
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

@@ -503,6 +503,8 @@ impl<'a> Translator<'a> {
 
 			Expr::For { pat, iter, body } => self.for_loop(pat, iter, body, expr.1),
 
+			Expr::Block(body) => self.block_expr(body, expr.1),
+
 			Expr::StructLit {
 				name,
 				type_args,
@@ -597,6 +599,9 @@ impl<'a> Translator<'a> {
 			Expr::Append { .. } => unreachable!("append in expression position"),
 			Expr::MapDelete { .. } => unreachable!("map delete in expression position"),
 			Expr::Doc(_) | Expr::Module(_) | Expr::Use { .. } | Expr::Pub(_) => unreachable!("not an expression"),
+			Expr::MacroDef { .. } | Expr::Quote(_) | Expr::Unquote(_) => {
+				unreachable!("removed by macro expansion")
+			}
 		}
 	}
 }

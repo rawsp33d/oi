@@ -11,11 +11,13 @@ use crate::diagnostics::{Diagnostic, SourceMap};
 use crate::loader::{Program, Scope};
 use crate::runtime;
 
+mod expand;
 mod lower;
 mod resolve;
 mod traits;
 mod typ;
 
+use expand::expand;
 use lower::Translator;
 pub(crate) use resolve::*;
 pub(crate) use traits::*;
@@ -384,8 +386,21 @@ impl Compiler {
 		let scopes: HashMap<&str, &Scope> = program.modules.iter().map(|m| (m.name.as_str(), &m.scope)).collect();
 		let scope_of = |key: &str| scopes[key.split_once("::").map_or("main", |(m, _)| m)];
 
+		// expand user macros to AST
+		let expanded: HashMap<&str, Vec<Spanned<Expr>>> = program
+			.modules
+			.iter()
+			.map(|m| Ok::<_, Diagnostic>((m.name.as_str(), expand(m.items.clone())?)))
+			.collect::<Result<_, _>>()?;
+		let items = || {
+			program
+				.modules
+				.iter()
+				.flat_map(|m| expanded[m.name.as_str()].iter().map(move |i| (&m.scope, i)))
+		};
+
 		let mut traits: HashMap<&str, TraitItem> = HashMap::new();
-		for (scope, (e, span)) in program.items() {
+		for (scope, (e, span)) in items() {
 			let Expr::TraitDef {
 				name,
 				supers,
@@ -405,7 +420,7 @@ impl Compiler {
 				self.std_traits.insert(name.clone());
 			}
 		}
-		for (scope, item) in program.items() {
+		for (scope, item) in items() {
 			match &item.0 {
 				Expr::StructDef {
 					name,

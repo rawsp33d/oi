@@ -133,6 +133,7 @@ tags: []
 	- back on the table now that `|x|` lambda fences are gone
 	- that said, `|>` has grown on me
 - mutable `$` by default or opt-in?
+- call `$` an `anaphor` everywhere? after learning about the concept I think it fits
 - opening up trailing fns to trailing anything, or at least anything with `.` + `{[(`
 - `loop <expr>` rather than any special case dispatch
 - adding colon before return type sig `fn foo(x int, y int): z int { ... }`

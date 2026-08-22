@@ -74,6 +74,15 @@ impl<'a> Translator<'a> {
 		Ok(out)
 	}
 
+	// A macro expansion scoped block, with no surface syntax of its own.
+	pub(super) fn block_expr(&mut self, body: &[Spanned<Expr>], span: Span) -> Result<TypedVal, Diagnostic> {
+		match self.scoped(|s| s.block_tail(body, None))? {
+			Some(vt) => Ok(vt),
+			None => Err(Diagnostic::new("this block never produces a value", span.into_range())
+				.with_label("every path returns, but a value is needed here")),
+		}
+	}
+
 	fn finish_merge(&mut self, merge: Block, result: Option<(Variable, Typ)>) -> Option<TypedVal> {
 		result.map(|(var, typ)| {
 			self.b.switch_to_block(merge);

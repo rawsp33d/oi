@@ -179,6 +179,8 @@ pub enum Token {
 	Colon,
 	#[token(",")]
 	Comma,
+	#[token("`")]
+	Backtick,
 	#[token("@")]
 	At,
 	#[token("$")]
@@ -268,6 +270,7 @@ impl fmt::Display for Token {
 			Token::LBracket => write!(f, "["),
 			Token::RBracket => write!(f, "]"),
 			Token::Comma => write!(f, ","),
+			Token::Backtick => write!(f, "`"),
 			Token::At => write!(f, "@"),
 			Token::Dollar => write!(f, "$"),
 			Token::Question => write!(f, "?"),

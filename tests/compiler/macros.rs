@@ -47,3 +47,89 @@ fn bare_assert_call_suggests_macro() {
 fn bare_panic_call_suggests_macro() {
 	fail_with(r#"panic("oops")"#, "write `panic!(...)`");
 }
+
+#[test]
+fn template_macro_in_expr_position() {
+	let src = indoc! {"
+		twice! :: fn(x: Ast) Ast { `%x + %x` }
+		twice!(4)
+	"};
+	check(src, "8");
+}
+
+#[test]
+fn template_macro_is_hygienic() {
+	let src = indoc! {"
+		set_and_add! :: fn(n: Ast) Ast {
+			`tmp := 100
+			tmp + %n`
+		}
+		tmp := 5
+		result := set_and_add!(tmp)
+		tmp + result
+	"};
+	check(src, "110");
+}
+
+#[test]
+fn binder_unquote_deliberately_captures() {
+	let src = indoc! {"
+		setup! :: fn(n: Ast) Ast { `%n := 42` }
+		setup!(x)
+		x
+	"};
+	check(src, "42");
+}
+
+#[test]
+fn template_macro_statement_form() {
+	let src = indoc! {"
+		incr! :: fn(n: Ast) Ast { `%n + 1` }
+		incr! 4
+	"};
+	check(src, "5");
+}
+
+#[test]
+fn template_macro_wrong_arity_fails() {
+	let src = indoc! {"
+		twice! :: fn(x: Ast) Ast { `%x + %x` }
+		twice!(1, 2)
+	"};
+	fail_with(src, "takes 1 argument, got 2");
+}
+
+#[test]
+fn binder_unquote_needs_a_plain_name() {
+	let src = indoc! {"
+		setup! :: fn(n: Ast) Ast { `%n := 42` }
+		setup!(1 + 2)
+	"};
+	fail_with(src, "needs a plain name argument");
+}
+
+#[test]
+fn template_macro_splices_items() {
+	let src = indoc! {"
+		shape! :: fn() Ast {
+			`Point :: struct { x: int, y: int }`
+		}
+		shape!()
+		p := Point.{ x = 1, y = 2 }
+		p.x + p.y
+	"};
+	check(src, "3");
+}
+
+#[test]
+fn unquote_inside_anon_fn() {
+	let src = indoc! {"
+		apply5! :: fn(f: Ast) Ast {
+			`g := fn(x: int) int { %f + x }
+			g(5)`
+		}
+		n := 10
+		apply5!(n * 2)
+	"};
+	check(src, "25");
+}
