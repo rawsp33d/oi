@@ -19,24 +19,31 @@ taxonomies = [{ name = "tags" }]
 dark_theme = "github-dark"
 light_theme = "github-light"
 
+[search]
+include_title = true
+include_description = true
+include_path = true
+include_content = true
+index_format = "elasticlunr_json"
+
 [extra]
 
 keywords = "oi, language, programming-language, compiler"
 
 # apollo
 
-theme = "auto"
+fancy_code = true
+theme = "toggle-auto"
 
 stylesheets = ["style.css"]
-
 socials = [
 	{ name = "github", url = "https://github.com/rawsp33d/oi", icon = "github" },
 ]
 menu = [
 	{ name = "features", url = "/features" },
 	{ name = "examples", url = "/examples" },
-	{ name = "docs", url = "/docs/oi" },
 	{ name = "about", url = "/about" },
+	{ name = "docs", url = "/docs/oi" },
 ]
 
 [extra.analytics]
