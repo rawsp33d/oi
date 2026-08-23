@@ -1,13 +1,31 @@
 use oi::Reported;
 use oi::driver::run_source;
-use reedline::{DefaultPrompt, DefaultPromptSegment, Reedline, Signal};
 
 pub fn run() -> Result<(), Reported> {
-	let mut rl = Reedline::create().use_bracketed_paste(true);
+	let commands = vec![
+		":help".into(),
+		":h".into(),
+		":quit".into(),
+		":q".into(),
+		":exit".into(),
+		":x".into(),
+		":clear".into(),
+		":c".into(),
+	];
+
+	let mut rl = reedline::Reedline::create()
+		.with_edit_mode(Box::new(reedline::Vi::new(
+			reedline::default_vi_insert_keybindings(),
+			reedline::default_vi_normal_keybindings(),
+		)))
+		.with_highlighter(Box::new(reedline::ExampleHighlighter::new(commands)))
+		.with_mouse_click(reedline::MouseClickMode::EnabledWithOsc133)
+		.use_bracketed_paste(true);
+
 	let mut session = String::new();
-	let prompt = DefaultPrompt::new(
-		DefaultPromptSegment::Basic("oi".to_string()),
-		DefaultPromptSegment::Empty,
+	let prompt = reedline::DefaultPrompt::new(
+		reedline::DefaultPromptSegment::Basic("oi".to_string()),
+		reedline::DefaultPromptSegment::Empty,
 	);
 
 	// TODO: add version and whatever else REPLs usually have in the greeting
@@ -15,7 +33,7 @@ pub fn run() -> Result<(), Reported> {
 
 	loop {
 		match rl.read_line(&prompt) {
-			Ok(Signal::Success(line)) => {
+			Ok(reedline::Signal::Success(line)) => {
 				match line.trim() {
 					"" => continue,
 					":help" | ":h" => {
@@ -52,8 +70,8 @@ pub fn run() -> Result<(), Reported> {
 					session = candidate;
 				}
 			}
-			Ok(Signal::CtrlC) => continue,
-			Ok(Signal::CtrlD) => break,
+			Ok(reedline::Signal::CtrlC) => continue,
+			Ok(reedline::Signal::CtrlD) => break,
 			Ok(_) => {}
 			Err(e) => {
 				eprintln!("oi: {e}");
