@@ -18,7 +18,7 @@ pub fn run() -> Result<(), Reported> {
 			Ok(Signal::Success(line)) => {
 				match line.trim() {
 					"" => continue,
-					":h" | ":help" => {
+					":help" | ":h" => {
 						// TODO: print version too
 						indoc::eprintdoc! {"
 							The Oi REPL.
@@ -28,17 +28,18 @@ pub fn run() -> Result<(), Reported> {
 							so if you run into any issues `:clear` it away.
 
 							Commands:
-								:h, :help: help
-								:q, :quit: quit
-								:c, :clear: clear session context
+								:h, :help -> help
+								:q, :quit -> quit
+								:x, :exit -> quit
+								:c, :clear -> clear session context
 						"};
 						continue;
 					}
-					":q" | ":quit" => {
+					":quit" | ":q" | ":exit" | ":x" => {
 						eprintln!("goodbye");
 						break;
 					}
-					":c" | ":clear" => {
+					":clear" | ":c" => {
 						eprintln!("session cleared");
 						session.clear();
 						continue;
