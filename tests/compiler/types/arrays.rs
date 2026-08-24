@@ -19,7 +19,6 @@ fn fn_param_type() {
 
 #[test]
 fn array_of_strings() {
-	// strings are quoted when printed inside an array
 	check(r#"["a", "b"]"#, r#"["a", "b"]"#);
 }
 
@@ -35,45 +34,42 @@ fn no_comma_ints() {
 
 #[test]
 fn index_literal() {
-	check("a :: [10, 20, 30]\na[1]", "20");
+	check(["a :: [10, 20, 30]", "a[1]"], "20");
 }
 
 #[test]
 fn index_variable() {
-	check("a :: [10, 20, 30]\ni :: 2\na[i]", "30");
+	check(["a :: [10, 20, 30]", "i :: 2", "a[i]"], "30");
 }
 
 #[test]
 fn dot_index() {
-	// numeric dot notation indexes like `[n]`
-	check("a :: [10, 20, 30]\na.0", "10");
+	check(["a :: [10, 20, 30]", "a.0"], "10");
 }
 
 #[test]
 fn len_field() {
-	check("a :: [10, 20, 30]\na.len", "3");
+	check(["a :: [10, 20, 30]", "a.len"], "3");
 }
 
 #[test]
 fn nested_in_tuple() {
-	// a tuple prints an array element without a trailing newline
 	check(r#"(1, [2, 3], "x")"#, r#"(1, [2, 3], "x")"#);
 }
 
 #[test]
 fn array_of_tuples() {
-	// elements print through the same path as everything else, so composites recurse
 	check("[(1, 2), (3, 4)]", "[(1, 2), (3, 4)]");
 }
 
 #[test]
 fn nested_arrays() {
-	check("a :: [10, 20]\nb :: [30, 40]\n[a, b]", "[[10, 20], [30, 40]]");
+	check(["a :: [10, 20]", "b :: [30, 40]", "[a, b]"], "[[10, 20], [30, 40]]");
 }
 
 #[test]
 fn index_into_nested() {
-	check("a :: [10, 20]\nb :: [30, 40]\n[a, b][1]", "[30, 40]");
+	check(["a :: [10, 20]", "b :: [30, 40]", "[a, b][1]"], "[30, 40]");
 }
 
 #[test]
@@ -88,7 +84,7 @@ fn empty_unsupported() {
 
 #[test]
 fn index_non_array() {
-	fail_with("x :: 5\nx[0]", "cannot index");
+	fail_with(["x :: 5", "x[0]"], "cannot index");
 }
 
 #[test]
@@ -98,44 +94,39 @@ fn non_int_index() {
 
 #[test]
 fn index_out_of_range() {
-	// out-of-range indexing aborts at runtime
-	fail_with("a :: [1, 2]\na[5]", "out of range");
+	fail_with(["a :: [1, 2]", "a[5]"], "out of range");
 }
 
 #[test]
 fn unknown_named_field() {
-	fail_with("a :: [1, 2]\na.foo", "no field `foo`");
+	fail_with(["a :: [1, 2]", "a.foo"], "no field `foo`");
 }
 
 // slices
 
 #[test]
 fn slice_middle() {
-	// a half-open range: indices 1 and 2
-	check("even :: [0, 2, 4, 6, 8]\neven[1..3]", "[2, 4]");
+	check(["even :: [0, 2, 4, 6, 8]", "even[1..3]"], "[2, 4]");
 }
 
 #[test]
 fn slice_from_start() {
-	// an omitted start defaults to 0
-	check("even :: [0, 2, 4, 6, 8]\neven[..3]", "[0, 2, 4]");
+	check(["even :: [0, 2, 4, 6, 8]", "even[..3]"], "[0, 2, 4]");
 }
 
 #[test]
 fn slice_to_end() {
-	// an omitted end defaults to the length
-	check("even :: [0, 2, 4, 6, 8]\neven[1..]", "[2, 4, 6, 8]");
+	check(["even :: [0, 2, 4, 6, 8]", "even[1..]"], "[2, 4, 6, 8]");
 }
 
 #[test]
 fn slice_full() {
-	check("even :: [0, 2, 4, 6, 8]\neven[..]", "[0, 2, 4, 6, 8]");
+	check(["even :: [0, 2, 4, 6, 8]", "even[..]"], "[0, 2, 4, 6, 8]");
 }
 
 #[test]
 fn slice_empty() {
-	// an empty range yields an empty array (the only way to make one for now)
-	check("even :: [0, 2, 4, 6, 8]\neven[2..2]", "[]");
+	check(["even :: [0, 2, 4, 6, 8]", "even[2..2]"], "[]");
 }
 
 #[test]
@@ -150,17 +141,17 @@ fn slice_is_an_array() {
 
 #[test]
 fn slice_out_of_bounds() {
-	fail_with("a :: [1, 2, 3]\na[1..9]", "out of bounds");
+	fail_with(["a :: [1, 2, 3]", "a[1..9]"], "out of bounds");
 }
 
 #[test]
 fn slice_reversed_range() {
-	fail_with("a :: [1, 2, 3]\na[3..1]", "out of bounds");
+	fail_with(["a :: [1, 2, 3]", "a[3..1]"], "out of bounds");
 }
 
 #[test]
 fn slice_non_array() {
-	fail_with("x :: 5\nx[0..1]", "cannot slice");
+	fail_with(["x :: 5", "x[0..1]"], "cannot slice");
 }
 
 #[test]
@@ -172,7 +163,7 @@ fn slice_non_int_bound() {
 
 #[test]
 fn index_assign_basic() {
-	check("a := [1, 2, 3]\na[1] = 99\na", "[1, 99, 3]");
+	check(["a := [1, 2, 3]", "a[1] = 99", "a"], "[1, 99, 3]");
 }
 
 #[test]
@@ -182,12 +173,12 @@ fn index_assign_variable_index() {
 
 #[test]
 fn index_assign_immutable_error() {
-	fail_with("a :: [1, 2]\na[0] = 5", "immutable");
+	fail_with(["a :: [1, 2]", "a[0] = 5"], "immutable");
 }
 
 #[test]
 fn index_assign_non_array_error() {
-	fail_with("x := 5\nx[0] = 1", "not an array");
+	fail_with(["x := 5", "x[0] = 1"], "not an array");
 }
 
 #[test]
@@ -197,36 +188,35 @@ fn index_assign_type_mismatch_error() {
 
 #[test]
 fn index_assign_oob_error() {
-	fail_with("a := [1, 2]\na[5] = 9", "out of range");
+	fail_with(["a := [1, 2]", "a[5] = 9"], "out of range");
 }
 
 // append
 
 #[test]
 fn append_basic() {
-	check("a := [1, 2, 3]\na << 4\na", "[1, 2, 3, 4]");
+	check(["a := [1, 2, 3]", "a << 4", "a"], "[1, 2, 3, 4]");
 }
 
 #[test]
 fn append_grows_past_initial_cap() {
-	// initial cap == len == 2; force multiple doublings
+	// initial cap == len == 2
 	check(["a := [1, 2]", "a << 3", "a << 4", "a << 5", "a"], "[1, 2, 3, 4, 5]");
 }
 
 #[test]
 fn append_slice_copies_buffer() {
-	// appending to a slice forces a copy; the parent is unaffected
 	check(["a :: [1, 2, 3]", "b := a[1..]", "b << 99", "b"], "[2, 3, 99]");
 }
 
 #[test]
 fn append_immutable_error() {
-	fail_with("a :: [1, 2]\na << 3", "immutable");
+	fail_with(["a :: [1, 2]", "a << 3"], "immutable");
 }
 
 #[test]
 fn append_non_array_error() {
-	fail_with("x := 5\nx << 1", "not an array");
+	fail_with(["x := 5", "x << 1"], "not an array");
 }
 
 #[test]
@@ -238,18 +228,16 @@ fn append_type_mismatch_error() {
 
 #[test]
 fn extend_basic() {
-	check("odd := [1, 3, 5]\nodd << [9, 11]\nodd", "[1, 3, 5, 9, 11]");
+	check(["odd := [1, 3, 5]", "odd << [9, 11]", "odd"], "[1, 3, 5, 9, 11]");
 }
 
 #[test]
 fn extend_empty_src() {
-	// appending a zero-length slice leaves dst unchanged
 	check(["a := [1, 2, 3]", "b :: a[0..0]", "a << b", "a"], "[1, 2, 3]");
 }
 
 #[test]
 fn extend_into_empty_ish() {
-	// extend a slice (cap == len) by another array
 	check(["a :: [1, 2]", "b := a[0..0]", "b << [3, 4]", "b"], "[3, 4]");
 }
 
@@ -346,12 +334,12 @@ fn returned_param_independent_from_arg() {
 
 #[test]
 fn in_found() {
-	check("even :: [0, 2, 4, 6, 8]\n6 in even", "true");
+	check(["even :: [0, 2, 4, 6, 8]", "6 in even"], "true");
 }
 
 #[test]
 fn in_not_found() {
-	check("even :: [0, 2, 4, 6, 8]\n5 in even", "false");
+	check(["even :: [0, 2, 4, 6, 8]", "5 in even"], "false");
 }
 
 #[test]
@@ -410,12 +398,12 @@ fn if_no_else_array_zero() {
 
 #[test]
 fn fixed_zeroed() {
-	check("a: [3]int\na", "[0, 0, 0]");
+	check(["a: [3]int", "a"], "[0, 0, 0]");
 }
 
 #[test]
 fn fixed_len_is_constant() {
-	check("a: [4]int\na.len", "4");
+	check(["a: [4]int", "a.len"], "4");
 }
 
 #[test]
@@ -441,12 +429,12 @@ fn fixed_value_semantics() {
 
 #[test]
 fn fixed_index_out_of_range() {
-	fail_with("a: [2]int\na[5]", "out of range");
+	fail_with(["a: [2]int", "a[5]"], "out of range");
 }
 
 #[test]
 fn empty_dynamic_via_init() {
-	check("a: []int\na.len", "0");
+	check(["a: []int", "a.len"], "0");
 }
 
 #[test]
