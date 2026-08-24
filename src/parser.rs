@@ -215,7 +215,10 @@ where
 					Some(n) => TypeExpr::FixedArray(Box::new(elem), n as usize),
 					None => TypeExpr::Array(Box::new(elem)),
 				});
-			let fn_param = just(Token::Mut).or_not().then(te.clone());
+			let fn_param = just(Token::Mut)
+				.or_not()
+				.then_ignore(ident().then_ignore(just(Token::Colon)).or_not())
+				.then(te.clone());
 			let fn_ret = same_line.ignore_then(base.clone()).or_not();
 			let fn_type = just(Token::Fn)
 				.ignore_then(paren(loose_list(fn_param)))
@@ -635,6 +638,8 @@ where
 				}
 			});
 
+		let foreign_lit = just(Token::Foreign).to(Expr::Foreign);
+
 		let ref_lit = just(Token::Amp).ignore_then(expr.clone()).try_map(|e, span| match &e.0 {
 			Expr::StructLit { .. } => Ok(Expr::Ref(Box::new(e))),
 			_ => Err(Rich::custom(
@@ -655,7 +660,7 @@ where
 			});
 
 		// leaf atoms pair themselves with their span
-		let leaf = spanned(literal.or(ref_lit).or(struct_lit).or(var_or_call)).boxed();
+		let leaf = spanned(literal.or(foreign_lit).or(ref_lit).or(struct_lit).or(var_or_call)).boxed();
 
 		// record entries
 		let key = select! {

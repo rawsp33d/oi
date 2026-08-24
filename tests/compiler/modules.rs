@@ -33,3 +33,16 @@ fn import_nested_path() {
 	fail_with("use a.b.c", "nested module paths aren't supported yet");
 	fail_with("x :: use a.b.{ c }", "nested module paths aren't supported yet");
 }
+
+#[test]
+fn rt_is_internal_to_core() {
+	fail_with(["use rt", "print(1)"], "internal to core");
+}
+
+#[test]
+fn foreign_outside_module_scope_fails() {
+	fail_with(
+		["x : fn() int : foreign", "print(1)"],
+		"only allowed as a module-level binding",
+	);
+}

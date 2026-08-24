@@ -1,0 +1,3 @@
+module rt
+
+pub oi_str_contains : fn(s: string, sub: string) bool : foreign

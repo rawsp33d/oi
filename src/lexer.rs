@@ -75,6 +75,8 @@ pub enum Token {
 	Use,
 	#[token("pub")]
 	Pub,
+	#[token("foreign")]
+	Foreign,
 
 	// control flow
 	#[token("if")]
@@ -224,6 +226,7 @@ impl fmt::Display for Token {
 			Token::Module => write!(f, "module"),
 			Token::Use => write!(f, "use"),
 			Token::Pub => write!(f, "pub"),
+			Token::Foreign => write!(f, "foreign"),
 			Token::If => write!(f, "if"),
 			Token::Else => write!(f, "else"),
 			Token::Loop => write!(f, "loop"),

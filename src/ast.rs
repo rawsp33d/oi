@@ -17,6 +17,7 @@ pub enum Expr {
 	Ident(String),
 	Dollar,
 	None,
+	Foreign,
 
 	// `[mods] name [type] := value`: declares a new binding
 	Bind {
@@ -409,6 +410,7 @@ impl Expr {
 			| Expr::Ident(_)
 			| Expr::Dollar
 			| Expr::None
+			| Expr::Foreign
 			| Expr::Break
 			| Expr::Continue
 			| Expr::Unquote(_)

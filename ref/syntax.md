@@ -60,6 +60,13 @@ pub Foo :: struct { bar: bool }
 pub foo :: Foo.{ true }
 pub strange :: "dr strange love"
 
+## foreign
+
+# `foreign` binds a value that lives outside the program
+oi_str_contains : fn(s: string, sub: string) bool : foreign
+oi_panic : fn(msg: string) int : foreign
+errno : i32 : foreign
+
 ## functions
 
 # private within module by default

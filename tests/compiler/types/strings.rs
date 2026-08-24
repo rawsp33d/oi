@@ -42,8 +42,14 @@ fn string_in_type_mismatch_error() {
 }
 
 #[test]
+fn string_contains() {
+	check(r#"print("hello".contains("hell"))"#, "true");
+	check(r#"print("hello".contains("xyz"))"#, "false");
+}
+
+#[test]
 fn escapes() {
-	check(r#"print("a\nb\tc")"#, "a\nb\tc");
+	check(r#"print("a\nb\tc")"#, ["a", "b\tc"]);
 	check(r#"print("q: \" back: \\")"#, r#"q: " back: \"#);
 }
 

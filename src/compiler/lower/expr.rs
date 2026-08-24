@@ -35,6 +35,12 @@ impl<'a> Translator<'a> {
 					.with_label("not a call argument"),
 			),
 
+			Expr::Foreign => Err(Diagnostic::new(
+				"foreign is only allowed as a module-level binding",
+				expr.1.into_range(),
+			)
+			.with_label("not a module-level binding")),
+
 			Expr::Spread(_) => Err(
 				Diagnostic::new("`...` is only valid inside a struct literal", expr.1.into_range())
 					.with_label("not a struct literal field"),

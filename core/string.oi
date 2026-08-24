@@ -1,7 +1,13 @@
 module core
 
+use rt
+
 string :{
 	is_empty :: fn(self) bool {
 		self == ""
+	}
+
+	contains :: fn(self, sub: string) bool {
+		rt.oi_str_contains(self, sub)
 	}
 }

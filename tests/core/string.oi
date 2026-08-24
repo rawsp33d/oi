@@ -1,2 +1,4 @@
 assert! "".is_empty()
 assert! !"hi".is_empty()
+assert! "hello".contains("hell")
+assert! !"hello".contains("xyz")

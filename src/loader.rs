@@ -138,6 +138,8 @@ struct Loader<'a> {
 	// import stack
 	loading: Vec<String>,
 	selected: Vec<(String, String, Span)>,
+	// modules loaded from the embedded core tree, allowed to import internal mods
+	core_origin: HashSet<String>,
 }
 
 impl Loader<'_> {
@@ -293,6 +295,13 @@ impl Loader<'_> {
 				} if !main => {
 					let bad = match (*mutable, typ.is_some(), value.as_deref()) {
 						(true, ..) => Some(("a module-level binding must be a const", "use `::`")),
+						(_, _, Some(v)) if matches!(v.0, Expr::Foreign) => match typ {
+							Some((TypeExpr::Fn(..), _)) => {
+								self.define(m, name, true, public, span)?;
+								None
+							}
+							_ => Some(("foreign globals aren't supported yet", "only foreign fns are supported")),
+						},
 						(_, true, _) => {
 							Some(("type annotations on consts aren't supported yet", "drop the annotation"))
 						}
@@ -358,6 +367,9 @@ impl Loader<'_> {
 			let msg = format!("import cycle: {} -> {name}", self.loading.join(" -> "));
 			return Err(self.report(err(msg, span, "closes a cycle")));
 		}
+		if name == "rt" && !self.loading.last().is_some_and(|m| self.core_origin.contains(m)) {
+			return Err(self.report(err("`rt` is internal to core", span, "not importable here")));
+		}
 		if self.modules.iter().any(|m| m.name == name) {
 			return Ok(());
 		}
@@ -396,6 +408,9 @@ impl Loader<'_> {
 				)],
 				_ => vec![],
 			};
+			if !files.is_empty() {
+				self.core_origin.insert(name.to_string());
+			}
 		}
 		if files.is_empty() {
 			return Err(self.report(err(format!("cannot find module `{name}`"), span, "no such module")));
@@ -487,6 +502,7 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 		consts: HashMap::new(),
 		loading: vec![],
 		selected: vec![],
+		core_origin: HashSet::from(["core".to_string()]),
 	};
 	// import core implicitly
 	loader.load_files("core", core_files(&CORE))?;

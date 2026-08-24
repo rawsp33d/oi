@@ -222,33 +222,9 @@ impl Default for Compiler {
 			.finish(settings::Flags::new(flag_builder))
 			.unwrap();
 		let mut builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
-		builder.symbol(runtime::STR_CONCAT, runtime::str_concat as *const u8);
-		builder.symbol(runtime::STR_MARK, runtime::str_mark as *const u8);
-		builder.symbol(runtime::STR_TAKE, runtime::str_take as *const u8);
-		builder.symbol(runtime::TRAIT_FIELD, runtime::trait_field as *const u8);
-		builder.symbol(runtime::ALLOC, runtime::alloc as *const u8);
-		builder.symbol(runtime::ARRAY_SHARE, runtime::array_share as *const u8);
-		builder.symbol(runtime::ARRAY_COW, runtime::array_cow as *const u8);
-		builder.symbol(runtime::ARRAY_RELEASE, runtime::array_release as *const u8);
-		builder.symbol(runtime::MAP_RELEASE, runtime::map_release as *const u8);
-		builder.symbol(runtime::WRITE, runtime::write as *const u8);
-		builder.symbol(runtime::WRITE_SEP, runtime::write_sep as *const u8);
-		builder.symbol(runtime::SLICE, runtime::slice as *const u8);
-		builder.symbol(runtime::ARRAY_WRITE_BACK, runtime::array_write_back as *const u8);
-		builder.symbol(runtime::PANIC_OOB, runtime::panic_oob as *const u8);
-		builder.symbol(runtime::ARRAY_RESERVE, runtime::array_reserve as *const u8);
-		builder.symbol(runtime::ARRAY_EXTEND, runtime::array_extend as *const u8);
-		builder.symbol(runtime::STR_EQ, runtime::str_eq as *const u8);
-		builder.symbol(runtime::STR_CONTAINS, runtime::str_contains as *const u8);
-		builder.symbol(runtime::ASSERT_FAIL, runtime::assert_fail as *const u8);
-		builder.symbol(runtime::PANIC, runtime::panic as *const u8);
-		builder.symbol(runtime::MAP_NEW, runtime::map_new as *const u8);
-		builder.symbol(runtime::MAP_GET, runtime::map_get as *const u8);
-		builder.symbol(runtime::MAP_SET, runtime::map_set as *const u8);
-		builder.symbol(runtime::MAP_DELETE, runtime::map_delete as *const u8);
-		builder.symbol(runtime::MAP_SHARE, runtime::map_share as *const u8);
-		builder.symbol(runtime::REF_SHARE, runtime::ref_share as *const u8);
-		builder.symbol(runtime::REF_RELEASE, runtime::ref_release as *const u8);
+		for (name, ptr) in runtime::symbols() {
+			builder.symbol(name, ptr);
+		}
 		builder.symbol(expand::RT_QUOTE, expand::rt_quote as *const u8);
 		builder.symbol(expand::RT_AST_INT, expand::rt_ast_int as *const u8);
 		builder.symbol(expand::RT_AST_METHOD, expand::rt_ast_method as *const u8);
@@ -383,6 +359,7 @@ impl Compiler {
 		let mut others: Vec<FnItem> = vec![];
 		let mut loose_refs: Vec<&Spanned<Expr>> = vec![];
 		let mut trait_bodies: Vec<TraitBody> = vec![];
+		let mut foreign_items: Vec<(String, TypeExpr, Span, &Scope)> = vec![];
 
 		self.publics = program.publics.clone();
 		self.reexports = program.reexports.clone();
@@ -572,6 +549,14 @@ impl Compiler {
 				}),
 				Expr::Doc(_) => {}
 				Expr::Bind {
+					name,
+					typ: Some((t, _)),
+					value: Some(v),
+					..
+				} if !scope.module.is_empty() && matches!(v.0, Expr::Foreign) => {
+					foreign_items.push((name.clone(), t.clone(), item.1, scope));
+				}
+				Expr::Bind {
 					mutable: false,
 					name,
 					typ: None,
@@ -692,8 +677,25 @@ impl Compiler {
 				Some((ret_te, ret_span)) => types.resolve(ret_te, *ret_span)?,
 				None => Typ::unit(),
 			};
-			let sig = self.declare_fn(&item.key, params, muts, ret);
+			let sig = self.declare_fn(&oi_symbol(&item.key), Linkage::Local, params, muts, ret);
 			funcs.insert(item.key.clone(), sig);
+		}
+
+		for (name, fn_type, span, scope) in &foreign_items {
+			let (span, scope) = (*span, *scope);
+			let TypeExpr::Fn(param_types, muts, ret) = fn_type else {
+				unreachable!("loader validated foreign fn type")
+			};
+			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits).with_scope(scope);
+			let params: Vec<Typ> = param_types.iter().map(|t| types.resolve(t, span)).collect::<Result<_, _>>()?;
+			let ret = types.resolve(ret, span)?;
+			let bare = display_name(name);
+			if !runtime::symbols().iter().any(|(sym, _)| *sym == bare) {
+				let msg = format!("unknown foreign symbol `{bare}`");
+				return Err(Diagnostic::new(msg, span.into_range()).with_label("no such runtime symbol"));
+			}
+			let sig = self.declare_fn(bare, Linkage::Import, params, muts.clone(), ret);
+			funcs.insert(name.clone(), sig);
 		}
 
 		for item in &others {
@@ -853,17 +855,14 @@ impl Compiler {
 	}
 
 	// Declare a hoisted fn's signature ahead of its body.
-	fn declare_fn(&mut self, key: &str, params: Vec<Typ>, muts: Vec<bool>, ret: Typ) -> FnSig {
+	fn declare_fn(&mut self, symbol: &str, linkage: Linkage, params: Vec<Typ>, muts: Vec<bool>, ret: Typ) -> FnSig {
 		let int = self.module.target_config().pointer_type();
 		let mut sig = self.module.make_signature();
 		sig.params.extend(params.iter().map(|t| AbiParam::new(cl_type(t, int))));
 		if !ret.is_unit() {
 			sig.returns.push(AbiParam::new(cl_type(&ret, int)));
 		}
-		let id = self
-			.module
-			.declare_function(&oi_symbol(key), Linkage::Local, &sig)
-			.expect("declare function");
+		let id = self.module.declare_function(symbol, linkage, &sig).expect("declare function");
 		FnSig { id, params, muts, ret }
 	}
 

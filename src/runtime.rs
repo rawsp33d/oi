@@ -658,3 +658,36 @@ pub unsafe extern "C" fn map_delete(map: *mut OiMap, tag: i64, bits: i64) -> *mu
 	unsafe { &mut *map }.entries.remove(&map_key(Tag::from_i64(tag), bits));
 	map
 }
+
+// Every runtime fn callable from JIT'd code.
+pub fn symbols() -> Vec<(&'static str, *const u8)> {
+	vec![
+		(STR_CONCAT, str_concat as *const u8),
+		(STR_MARK, str_mark as *const u8),
+		(STR_TAKE, str_take as *const u8),
+		(TRAIT_FIELD, trait_field as *const u8),
+		(ALLOC, alloc as *const u8),
+		(ARRAY_SHARE, array_share as *const u8),
+		(ARRAY_COW, array_cow as *const u8),
+		(ARRAY_RELEASE, array_release as *const u8),
+		(MAP_RELEASE, map_release as *const u8),
+		(WRITE, write as *const u8),
+		(WRITE_SEP, write_sep as *const u8),
+		(SLICE, slice as *const u8),
+		(ARRAY_WRITE_BACK, array_write_back as *const u8),
+		(PANIC_OOB, panic_oob as *const u8),
+		(ARRAY_RESERVE, array_reserve as *const u8),
+		(ARRAY_EXTEND, array_extend as *const u8),
+		(STR_EQ, str_eq as *const u8),
+		(STR_CONTAINS, str_contains as *const u8),
+		(ASSERT_FAIL, assert_fail as *const u8),
+		(PANIC, panic as *const u8),
+		(MAP_NEW, map_new as *const u8),
+		(MAP_GET, map_get as *const u8),
+		(MAP_SET, map_set as *const u8),
+		(MAP_DELETE, map_delete as *const u8),
+		(MAP_SHARE, map_share as *const u8),
+		(REF_SHARE, ref_share as *const u8),
+		(REF_RELEASE, ref_release as *const u8),
+	]
+}
