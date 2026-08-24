@@ -19,13 +19,13 @@ fn import_missing() {
 
 #[test]
 fn import_std() {
-	check(["use std", r#"print("ok")"#], "ok");
+	check(["use core", r#"print("ok")"#], "ok");
 }
 
 #[test]
 fn import_trait() {
-	check(["use std.{ Ord }", "print(int is Ord)"], "true");
-	check(["use std.{ Order :: Ord }", "print(int is Order)"], "true");
+	check(["use core.{ Ord }", "print(int is Ord)"], "true");
+	check(["use core.{ Order :: Ord }", "print(int is Order)"], "true");
 }
 
 #[test]

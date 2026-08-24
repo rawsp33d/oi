@@ -159,7 +159,7 @@ fn fill_must_match_the_trait() {
 	"};
 	fail_with(
 		src,
-		"`Point.eq` is `fn(Point, int) bool`, trait `std::Eq` declares `fn(Point, Point) bool`",
+		"`Point.eq` is `fn(Point, int) bool`, trait `core::Eq` declares `fn(Point, Point) bool`",
 	);
 }
 

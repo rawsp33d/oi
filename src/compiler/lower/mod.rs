@@ -55,7 +55,7 @@ pub(super) struct Translator<'a> {
 	pub traits: &'a HashMap<&'a str, TraitItem<'a>>,
 	pub generic_fns: &'a HashMap<String, GenericFnDef>,
 	pub trait_impls: &'a HashSet<(String, String)>,
-	pub std_traits: &'a HashSet<String>,
+	pub core_traits: &'a HashSet<String>,
 	pub scope: &'a Scope,
 	pub map: &'a SourceMap,
 	pub publics: &'a HashSet<String>,

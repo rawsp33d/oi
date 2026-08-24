@@ -6,12 +6,32 @@ use std::fs;
 use std::path::Path;
 
 use chumsky::{input::Stream, prelude::*};
+use include_dir::{Dir, include_dir};
 
 use crate::Reported;
 use crate::ast::{Expr, Span, Spanned, TypeExpr, UseItem};
 use crate::diagnostics::{Diagnostic, SourceMap};
 use crate::lexer::lex_at;
 use crate::parser::parser;
+
+static CORE: Dir = include_dir!("$CARGO_MANIFEST_DIR/core");
+
+fn core_files(dir: &Dir) -> Vec<(String, String)> {
+	let mut files: Vec<_> = dir
+		.files()
+		.filter(|f| f.path().extension().is_some_and(|x| x == "oi"))
+		.collect();
+	files.sort_by_key(|f| f.path());
+	files
+		.into_iter()
+		.map(|f| {
+			(
+				format!("core/{}", f.path().display()),
+				f.contents_utf8().unwrap_or_default().to_string(),
+			)
+		})
+		.collect()
+}
 
 // A parsed module.
 pub struct Module {
@@ -319,13 +339,15 @@ impl Loader<'_> {
 		Ok(())
 	}
 
-	// Load one source as a whole module.
-	fn load_source(&mut self, name: &str, file: &str, src: String) -> Result<(), Reported> {
-		let base = self.map.push(file.to_string(), src);
-		let items = parse_file(&self.map, base)?;
+	// Parse a set of files into one module.
+	fn load_files(&mut self, name: &str, files: Vec<(String, String)>) -> Result<(), Reported> {
 		let mut module = Module::new(name);
 		let mut imports = vec![];
-		self.add_file(&mut module, &mut imports, items).map_err(|d| self.report(d))?;
+		for (file, src) in files {
+			let base = self.map.push(file, src);
+			let items = parse_file(&self.map, base)?;
+			self.add_file(&mut module, &mut imports, items).map_err(|d| self.report(d))?;
+		}
 		self.seal(module, imports)
 	}
 
@@ -338,26 +360,30 @@ impl Loader<'_> {
 		if self.modules.iter().any(|m| m.name == name) {
 			return Ok(());
 		}
-		let mut files: Vec<_> = fs::read_dir(self.root.join(name))
+		let mut disk: Vec<_> = fs::read_dir(self.root.join(name))
 			.into_iter()
 			.flatten()
 			.flatten()
 			.map(|e| e.path())
 			.filter(|p| p.extension().is_some_and(|x| x == "oi"))
 			.collect();
-		files.sort();
+		disk.sort();
+		let files: Vec<(String, String)> = if !disk.is_empty() {
+			disk.into_iter()
+				.map(|path| {
+					(
+						path.display().to_string(),
+						fs::read_to_string(&path).unwrap_or_default(),
+					)
+				})
+				.collect()
+		} else {
+			CORE.get_dir(name).map(core_files).unwrap_or_default()
+		};
 		if files.is_empty() {
 			return Err(self.report(err(format!("cannot find module `{name}`"), span, "no such module")));
 		}
-		let mut module = Module::new(name);
-		let mut imports = vec![];
-		for path in files {
-			let src = fs::read_to_string(&path).unwrap_or_default();
-			let base = self.map.push(path.display().to_string(), src);
-			let items = parse_file(&self.map, base)?;
-			self.add_file(&mut module, &mut imports, items).map_err(|d| self.report(d))?;
-		}
-		self.seal(module, imports)
+		self.load_files(name, files)
 	}
 
 	// Collapse `pub use` chains to their final targets, then point every binding at them.
@@ -383,14 +409,14 @@ impl Loader<'_> {
 		resolved
 	}
 
-	// Every module implicitly uses std.
+	// Every module implicitly uses core.
 	fn seed_prelude(&mut self) {
-		let std_pub: Vec<&String> = self.publics.iter().filter(|q| q.starts_with("std::")).collect();
-		for m in self.modules.iter_mut().filter(|m| m.name != "std") {
-			for q in &std_pub {
+		let core_pub: Vec<&String> = self.publics.iter().filter(|q| q.starts_with("core::")).collect();
+		for m in self.modules.iter_mut().filter(|m| m.name != "core") {
+			for q in &core_pub {
 				m.scope
 					.env
-					.entry(q.strip_prefix("std::").unwrap().to_string())
+					.entry(q.strip_prefix("core::").unwrap().to_string())
 					.or_insert_with(|| (*q).clone());
 			}
 		}
@@ -444,9 +470,9 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 		loading: vec![],
 		selected: vec![],
 	};
-	// import std implicitly
-	loader.load_source("std", "std.oi", include_str!("std.oi").into())?;
-	loader.load_source("main", entry_name, entry_src)?;
+	// import core implicitly
+	loader.load_files("core", core_files(&CORE))?;
+	loader.load_files("main", vec![(entry_name.into(), entry_src)])?;
 	let reexports = loader.resolve_reexports();
 	loader.seed_prelude();
 	loader.check_selected()?;

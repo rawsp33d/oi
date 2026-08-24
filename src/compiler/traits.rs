@@ -26,10 +26,10 @@ pub(crate) fn builtin_claim(typ: &Typ, tn: &str) -> bool {
 	use Typ::*;
 	match typ {
 		Int(_) => true,
-		UInt(_) | ISize | USize => tn != "std::Neg",
-		Float(_) => tn != "std::Mod",
-		Bool | Atom => matches!(tn, "std::Eq" | "std::Ord"),
-		Str => matches!(tn, "std::Eq" | "std::Add"),
+		UInt(_) | ISize | USize => tn != "core::Neg",
+		Float(_) => tn != "core::Mod",
+		Bool | Atom => matches!(tn, "core::Eq" | "core::Ord"),
+		Str => matches!(tn, "core::Eq" | "core::Add"),
 		_ => false,
 	}
 }
@@ -92,7 +92,7 @@ pub(crate) fn fill_from_decl(
 pub(super) fn check_impls<'p>(
 	trait_bodies: Vec<TraitBody<'p>>,
 	traits: &HashMap<&'p str, TraitItem<'p>>,
-	std_traits: &HashSet<String>,
+	core_traits: &HashSet<String>,
 	trait_impls: &HashSet<(String, String)>,
 	types: TypeCtx,
 	others: &mut Vec<FnItem<'p>>,
@@ -191,8 +191,8 @@ pub(super) fn check_impls<'p>(
 			let (mut got, want) = (sig(&params, &ret)?, sig(tp, tr)?);
 			if matches!(
 				tn.as_str(),
-				"std::Add" | "std::Sub" | "std::Mul" | "std::Div" | "std::Mod"
-			) && std_traits.contains(tn.as_str())
+				"core::Add" | "core::Sub" | "core::Mul" | "core::Div" | "core::Mod"
+			) && core_traits.contains(tn.as_str())
 				&& let (Typ::Fn(gp, _), Typ::Fn(wp, _)) = (&mut got, &want)
 				&& let ([_, gother], [_, wother]) = (gp.as_mut_slice(), wp.as_slice())
 			{

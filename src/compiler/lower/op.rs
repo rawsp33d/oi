@@ -76,7 +76,7 @@ impl<'a> Translator<'a> {
 	// `Eq` fill, or structural diff by default.
 	fn emit_val_eq(&mut self, a: Value, b: Value, t: &Typ, owner: &str, span: Span) -> Result<Value, Diagnostic> {
 		if let Typ::Struct(n, _) | Typ::Enum(n) = t
-			&& let Some(sig) = self.fill(n, "std::Eq", "eq", 2)
+			&& let Some(sig) = self.fill(n, "core::Eq", "eq", 2)
 		{
 			return Ok(self.emit_call(&sig, &[a, b]).0);
 		}
@@ -105,7 +105,7 @@ impl<'a> Translator<'a> {
 	// Whether `typ` claims `tn`.
 	pub(super) fn claims(&self, typ: &Typ, tn: &str) -> bool {
 		self.trait_impls.contains(&(typ.key(), tn.to_string()))
-			|| (self.std_traits.contains(tn) && builtin_claim(typ, tn))
+			|| (self.core_traits.contains(tn) && builtin_claim(typ, tn))
 	}
 
 	// Compare two structs field by field.
@@ -202,11 +202,11 @@ impl<'a> Translator<'a> {
 	) -> Result<TypedVal, Diagnostic> {
 		let (lv, lt) = self.expr(l)?;
 		let (tn, method) = match op {
-			BinOp::Add => ("std::Add", "add"),
-			BinOp::Sub => ("std::Sub", "sub"),
-			BinOp::Mul => ("std::Mul", "mul"),
-			BinOp::Div => ("std::Div", "div"),
-			BinOp::Mod => ("std::Mod", "mod"),
+			BinOp::Add => ("core::Add", "add"),
+			BinOp::Sub => ("core::Sub", "sub"),
+			BinOp::Mul => ("core::Mul", "mul"),
+			BinOp::Div => ("core::Div", "div"),
+			BinOp::Mod => ("core::Mod", "mod"),
 			_ => unreachable!("non-arithmetic op in binop"),
 		};
 
@@ -357,7 +357,7 @@ impl<'a> Translator<'a> {
 					let eq = self.emit_val_eq(lv, rv, l, &lt.to_string(), span)?;
 					self.b.ins().icmp_imm(cc, eq, 0)
 				} else if let Typ::Struct(n, _) | Typ::Enum(n) = l
-					&& let Some(sig) = self.fill(n, "std::Ord", "lt", 2)
+					&& let Some(sig) = self.fill(n, "core::Ord", "lt", 2)
 				{
 					let (a, b) = if reversed { (rv, lv) } else { (lv, rv) };
 					let less = self.emit_call(&sig, &[a, b]).0;

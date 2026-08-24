@@ -629,12 +629,12 @@ impl<'a> Translator<'a> {
 
 	// Whether `typ` claims std `Error`, boxing into the open `Error` type.
 	pub(super) fn open_error(&self, typ: &Typ) -> bool {
-		self.trait_impls.contains(&(typ.key(), "std::Error".to_string()))
+		self.trait_impls.contains(&(typ.key(), "core::Error".to_string()))
 	}
 
 	// Box a claimer of `Error` behind its vtable.
 	pub(super) fn box_error(&mut self, val: Value, typ: &Typ) -> Value {
-		self.box_trait_object(val, &typ.key(), "std::Error")
+		self.box_trait_object(val, &typ.key(), "core::Error")
 	}
 
 	// Box `val` (an instance of `name`) behind its `name`/`tn` vtable.

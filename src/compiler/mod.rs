@@ -202,7 +202,7 @@ pub struct Compiler {
 	mono: HashMap<String, FnSig>,
 	pending: Vec<Pending>,
 	trait_impls: HashSet<(String, String)>,
-	std_traits: HashSet<String>,
+	core_traits: HashSet<String>,
 	descs: HashMap<String, DataId>,
 	publics: HashSet<String>,
 	privates: HashMap<String, HashSet<String>>,
@@ -264,7 +264,7 @@ impl Default for Compiler {
 			mono: HashMap::new(),
 			pending: Vec::new(),
 			trait_impls: HashSet::new(),
-			std_traits: HashSet::new(),
+			core_traits: HashSet::new(),
 			descs: HashMap::new(),
 			publics: HashSet::new(),
 			privates: HashMap::new(),
@@ -417,8 +417,8 @@ impl Compiler {
 				let msg = format!("duplicate trait `{name}`");
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("already defined"));
 			}
-			if scope.module == "std" {
-				self.std_traits.insert(name.clone());
+			if scope.module == "core" {
+				self.core_traits.insert(name.clone());
 			}
 		}
 		for (scope, item) in items() {
@@ -650,7 +650,7 @@ impl Compiler {
 		check_impls(
 			trait_bodies,
 			&traits,
-			&self.std_traits,
+			&self.core_traits,
 			&self.trait_impls,
 			field_types,
 			&mut others,
@@ -908,7 +908,7 @@ impl Compiler {
 			traits: types.traits,
 			generic_fns: &self.generics,
 			trait_impls: &self.trait_impls,
-			std_traits: &self.std_traits,
+			core_traits: &self.core_traits,
 			scope: types.scope,
 			map: &self.map,
 			publics: &self.publics,
