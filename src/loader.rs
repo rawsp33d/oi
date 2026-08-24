@@ -3,7 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use chumsky::{input::Stream, prelude::*};
 use include_dir::{Dir, include_dir};
@@ -129,6 +129,7 @@ fn parse_file(map: &SourceMap, base: usize) -> Result<Vec<Spanned<Expr>>, Report
 
 struct Loader<'a> {
 	root: &'a Path,
+	entry_path: PathBuf,
 	map: SourceMap,
 	modules: Vec<Module>,
 	publics: HashSet<String>,
@@ -368,7 +369,8 @@ impl Loader<'_> {
 			.filter(|p| p.extension().is_some_and(|x| x == "oi"))
 			.collect();
 		disk.sort();
-		let files: Vec<(String, String)> = if !disk.is_empty() {
+		let candidate = self.root.join(format!("{name}.oi"));
+		let mut files: Vec<(String, String)> = if !disk.is_empty() {
 			disk.into_iter()
 				.map(|path| {
 					(
@@ -377,9 +379,24 @@ impl Loader<'_> {
 					)
 				})
 				.collect()
+		} else if candidate.is_file() && candidate != self.entry_path {
+			vec![(
+				candidate.display().to_string(),
+				fs::read_to_string(&candidate).unwrap_or_default(),
+			)]
 		} else {
-			CORE.get_dir(name).map(core_files).unwrap_or_default()
+			vec![]
 		};
+		if files.is_empty() {
+			files = match (CORE.get_dir(name), CORE.get_file(format!("{name}.oi"))) {
+				(Some(d), _) => core_files(d),
+				(_, Some(f)) => vec![(
+					format!("core/{name}.oi"),
+					f.contents_utf8().unwrap_or_default().to_string(),
+				)],
+				_ => vec![],
+			};
+		}
 		if files.is_empty() {
 			return Err(self.report(err(format!("cannot find module `{name}`"), span, "no such module")));
 		}
@@ -462,6 +479,7 @@ impl Loader<'_> {
 pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program, Reported> {
 	let mut loader = Loader {
 		root,
+		entry_path: root.join(Path::new(entry_name).file_name().unwrap_or_default()),
 		map: SourceMap::default(),
 		modules: vec![],
 		publics: HashSet::new(),

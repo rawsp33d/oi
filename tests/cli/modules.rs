@@ -439,6 +439,32 @@ fn module_fn_uses_builtins_and_prints() {
 }
 
 #[test]
+fn single_file_module() {
+	let p = Project::new()
+		.file("main.oi", ["module main", "use foo", "print(foo.hi())"])
+		.file("foo.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
+	assert_eq!(ok(run_main(p)), "7");
+}
+
+#[test]
+fn dir_wins_over_single_file_module() {
+	let p = Project::new()
+		.file("main.oi", ["module main", "use foo", "print(foo.hi())"])
+		.file("foo.oi", ["module foo", "pub hi :: fn() int { 1 }"])
+		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 2 }"]);
+	assert_eq!(ok(run_main(p)), "2");
+}
+
+#[test]
+fn single_file_module_chains_import() {
+	let p = Project::new()
+		.file("main.oi", ["module main", "use foo", "print(foo.hi())"])
+		.file("foo.oi", ["module foo", "use bar", "pub hi :: fn() int { bar.hi() }"])
+		.file("bar.oi", ["module bar", "pub hi :: fn() int { 7 }"]);
+	assert_eq!(ok(run_main(p)), "7");
+}
+
+#[test]
 fn exec_resolves_imports_against_cwd() {
 	let p = Project::new().file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 99 }"]);
 	let out = ok(oi(&["exec", "use foo\nprint(foo.hi())"]).current_dir(&p).run(None));

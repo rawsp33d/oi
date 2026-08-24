@@ -26,9 +26,10 @@ tags: []
 ## modules
 
 #{
-	For now Oi is going to do what V does for modules.
-	directory == module
-	I don't love how it handles nested modules, but I will likely revisit this in the future.
+	- directory == module
+	- every .oi file in the dir contributes to the module
+	- modules looks for single adjacent files if no folder exists (`use foo` finds `./foo.oi`)
+	- no mod/index files are needed, so `mod.oi` is merely a file
 }#
 
 # declare module
