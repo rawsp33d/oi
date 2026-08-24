@@ -746,9 +746,12 @@ where
 		let unquote = just(Token::Percent)
 			.then_ignore(adjacent)
 			.ignore_then(
-				ident()
-					.map(Expr::Unquote)
-					.or(brace(expr.clone()).map(|e| Expr::UnquoteExpr(Box::new(e)))),
+				ident().map(Expr::Unquote).or(brace(
+					just(Token::DotDotDot)
+						.ignore_then(expr.clone())
+						.map(|e| Expr::UnquoteSplat(Box::new(e)))
+						.or(expr.clone().map(|e| Expr::UnquoteExpr(Box::new(e)))),
+				)),
 			)
 			.map_with(|e, ex| (e, ex.span()));
 

@@ -318,6 +318,34 @@ pub unsafe extern "C" fn array_cow(header: *mut Header, elem_size: i64) {
 	}
 }
 
+/// Build a fresh array header owning a copy of `elems`.
+pub(crate) fn array_of(elems: &[i64]) -> *const Header {
+	let len = elems.len() as i64;
+	let data = buffer_alloc(len * 8);
+	unsafe { std::ptr::copy_nonoverlapping(elems.as_ptr(), data as *mut i64, elems.len()) };
+	let out = alloc(size_of::<Header>() as i64) as *mut Header;
+	unsafe {
+		*out = Header {
+			data: data as i64,
+			len,
+			cap: len,
+		}
+	};
+	out
+}
+
+/// Read an array header's elements as pointer-sized ints.
+/// # Safety
+/// `header` must point to a valid array header.
+pub(crate) unsafe fn array_elems<'a>(header: *const Header) -> &'a [i64] {
+	let Header { data, len, .. } = unsafe { *header };
+	if data == 0 {
+		&[]
+	} else {
+		unsafe { std::slice::from_raw_parts(data as *const i64, len as usize) }
+	}
+}
+
 /// Copy the range of an array into a fresh array.
 /// Panics if out of range.
 /// # Safety

@@ -252,6 +252,7 @@ impl Default for Compiler {
 		builder.symbol(expand::RT_QUOTE, expand::rt_quote as *const u8);
 		builder.symbol(expand::RT_AST_INT, expand::rt_ast_int as *const u8);
 		builder.symbol(expand::RT_AST_INT_VALUE, expand::rt_ast_int_value as *const u8);
+		builder.symbol(expand::RT_AST_ITEMS, expand::rt_ast_items as *const u8);
 
 		let module = JITModule::new(builder);
 		Self {

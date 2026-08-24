@@ -8,7 +8,7 @@ impl<'a> Translator<'a> {
 		let (tpl, slots) = expand::register(stmts, span)?;
 		let mut ptrs = Vec::with_capacity(slots.len());
 		for slot in &slots {
-			let (val, typ) = match slot {
+			let ptr = match slot {
 				expand::Slot::Name(name) => {
 					let Some(local) = self.vars.get(name).cloned() else {
 						return Err(Diagnostic::new(
@@ -17,11 +17,27 @@ impl<'a> Translator<'a> {
 						)
 						.with_label("not found in scope"));
 					};
-					(self.read_local(&local), local.typ)
+					let val = self.read_local(&local);
+					self.lift_unquote(val, &local.typ, span)?
 				}
-				expand::Slot::Expr(e) => self.expr(e)?,
+				expand::Slot::Expr(e) => {
+					let (val, typ) = self.expr(e)?;
+					self.lift_unquote(val, &typ, span)?
+				}
+				expand::Slot::Splat(e) => {
+					let (val, typ) = self.expr(e)?;
+					if !matches!(&typ, Typ::Array(inner) if **inner == Typ::Ast) {
+						return Err(Diagnostic::new(
+							format!("can't spread a `{typ}`, expected `[]Ast`"),
+							e.1.into_range(),
+						)
+						.with_label("not []Ast"));
+					}
+					// the header pointer itself: rt_quote reads the elements
+					val
+				}
 			};
-			ptrs.push(self.lift_unquote(val, &typ, span)?);
+			ptrs.push(ptr);
 		}
 		let slot = if ptrs.is_empty() {
 			self.b.ins().iconst(self.int, 0)

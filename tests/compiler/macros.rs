@@ -227,3 +227,39 @@ fn unquote_expr_may_call_a_macro() {
 		"7",
 	);
 }
+
+#[test]
+fn splat_spreads_into_call_args() {
+	check(
+		indoc! {r"
+			add3 :: fn(a: int, b: int, c: int) int { a + b + c }
+			sum! :: fn(xs: Ast) Ast { `add3(%{...xs.items()})` }
+			print(sum!([1, 2, 3]))
+		"},
+		"6",
+	);
+}
+
+#[test]
+fn splat_spreads_into_statements() {
+	check(
+		indoc! {r"
+			noisy! :: fn() Ast {
+				xs := [`print(1)`, `print(2)`]
+				`%{...xs}`
+			}
+			noisy!()
+			print(3)
+		"},
+		["1", "2", "3"],
+	);
+}
+
+#[test]
+fn splat_needs_an_ast_array() {
+	let src = indoc! {r"
+		bad! :: fn(x: Ast) Ast { `f(%{...x.int()})` }
+		bad!(1)
+	"};
+	fail_with(src, "expected `[]Ast`");
+}

@@ -233,6 +233,11 @@ impl<'a> Translator<'a> {
 						let raw = self.b.inst_results(call)[0];
 						return Ok((self.b.ins().ireduce(types::I32, raw), Typ::Int(32)));
 					}
+					if recv_typ == Typ::Ast && method == "items" && args.is_empty() {
+						let func = self.import_fn(expand::RT_AST_ITEMS, &[self.int], Some(self.int));
+						let call = self.b.ins().call(func, &[recv_val]);
+						return Ok((self.b.inst_results(call)[0], Typ::Array(Box::new(Typ::Ast))));
+					}
 					if method == "str"
 						&& args.is_empty() && !matches!(recv_typ, Typ::Struct(..) | Typ::TupleStruct(..) | Typ::Enum(..))
 					{
@@ -609,7 +614,7 @@ impl<'a> Translator<'a> {
 			Expr::Doc(_) | Expr::Module(_) | Expr::Use { .. } | Expr::Pub(_) => unreachable!("not an expression"),
 			Expr::MacroDef { .. } => unreachable!("removed by macro expansion"),
 			Expr::Quote(stmts) => self.quote(stmts, expr.1),
-			Expr::Unquote(_) | Expr::UnquoteExpr(_) => Err(Diagnostic::new(
+			Expr::Unquote(_) | Expr::UnquoteExpr(_) | Expr::UnquoteSplat(_) => Err(Diagnostic::new(
 				"unquotes only make sense inside a quote",
 				expr.1.into_range(),
 			)

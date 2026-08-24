@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use crate::ast::{Capture, Child, Expr, Param, Pattern, Span, Spanned, TypeExpr};
 use crate::diagnostics::Diagnostic;
 use crate::loader::{Module, Program};
+use crate::runtime;
 
 use super::Compiler;
 
@@ -18,6 +19,7 @@ const MAX_PARAMS: usize = 4;
 pub(crate) const RT_QUOTE: &str = "oi_rt_quote";
 pub(crate) const RT_AST_INT: &str = "oi_rt_ast_int";
 pub(crate) const RT_AST_INT_VALUE: &str = "oi_rt_ast_int_value";
+pub(crate) const RT_AST_ITEMS: &str = "oi_rt_ast_items";
 
 fn fail<T>(msg: impl Into<String>, span: Span, label: &str) -> Result<T, Diagnostic> {
 	Err(Diagnostic::new(msg, span.into_range()).with_label(label))
@@ -69,7 +71,7 @@ fn direct_calls(e: &mut Expr, macros: &HashMap<String, (usize, *const u8)>, in_q
 	}
 	let child_in_quote = match e {
 		Expr::Quote(_) => true,
-		Expr::UnquoteExpr(_) => false,
+		Expr::UnquoteExpr(_) | Expr::UnquoteSplat(_) => false,
 		_ => in_quote,
 	};
 	e.for_children(|c| match c {
@@ -209,7 +211,7 @@ impl Expander {
 				match &e.0 {
 					Expr::Fn { name, .. } if name.contains('!') => Ok(()),
 					Expr::Quote(_) => fail("quotes are only allowed inside macro definitions", e.1, "stray quote"),
-					Expr::Unquote(_) | Expr::UnquoteExpr(_) => {
+					Expr::Unquote(_) | Expr::UnquoteExpr(_) | Expr::UnquoteSplat(_) => {
 						fail("unquotes only make sense inside a macro template", e.1, "stray unquote")
 					}
 					Expr::MacroDef { .. } => {
@@ -269,6 +271,14 @@ fn die(msg: &str) -> ! {
 pub(crate) enum Slot {
 	Name(String),
 	Expr(Spanned<Expr>),
+	Splat(Spanned<Expr>),
+}
+
+// An instantiation argument.
+// One Ast, or a splat's `[]Ast` elements.
+enum Arg<'a> {
+	Ast(&'a Spanned<Expr>),
+	Seq(Vec<Spanned<Expr>>),
 }
 
 fn push_name(slots: &mut Vec<Slot>, n: &str) {
@@ -283,10 +293,13 @@ fn scan(e: &mut Expr, slots: &mut Vec<Slot>, bound: &mut HashSet<String>, nested
 	match e {
 		Expr::Quote(_) => *nested = true,
 		Expr::Unquote(n) => push_name(slots, n),
-		Expr::UnquoteExpr(inner) => {
-			let key = slots.len().to_string();
+		Expr::UnquoteExpr(inner) | Expr::UnquoteSplat(inner) => {
 			let taken = std::mem::replace(inner.as_mut(), (Expr::Unquote(String::new()), (0..0).into()));
-			slots.push(Slot::Expr(taken));
+			let (key, slot) = match e {
+				Expr::UnquoteSplat(_) => (format!("...{}", slots.len()), Slot::Splat(taken)),
+				_ => (slots.len().to_string(), Slot::Expr(taken)),
+			};
+			slots.push(slot);
 			*e = Expr::Unquote(key);
 		}
 		Expr::Bind { name, .. } if name.starts_with('%') => push_name(slots, &name[1..]),
@@ -317,6 +330,7 @@ pub(crate) fn register(stmts: &[Spanned<Expr>], span: Span) -> Result<(usize, Ve
 		.map(|(i, s)| match s {
 			Slot::Name(n) => n.clone(),
 			Slot::Expr(_) => i.to_string(),
+			Slot::Splat(_) => format!("...{i}"),
 		})
 		.collect();
 	let tpl = Template { names, stmts, bound };
@@ -326,9 +340,12 @@ pub(crate) fn register(stmts: &[Spanned<Expr>], span: Span) -> Result<(usize, Ve
 // One pass over a template copy.
 // Adds a suffix to the template's own binders for good hygiene (see what I did there?).
 // Splices `%name` arguments in verbatim.
-fn fill(e: &mut Spanned<Expr>, bound: &HashSet<String>, args: &HashMap<&str, &Spanned<Expr>>, suffix: usize) {
+fn fill(e: &mut Spanned<Expr>, bound: &HashSet<String>, args: &HashMap<&str, Arg>, suffix: usize) {
 	if let Expr::Unquote(name) = &e.0 {
-		*e = (*args[name.as_str()]).clone();
+		match &args[name.as_str()] {
+			Arg::Ast(v) => *e = (*v).clone(),
+			Arg::Seq(_) => die("%{...} spread needs a sequence position"),
+		}
 		return;
 	}
 	let rename = &mut |n: &mut String| {
@@ -359,15 +376,45 @@ fn fill(e: &mut Spanned<Expr>, bound: &HashSet<String>, args: &HashMap<&str, &Sp
 	if let Expr::Bind { name, .. } = &mut e.0
 		&& let Some(param) = name.strip_prefix('%')
 	{
-		let Expr::Ident(n) = &args[param].0 else {
+		let Arg::Ast((Expr::Ident(n), _)) = &args[param] else {
 			die("a `%name` binder needs a plain name argument");
 		};
 		*name = n.clone();
 	}
-	e.0.for_children(|c| match c {
-		List(list) => list.iter_mut().for_each(|i| fill(i, bound, args, suffix)),
-		One(one) => fill(one, bound, args, suffix),
-	});
+	match &mut e.0 {
+		Expr::Call { args: list, .. }
+		| Expr::MacroCall { args: list, .. }
+		| Expr::EnumShorthand { args: list, .. }
+		| Expr::Array(list)
+		| Expr::DotArray(_, list)
+		| Expr::DotTuple(list) => splice(list, bound, args, suffix),
+		Expr::MethodCall { recv, args: list, .. } => {
+			fill(recv, bound, args, suffix);
+			splice(list, bound, args, suffix);
+		}
+		_ => e.0.for_children(|c| match c {
+			List(list) => splice(list, bound, args, suffix),
+			One(one) => fill(one, bound, args, suffix),
+		}),
+	}
+}
+
+// Walk a sequence position, splicing `%{...expr}` slots in verbatim and filling everything else.
+fn splice(list: &mut Vec<Spanned<Expr>>, bound: &HashSet<String>, args: &HashMap<&str, Arg>, suffix: usize) {
+	let mut i = 0;
+	while i < list.len() {
+		if let Expr::Unquote(n) = &list[i].0
+			&& let Arg::Seq(items) = &args[n.as_str()]
+		{
+			let items = items.clone();
+			let n = items.len();
+			list.splice(i..i + 1, items);
+			i += n;
+		} else {
+			fill(&mut list[i], bound, args, suffix);
+			i += 1;
+		}
+	}
 }
 
 // Instantiate the template at `tpl`, substituting `args` by position against its unquote names.
@@ -381,16 +428,23 @@ pub(crate) extern "C" fn rt_quote(tpl: usize, args: *const *mut Spanned<Expr>, l
 		unsafe { std::slice::from_raw_parts(args, len) }
 	};
 	let suffix = HYGIENE.fetch_add(1, Ordering::Relaxed) + 1;
-	let map: HashMap<&str, &Spanned<Expr>> = tpl
+	let map: HashMap<&str, Arg> = tpl
 		.names
 		.iter()
-		.map(String::as_str)
-		.zip(args.iter().map(|&p| unsafe { &*p }))
+		.zip(args)
+		.map(|(n, &p)| {
+			let arg = if n.starts_with("...") {
+				// SAFETY: the lowerer passes a `[]Ast` header for splat slots
+				let elems = unsafe { runtime::array_elems(p.cast()) };
+				Arg::Seq(elems.iter().map(|&q| unsafe { (*(q as *mut Spanned<Expr>)).clone() }).collect())
+			} else {
+				Arg::Ast(unsafe { &*p })
+			};
+			(n.as_str(), arg)
+		})
 		.collect();
 	let mut stmts = tpl.stmts.clone();
-	for e in &mut stmts {
-		fill(e, &tpl.bound, &map, suffix);
-	}
+	splice(&mut stmts, &tpl.bound, &map, suffix);
 	let result = match stmts.len() {
 		1 => stmts.pop().unwrap(),
 		_ => {
@@ -410,4 +464,18 @@ pub(crate) extern "C" fn rt_ast_int_value(a: *mut Spanned<Expr>) -> i64 {
 		Expr::Int(n) => *n,
 		_ => die("`.int()` needs an Ast holding an Int literal"),
 	}
+}
+
+// `.items()`: the Asts making up a []Ast.
+pub(crate) extern "C" fn rt_ast_items(a: *mut Spanned<Expr>) -> *const runtime::Header {
+	let items = match unsafe { &(*a).0 } {
+		Expr::Array(v)
+		| Expr::DotArray(_, v)
+		| Expr::Block(v)
+		| Expr::Call { args: v, .. }
+		| Expr::MacroCall { args: v, .. } => v,
+		_ => die("this Ast has no items"),
+	};
+	let ptrs: Vec<i64> = items.iter().map(|e| Box::into_raw(Box::new(e.clone())) as i64).collect();
+	runtime::array_of(&ptrs)
 }
