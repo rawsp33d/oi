@@ -5,32 +5,23 @@ use super::*;
 impl<'a> Translator<'a> {
 	// Lower a quote. Register its template and build the Ast it produces at runtime.
 	pub(super) fn quote(&mut self, stmts: &[Spanned<Expr>], span: Span) -> Result<TypedVal, Diagnostic> {
-		let (tpl, names) = expand::register(stmts, span)?;
-		let mut ptrs = Vec::with_capacity(names.len());
-		for name in &names {
-			let Some(local) = self.vars.get(name).cloned() else {
-				return Err(
-					Diagnostic::new(format!("`%{name}` refers to no binding in scope"), span.into_range())
-						.with_label("not found in scope"),
-				);
-			};
-			let val = self.read_local(&local);
-			let ptr = match &local.typ {
-				Typ::Ast => val,
-				Typ::Int(_) => {
-					let v64 = self.intcast(val, types::I64, true);
-					let func = self.import_fn(expand::RT_AST_INT, &[types::I64], Some(self.int));
-					let call = self.b.ins().call(func, &[v64]);
-					self.b.inst_results(call)[0]
+		let (tpl, slots) = expand::register(stmts, span)?;
+		let mut ptrs = Vec::with_capacity(slots.len());
+		for slot in &slots {
+			let (val, typ) = match slot {
+				expand::Slot::Name(name) => {
+					let Some(local) = self.vars.get(name).cloned() else {
+						return Err(Diagnostic::new(
+							format!("`%{name}` refers to no binding in scope"),
+							span.into_range(),
+						)
+						.with_label("not found in scope"));
+					};
+					(self.read_local(&local), local.typ)
 				}
-				other => {
-					return Err(
-						Diagnostic::new(format!("can't unquote a `{other}` yet"), span.into_range())
-							.with_label("unsupported unquote type"),
-					);
-				}
+				expand::Slot::Expr(e) => self.expr(e)?,
 			};
-			ptrs.push(ptr);
+			ptrs.push(self.lift_unquote(val, &typ, span)?);
 		}
 		let slot = if ptrs.is_empty() {
 			self.b.ins().iconst(self.int, 0)
@@ -46,6 +37,23 @@ impl<'a> Translator<'a> {
 		let func = self.import_fn(expand::RT_QUOTE, &[self.int; 3], Some(self.int));
 		let call = self.b.ins().call(func, &[idxv, slot, len]);
 		Ok((self.b.inst_results(call)[0], Typ::Ast))
+	}
+
+	// Lift an unquoted value into an Ast pointer, ready to splice into a template.
+	fn lift_unquote(&mut self, val: Value, typ: &Typ, span: Span) -> Result<Value, Diagnostic> {
+		match typ {
+			Typ::Ast => Ok(val),
+			Typ::Int(_) => {
+				let v64 = self.intcast(val, types::I64, true);
+				let func = self.import_fn(expand::RT_AST_INT, &[types::I64], Some(self.int));
+				let call = self.b.ins().call(func, &[v64]);
+				Ok(self.b.inst_results(call)[0])
+			}
+			other => Err(
+				Diagnostic::new(format!("can't unquote a `{other}` yet"), span.into_range())
+					.with_label("unsupported unquote type"),
+			),
+		}
 	}
 
 	// Call the runtime panic path with `msg` and mark the current block unreachable.

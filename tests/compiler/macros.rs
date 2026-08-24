@@ -193,3 +193,37 @@ fn macro_ret_must_be_ast() {
 	"};
 	fail_with(src, "macros return `Ast`");
 }
+
+#[test]
+fn unquote_expr_splices_int_result() {
+	check(
+		indoc! {r"
+			xten! :: fn(x: Ast) Ast { `%x + %{x.int() * 10}` }
+			print(xten!(4))
+		"},
+		"44",
+	);
+}
+
+#[test]
+fn unquote_expr_nesting() {
+	check(
+		indoc! {r"
+			dub! :: fn(x: Ast) Ast { `1 + %{`%x * 2`}` }
+			print(dub!(3))
+		"},
+		"7",
+	);
+}
+
+#[test]
+fn unquote_expr_may_call_a_macro() {
+	check(
+		indoc! {r"
+			two! :: fn() Ast { `2` }
+			add! :: fn(x: Ast) Ast { `%x + %{two!()}` }
+			print(add!(5))
+		"},
+		"7",
+	);
+}

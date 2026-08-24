@@ -734,7 +734,7 @@ where
 			)
 		});
 
-		// backtick-delimited seq, evaluating to `Ast`
+		// ast literals
 		let quote = item
 			.clone()
 			.or(stmt.clone())
@@ -743,12 +743,14 @@ where
 			.collect::<Vec<_>>()
 			.delimited_by(just(Token::Backtick), just(Token::Backtick))
 			.map_with(|stmts, ex| (Expr::Quote(stmts), ex.span()));
-
-		// unquote a macro param
 		let unquote = just(Token::Percent)
 			.then_ignore(adjacent)
-			.ignore_then(ident())
-			.map_with(|name, ex| (Expr::Unquote(name), ex.span()));
+			.ignore_then(
+				ident()
+					.map(Expr::Unquote)
+					.or(brace(expr.clone()).map(|e| Expr::UnquoteExpr(Box::new(e)))),
+			)
+			.map_with(|e, ex| (e, ex.span()));
 
 		// inline macro call
 		let macro_call = ident()

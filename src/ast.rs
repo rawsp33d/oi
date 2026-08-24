@@ -106,6 +106,8 @@ pub enum Expr {
 	Quote(Vec<Spanned<Expr>>),
 	// `%name`
 	Unquote(String),
+	// `%{expr}`
+	UnquoteExpr(Box<Spanned<Expr>>),
 	// a macro expansion scoped block
 	Block(Vec<Spanned<Expr>>),
 
@@ -330,7 +332,8 @@ impl Expr {
 			| Expr::Append { value: v, .. }
 			| Expr::FieldAssign { value: v, .. }
 			| Expr::MapDelete { key: v, .. }
-			| Expr::Is { subject: v, .. } => f(One(v)),
+			| Expr::Is { subject: v, .. }
+			| Expr::UnquoteExpr(v) => f(One(v)),
 			Expr::Index {
 				collection: a,
 				index: b,

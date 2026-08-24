@@ -609,10 +609,11 @@ impl<'a> Translator<'a> {
 			Expr::Doc(_) | Expr::Module(_) | Expr::Use { .. } | Expr::Pub(_) => unreachable!("not an expression"),
 			Expr::MacroDef { .. } => unreachable!("removed by macro expansion"),
 			Expr::Quote(stmts) => self.quote(stmts, expr.1),
-			Expr::Unquote(_) => Err(
-				Diagnostic::new("unquotes only make sense inside a quote", expr.1.into_range())
-					.with_label("stray unquote"),
-			),
+			Expr::Unquote(_) | Expr::UnquoteExpr(_) => Err(Diagnostic::new(
+				"unquotes only make sense inside a quote",
+				expr.1.into_range(),
+			)
+			.with_label("stray unquote")),
 		}
 	}
 }

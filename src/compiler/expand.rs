@@ -53,9 +53,11 @@ fn for_binders(e: &mut Expr, f: &mut impl FnMut(&mut String)) {
 }
 
 // Rewrite direct macro calls from stage-0 bodies into calls of their compiled fns.
-// Calls inside quotes stay, and expand when the produced Ast is spliced.
-fn direct_calls(e: &mut Expr, macros: &HashMap<String, (usize, *const u8)>) {
-	if let Expr::MacroCall { name, args } = e
+// Unquote expressions run at comptime.
+// Other calls inside quotes stay as calls and expand later, when the produced Ast is spliced.
+fn direct_calls(e: &mut Expr, macros: &HashMap<String, (usize, *const u8)>, in_quote: bool) {
+	if !in_quote
+		&& let Expr::MacroCall { name, args } = e
 		&& macros.contains_key(name.as_str())
 	{
 		let (name, args) = (format!("{name}!"), std::mem::take(args));
@@ -65,12 +67,15 @@ fn direct_calls(e: &mut Expr, macros: &HashMap<String, (usize, *const u8)>) {
 			args,
 		};
 	}
-	if !matches!(e, Expr::Quote(_)) {
-		e.for_children(|c| match c {
-			List(list) => list.iter_mut().for_each(|(e, _)| direct_calls(e, macros)),
-			One((e, _)) => direct_calls(e, macros),
-		});
-	}
+	let child_in_quote = match e {
+		Expr::Quote(_) => true,
+		Expr::UnquoteExpr(_) => false,
+		_ => in_quote,
+	};
+	e.for_children(|c| match c {
+		List(list) => list.iter_mut().for_each(|(e, _)| direct_calls(e, macros, child_in_quote)),
+		One((e, _)) => direct_calls(e, macros, child_in_quote),
+	});
 }
 
 impl Expander {
@@ -116,7 +121,7 @@ impl Expander {
 	// Compile every macro body as a real fn, in one synthetic program, and grab their pointers.
 	fn compile_stage0(&mut self, program: &Program) -> Result<(), Diagnostic> {
 		for (e, _) in &mut self.defs {
-			direct_calls(e, &self.macros);
+			direct_calls(e, &self.macros, false);
 		}
 		let main = program
 			.modules
@@ -204,7 +209,9 @@ impl Expander {
 				match &e.0 {
 					Expr::Fn { name, .. } if name.contains('!') => Ok(()),
 					Expr::Quote(_) => fail("quotes are only allowed inside macro definitions", e.1, "stray quote"),
-					Expr::Unquote(_) => fail("unquotes only make sense inside a macro template", e.1, "stray unquote"),
+					Expr::Unquote(_) | Expr::UnquoteExpr(_) => {
+						fail("unquotes only make sense inside a macro template", e.1, "stray unquote")
+					}
 					Expr::MacroDef { .. } => {
 						fail("macros can only be defined at the top level", e.1, "nested macro def")
 					}
@@ -258,37 +265,62 @@ fn die(msg: &str) -> ! {
 	std::process::exit(1)
 }
 
+// One unquote site in a template.
+pub(crate) enum Slot {
+	Name(String),
+	Expr(Spanned<Expr>),
+}
+
+fn push_name(slots: &mut Vec<Slot>, n: &str) {
+	if !slots.iter().any(|s| matches!(s, Slot::Name(m) if m == n)) {
+		slots.push(Slot::Name(n.to_string()));
+	}
+}
+
+// Walk a template body collecting unquote slots and binders, flagging nested quotes.
+// Unquote expressions are pulled out and replaced with an `Unquote`.
+fn scan(e: &mut Expr, slots: &mut Vec<Slot>, bound: &mut HashSet<String>, nested: &mut bool) {
+	match e {
+		Expr::Quote(_) => *nested = true,
+		Expr::Unquote(n) => push_name(slots, n),
+		Expr::UnquoteExpr(inner) => {
+			let key = slots.len().to_string();
+			let taken = std::mem::replace(inner.as_mut(), (Expr::Unquote(String::new()), (0..0).into()));
+			slots.push(Slot::Expr(taken));
+			*e = Expr::Unquote(key);
+		}
+		Expr::Bind { name, .. } if name.starts_with('%') => push_name(slots, &name[1..]),
+		_ => {}
+	}
+	for_binders(e, &mut |n| {
+		bound.insert(n.clone());
+	});
+	e.for_children(|c| match c {
+		List(list) => list.iter_mut().for_each(|(e, _)| scan(e, slots, bound, nested)),
+		One((e, _)) => scan(e, slots, bound, nested),
+	});
+}
+
 // Validate a quote and leak it as a template.
-pub(crate) fn register(stmts: &[Spanned<Expr>], span: Span) -> Result<(usize, Vec<String>), Diagnostic> {
+pub(crate) fn register(stmts: &[Spanned<Expr>], span: Span) -> Result<(usize, Vec<Slot>), Diagnostic> {
 	let mut stmts = stmts.to_vec();
-	let (mut names, mut bound, mut nested) = (Vec::new(), HashSet::new(), false);
+	let (mut slots, mut bound, mut nested) = (Vec::new(), HashSet::new(), false);
 	for (e, _) in &mut stmts {
-		e.walk(&mut |e| {
-			match e {
-				Expr::Quote(_) => nested = true,
-				Expr::Unquote(n) if !names.contains(n) => names.push(n.clone()),
-				Expr::Bind { name, .. } if name.starts_with('%') => {
-					let n = name[1..].to_string();
-					if !names.contains(&n) {
-						names.push(n);
-					}
-				}
-				_ => {}
-			}
-			for_binders(e, &mut |n| {
-				bound.insert(n.clone());
-			});
-		});
+		scan(e, &mut slots, &mut bound, &mut nested);
 	}
 	if nested {
 		return fail("nested quotes aren't supported yet", span, "nested quote");
 	}
-	let tpl = Template {
-		names: names.clone(),
-		stmts,
-		bound,
-	};
-	Ok((Box::into_raw(Box::new(tpl)) as usize, names))
+	let names = slots
+		.iter()
+		.enumerate()
+		.map(|(i, s)| match s {
+			Slot::Name(n) => n.clone(),
+			Slot::Expr(_) => i.to_string(),
+		})
+		.collect();
+	let tpl = Template { names, stmts, bound };
+	Ok((Box::into_raw(Box::new(tpl)) as usize, slots))
 }
 
 // One pass over a template copy.
