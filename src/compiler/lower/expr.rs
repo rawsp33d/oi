@@ -1,3 +1,5 @@
+use crate::compiler::expand;
+
 use super::*;
 
 impl<'a> Translator<'a> {
@@ -225,6 +227,12 @@ impl<'a> Translator<'a> {
 				} else {
 					let (recv_val, recv_typ) = self.expr(recv)?;
 					let recv_typ = self.peeled(&recv_typ);
+					if recv_typ == Typ::Ast && method == "int" && args.is_empty() {
+						let func = self.import_fn(expand::RT_AST_INT_VALUE, &[self.int], Some(types::I64));
+						let call = self.b.ins().call(func, &[recv_val]);
+						let raw = self.b.inst_results(call)[0];
+						return Ok((self.b.ins().ireduce(types::I32, raw), Typ::Int(32)));
+					}
 					if method == "str"
 						&& args.is_empty() && !matches!(recv_typ, Typ::Struct(..) | Typ::TupleStruct(..) | Typ::Enum(..))
 					{
@@ -599,9 +607,12 @@ impl<'a> Translator<'a> {
 			Expr::Append { .. } => unreachable!("append in expression position"),
 			Expr::MapDelete { .. } => unreachable!("map delete in expression position"),
 			Expr::Doc(_) | Expr::Module(_) | Expr::Use { .. } | Expr::Pub(_) => unreachable!("not an expression"),
-			Expr::MacroDef { .. } | Expr::Quote(_) | Expr::Unquote(_) => {
-				unreachable!("removed by macro expansion")
-			}
+			Expr::MacroDef { .. } => unreachable!("removed by macro expansion"),
+			Expr::Quote(stmts) => self.quote(stmts, expr.1),
+			Expr::Unquote(_) => Err(
+				Diagnostic::new("unquotes only make sense inside a quote", expr.1.into_range())
+					.with_label("stray unquote"),
+			),
 		}
 	}
 }

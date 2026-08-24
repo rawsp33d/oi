@@ -34,7 +34,7 @@ impl Module {
 }
 
 // A module's view of names.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Scope {
 	pub env: HashMap<String, String>,
 	pub visible: HashMap<String, Visible>,
@@ -56,6 +56,7 @@ impl Scope {
 }
 
 // A visible module.
+#[derive(Clone)]
 pub struct Visible {
 	pub module: String,
 	pub only: Option<HashMap<String, String>>,

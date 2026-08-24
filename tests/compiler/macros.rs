@@ -133,3 +133,63 @@ fn unquote_inside_anon_fn() {
 	"};
 	check(src, "25");
 }
+
+#[test]
+fn comptime_loop_builds_ast() {
+	check(
+		indoc! {r"
+			unroll! :: fn(n: Ast, body: Ast) Ast {
+				acc := `0`
+				i := 0
+				loop i < n.int() {
+					acc = `%acc + %body`
+					i = i + 1
+				}
+				acc
+			}
+			print(unroll!(3, 5))
+		"},
+		"15",
+	);
+}
+
+#[test]
+fn comptime_recursion_through_quotes() {
+	check(
+		indoc! {r"
+			tri! :: fn(n: Ast) Ast {
+				m := n.int()
+				if m <= 1 { `1` } else {
+					k := m - 1
+					`%n + tri!(%k)`
+				}
+			}
+			print(tri!(4))
+		"},
+		"10",
+	);
+}
+
+#[test]
+fn macros_call_macros_directly() {
+	check(
+		indoc! {r"
+			one! :: fn() Ast { `1` }
+			wrap! :: fn(x: Ast) Ast {
+				y := one!()
+				`%x + %y`
+			}
+			print(wrap!(4))
+		"},
+		"5",
+	);
+}
+
+#[test]
+fn macro_ret_must_be_ast() {
+	let src = indoc! {"
+		bad! :: fn(x: Ast) int { 1 }
+		bad!(1)
+	"};
+	fail_with(src, "macros return `Ast`");
+}

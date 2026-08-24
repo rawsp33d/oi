@@ -209,6 +209,7 @@ pub struct Compiler {
 	reexports: HashMap<String, String>,
 	consts: HashMap<String, Spanned<Expr>>,
 	map: SourceMap,
+	hoisted: HashMap<String, FnSig>,
 }
 
 impl Default for Compiler {
@@ -248,6 +249,9 @@ impl Default for Compiler {
 		builder.symbol(runtime::MAP_SHARE, runtime::map_share as *const u8);
 		builder.symbol(runtime::REF_SHARE, runtime::ref_share as *const u8);
 		builder.symbol(runtime::REF_RELEASE, runtime::ref_release as *const u8);
+		builder.symbol(expand::RT_QUOTE, expand::rt_quote as *const u8);
+		builder.symbol(expand::RT_AST_INT, expand::rt_ast_int as *const u8);
+		builder.symbol(expand::RT_AST_INT_VALUE, expand::rt_ast_int_value as *const u8);
 
 		let module = JITModule::new(builder);
 		Self {
@@ -267,6 +271,7 @@ impl Default for Compiler {
 			reexports: HashMap::new(),
 			consts: HashMap::new(),
 			map: SourceMap::default(),
+			hoisted: HashMap::new(),
 		}
 	}
 }
@@ -387,16 +392,12 @@ impl Compiler {
 		let scope_of = |key: &str| scopes[key.split_once("::").map_or("main", |(m, _)| m)];
 
 		// expand user macros to AST
-		let expanded: HashMap<&str, Vec<Spanned<Expr>>> = program
-			.modules
-			.iter()
-			.map(|m| Ok::<_, Diagnostic>((m.name.as_str(), expand(m.items.clone())?)))
-			.collect::<Result<_, _>>()?;
+		let expanded = expand(program)?;
 		let items = || {
 			program
 				.modules
 				.iter()
-				.flat_map(|m| expanded[m.name.as_str()].iter().map(move |i| (&m.scope, i)))
+				.flat_map(|m| expanded[&m.name].iter().map(move |i| (&m.scope, i)))
 		};
 
 		let mut traits: HashMap<&str, TraitItem> = HashMap::new();
@@ -826,6 +827,7 @@ impl Compiler {
 		}
 
 		let id = self.compile_entry(entry_id, typ, &funcs, types);
+		self.hoisted = funcs;
 
 		self.module.finalize_definitions().expect("finalize definitions");
 		Ok(self.module.get_finalized_function(id))

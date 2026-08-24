@@ -93,6 +93,7 @@ pub enum Expr {
 	MacroDef {
 		name: String,
 		params: Vec<Param>,
+		ret: Option<Spanned<TypeExpr>>,
 		body: Vec<Spanned<Expr>>,
 	},
 

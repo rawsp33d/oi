@@ -1,29 +1,36 @@
-// User-defined macros.
+// User-defined comptime macros.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::ast::{Capture, Child, Expr, Param, Pattern, Span, Spanned, TypeExpr};
 use crate::diagnostics::Diagnostic;
+use crate::loader::{Module, Program};
+
+use super::Compiler;
 
 use Child::{List, One};
 
 const BUILTINS: [&str; 5] = ["dbg", "assert", "panic", "todo", "unreachable"];
 const MAX_DEPTH: usize = 64;
+const MAX_PARAMS: usize = 4;
+
+pub(crate) const RT_QUOTE: &str = "oi_rt_quote";
+pub(crate) const RT_AST_INT: &str = "oi_rt_ast_int";
+pub(crate) const RT_AST_INT_VALUE: &str = "oi_rt_ast_int_value";
 
 fn fail<T>(msg: impl Into<String>, span: Span, label: &str) -> Result<T, Diagnostic> {
 	Err(Diagnostic::new(msg, span.into_range()).with_label(label))
 }
 
-struct Macro {
-	params: Vec<String>,
-	bound: HashSet<String>,
-	body: Vec<Spanned<Expr>>,
-}
-
 #[derive(Default)]
 struct Expander {
-	macros: HashMap<String, Macro>,
-	counter: usize,
+	// stage-0 fns, in definition order
+	defs: Vec<Spanned<Expr>>,
+	// name -> (arity, stage-0 fn pointer)
+	macros: HashMap<String, (usize, *const u8)>,
+	// keeps the stage-0 JIT and its code alive for every call this pass makes
+	stage0: Option<Compiler>,
 }
 
 // Visit every name-binding site in expr.
@@ -45,57 +52,25 @@ fn for_binders(e: &mut Expr, f: &mut impl FnMut(&mut String)) {
 	}
 }
 
-// One pass over a template copy.
-// Adds suffix to the template's own binders for good hygiene (see what I did there?).
-// Splices `%name` arguments in verbatim.
-fn fill(e: &mut Spanned<Expr>, m: &Macro, args: &[Spanned<Expr>], suffix: usize) -> Result<(), Diagnostic> {
-	let idx = |name: &str, span: Span| {
-		m.params.iter().position(|p| p == name).ok_or_else(|| {
-			Diagnostic::new(format!("no macro param named `{name}`"), span.into_range()).with_label("unknown param")
-		})
-	};
-	if let Expr::Unquote(name) = &e.0 {
-		*e = args[idx(name, e.1)?].clone();
-		return Ok(());
-	}
-	let rename = &mut |n: &mut String| {
-		if m.bound.contains(n.as_str()) {
-			*n = format!("{n}#{suffix}");
-		}
-	};
-	for_binders(&mut e.0, rename);
-	match &mut e.0 {
-		Expr::Ident(n)
-		| Expr::Assign { name: n, .. }
-		| Expr::Call { name: n, .. }
-		| Expr::FieldAssign { name: n, .. }
-		| Expr::IndexAssign { name: n, .. }
-		| Expr::Append { name: n, .. }
-		| Expr::MapDelete { name: n, .. } => rename(n),
-		Expr::Destructure { names, bind: false, .. } => names.iter_mut().for_each(|(_, n)| rename(n)),
-		Expr::AnonFn {
-			captures: Some(list), ..
-		} => {
-			for c in list {
-				let (Capture::ReadOnly(n) | Capture::Mut(n) | Capture::Move(n)) = c;
-				rename(n);
-			}
-		}
-		_ => {}
-	}
-	if let Expr::Bind { name, .. } = &mut e.0
-		&& let Some(param) = name.strip_prefix('%')
+// Rewrite direct macro calls from stage-0 bodies into calls of their compiled fns.
+// Calls inside quotes stay, and expand when the produced Ast is spliced.
+fn direct_calls(e: &mut Expr, macros: &HashMap<String, (usize, *const u8)>) {
+	if let Expr::MacroCall { name, args } = e
+		&& macros.contains_key(name.as_str())
 	{
-		let i = idx(param, e.1)?;
-		let Expr::Ident(n) = &args[i].0 else {
-			return fail("a `%name` binder needs a plain name argument", args[i].1, "not a name");
+		let (name, args) = (format!("{name}!"), std::mem::take(args));
+		*e = Expr::Call {
+			name,
+			type_args: vec![],
+			args,
 		};
-		*name = n.clone();
 	}
-	e.0.try_children(|c| match c {
-		List(list) => list.iter_mut().try_for_each(|i| fill(i, m, args, suffix)),
-		One(one) => fill(one, m, args, suffix),
-	})
+	if !matches!(e, Expr::Quote(_)) {
+		e.for_children(|c| match c {
+			List(list) => list.iter_mut().for_each(|(e, _)| direct_calls(e, macros)),
+			One((e, _)) => direct_calls(e, macros),
+		});
+	}
 }
 
 impl Expander {
@@ -103,35 +78,68 @@ impl Expander {
 		&mut self,
 		name: String,
 		params: Vec<Param>,
+		ret: Option<Spanned<TypeExpr>>,
 		body: Vec<Spanned<Expr>>,
 		span: Span,
 	) -> Result<(), Diagnostic> {
+		let ast = |te: &TypeExpr| matches!(te, TypeExpr::Name(n) if n == "Ast");
 		if BUILTINS.contains(&name.as_str()) {
 			return fail(format!("`{name}!` is a builtin macro"), span, "reserved name");
 		}
 		if self.macros.contains_key(&name) {
 			return fail(format!("`{name}!` is already defined"), span, "duplicate macro");
 		}
-		if let Some(p) = params.iter().find(|p| !matches!(&p.typ, TypeExpr::Name(n) if n == "Ast")) {
+		if let Some(p) = params.iter().find(|p| !ast(&p.typ)) {
 			return fail("macro params must be `Ast`", p.span, "not Ast");
 		}
-		let [(Expr::Quote(stmts), _)] = body.as_slice() else {
-			return fail(
-				"only template macros (a body of exactly one quote) are supported yet",
-				span,
-				"macro body",
-			);
-		};
-		let (mut body, mut bound) = (stmts.clone(), HashSet::new());
-		for (e, _) in body.iter_mut() {
-			e.walk(&mut |e| {
-				for_binders(e, &mut |n| {
-					bound.insert(n.clone());
-				});
-			});
+		if params.len() > MAX_PARAMS {
+			return fail("macros take at most 4 arguments for now", span, "too many parameters");
 		}
-		let params = params.into_iter().map(|p| p.name).collect();
-		self.macros.insert(name, Macro { params, bound, body });
+		if let Some((te, rspan)) = &ret
+			&& !ast(te)
+		{
+			return fail("macros return `Ast`", *rspan, "not Ast");
+		}
+		self.macros.insert(name.clone(), (params.len(), std::ptr::null()));
+		let f = Expr::Fn {
+			name: format!("{name}!"),
+			type_params: vec![],
+			params_tuple: params.len() != 1,
+			params,
+			ret: Some((TypeExpr::Name("Ast".into()), (0..0).into())),
+			body,
+		};
+		self.defs.push((f, span));
+		Ok(())
+	}
+
+	// Compile every macro body as a real fn, in one synthetic program, and grab their pointers.
+	fn compile_stage0(&mut self, program: &Program) -> Result<(), Diagnostic> {
+		for (e, _) in &mut self.defs {
+			direct_calls(e, &self.macros);
+		}
+		let main = program
+			.modules
+			.iter()
+			.find(|m| m.name == "main")
+			.expect("a `main` module always exists");
+		let synthetic = Program {
+			map: program.map.clone(),
+			modules: vec![Module {
+				name: "main".into(),
+				items: std::mem::take(&mut self.defs),
+				scope: main.scope.clone(),
+			}],
+			publics: HashSet::new(),
+			reexports: HashMap::new(),
+			consts: HashMap::new(),
+		};
+		let mut compiler = Compiler::default();
+		compiler.compile(&synthetic)?;
+		for (name, (_, ptr)) in &mut self.macros {
+			*ptr = compiler.module.get_finalized_function(compiler.hoisted[&format!("{name}!")].id);
+		}
+		self.stage0 = Some(compiler);
 		Ok(())
 	}
 
@@ -140,22 +148,27 @@ impl Expander {
 		let Expr::MacroCall { name, args } = &e.0 else {
 			return Ok(None);
 		};
-		let Some(def) = self.macros.get(name) else {
+		let Some(&(arity, ptr)) = self.macros.get(name) else {
 			return Ok(None);
 		};
-		if args.len() != def.params.len() {
-			let s = if def.params.len() == 1 { "" } else { "s" };
-			let msg = format!("`{name}!` takes {} argument{s}, got {}", def.params.len(), args.len());
+		if args.len() != arity {
+			let s = if arity == 1 { "" } else { "s" };
+			let msg = format!("`{name}!` takes {arity} argument{s}, got {}", args.len());
 			return fail(msg, e.1, "wrong number of arguments");
 		}
 		if depth >= MAX_DEPTH {
 			return fail("macro expansion is too deep", e.1, "recursion limit");
 		}
-		self.counter += 1;
-		let mut body = def.body.clone();
-		for item in &mut body {
-			fill(item, def, args, self.counter)?;
-		}
+		type Ptr = *mut Spanned<Expr>;
+		let boxed: Vec<Ptr> = args.iter().map(|a| Box::into_raw(Box::new(a.clone()))).collect();
+		let arg = |i: usize| boxed.get(i).copied().unwrap_or(std::ptr::null_mut());
+		// SAFETY: stage-0 fns take at most MAX_PARAMS pointer args, all in registers on the ABIs cranelift targets, so a fixed-shape call just leaves the extras unread.
+		let f = unsafe { std::mem::transmute::<*const u8, fn(Ptr, Ptr, Ptr, Ptr) -> Ptr>(ptr) };
+		let (e0, span) = unsafe { *Box::from_raw(f(arg(0), arg(1), arg(2), arg(3))) };
+		let mut body = match e0 {
+			Expr::Block(stmts) => stmts,
+			other => vec![(other, span)],
+		};
 		self.expand(List(&mut body), depth + 1)?;
 		Ok(Some(body))
 	}
@@ -189,7 +202,8 @@ impl Expander {
 					return Ok(());
 				}
 				match &e.0 {
-					Expr::Quote(_) => fail("quotes are only allowed as a macro's whole body", e.1, "stray quote"),
+					Expr::Fn { name, .. } if name.contains('!') => Ok(()),
+					Expr::Quote(_) => fail("quotes are only allowed inside macro definitions", e.1, "stray quote"),
 					Expr::Unquote(_) => fail("unquotes only make sense inside a macro template", e.1, "stray unquote"),
 					Expr::MacroDef { .. } => {
 						fail("macros can only be defined at the top level", e.1, "nested macro def")
@@ -201,16 +215,167 @@ impl Expander {
 	}
 }
 
-// Expand all user macro calls in a module's items.
-pub fn expand(items: Vec<Spanned<Expr>>) -> Result<Vec<Spanned<Expr>>, Diagnostic> {
+// Expand all macro calls across a program's modules.
+pub fn expand(program: &Program) -> Result<HashMap<String, Vec<Spanned<Expr>>>, Diagnostic> {
 	let mut ex = Expander::default();
-	let mut rest = Vec::with_capacity(items.len());
-	for item in items {
-		match item.0 {
-			Expr::MacroDef { name, params, body } => ex.define(name, params, body, item.1)?,
-			_ => rest.push(item),
+	let mut rest: HashMap<String, Vec<Spanned<Expr>>> = HashMap::new();
+	for m in &program.modules {
+		let mut items = Vec::with_capacity(m.items.len());
+		for item in m.items.iter().cloned() {
+			match item.0 {
+				Expr::MacroDef {
+					name,
+					params,
+					ret,
+					body,
+				} => ex.define(name, params, ret, body, item.1)?,
+				_ => items.push(item),
+			}
 		}
+		rest.insert(m.name.clone(), items);
 	}
-	ex.expand(List(&mut rest), 0)?;
+	if !ex.macros.is_empty() {
+		ex.compile_stage0(program)?;
+	}
+	for items in rest.values_mut() {
+		ex.expand(List(items), 0)?;
+	}
 	Ok(rest)
+}
+
+// A quote template.
+struct Template {
+	stmts: Vec<Spanned<Expr>>,
+	names: Vec<String>,
+	bound: HashSet<String>,
+}
+
+static HYGIENE: AtomicUsize = AtomicUsize::new(0);
+
+// Macro-run failures can't recover.
+fn die(msg: &str) -> ! {
+	eprintln!("macro error: {msg}");
+	std::process::exit(1)
+}
+
+// Validate a quote and leak it as a template.
+pub(crate) fn register(stmts: &[Spanned<Expr>], span: Span) -> Result<(usize, Vec<String>), Diagnostic> {
+	let mut stmts = stmts.to_vec();
+	let (mut names, mut bound, mut nested) = (Vec::new(), HashSet::new(), false);
+	for (e, _) in &mut stmts {
+		e.walk(&mut |e| {
+			match e {
+				Expr::Quote(_) => nested = true,
+				Expr::Unquote(n) if !names.contains(n) => names.push(n.clone()),
+				Expr::Bind { name, .. } if name.starts_with('%') => {
+					let n = name[1..].to_string();
+					if !names.contains(&n) {
+						names.push(n);
+					}
+				}
+				_ => {}
+			}
+			for_binders(e, &mut |n| {
+				bound.insert(n.clone());
+			});
+		});
+	}
+	if nested {
+		return fail("nested quotes aren't supported yet", span, "nested quote");
+	}
+	let tpl = Template {
+		names: names.clone(),
+		stmts,
+		bound,
+	};
+	Ok((Box::into_raw(Box::new(tpl)) as usize, names))
+}
+
+// One pass over a template copy.
+// Adds a suffix to the template's own binders for good hygiene (see what I did there?).
+// Splices `%name` arguments in verbatim.
+fn fill(e: &mut Spanned<Expr>, bound: &HashSet<String>, args: &HashMap<&str, &Spanned<Expr>>, suffix: usize) {
+	if let Expr::Unquote(name) = &e.0 {
+		*e = (*args[name.as_str()]).clone();
+		return;
+	}
+	let rename = &mut |n: &mut String| {
+		if bound.contains(n.as_str()) {
+			*n = format!("{n}#{suffix}");
+		}
+	};
+	for_binders(&mut e.0, rename);
+	match &mut e.0 {
+		Expr::Ident(n)
+		| Expr::Assign { name: n, .. }
+		| Expr::Call { name: n, .. }
+		| Expr::FieldAssign { name: n, .. }
+		| Expr::IndexAssign { name: n, .. }
+		| Expr::Append { name: n, .. }
+		| Expr::MapDelete { name: n, .. } => rename(n),
+		Expr::Destructure { names, bind: false, .. } => names.iter_mut().for_each(|(_, n)| rename(n)),
+		Expr::AnonFn {
+			captures: Some(list), ..
+		} => {
+			for c in list {
+				let (Capture::ReadOnly(n) | Capture::Mut(n) | Capture::Move(n)) = c;
+				rename(n);
+			}
+		}
+		_ => {}
+	}
+	if let Expr::Bind { name, .. } = &mut e.0
+		&& let Some(param) = name.strip_prefix('%')
+	{
+		let Expr::Ident(n) = &args[param].0 else {
+			die("a `%name` binder needs a plain name argument");
+		};
+		*name = n.clone();
+	}
+	e.0.for_children(|c| match c {
+		List(list) => list.iter_mut().for_each(|i| fill(i, bound, args, suffix)),
+		One(one) => fill(one, bound, args, suffix),
+	});
+}
+
+// Instantiate the template at `tpl`, substituting `args` by position against its unquote names.
+// `args` are borrowed, not owned.
+pub(crate) extern "C" fn rt_quote(tpl: usize, args: *const *mut Spanned<Expr>, len: usize) -> *mut Spanned<Expr> {
+	// SAFETY: `tpl` was leaked by `register`.
+	let tpl = unsafe { &*(tpl as *const Template) };
+	let args = if len == 0 {
+		&[]
+	} else {
+		unsafe { std::slice::from_raw_parts(args, len) }
+	};
+	let suffix = HYGIENE.fetch_add(1, Ordering::Relaxed) + 1;
+	let map: HashMap<&str, &Spanned<Expr>> = tpl
+		.names
+		.iter()
+		.map(String::as_str)
+		.zip(args.iter().map(|&p| unsafe { &*p }))
+		.collect();
+	let mut stmts = tpl.stmts.clone();
+	for e in &mut stmts {
+		fill(e, &tpl.bound, &map, suffix);
+	}
+	let result = match stmts.len() {
+		1 => stmts.pop().unwrap(),
+		_ => {
+			let span = stmts.first().map_or((0..0).into(), |s| s.1);
+			(Expr::Block(stmts), span)
+		}
+	};
+	Box::into_raw(Box::new(result))
+}
+
+pub(crate) extern "C" fn rt_ast_int(v: i64) -> *mut Spanned<Expr> {
+	Box::into_raw(Box::new((Expr::Int(v), (0..0).into())))
+}
+
+pub(crate) extern "C" fn rt_ast_int_value(a: *mut Spanned<Expr>) -> i64 {
+	match unsafe { &(*a).0 } {
+		Expr::Int(n) => *n,
+		_ => die("`.int()` needs an Ast holding an Int literal"),
+	}
 }

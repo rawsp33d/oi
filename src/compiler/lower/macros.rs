@@ -1,6 +1,53 @@
+use crate::compiler::expand;
+
 use super::*;
 
 impl<'a> Translator<'a> {
+	// Lower a quote. Register its template and build the Ast it produces at runtime.
+	pub(super) fn quote(&mut self, stmts: &[Spanned<Expr>], span: Span) -> Result<TypedVal, Diagnostic> {
+		let (tpl, names) = expand::register(stmts, span)?;
+		let mut ptrs = Vec::with_capacity(names.len());
+		for name in &names {
+			let Some(local) = self.vars.get(name).cloned() else {
+				return Err(
+					Diagnostic::new(format!("`%{name}` refers to no binding in scope"), span.into_range())
+						.with_label("not found in scope"),
+				);
+			};
+			let val = self.read_local(&local);
+			let ptr = match &local.typ {
+				Typ::Ast => val,
+				Typ::Int(_) => {
+					let v64 = self.intcast(val, types::I64, true);
+					let func = self.import_fn(expand::RT_AST_INT, &[types::I64], Some(self.int));
+					let call = self.b.ins().call(func, &[v64]);
+					self.b.inst_results(call)[0]
+				}
+				other => {
+					return Err(
+						Diagnostic::new(format!("can't unquote a `{other}` yet"), span.into_range())
+							.with_label("unsupported unquote type"),
+					);
+				}
+			};
+			ptrs.push(ptr);
+		}
+		let slot = if ptrs.is_empty() {
+			self.b.ins().iconst(self.int, 0)
+		} else {
+			let slot = self.stack_slot((ptrs.len() * 8) as u32);
+			for (i, v) in ptrs.iter().enumerate() {
+				self.b.ins().store(MemFlags::new(), *v, slot, (i * 8) as i32);
+			}
+			slot
+		};
+		let len = self.b.ins().iconst(self.int, ptrs.len() as i64);
+		let idxv = self.b.ins().iconst(self.int, tpl as i64);
+		let func = self.import_fn(expand::RT_QUOTE, &[self.int; 3], Some(self.int));
+		let call = self.b.ins().call(func, &[idxv, slot, len]);
+		Ok((self.b.inst_results(call)[0], Typ::Ast))
+	}
+
 	// Call the runtime panic path with `msg` and mark the current block unreachable.
 	fn abort(&mut self, msg: Value) -> TypedVal {
 		let func = self.import_fn(runtime::PANIC, &[self.int], None);

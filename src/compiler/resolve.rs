@@ -362,7 +362,7 @@ impl TypeCtx<'_> {
 				| "string" | "range"
 				| "atom" | "Map"
 				| "Option" | "Result"
-				| "Error"
+				| "Error" | "Ast"
 		) || name.strip_prefix(['i', 'u', 'f']).is_some_and(|w| w.parse::<u16>().is_ok())
 	}
 
@@ -387,6 +387,7 @@ impl TypeCtx<'_> {
 			"range" => return Ok(Typ::Range),
 			"()" => return Ok(Typ::unit()),
 			"Error" => return Ok(Typ::Error),
+			"Ast" => return Ok(Typ::Ast),
 			_ => {}
 		}
 		if let Some(result) = int_width(name, 'i', Typ::Int, "integer", span) {

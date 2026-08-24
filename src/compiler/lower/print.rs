@@ -205,6 +205,7 @@ impl<'a> Translator<'a> {
 
 			Typ::Fn(..) | Typ::Closure(..) => self.write_lit("<fn>", sink),
 			Typ::Map(..) => self.write_lit("<map>", sink),
+			Typ::Ast => self.write_lit("<ast>", sink),
 
 			Typ::Ref(_) => {
 				let inner = self.peeled(typ);
@@ -253,6 +254,7 @@ impl<'a> Translator<'a> {
 					| Typ::Error
 					| Typ::Map(..)
 					| Typ::Mut(_)
+					| Typ::Ast
 					| Typ::Ref(_) => {
 						unreachable!("handled above")
 					}

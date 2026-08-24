@@ -33,6 +33,7 @@ pub(crate) enum Typ {
 	Map(Box<Typ>, Box<Typ>),
 	Mut(Box<Typ>),
 	Ref(Box<Typ>),
+	Ast,
 }
 
 // A struct field definition.
@@ -167,6 +168,7 @@ impl fmt::Display for Typ {
 			Typ::Map(k, v) => write!(f, "Map[{k}, {v}]"),
 			Typ::Mut(inner) => write!(f, "mut {inner}"),
 			Typ::Ref(inner) => write!(f, "&{inner}"),
+			Typ::Ast => write!(f, "Ast"),
 		}
 	}
 }

@@ -516,9 +516,19 @@ where
 		.then_ignore(just(Token::DoubleColon))
 		.then_ignore(just(Token::Fn))
 		.then(params.clone())
-		.then_ignore(ret.clone())
+		.then(ret.clone())
 		.then(block.clone())
-		.map_with(|((name, (params, _)), body), ex| (Expr::MacroDef { name, params, body }, ex.span()));
+		.map_with(|(((name, (params, _)), ret), body), ex| {
+			(
+				Expr::MacroDef {
+					name,
+					params,
+					ret,
+					body,
+				},
+				ex.span(),
+			)
+		});
 
 	let macro_stmt = ident()
 		.then_ignore(adjacent)

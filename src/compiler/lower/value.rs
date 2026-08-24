@@ -114,6 +114,7 @@ impl<'a> Translator<'a> {
 				self.temp(m, typ);
 				m
 			}
+			Typ::Ast => self.b.ins().iconst(self.int, 0),
 		}
 	}
 

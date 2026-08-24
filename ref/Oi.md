@@ -128,6 +128,7 @@ tags: []
 - [ ] `loop match {...}` `revo`
 - [ ] `Contains` trait that lets any type be used with `in` operator
 - [x] Algebraic Data Types (ADT) `rust`
+- [ ] incremental compilation
 ## consider
 - C++20 uses `operator|`, a naked `|` for pipelines
 	- back on the table now that `|x|` lambda fences are gone
