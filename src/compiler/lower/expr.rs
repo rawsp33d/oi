@@ -228,15 +228,12 @@ impl<'a> Translator<'a> {
 					let (recv_val, recv_typ) = self.expr(recv)?;
 					let recv_typ = self.peeled(&recv_typ);
 					if recv_typ == Typ::Ast && method == "int" && args.is_empty() {
-						let func = self.import_fn(expand::RT_AST_INT_VALUE, &[self.int], Some(types::I64));
-						let call = self.b.ins().call(func, &[recv_val]);
+						let m = self.str_const(method);
+						let zero = self.b.ins().iconst(self.int, 0);
+						let func = self.import_fn(expand::RT_AST_METHOD, &[self.int; 3], Some(self.int));
+						let call = self.b.ins().call(func, &[recv_val, m, zero]);
 						let raw = self.b.inst_results(call)[0];
 						return Ok((self.b.ins().ireduce(types::I32, raw), Typ::Int(32)));
-					}
-					if recv_typ == Typ::Ast && method == "items" && args.is_empty() {
-						let func = self.import_fn(expand::RT_AST_ITEMS, &[self.int], Some(self.int));
-						let call = self.b.ins().call(func, &[recv_val]);
-						return Ok((self.b.inst_results(call)[0], Typ::Array(Box::new(Typ::Ast))));
 					}
 					if method == "str"
 						&& args.is_empty() && !matches!(recv_typ, Typ::Struct(..) | Typ::TupleStruct(..) | Typ::Enum(..))
@@ -354,6 +351,22 @@ impl<'a> Translator<'a> {
 
 				let (ptr, typ) = self.expr(tuple)?;
 				let typ = self.peeled(&typ);
+
+				// ast exposes `.name` and `.items`
+				if typ == Typ::Ast {
+					let ret = match field.as_str() {
+						"name" => Some(Typ::Ast),
+						"items" => Some(Typ::Array(Box::new(Typ::Ast))),
+						_ => None,
+					};
+					if let Some(ret) = ret {
+						let m = self.str_const(field);
+						let zero = self.b.ins().iconst(self.int, 0);
+						let func = self.import_fn(expand::RT_AST_METHOD, &[self.int; 3], Some(self.int));
+						let call = self.b.ins().call(func, &[ptr, m, zero]);
+						return Ok((self.b.inst_results(call)[0], ret));
+					}
+				}
 
 				if let Typ::Trait(tn) = &typ {
 					return self.trait_field(ptr, tn, field, expr.1);

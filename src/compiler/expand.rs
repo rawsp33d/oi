@@ -18,8 +18,7 @@ const MAX_PARAMS: usize = 4;
 
 pub(crate) const RT_QUOTE: &str = "oi_rt_quote";
 pub(crate) const RT_AST_INT: &str = "oi_rt_ast_int";
-pub(crate) const RT_AST_INT_VALUE: &str = "oi_rt_ast_int_value";
-pub(crate) const RT_AST_ITEMS: &str = "oi_rt_ast_items";
+pub(crate) const RT_AST_METHOD: &str = "oi_rt_ast_method";
 
 fn fail<T>(msg: impl Into<String>, span: Span, label: &str) -> Result<T, Diagnostic> {
 	Err(Diagnostic::new(msg, span.into_range()).with_label(label))
@@ -459,23 +458,43 @@ pub(crate) extern "C" fn rt_ast_int(v: i64) -> *mut Spanned<Expr> {
 	Box::into_raw(Box::new((Expr::Int(v), (0..0).into())))
 }
 
-pub(crate) extern "C" fn rt_ast_int_value(a: *mut Spanned<Expr>) -> i64 {
-	match unsafe { &(*a).0 } {
-		Expr::Int(n) => *n,
-		_ => die("`.int()` needs an Ast holding an Int literal"),
+// Ast dispatch for the lowerer.
+pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const u8, arg: i64) -> i64 {
+	let ast = |e: Expr| Box::into_raw(Box::new((e, Span::from(0..0)))) as i64;
+	let list = |ptrs: Vec<i64>| runtime::array_of(&ptrs) as i64;
+	let m = unsafe { std::ffi::CStr::from_ptr(m.cast()) }.to_bytes();
+	match (m, unsafe { &(*a).0 }) {
+		(b"int", Expr::Int(n)) => *n,
+		(b"int", _) => die("`.int()` needs an Ast holding an Int literal"),
+		(
+			b"name",
+			Expr::StructDef { name, .. }
+			| Expr::EnumDef { name, .. }
+			| Expr::Call { name, .. }
+			| Expr::MacroCall { name, .. },
+		) => ast(Expr::Ident(name.clone())),
+		(b"name", ident @ Expr::Ident(_)) => ast(ident.clone()),
+		(b"name", _) => die("this Ast has no name"),
+		(
+			b"items",
+			Expr::Array(v)
+			| Expr::DotArray(_, v)
+			| Expr::Block(v)
+			| Expr::Call { args: v, .. }
+			| Expr::MacroCall { args: v, .. },
+		) => list(v.iter().map(|e| Box::into_raw(Box::new(e.clone())) as i64).collect()),
+		(b"items", Expr::StructDef { fields, .. }) => {
+			list(fields.iter().map(|f| ast(Expr::Ident(f.name.clone()))).collect())
+		}
+		(b"items", Expr::EnumDef { variants, .. }) => {
+			list(variants.iter().map(|v| ast(Expr::Ident(v.name.clone()))).collect())
+		}
+		(b"items", _) => die("this Ast has no items"),
+		(b"==", Expr::Ident(n)) => {
+			let cstr = unsafe { std::ffi::CStr::from_ptr((arg as *const u8).cast()) }.to_bytes();
+			(n.as_bytes() == cstr) as i64
+		}
+		(b"==", _) => 0,
+		_ => die("unknown Ast method"),
 	}
-}
-
-// `.items()`: the Asts making up a []Ast.
-pub(crate) extern "C" fn rt_ast_items(a: *mut Spanned<Expr>) -> *const runtime::Header {
-	let items = match unsafe { &(*a).0 } {
-		Expr::Array(v)
-		| Expr::DotArray(_, v)
-		| Expr::Block(v)
-		| Expr::Call { args: v, .. }
-		| Expr::MacroCall { args: v, .. } => v,
-		_ => die("this Ast has no items"),
-	};
-	let ptrs: Vec<i64> = items.iter().map(|e| Box::into_raw(Box::new(e.clone())) as i64).collect();
-	runtime::array_of(&ptrs)
 }

@@ -1,3 +1,5 @@
+use crate::compiler::expand;
+
 use super::*;
 
 // What `emit_eq` compares directly.
@@ -378,6 +380,18 @@ impl<'a> Translator<'a> {
 				let eq = self.emit_eq(lv, rv, &typ);
 				// emit_eq returns 1 for equal, invert for Ne
 				// wrap in icmp so uextend below works consistently
+				if icc == IntCC::NotEqual {
+					self.b.ins().icmp_imm(IntCC::Equal, eq, 0)
+				} else {
+					self.b.ins().icmp_imm(IntCC::NotEqual, eq, 0)
+				}
+			}
+			(Typ::Ast, Typ::Str) | (Typ::Str, Typ::Ast) if icc == IntCC::Equal || icc == IntCC::NotEqual => {
+				let (ast_val, str_val) = if lt == Typ::Ast { (lv, rv) } else { (rv, lv) };
+				let m = self.str_const("==");
+				let func = self.import_fn(expand::RT_AST_METHOD, &[self.int; 3], Some(self.int));
+				let call = self.b.ins().call(func, &[ast_val, m, str_val]);
+				let eq = self.b.inst_results(call)[0];
 				if icc == IntCC::NotEqual {
 					self.b.ins().icmp_imm(IntCC::Equal, eq, 0)
 				} else {
