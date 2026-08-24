@@ -252,6 +252,7 @@ impl<'a> Translator<'a> {
 						Typ::Struct(name, _) | Typ::TupleStruct(name, _) | Typ::Enum(name) => {
 							(name.clone(), Some((recv_val, recv_typ)))
 						}
+						Typ::Str => ("string".to_string(), Some((recv_val, recv_typ))),
 						_ => {
 							return Err(
 								Diagnostic::new(format!("`{recv_typ}` has no methods"), recv.1.into_range())

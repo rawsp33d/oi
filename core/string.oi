@@ -1,0 +1,7 @@
+module core
+
+string :{
+	is_empty :: fn(self) bool {
+		self == ""
+	}
+}

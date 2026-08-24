@@ -1,3 +1,11 @@
 use math
 
 assert! math.pi > 3.1 && math.pi < 3.2
+
+assert! math.abs(4) == 4
+assert! math.abs(-6.9) == 6.9
+
+assert!(math.min(3, 7) == 3)
+assert!(math.min(7.2, 3.2) == 3.2)
+assert!(math.max(3, 7) == 7)
+assert!(math.max(7.2, 3.2) == 7.2)

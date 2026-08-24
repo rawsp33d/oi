@@ -128,3 +128,22 @@ fn wrong_arg_count() {
 		"expects 1 argument",
 	);
 }
+
+#[test]
+fn builtin_amendment() {
+	check(r#"print("".is_empty())"#, "true");
+	check(r#"print("hi".is_empty())"#, "false");
+}
+
+#[test]
+fn builtin_amendment_outside_core() {
+	fail_with(
+		indoc! {r#"
+			string :{
+				nope :: fn(self) bool { true }
+			}
+			print("hi".nope())
+		"#},
+		"amended in core",
+	);
+}

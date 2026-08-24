@@ -502,6 +502,10 @@ impl Compiler {
 					fills,
 				} => {
 					let claimed: Vec<String> = claimed.iter().map(|tn| scope.qualify_trait(tn)).collect();
+					if claimed.is_empty() && TypeCtx::builtin_type(typ) && scope.module != "core" {
+						let msg = format!("`{typ}` is a builtin type and can only be amended in core");
+						return Err(Diagnostic::new(msg, item.1.into_range()).with_label("not your type"));
+					}
 					for tn in &claimed {
 						if !type_params.is_empty() {
 							let msg = "generic trait claims aren't supported yet".to_string();
