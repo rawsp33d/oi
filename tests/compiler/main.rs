@@ -11,6 +11,7 @@ mod comparisons;
 mod control;
 mod destructuring;
 mod diagnostics;
+mod dogfood;
 mod dollar;
 mod examples;
 mod functions;
