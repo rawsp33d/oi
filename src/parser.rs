@@ -1,6 +1,5 @@
 use crate::ast::{
-	Annotation, BinOp, Capture, EnumVariant, Expr, MatchArm, Param, Pattern, Span, Spanned, TypeExpr, TypeParam,
-	UseItem,
+	BinOp, Capture, EnumVariant, Expr, MatchArm, Param, Pattern, Span, Spanned, TypeExpr, TypeParam, UseItem,
 };
 use crate::lexer::Token;
 
@@ -1164,18 +1163,25 @@ where
 
 	// annotations
 	let ann_entry = ident().then_ignore(just(Token::Assign)).or_not().then(expr.clone());
-	let ann_tag = select! { Token::Atom(name) => name }.map_with(|name, ex| Annotation::Tag(name, ex.span()));
-	let ann_value = ident()
-		.then_ignore(adjacent.then(just(Token::Dot)))
-		.then(brace(loose_list(ann_entry)))
-		.map_with(|(name, fields), ex| {
-			let lit = Expr::StructLit {
-				name,
-				type_args: vec![],
-				fields,
-			};
-			Annotation::Value((lit, ex.span()))
-		});
+	let ann_tag = spanned(select! { Token::Atom(name) => Expr::Atom(name) });
+	let ann_value = spanned(
+		ident()
+			.then_ignore(adjacent.then(just(Token::Not)).not())
+			.then(
+				adjacent
+					.then_ignore(just(Token::Dot))
+					.ignore_then(brace(loose_list(ann_entry)))
+					.or_not(),
+			)
+			.map(|(name, fields)| match fields {
+				Some(fields) => Expr::StructLit {
+					name,
+					type_args: vec![],
+					fields,
+				},
+				None => Expr::Ident(name),
+			}),
+	);
 	let annotation = just(Token::At).then_ignore(adjacent).ignore_then(ann_tag.or(ann_value)).boxed();
 
 	// item bindings

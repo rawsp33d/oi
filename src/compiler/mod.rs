@@ -130,22 +130,24 @@ fn qualify_bounds(scope: &Scope, params: &mut [TypeParam]) {
 	}
 }
 
-// Qualify a value annotation's struct name through its defining scope.
+// Qualify a value annotation's name through its defining scope.
 fn qualify_anns(scope: &Scope, anns: &[Annotation]) -> Vec<Annotation> {
 	let mut anns = anns.to_vec();
 	for a in &mut anns {
-		if let Annotation::Value((Expr::StructLit { name, .. }, _)) = a {
-			*name = scope.qualify_name(name);
+		match &mut a.0 {
+			Expr::StructLit { name, .. } | Expr::Ident(name) => *name = scope.qualify_name(name),
+			_ => {}
 		}
 	}
 	anns
 }
 
-// Check that annotations name a struct and pass literal args.
+// Check that annotations name a struct value and pass literal args.
 fn check_annotations<'p>(
 	anns: &HashMap<String, Vec<Annotation>>,
 	structs: &HashMap<String, Vec<FieldDef>>,
 	generics: &Generics,
+	consts: &HashMap<String, Spanned<Expr>>,
 	scope_of: impl Fn(&str) -> &'p Scope,
 ) -> Result<(), Diagnostic> {
 	let mut generic_field_anns = Vec::new();
@@ -155,7 +157,7 @@ fn check_annotations<'p>(
 	}
 	let field_anns = structs.values().flatten().flat_map(|f| f.annotations.iter());
 	for a in anns.values().flatten().chain(field_anns).chain(&generic_field_anns) {
-		check_annotation(a, structs, generics)?;
+		check_annotation(a, structs, generics, consts)?;
 	}
 	Ok(())
 }
@@ -164,13 +166,42 @@ fn check_annotation(
 	a: &Annotation,
 	structs: &HashMap<String, Vec<FieldDef>>,
 	generics: &Generics,
+	consts: &HashMap<String, Spanned<Expr>>,
 ) -> Result<(), Diagnostic> {
-	// tags carry no payload to check
-	let Annotation::Value((Expr::StructLit { name, fields, .. }, span)) = a else {
-		return Ok(());
-	};
-	let Some(field_defs) = structs.get(name.as_str()) else {
-		if generics.structs.contains_key(name.as_str()) {
+	let err = |msg: String, label: String| Err(Diagnostic::new(msg, a.1.into_range()).with_label(label));
+	match &a.0 {
+		Expr::StructLit { name, fields, .. } => check_struct_lit(name, fields, a.1, structs, generics),
+		Expr::Ident(name) => match consts.get(name) {
+			Some((Expr::StructLit { name, fields, .. }, _)) => check_struct_lit(name, fields, a.1, structs, generics),
+			Some(_) => err(
+				format!("`{name}` is not a struct value"),
+				"an annotation is a struct value".into(),
+			),
+			None if structs.contains_key(name) || generics.structs.contains_key(name) => err(
+				format!("`{name}` is a struct, not a value"),
+				format!("write `{name}.{{}}` or bind a const"),
+			),
+			None => err(
+				format!("`{name}` is not a constant"),
+				"a bare annotation names a const struct value".into(),
+			),
+		},
+		_ => Ok(()),
+	}
+}
+
+fn check_struct_lit(
+	name: &str,
+	fields: &[(Option<String>, Spanned<Expr>)],
+	span: Span,
+	structs: &HashMap<String, Vec<FieldDef>>,
+	generics: &Generics,
+) -> Result<(), Diagnostic> {
+	if name.is_empty() {
+		return fields.iter().try_for_each(|(_, v)| check_lit(&v.0, None, v.1));
+	}
+	let Some(field_defs) = structs.get(name) else {
+		if generics.structs.contains_key(name) {
 			let msg = "a generic struct can't be an annotation";
 			return Err(Diagnostic::new(msg, span.into_range()).with_label("pick a concrete struct"));
 		}
@@ -202,20 +233,22 @@ fn check_annotation(
 				Some(idx) => idx,
 			},
 		};
-		check_lit(&value.0, &field_defs[idx].typ, value.1)?;
+		check_lit(&value.0, Some(&field_defs[idx].typ), value.1)?;
 	}
 	Ok(())
 }
 
-fn check_lit(e: &Expr, typ: &Typ, span: Span) -> Result<(), Diagnostic> {
+fn check_lit(e: &Expr, typ: Option<&Typ>, span: Span) -> Result<(), Diagnostic> {
 	if !is_literal(e) {
 		let msg = "annotation arguments must be literal values";
 		return Err(Diagnostic::new(msg, span.into_range()).with_label("not a literal"));
 	}
-	if !lit_matches(e, typ) {
-		return Err(Diagnostic::new(format!("expected {typ}"), span.into_range()).with_label("type mismatch"));
+	match typ {
+		Some(typ) if !lit_matches(e, typ) => {
+			Err(Diagnostic::new(format!("expected {typ}"), span.into_range()).with_label("type mismatch"))
+		}
+		_ => Ok(()),
 	}
-	Ok(())
 }
 
 // Check whether a literal expression agrees with a field's type.
@@ -747,7 +780,7 @@ impl Compiler {
 			}
 			structs.extend(done);
 		}
-		check_annotations(&self.annotations, &structs, &generics, scope_of)?;
+		check_annotations(&self.annotations, &structs, &generics, &self.consts, scope_of)?;
 
 		let field_types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits);
 		check_impls(

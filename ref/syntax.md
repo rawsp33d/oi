@@ -1856,7 +1856,7 @@ main :: fn() {
 
 	## annotations
 
-	# an annotation is a value attached with @
+	# an annotation is a comptime known value attached with @
 	# they don't do anything on their own but may be read back through reflection
 
 	# atoms make great tags
@@ -1868,6 +1868,15 @@ main :: fn() {
 	deprecated :: struct { reason: string }
 	@deprecated.{"use speak()"}
 	pub yell :: fn() string { ... }
+
+	# comptime values may be used too
+	strict :: deprecated.{"use speak()"}
+	@strict
+	pub shout :: fn() string { ... }
+
+	# blessed builtins are just consts in core, declared the same way
+	# pub required :: .{}
+	Player :: struct { name: string @required }
 
 	# TODO: the comp and reflection stuff not fleshed out yet
 	comp for note in typeinfo(yell).annotations { ... }

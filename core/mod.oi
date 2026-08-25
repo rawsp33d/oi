@@ -23,3 +23,7 @@ pub Error :: trait {
 string : Error {
 	message :: fn(self) string { self }
 }
+
+# annotations
+
+pub required :: .{}

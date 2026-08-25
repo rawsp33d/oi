@@ -117,6 +117,14 @@ pub(crate) fn is_literal(e: &Expr) -> bool {
 	}
 }
 
+// A struct literal also counts as a const value when all its fields are.
+fn is_const_value(e: &Expr) -> bool {
+	match e {
+		Expr::StructLit { fields, .. } => fields.iter().all(|(_, v)| is_literal(&v.0)),
+		_ => is_literal(e),
+	}
+}
+
 // Lex and parse the file just pushed onto the map.
 fn parse_file(map: &SourceMap, base: usize) -> Result<Vec<Spanned<Expr>>, Reported> {
 	let src = map.last_src();
@@ -333,9 +341,15 @@ impl Loader<'_> {
 						(_, true, _) => {
 							Some(("type annotations on consts aren't supported yet", "drop the annotation"))
 						}
-						(_, _, Some(v)) if is_literal(&v.0) => {
+						(_, _, Some(v)) if is_const_value(&v.0) => {
 							self.define(m, name, true, public, span)?;
-							self.consts.insert(name.clone(), v.clone());
+							let mut v = v.clone();
+							if let Expr::StructLit { name: n, .. } = &mut v.0
+								&& !n.is_empty()
+							{
+								*n = m.scope.qualify_name(n);
+							}
+							self.consts.insert(name.clone(), v);
 							continue;
 						}
 						(_, _, Some(v)) if TypeExpr::from_expr(&v.0).is_some() => {

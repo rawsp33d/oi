@@ -607,8 +607,5 @@ pub struct Param {
 }
 
 // A value attached to a definition or field.
-#[derive(Debug, Clone)]
-pub enum Annotation {
-	Tag(String, Span),
-	Value(Spanned<Expr>),
-}
+// TODO: name this more generally and use it everywhere
+pub type Annotation = Spanned<Expr>;
