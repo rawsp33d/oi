@@ -762,7 +762,7 @@ impl<'a> Translator<'a> {
 			"" => match target {
 				Some(Typ::Struct(n, _)) => n.clone(),
 				// anonymous structs
-				None if !fields.is_empty() && fields.iter().all(|f| f.0.is_some()) => return self.infer_anon(fields),
+				None if fields.iter().all(|f| f.0.is_some()) => return self.infer_anon(fields),
 				_ => {
 					return Err(
 						Diagnostic::new("cannot infer the struct type of `.{}` here", span.into_range())
