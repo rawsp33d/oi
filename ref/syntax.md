@@ -794,6 +794,18 @@ main :: fn() {
 		by default
 	"
 
+	# strings are immutable bytes behind a pointer+length handle
+	# (the buffer keeps a trailing NUL outside `len`, so it passes to C as-is)
+	assert!("hello".len == 5)
+
+	# indexing is by byte and bounds-checked, like arrays
+	assert!("abc"[1] == 98)
+	assert!("abc".1 == 98)
+
+	# range indexing gives a view into the same buffer, no copy
+	assert!("hello"[1..3] == "el")
+	assert!("hello"[2..] == "llo")
+
 	# concatenation
 	assert!("foo" + "bar", "foobar")
 
@@ -805,7 +817,7 @@ main :: fn() {
 	user := User { name = "alice", age = 30 }
 	print("{user.name} is {user.age}")
 	print("sum: {2 + 2}")
-	print("upper: {who.uppercase()}")
+	print("upper: {who.upper()}")
 
 	# escape braces by doubling
 	print("use {{braces}} like this")
@@ -1691,7 +1703,7 @@ main :: fn() {
 		|> wrap("[", $, "]")
 		or log_errors("foo", $)
 	"hello" |> $ + " world"
-	[2 4 6 8] |> if $.len() > 0 { print(true) }
+	[2 4 6 8] |> if $.len > 0 { print(true) }
 
 	# any errors in the pipeline flow directly to an `or`
 	"error-only pipes"
@@ -1761,7 +1773,7 @@ main :: fn() {
 		or log
 
 	formatted := name
-		|> uppercase
+		|> upper
 		|> wrap("[", $, "]")
 		|> log(level = :info, $)
 
@@ -1834,7 +1846,7 @@ main :: fn() {
 
 	# generics are sugar for comp type params
 	first[T] :: fn(xs []T) ?T {
-		if xs.len() == 0 { none } else { Some(xs[0]) }
+		if xs.len == 0 { none } else { Some(xs[0]) }
 	}
 	# generics can have trait guards
 	max[T Ord] :: fn(a: T, b: T) T {

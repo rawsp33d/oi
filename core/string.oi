@@ -5,11 +5,40 @@ string :{
 		self.len == 0
 	}
 
+	starts_with :: fn(self, prefix: string) bool {
+		prefix.len <= self.len && self[..prefix.len] == prefix
+	}
+
+	ends_with :: fn(self, suffix: string) bool {
+		suffix.len <= self.len && self[self.len - suffix.len..] == suffix
+	}
+
+	## Whether the string contains substring `sub`.
 	contains :: fn(self, sub: string) bool {
 		upper :: self.len - sub.len + 1
 		loop i in 0..upper {
 			if self[i..i + sub.len] == sub { return true }
 		}
 		false
+	}
+
+	## Return string in uppercase.
+	upper :: fn(self) string {
+		out: []u8 = []
+		loop i in 0..self.len {
+			c := self[i]
+			out << if c >= 97 && c <= 122 { c - 32 } else { c }
+		}
+		string(out)
+	}
+
+	## Return string in lowercase.
+	lower :: fn(self) string {
+		out: []u8 = []
+		loop i in 0..self.len {
+			c := self[i]
+			out << if c >= 65 && c <= 90 { c + 32 } else { c }
+		}
+		string(out)
 	}
 }
