@@ -153,6 +153,13 @@ impl<'a> Translator<'a> {
 			if typ == Typ::Str {
 				return Ok(Some((val, Typ::Str)));
 			}
+			if let Typ::Array(ref e) = typ
+				&& **e == Typ::UInt(8)
+			{
+				let func = self.import_fn(runtime::STR_FROM_BYTES, &[self.int], Some(self.int));
+				let call = self.b.ins().call(func, &[val]);
+				return Ok(Some((self.b.inst_results(call)[0], Typ::Str)));
+			}
 			return Err(
 				Diagnostic::new(format!("cannot cast {typ} to string"), args[0].1.into_range())
 					.with_label("not castable to string"),

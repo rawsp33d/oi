@@ -228,7 +228,7 @@ impl<'a> Translator<'a> {
 			}
 			return Ok(self.emit_call(&sig, &[lv, rv]));
 		}
-		let (rv, rt) = self.expr(r)?;
+		let (rv, rt) = self.check_expr(r, &lt)?;
 
 		// commutative operators
 		if matches!(op, BinOp::Add | BinOp::Mul)
@@ -305,8 +305,11 @@ impl<'a> Translator<'a> {
 		r: &Spanned<Expr>,
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
-		// evaluate the typed/pinned side first so a `.variant` shorthand can borrow its enum type
-		let ((lv, lt), (rv, rt)) = if let Expr::EnumShorthand { .. } = &l.0 {
+		// evaluate the typed/pinned side first so a literal or `.variant` shorthand can borrow its type
+		let ((lv, lt), (rv, rt)) = if matches!(
+			l.0,
+			Expr::EnumShorthand { .. } | Expr::Int(_) | Expr::Float(_) | Expr::Negative(_)
+		) {
 			let (rv, rt) = self.expr(r)?;
 			(self.check_expr(l, &rt)?, (rv, rt))
 		} else {
@@ -422,9 +425,8 @@ impl<'a> Translator<'a> {
 						.with_label("type mismatch: value must be Str"),
 				);
 			}
-			let func = self.import_fn(runtime::STR_CONTAINS, &[self.int, self.int], Some(self.int));
-			let call = self.b.ins().call(func, &[rhs_val, lhs_val]);
-			return Ok((self.b.inst_results(call)[0], Typ::Bool));
+			let sig = self.funcs["string.contains"].clone();
+			return Ok(self.emit_call(&sig, &[rhs_val, lhs_val]));
 		}
 
 		let elem = match rhs_typ {

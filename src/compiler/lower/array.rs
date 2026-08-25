@@ -150,32 +150,13 @@ impl<'a> Translator<'a> {
 		self.b.ins().call(func, &[header, size]);
 	}
 
-	// Evaluate an array-typed operand.
-	pub(super) fn array_operand(&mut self, collection: &Spanned<Expr>, what: &str) -> Result<TypedVal, Diagnostic> {
-		let (ptr, typ) = self.expr(collection)?;
-		match typ {
-			Typ::Array(_) | Typ::FixedArray(..) => Ok((ptr, typ)),
-			_ => Err(
-				Diagnostic::new(format!("cannot {what} {typ}"), collection.1.into_range()).with_label("not an array"),
-			),
-		}
-	}
-
-	// Evaluate slice into a fresh copy.
-	pub(super) fn slice_copy(
+	// Lower slice bounds, defaulting to `0..len`.
+	pub(super) fn slice_bounds(
 		&mut self,
-		collection: &Spanned<Expr>,
 		start: &Option<Box<Spanned<Expr>>>,
 		end: &Option<Box<Spanned<Expr>>>,
-	) -> Result<(Value, Value, Typ), Diagnostic> {
-		let (ptr, typ) = self.array_operand(collection, "slice")?;
-		if let Typ::FixedArray(..) = typ {
-			return Err(
-				Diagnostic::new("slicing fixed arrays is not supported yet", collection.1.into_range())
-					.with_label("only dynamic arrays can be sliced for now"),
-			);
-		}
-		let elem = array_elem(&typ).clone();
+		len: Value,
+	) -> Result<(Value, Value), Diagnostic> {
 		let lo = match start {
 			Some(e) => {
 				let v = self.int_value(e, "slice start")?;
@@ -188,8 +169,36 @@ impl<'a> Translator<'a> {
 				let v = self.int_value(e, "slice end")?;
 				self.b.ins().sextend(self.int, v)
 			}
-			None => self.array_len(ptr),
+			None => len,
 		};
+		Ok((lo, hi))
+	}
+
+	// Slice an already-evaluated array operand into a fresh copy.
+	pub(super) fn slice_copy(
+		&mut self,
+		(ptr, typ): TypedVal,
+		span: Span,
+		start: &Option<Box<Spanned<Expr>>>,
+		end: &Option<Box<Spanned<Expr>>>,
+	) -> Result<(Value, Value, Typ), Diagnostic> {
+		match typ {
+			Typ::Array(_) => {}
+			Typ::FixedArray(..) => {
+				return Err(
+					Diagnostic::new("slicing fixed arrays is not supported yet", span.into_range())
+						.with_label("only dynamic arrays can be sliced for now"),
+				);
+			}
+			_ => {
+				return Err(
+					Diagnostic::new(format!("cannot slice {typ}"), span.into_range()).with_label("not an array")
+				);
+			}
+		}
+		let elem = array_elem(&typ).clone();
+		let len = self.array_len(ptr);
+		let (lo, hi) = self.slice_bounds(start, end, len)?;
 		let stride = self.elem_stride(&elem);
 		let size = self.b.ins().iconst(self.int, stride);
 		let func = self.import_fn(runtime::SLICE, &[self.int; 4], Some(self.int));

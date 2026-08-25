@@ -70,6 +70,7 @@ pub(super) fn peel(typ: &Typ) -> &Typ {
 pub(super) fn array_elem(typ: &Typ) -> &Typ {
 	match typ {
 		Typ::Array(e) | Typ::FixedArray(e, _) => e,
+		Typ::Str => &Typ::UInt(8),
 		_ => unreachable!("not an array type"),
 	}
 }

@@ -379,8 +379,8 @@ impl<'a> Translator<'a> {
 					return self.trait_field(ptr, tn, field, expr.1);
 				}
 
-				// arrays expose `.len` and numeric `.n` (sugar for `arr[n]`)
-				if let Typ::Array(_) | Typ::FixedArray(..) = &typ {
+				// arrays and strings expose `.len` and numeric `.n` (sugar for `x[n]`)
+				if let Typ::Array(_) | Typ::FixedArray(..) | Typ::Str = &typ {
 					let elem = array_elem(&typ).clone();
 					let (data, len) = self.array_parts(ptr, &typ);
 					if field == "len" {
@@ -393,8 +393,8 @@ impl<'a> Translator<'a> {
 							Ok((self.load_index(data, len, &elem, idx), elem))
 						}
 						Err(_) => Err(
-							Diagnostic::new(format!("arrays have no field `{field}`"), expr.1.into_range())
-								.with_label("arrays only have `.len` and numeric indices"),
+							Diagnostic::new(format!("{typ} has no field `{field}`"), expr.1.into_range())
+								.with_label("only `.len` and numeric indices"),
 						),
 					};
 				}
@@ -482,9 +482,9 @@ impl<'a> Translator<'a> {
 						let raw = self.call_map_get(ptr, tag, bits);
 						Ok((self.unmap_bits(raw, &v), v))
 					}
-					Typ::Array(_) | Typ::FixedArray(..) => {
+					Typ::Array(_) | Typ::FixedArray(..) | Typ::Str => {
 						let elem = array_elem(&typ).clone();
-						let idx = self.int_value(index, "array index")?;
+						let idx = self.int_value(index, "index")?;
 						let idx = self.b.ins().sextend(self.int, idx);
 						let (data, len) = self.array_parts(ptr, &typ);
 						Ok((self.load_index(data, len, &elem, idx), elem))
@@ -497,7 +497,15 @@ impl<'a> Translator<'a> {
 			}
 
 			Expr::Slice { collection, start, end } => {
-				let (out, _, elem) = self.slice_copy(collection, start, end)?;
+				let (ptr, typ) = self.expr(collection)?;
+				if typ == Typ::Str {
+					let len = self.array_len(ptr);
+					let (lo, hi) = self.slice_bounds(start, end, len)?;
+					let func = self.import_fn(runtime::STR_SLICE, &[self.int; 3], Some(self.int));
+					let call = self.b.ins().call(func, &[ptr, lo, hi]);
+					return Ok((self.b.inst_results(call)[0], Typ::Str));
+				}
+				let (out, _, elem) = self.slice_copy((ptr, typ), collection.1, start, end)?;
 				let typ = Typ::Array(Box::new(elem));
 				self.temp(out, &typ);
 				Ok((out, typ))

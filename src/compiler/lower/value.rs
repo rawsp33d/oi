@@ -491,9 +491,7 @@ impl<'a> Translator<'a> {
 			}
 			return Ok((val, vt));
 		}
-		if matches!(value.0, Expr::EnumShorthand { .. } | Expr::Atom(_) | Expr::None)
-			&& let Some(v) = self.coerce_lit(value, target)?
-		{
+		if let Some(v) = self.coerce_lit(value, target)? {
 			return Ok((v, target.clone()));
 		}
 		match &value.0 {

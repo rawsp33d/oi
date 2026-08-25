@@ -127,7 +127,8 @@ impl<'a> Translator<'a> {
 					unreachable!("check_muts admits only ident-based slices")
 				};
 				let parent = self.local(name, collection.1.into_range())?;
-				let (copy, lo, elem) = self.slice_copy(collection, start, end)?;
+				let opnd = self.expr(collection)?;
+				let (copy, lo, elem) = self.slice_copy(opnd, collection.1, start, end)?;
 				let len = self.array_len(copy);
 				(copy, Typ::Array(Box::new(elem)), Lent::Slice { parent, lo, len })
 			}

@@ -1,4 +1,5 @@
 use crate::helpers::*;
+use indoc::indoc;
 
 #[test]
 fn string_concat() {
@@ -42,9 +43,16 @@ fn string_in_type_mismatch_error() {
 }
 
 #[test]
-fn string_contains() {
-	check(r#"print("hello".contains("hell"))"#, "true");
-	check(r#"print("hello".contains("xyz"))"#, "false");
+fn string_from_bytes() {
+	check(
+		indoc! {"
+			out: []u8 = []
+			out << 104
+			out << 105
+			print(string(out))
+		"},
+		"hi",
+	);
 }
 
 #[test]
@@ -63,4 +71,24 @@ fn raw_strings() {
 	check(r#"print(r"no\nescape")"#, r"no\nescape");
 	check(r#"print(r"C:\Users\{who}")"#, r"C:\Users\{who}");
 	check(r#"r"a\b" + "!""#, r"a\b!");
+}
+
+#[test]
+fn len_and_index() {
+	check(r#"print("hello".len)"#, "5");
+	check(r#"print("abc"[1])"#, "98");
+	fail_with(r#"print("abc"[9])"#, "out of range");
+}
+
+#[test]
+fn slices() {
+	check(r#"print("hello"[1..3])"#, "el");
+	check(r#"print("hello"[..2])"#, "he");
+	check(r#"print("hello"[2..])"#, "llo");
+	fail_with(r#""abc"[1..9]"#, "out of bounds");
+}
+
+#[test]
+fn immutable() {
+	fail_with([r#"a := "abc""#, "a[0] = 1"], "strings are immutable");
 }

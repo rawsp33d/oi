@@ -143,6 +143,13 @@ fn u8_cast() {
 }
 
 #[test]
+fn literal_takes_operand_type() {
+	check(["x: u8 = 97", "print(x >= 97, x - 32)"], "true 65");
+	check(["x: u8 = 97", "print(97 == x)"], "true");
+	fail_with(["x: u8 = 97", "x == -1"], "out of range for u8");
+}
+
+#[test]
 fn u16_cast() {
 	check("u16(0)", "0");
 	check("u16(65535)", "65535");

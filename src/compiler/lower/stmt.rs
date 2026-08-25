@@ -160,6 +160,13 @@ impl<'a> Translator<'a> {
 					}
 					let elem = match &local.typ {
 						Typ::Array(e) | Typ::FixedArray(e, _) => (**e).clone(),
+						Typ::Str => {
+							return Err(Diagnostic::new(
+								format!("cannot assign into `{name}`, strings are immutable"),
+								stmt.1.into_range(),
+							)
+							.with_label("cannot assign into a string"));
+						}
 						_ => {
 							return Err(
 								Diagnostic::new(format!("`{name}` is not an array"), stmt.1.into_range())
