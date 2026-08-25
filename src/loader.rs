@@ -367,6 +367,20 @@ impl Loader<'_> {
 						return Err(err(msg, span, label));
 					}
 				}
+				Expr::Bind {
+					mutable: false,
+					name,
+					typ: None,
+					value: Some(v),
+				} if is_const_value(&v.0) => {
+					let mut c = (**v).clone();
+					if let Expr::StructLit { name: n, .. } = &mut c.0
+						&& !n.is_empty()
+					{
+						*n = m.scope.qualify_name(n);
+					}
+					self.consts.insert(name.clone(), c);
+				}
 				Expr::Claim { typ, .. } if !main && !crate::compiler::TypeCtx::builtin_type(typ) => {
 					*typ = format!("{}::{typ}", m.name)
 				}

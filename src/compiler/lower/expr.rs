@@ -88,10 +88,13 @@ impl<'a> Translator<'a> {
 						let addr = self.b.ins().func_addr(self.int, func_ref);
 						Ok((addr, Typ::Fn(sig.value_params(), Box::new(sig.ret))))
 					}
-					None => match self.consts.get(self.qualify(name).as_ref()).cloned() {
-						Some(c) => self.expr(&c),
-						None => Err(e),
-					},
+					None => {
+						let key = self.qualify(name);
+						match key.contains("::").then(|| self.consts.get(key.as_ref()).cloned()).flatten() {
+							Some(c) => self.expr(&c),
+							None => Err(e),
+						}
+					}
 				},
 			},
 

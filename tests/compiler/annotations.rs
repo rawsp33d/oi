@@ -39,6 +39,23 @@ fn bare_const_marker_from_core() {
 }
 
 #[test]
+fn main_file_const_as_annotation() {
+	check(
+		indoc! {r#"
+			opt :: ()
+			deprecated :: struct { reason: string }
+			warn :: deprecated.{reason = "old"}
+			@warn
+			speak :: fn() string { "hi" }
+			User :: struct { name: string @opt }
+			u := User.{ name = "Todd" }
+			print("{speak()} {u.name}")
+		"#},
+		"hi Todd",
+	);
+}
+
+#[test]
 fn builtin_marker_is_a_real_value() {
 	check("print(required)", "()");
 }
