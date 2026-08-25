@@ -459,10 +459,10 @@ pub(crate) extern "C" fn rt_ast_int(v: i64) -> *mut Spanned<Expr> {
 }
 
 // Ast dispatch for the lowerer.
-pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const u8, arg: i64) -> i64 {
+pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const runtime::StrHeader, arg: i64) -> i64 {
 	let ast = |e: Expr| Box::into_raw(Box::new((e, Span::from(0..0)))) as i64;
 	let list = |ptrs: Vec<i64>| runtime::array_of(&ptrs) as i64;
-	let m = unsafe { std::ffi::CStr::from_ptr(m.cast()) }.to_bytes();
+	let m = unsafe { runtime::str_bytes(m) };
 	match (m, unsafe { &(*a).0 }) {
 		(b"int", Expr::Int(n)) => *n,
 		(b"int", _) => die("`.int()` needs an Ast holding an Int literal"),
@@ -491,8 +491,8 @@ pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const u8, arg:
 		}
 		(b"items", _) => die("this Ast has no items"),
 		(b"==", Expr::Ident(n)) => {
-			let cstr = unsafe { std::ffi::CStr::from_ptr((arg as *const u8).cast()) }.to_bytes();
-			(n.as_bytes() == cstr) as i64
+			let bytes = unsafe { runtime::str_bytes(arg as *const runtime::StrHeader) };
+			(n.as_bytes() == bytes) as i64
 		}
 		(b"==", _) => 0,
 		_ => die("unknown Ast method"),

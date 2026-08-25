@@ -129,6 +129,7 @@ tags: []
 - [ ] `loop match {...}` `revo`
 - [ ] `Contains` trait that lets any type be used with `in` operator
 - [x] Algebraic Data Types (ADT) `rust`
+- [ ] c-strings primitive (`c"foo"`?)
 - [ ] incremental compilation
 ## consider
 - C++20 uses `operator|`, a naked `|` for pipelines

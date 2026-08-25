@@ -2,7 +2,6 @@
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::ffi::{CStr, c_char};
 use std::mem::size_of;
 use std::sync::atomic::{AtomicI64, Ordering};
 
@@ -100,8 +99,40 @@ fn emit(sink: i64, s: &str) {
 	}
 }
 
-unsafe fn cstr<'a>(ptr: *const u8) -> &'a CStr {
-	unsafe { CStr::from_ptr(ptr as *const c_char) }
+// String header layout.
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct StrHeader {
+	data: i64,
+	len: i64,
+}
+
+/// Read a string handle's bytes, excluding the trailing NUL.
+/// # Safety
+/// `header` must point to a valid string header.
+pub(crate) unsafe fn str_bytes<'a>(header: *const StrHeader) -> &'a [u8] {
+	let StrHeader { data, len } = unsafe { *header };
+	if data == 0 {
+		&[]
+	} else {
+		unsafe { std::slice::from_raw_parts(data as *const u8, len as usize) }
+	}
+}
+
+// A string handle's bytes.
+unsafe fn str_lossy<'a>(header: *const StrHeader) -> std::borrow::Cow<'a, str> {
+	String::from_utf8_lossy(unsafe { str_bytes(header) })
+}
+
+// Allocate a fresh string handle owning a copy of `bytes`, plus a trailing NUL for C interop.
+fn str_new(bytes: &[u8]) -> *const StrHeader {
+	let mut buf = bytes.to_vec();
+	buf.push(0);
+	let data = Box::leak(buf.into_boxed_slice()).as_ptr() as i64;
+	Box::leak(Box::new(StrHeader {
+		data,
+		len: bytes.len() as i64,
+	})) as *const StrHeader
 }
 
 // Render one value to a string.
@@ -116,7 +147,7 @@ fn render(tag: Tag, bits: i64, width: i64, quote: bool) -> String {
 			_ => format!("{:?}", f64::from_bits(bits as u64)),
 		},
 		Tag::Str | Tag::Raw => {
-			let s = unsafe { cstr(bits as *const u8) }.to_string_lossy();
+			let s = unsafe { str_lossy(bits as *const StrHeader) };
 			if quote && matches!(tag, Tag::Str) {
 				format!("{s:?}")
 			} else {
@@ -146,54 +177,53 @@ pub extern "C" fn panic_oob(index: i64, len: i64) {
 }
 
 // Print `{prefix}{msg}` and abort.
-unsafe fn abort_with(prefix: &str, msg: *const u8) -> ! {
-	let msg = unsafe { cstr(msg) }.to_string_lossy();
+unsafe fn abort_with(prefix: &str, msg: *const StrHeader) -> ! {
+	let msg = unsafe { str_lossy(msg) };
 	eprintln!("{prefix}{msg}");
 	std::process::abort();
 }
 
 /// Print an assertion failure message and abort.
 /// # Safety
-/// `msg` must be a valid NUL-terminated C string.
-pub unsafe extern "C" fn assert_fail(msg: *const u8) {
+/// `msg` must be a valid string handle.
+pub unsafe extern "C" fn assert_fail(msg: *const StrHeader) {
 	unsafe { abort_with("assertion failed: ", msg) }
 }
 
 /// Print a panic message and abort.
 /// # Safety
-/// `msg` must be a valid NUL-terminated C string.
-pub unsafe extern "C" fn panic(msg: *const u8) {
+/// `msg` must be a valid string handle.
+pub unsafe extern "C" fn panic(msg: *const StrHeader) {
 	unsafe { abort_with("panic: ", msg) }
 }
 
 /// # Safety
-/// `collection` and `value` must be valid NUL-terminated C strings.
-pub unsafe extern "C" fn str_contains(collection: *const u8, value: *const u8) -> i64 {
-	let h = unsafe { cstr(collection) }.to_string_lossy();
-	let n = unsafe { cstr(value) }.to_string_lossy();
+/// `collection` and `value` must be valid string handles.
+pub unsafe extern "C" fn str_contains(collection: *const StrHeader, value: *const StrHeader) -> i64 {
+	let h = unsafe { str_lossy(collection) };
+	let n = unsafe { str_lossy(value) };
 	h.contains(n.as_ref()) as i64
 }
 
-/// Compare two 0-terminated strings.
+/// Compare two string handles.
 /// # Safety
-/// `a` and `b` must be valid NUL-terminated C strings.
-pub unsafe extern "C" fn str_eq(a: *const u8, b: *const u8) -> i64 {
-	let a = unsafe { cstr(a) };
-	let b = unsafe { cstr(b) };
+/// `a` and `b` must be valid string handles.
+pub unsafe extern "C" fn str_eq(a: *const StrHeader, b: *const StrHeader) -> i64 {
+	let a = unsafe { str_bytes(a) };
+	let b = unsafe { str_bytes(b) };
 	(a == b) as i64
 }
 
-/// Concatenate two 0-terminated strings into a fresh one.
+/// Concatenate two string handles into a fresh one.
 /// # Safety
-/// `a` and `b` must be valid NUL-terminated C strings.
-pub unsafe extern "C" fn str_concat(a: *const u8, b: *const u8) -> *const u8 {
-	let a = unsafe { cstr(a) }.to_bytes();
-	let b = unsafe { cstr(b) }.to_bytes();
-	let mut out = Vec::with_capacity(a.len() + b.len() + 1);
+/// `a` and `b` must be valid string handles.
+pub unsafe extern "C" fn str_concat(a: *const StrHeader, b: *const StrHeader) -> *const StrHeader {
+	let a = unsafe { str_bytes(a) };
+	let b = unsafe { str_bytes(b) };
+	let mut out = Vec::with_capacity(a.len() + b.len());
 	out.extend_from_slice(a);
 	out.extend_from_slice(b);
-	out.push(0);
-	Box::leak(out.into_boxed_slice()).as_ptr()
+	str_new(&out)
 }
 
 // Resolve a trait object's field address.
@@ -209,13 +239,9 @@ pub extern "C" fn str_mark() -> i64 {
 	BUF.with(|b| b.borrow().len() as i64)
 }
 
-// Split the buffer tail from `mark` into a fresh NUL-terminated heap string.
-pub extern "C" fn str_take(mark: i64) -> *const u8 {
-	BUF.with(|b| {
-		let mut out = b.borrow_mut().split_off(mark as usize).into_bytes();
-		out.push(0);
-		Box::leak(out.into_boxed_slice()).as_ptr()
-	})
+// Split the buffer tail from `mark` into a fresh string handle.
+pub extern "C" fn str_take(mark: i64) -> *const StrHeader {
+	BUF.with(|b| str_new(b.borrow_mut().split_off(mark as usize).as_bytes()))
 }
 
 // Active managed allocations, for leak checks.
@@ -575,7 +601,7 @@ enum MapKey {
 
 fn map_key(tag: Tag, bits: i64) -> MapKey {
 	match tag {
-		Tag::Str => MapKey::Str(unsafe { cstr(bits as *const u8) }.to_bytes().to_vec()),
+		Tag::Str => MapKey::Str(unsafe { str_bytes(bits as *const StrHeader) }.to_vec()),
 		_ => MapKey::Raw(bits),
 	}
 }

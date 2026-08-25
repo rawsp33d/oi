@@ -3,30 +3,49 @@ use super::*;
 
 impl<'a> Translator<'a> {
 	pub(super) fn str_const(&mut self, s: &str) -> Value {
+		let len = s.len() as i64;
 		let mut bytes = s.as_bytes().to_vec();
 		bytes.push(0);
 		let sym = format!("__str_{}", *self.string_idx);
 		*self.string_idx += 1;
-		self.define_data(&sym, bytes);
-		self.data_addr(&sym)
+		let bytes_id = self.define_data(&format!("{sym}_bytes"), bytes);
+		let hdr_sym = format!("{sym}_hdr");
+		self.define_str_header(&hdr_sym, bytes_id, len);
+		self.data_addr(&hdr_sym)
 	}
 
 	// Intern an atom name to a pointer-sized symbol.
 	pub(super) fn atom_const(&mut self, name: &str) -> Value {
 		let sym = format!("__atom_{name}");
+		let hdr_sym = format!("{sym}_hdr");
 		if self.atoms.insert(name.to_string()) {
-			let mut bytes = format!(":{name}").into_bytes();
+			let text = format!(":{name}");
+			let len = text.len() as i64;
+			let mut bytes = text.into_bytes();
 			bytes.push(0);
-			self.define_data(&sym, bytes);
+			let bytes_id = self.define_data(&sym, bytes);
+			self.define_str_header(&hdr_sym, bytes_id, len);
 		}
-		self.data_addr(&sym)
+		self.data_addr(&hdr_sym)
 	}
 
 	// Define a data symbol holding raw bytes.
-	fn define_data(&mut self, sym: &str, bytes: Vec<u8>) {
+	fn define_data(&mut self, sym: &str, bytes: Vec<u8>) -> DataId {
 		let id = self.module.declare_data(sym, Linkage::Local, false, false).unwrap();
 		let mut desc = DataDescription::new();
 		desc.define(bytes.into_boxed_slice());
+		self.module.define_data(id, &desc).unwrap();
+		id
+	}
+
+	// Define a string header pointing at a bytes symbol.
+	fn define_str_header(&mut self, sym: &str, bytes_id: DataId, len: i64) {
+		let mut desc = DataDescription::new();
+		desc.set_align(8);
+		desc.define([0i64.to_le_bytes(), len.to_le_bytes()].concat().into_boxed_slice());
+		let gv = self.module.declare_data_in_data(bytes_id, &mut desc);
+		desc.write_data_addr(0, gv, 0);
+		let id = self.module.declare_data(sym, Linkage::Local, false, false).unwrap();
 		self.module.define_data(id, &desc).unwrap();
 	}
 
