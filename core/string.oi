@@ -1,13 +1,15 @@
 module core
 
-use rt
-
 string :{
 	is_empty :: fn(self) bool {
-		self == ""
+		self.len == 0
 	}
 
 	contains :: fn(self, sub: string) bool {
-		rt.oi_str_contains(self, sub)
+		upper :: self.len - sub.len + 1
+		loop i in 0..upper {
+			if self[i..i + sub.len] == sub { return true }
+		}
+		false
 	}
 }

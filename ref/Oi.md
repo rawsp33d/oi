@@ -119,6 +119,7 @@ tags: []
 - [ ] `@noinit` `v`
 - [ ] `@nozero`
 - [x] ownership / memory model
+- [ ] casting `capy`
 - [ ] `discard` and/or `pass`
 - [x] sum types
 - [ ] async

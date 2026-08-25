@@ -1,9 +1,5 @@
 module math
 
-pub e :: 2.71828182845904523536028747135266249775724709369995957496696763
-pub phi :: 1.61803398874989484820458683436563811772030917980576286213544862
-pub pi :: 3.14159265358979323846264338327950288419716939937510582097494459
-pub tau :: 6.28318530717958647692528676655900576839433879875021164194988918
 
 ## Absolute value.
 pub abs[T] :: fn(x: T) T {
@@ -19,3 +15,17 @@ pub min[T] :: fn(a: T, b: T) T {
 pub max[T] :: fn(a: T, b: T) T {
 	if a > b { a } else { b }
 }
+
+## Clamp a value between two bounds.
+pub clamp[T] :: fn(x: T, low: T, high: T) T {
+	match true {
+		x < low => low,
+		x > high => high,
+		else => x
+	}
+}
+
+# pub floor :: fn(x: float) float {
+# 	if x >= 0 {
+# 	}
+# }
