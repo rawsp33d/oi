@@ -242,7 +242,7 @@ impl Loader<'_> {
 						| Expr::TypeAlias { .. }
 						| Expr::TraitDef { .. }
 				) {
-				return Err(err("annotations only go on definitions", item.1, "not a definition"));
+				return Err(err("annotations only attach to definitions", item.1, "not a definition"));
 			}
 			if let Expr::Use { name, path, group } = &item.0 {
 				let (module, _) = &path[0];
