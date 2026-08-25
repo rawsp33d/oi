@@ -5,33 +5,47 @@ use std::collections::{HashMap, HashSet};
 use std::mem::size_of;
 use std::sync::atomic::{AtomicI64, Ordering};
 
-pub const STR_CONCAT: &str = "oi_str_concat";
-pub const STR_MARK: &str = "oi_str_mark";
-pub const STR_TAKE: &str = "oi_str_take";
-pub const TRAIT_FIELD: &str = "oi_trait_field";
-pub const ALLOC: &str = "oi_alloc";
-pub const ARRAY_SHARE: &str = "oi_array_share";
-pub const ARRAY_COW: &str = "oi_array_cow";
-pub const ARRAY_RELEASE: &str = "oi_array_release";
-pub const MAP_RELEASE: &str = "oi_map_release";
-pub const WRITE: &str = "oi_write";
-pub const WRITE_SEP: &str = "oi_write_sep";
-pub const SLICE: &str = "oi_slice";
-pub const ARRAY_WRITE_BACK: &str = "oi_array_write_back";
-pub const PANIC_OOB: &str = "oi_panic_oob";
-pub const ARRAY_RESERVE: &str = "oi_array_reserve";
-pub const ARRAY_EXTEND: &str = "oi_array_extend";
-pub const STR_EQ: &str = "oi_str_eq";
-pub const STR_CONTAINS: &str = "oi_str_contains";
-pub const ASSERT_FAIL: &str = "oi_assert_fail";
-pub const PANIC: &str = "oi_panic";
-pub const MAP_NEW: &str = "oi_map_new";
-pub const MAP_GET: &str = "oi_map_get";
-pub const MAP_SET: &str = "oi_map_set";
-pub const MAP_DELETE: &str = "oi_map_delete";
-pub const MAP_SHARE: &str = "oi_map_share";
-pub const REF_SHARE: &str = "oi_ref_share";
-pub const REF_RELEASE: &str = "oi_ref_release";
+// Symbol manifest.
+// Each entry defines the const and registers the fn with the JIT.
+macro_rules! symbols {
+	($($name:ident = $fn:ident),* $(,)?) => {
+		$(pub const $name: &str = concat!("oi_", stringify!($fn));)*
+		pub fn symbols() -> Vec<(&'static str, *const u8)> {
+			vec![$(($name, $fn as *const u8)),*]
+		}
+	};
+}
+
+symbols! {
+	STR_CONCAT = str_concat,
+	STR_MARK = str_mark,
+	STR_TAKE = str_take,
+	TRAIT_FIELD = trait_field,
+	ALLOC = alloc,
+	ARRAY_SHARE = array_share,
+	ARRAY_COW = array_cow,
+	ARRAY_RELEASE = array_release,
+	MAP_RELEASE = map_release,
+	WRITE = write,
+	WRITE_SEP = write_sep,
+	SLICE = slice,
+	STR_SLICE = str_slice,
+	ARRAY_WRITE_BACK = array_write_back,
+	PANIC_OOB = panic_oob,
+	ARRAY_RESERVE = array_reserve,
+	ARRAY_EXTEND = array_extend,
+	STR_EQ = str_eq,
+	STR_FROM_BYTES = str_from_bytes,
+	ASSERT_FAIL = assert_fail,
+	PANIC = panic,
+	MAP_NEW = map_new,
+	MAP_GET = map_get,
+	MAP_SET = map_set,
+	MAP_DELETE = map_delete,
+	MAP_SHARE = map_share,
+	REF_SHARE = ref_share,
+	REF_RELEASE = ref_release,
+}
 
 // Type tag shared with the compiler.
 #[repr(i64)]
@@ -197,12 +211,15 @@ pub unsafe extern "C" fn panic(msg: *const StrHeader) {
 	unsafe { abort_with("panic: ", msg) }
 }
 
+/// Copy a c-string's bytes into a fresh string handle.
 /// # Safety
-/// `collection` and `value` must be valid string handles.
-pub unsafe extern "C" fn str_contains(collection: *const StrHeader, value: *const StrHeader) -> i64 {
-	let h = unsafe { str_lossy(collection) };
-	let n = unsafe { str_lossy(value) };
-	h.contains(n.as_ref()) as i64
+/// `header` must point to a valid array header.
+pub unsafe extern "C" fn str_from_bytes(header: *const Header) -> *const StrHeader {
+	let Header { data, len, .. } = unsafe { *header };
+	if data == 0 {
+		return str_new(&[]);
+	}
+	str_new(unsafe { std::slice::from_raw_parts(data as *const u8, len as usize) })
 }
 
 /// Compare two string handles.
@@ -394,6 +411,25 @@ pub unsafe extern "C" fn slice(header: *const Header, start: i64, end: i64, elem
 			cap: view_len,
 		};
 	}
+	out
+}
+
+/// View a range of a string through a fresh handle sharing the same buffer.
+/// # Safety
+/// `header` must point to a valid string header.
+pub unsafe extern "C" fn str_slice(header: *const StrHeader, start: i64, end: i64) -> *const StrHeader {
+	let StrHeader { data, len } = unsafe { *header };
+	if start < 0 || start > end || end > len {
+		eprintln!("slice range {start}..{end} out of bounds for string of length {len}");
+		std::process::abort();
+	}
+	let out = alloc(size_of::<StrHeader>() as i64) as *mut StrHeader;
+	unsafe {
+		*out = StrHeader {
+			data: data + start,
+			len: end - start,
+		}
+	};
 	out
 }
 
@@ -683,37 +719,4 @@ pub unsafe extern "C" fn map_delete(map: *mut OiMap, tag: i64, bits: i64) -> *mu
 	let map = unsafe { map_cow(map) };
 	unsafe { &mut *map }.entries.remove(&map_key(Tag::from_i64(tag), bits));
 	map
-}
-
-// Every runtime fn callable from JIT'd code.
-pub fn symbols() -> Vec<(&'static str, *const u8)> {
-	vec![
-		(STR_CONCAT, str_concat as *const u8),
-		(STR_MARK, str_mark as *const u8),
-		(STR_TAKE, str_take as *const u8),
-		(TRAIT_FIELD, trait_field as *const u8),
-		(ALLOC, alloc as *const u8),
-		(ARRAY_SHARE, array_share as *const u8),
-		(ARRAY_COW, array_cow as *const u8),
-		(ARRAY_RELEASE, array_release as *const u8),
-		(MAP_RELEASE, map_release as *const u8),
-		(WRITE, write as *const u8),
-		(WRITE_SEP, write_sep as *const u8),
-		(SLICE, slice as *const u8),
-		(ARRAY_WRITE_BACK, array_write_back as *const u8),
-		(PANIC_OOB, panic_oob as *const u8),
-		(ARRAY_RESERVE, array_reserve as *const u8),
-		(ARRAY_EXTEND, array_extend as *const u8),
-		(STR_EQ, str_eq as *const u8),
-		(STR_CONTAINS, str_contains as *const u8),
-		(ASSERT_FAIL, assert_fail as *const u8),
-		(PANIC, panic as *const u8),
-		(MAP_NEW, map_new as *const u8),
-		(MAP_GET, map_get as *const u8),
-		(MAP_SET, map_set as *const u8),
-		(MAP_DELETE, map_delete as *const u8),
-		(MAP_SHARE, map_share as *const u8),
-		(REF_SHARE, ref_share as *const u8),
-		(REF_RELEASE, ref_release as *const u8),
-	]
 }
