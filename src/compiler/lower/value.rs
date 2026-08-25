@@ -904,6 +904,7 @@ impl<'a> Translator<'a> {
 				typ,
 				default: None,
 				embedded: false,
+				annotations: vec![],
 			});
 		}
 		let shape: Vec<_> = fields.iter().map(|f| format!("{}: {}", f.name, f.typ)).collect();

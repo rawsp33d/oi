@@ -43,6 +43,7 @@ impl Translator<'_> {
 				default: None,
 				mutable: false,
 				public: false,
+				annotations: vec![],
 			});
 		}
 		let ret = self.stage_ret(step)?;

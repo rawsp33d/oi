@@ -132,6 +132,7 @@ tags: []
 - [x] Algebraic Data Types (ADT) `rust`
 - [ ] c-strings primitive (`c"foo"`?)
 - [ ] incremental compilation
+- [ ] `any` type
 ## consider
 - C++20 uses `operator|`, a naked `|` for pipelines
 	- back on the table now that `|x|` lambda fences are gone

@@ -9,7 +9,7 @@ use chumsky::{input::Stream, prelude::*};
 use include_dir::{Dir, include_dir};
 
 use crate::Reported;
-use crate::ast::{Expr, Span, Spanned, TypeExpr, UseItem};
+use crate::ast::{Annotation, Expr, Span, Spanned, TypeExpr, UseItem};
 use crate::diagnostics::{Diagnostic, SourceMap};
 use crate::lexer::lex_at;
 use crate::parser::parser;
@@ -62,16 +62,21 @@ pub struct Scope {
 }
 
 impl Scope {
-	// Resolve a bare trait name through this module's env, qualifying a miss into its own module.
-	pub(crate) fn qualify_trait(&self, name: &str) -> String {
-		if name.contains("::") || name == "Drop" {
-			return name.to_string();
-		}
+	// Resolve a bare name through this module's env, qualifying a miss into its own module.
+	pub(crate) fn qualify_name(&self, name: &str) -> String {
 		match self.env.get(name) {
 			Some(q) => q.clone(),
 			None if self.module.is_empty() => name.to_string(),
 			None => format!("{}::{name}", self.module),
 		}
+	}
+
+	// Resolve a bare trait name, leaving qualified names and `Drop` alone.
+	pub(crate) fn qualify_trait(&self, name: &str) -> String {
+		if name.contains("::") || name == "Drop" {
+			return name.to_string();
+		}
+		self.qualify_name(name)
 	}
 }
 
@@ -89,6 +94,7 @@ pub struct Program {
 	pub publics: HashSet<String>,
 	pub reexports: HashMap<String, String>,
 	pub consts: HashMap<String, Spanned<Expr>>,
+	pub annotations: HashMap<String, Vec<Annotation>>,
 }
 
 impl Program {
@@ -103,7 +109,7 @@ fn err(msg: impl Into<String>, span: Span, label: &str) -> Diagnostic {
 }
 
 // Ensure const values are literals.
-fn is_literal(e: &Expr) -> bool {
+pub(crate) fn is_literal(e: &Expr) -> bool {
 	match e {
 		Expr::Bool(_) | Expr::Int(_) | Expr::Float(_) | Expr::String(_) | Expr::Atom(_) => true,
 		Expr::Negative(inner) => is_literal(&inner.0),
@@ -135,6 +141,7 @@ struct Loader<'a> {
 	publics: HashSet<String>,
 	reexports: HashMap<String, String>,
 	consts: HashMap<String, Spanned<Expr>>,
+	annotations: HashMap<String, Vec<Annotation>>,
 	// import stack
 	loading: Vec<String>,
 	selected: Vec<(String, String, Span)>,
@@ -204,6 +211,11 @@ impl Loader<'_> {
 			_ => {}
 		}
 		for item in file {
+			// peel off annotations
+			let (anns, item) = match item {
+				(Expr::Annotated(anns, inner), _) => (anns, *inner),
+				item => (Vec::new(), item),
+			};
 			if matches!(item.0, Expr::Module(_)) {
 				return Err(err("`module` must come first", item.1, "move it to the top"));
 			}
@@ -213,6 +225,17 @@ impl Loader<'_> {
 				(Expr::Pub(inner), _) => *inner,
 				item => item,
 			};
+			if !anns.is_empty()
+				&& !matches!(
+					item.0,
+					Expr::Fn { .. }
+						| Expr::StructDef { .. }
+						| Expr::EnumDef { .. }
+						| Expr::TypeAlias { .. }
+						| Expr::TraitDef { .. }
+				) {
+				return Err(err("annotations only go on definitions", item.1, "not a definition"));
+			}
 			if let Expr::Use { name, path, group } = &item.0 {
 				let (module, _) = &path[0];
 				if path.len() > 2 || (path.len() == 2 && group.is_some()) {
@@ -286,7 +309,12 @@ impl Loader<'_> {
 				| Expr::StructDef { name, .. }
 				| Expr::EnumDef { name, .. }
 				| Expr::TypeAlias { name, .. }
-				| Expr::TraitDef { name, .. } => self.define(m, name, !main, public, span)?,
+				| Expr::TraitDef { name, .. } => {
+					self.define(m, name, !main, public, span)?;
+					if !anns.is_empty() {
+						self.annotations.entry(name.clone()).or_default().extend(anns);
+					}
+				}
 				Expr::Bind {
 					mutable,
 					name,
@@ -500,6 +528,7 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 		publics: HashSet::new(),
 		reexports: HashMap::new(),
 		consts: HashMap::new(),
+		annotations: HashMap::new(),
 		loading: vec![],
 		selected: vec![],
 		core_origin: HashSet::from(["core".to_string()]),
@@ -516,5 +545,6 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 		publics: loader.publics,
 		reexports,
 		consts: loader.consts,
+		annotations: loader.annotations,
 	})
 }

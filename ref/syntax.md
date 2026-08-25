@@ -1856,17 +1856,19 @@ main :: fn() {
 
 	## annotations
 
-	# an annotation is a struct value attached with @
+	# an annotation is a value attached with @
 	# they don't do anything on their own but may be read back through reflection
-	# @pure/@params/@required are builtin annotations, defined in std and consumed by the compiler
 
-	awesome :: struct {}
-	@awesome
+	# atoms make great tags
+	@:awesome
 	kickflip :: fn() {}
+	Foo :: struct { bar: int @:awesome }
 
+	# structs may be used to associate payloads with annotations
 	deprecated :: struct { reason: string }
-	@deprecated("use speak()")
-	yell :: fn() string { ... }
+	@deprecated.{"use speak()"}
+	pub yell :: fn() string { ... }
+
 	# TODO: the comp and reflection stuff not fleshed out yet
 	comp for note in typeinfo(yell).annotations { ... }
 

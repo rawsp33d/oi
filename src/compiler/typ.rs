@@ -4,7 +4,7 @@ use std::fmt;
 
 use cranelift::prelude::*;
 
-use crate::ast::{Expr, Param, Spanned, TypeExpr};
+use crate::ast::{Annotation, Expr, Param, Spanned, TypeExpr};
 
 #[derive(Clone, Debug)]
 pub(crate) enum Typ {
@@ -43,6 +43,7 @@ pub(crate) struct FieldDef {
 	pub typ: Typ,
 	pub default: Option<Spanned<Expr>>,
 	pub embedded: bool,
+	pub annotations: Vec<Annotation>,
 }
 
 // Check whether a field is embedded.

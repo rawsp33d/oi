@@ -6,9 +6,9 @@ use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{DataDescription, DataId, FuncId, Linkage, Module};
 
-use crate::ast::{EnumVariant, Expr, Param, Span, Spanned, TypeExpr, TypeParam};
+use crate::ast::{Annotation, EnumVariant, Expr, Param, Span, Spanned, TypeExpr, TypeParam};
 use crate::diagnostics::{Diagnostic, SourceMap};
-use crate::loader::{Program, Scope};
+use crate::loader::{Program, Scope, is_literal};
 use crate::runtime;
 
 mod expand;
@@ -130,6 +130,110 @@ fn qualify_bounds(scope: &Scope, params: &mut [TypeParam]) {
 	}
 }
 
+// Qualify a value annotation's struct name through its defining scope.
+fn qualify_anns(scope: &Scope, anns: &[Annotation]) -> Vec<Annotation> {
+	let mut anns = anns.to_vec();
+	for a in &mut anns {
+		if let Annotation::Value((Expr::StructLit { name, .. }, _)) = a {
+			*name = scope.qualify_name(name);
+		}
+	}
+	anns
+}
+
+// Check that annotations name a struct and pass literal args.
+fn check_annotations<'p>(
+	anns: &HashMap<String, Vec<Annotation>>,
+	structs: &HashMap<String, Vec<FieldDef>>,
+	generics: &Generics,
+	scope_of: impl Fn(&str) -> &'p Scope,
+) -> Result<(), Diagnostic> {
+	let mut generic_field_anns = Vec::new();
+	for (name, def) in &generics.structs {
+		let scope = scope_of(name);
+		generic_field_anns.extend(def.fields.iter().flat_map(|p| qualify_anns(scope, &p.annotations)));
+	}
+	let field_anns = structs.values().flatten().flat_map(|f| f.annotations.iter());
+	for a in anns.values().flatten().chain(field_anns).chain(&generic_field_anns) {
+		check_annotation(a, structs, generics)?;
+	}
+	Ok(())
+}
+
+fn check_annotation(
+	a: &Annotation,
+	structs: &HashMap<String, Vec<FieldDef>>,
+	generics: &Generics,
+) -> Result<(), Diagnostic> {
+	// tags carry no payload to check
+	let Annotation::Value((Expr::StructLit { name, fields, .. }, span)) = a else {
+		return Ok(());
+	};
+	let Some(field_defs) = structs.get(name.as_str()) else {
+		if generics.structs.contains_key(name.as_str()) {
+			let msg = "a generic struct can't be an annotation";
+			return Err(Diagnostic::new(msg, span.into_range()).with_label("pick a concrete struct"));
+		}
+		let msg = format!("`{name}` is not a struct");
+		return Err(Diagnostic::new(msg, span.into_range()).with_label("an annotation is a struct value"));
+	};
+	let mut prefix = 0;
+	for (i, (key, value)) in fields.iter().enumerate() {
+		let err = |msg: String, label| Err(Diagnostic::new(msg, value.1.into_range()).with_label(label));
+		let idx = match key {
+			None if i != prefix => {
+				return err(
+					"positional fields go before named fields".into(),
+					"positional field after a named one",
+				);
+			}
+			None if i >= field_defs.len() => {
+				let n = fields.iter().filter(|(k, _)| k.is_none()).count();
+				let msg = format!("`{name}` has {} fields but {n} values were provided", field_defs.len());
+				return err(msg, "wrong number of fields");
+			}
+			None => {
+				prefix += 1;
+				i
+			}
+			Some(key) => match field_defs.iter().position(|f| &f.name == key) {
+				None => return err(format!("`{name}` has no field `{key}`"), "no such field"),
+				Some(idx) if idx < prefix => return err(format!("`{key}` was already set positionally"), "set twice"),
+				Some(idx) => idx,
+			},
+		};
+		check_lit(&value.0, &field_defs[idx].typ, value.1)?;
+	}
+	Ok(())
+}
+
+fn check_lit(e: &Expr, typ: &Typ, span: Span) -> Result<(), Diagnostic> {
+	if !is_literal(e) {
+		let msg = "annotation arguments must be literal values";
+		return Err(Diagnostic::new(msg, span.into_range()).with_label("not a literal"));
+	}
+	if !lit_matches(e, typ) {
+		return Err(Diagnostic::new(format!("expected {typ}"), span.into_range()).with_label("type mismatch"));
+	}
+	Ok(())
+}
+
+// Check whether a literal expression agrees with a field's type.
+fn lit_matches(e: &Expr, typ: &Typ) -> bool {
+	match e {
+		Expr::Negative(inner) => lit_matches(&inner.0, typ),
+		Expr::Bool(_) => matches!(typ, Typ::Bool),
+		Expr::Int(_) => matches!(
+			typ,
+			Typ::Int(_) | Typ::UInt(_) | Typ::ISize | Typ::USize | Typ::Float(_)
+		),
+		Expr::Float(_) => matches!(typ, Typ::Float(_)),
+		Expr::String(_) => matches!(typ, Typ::Str),
+		Expr::Atom(_) => typ.is_enumish(),
+		_ => false,
+	}
+}
+
 // No placeholder struct may appear outside a `&T`.
 fn ref_guarded(typ: &Typ, placeholders: &HashSet<String>) -> bool {
 	match typ {
@@ -208,6 +312,7 @@ pub struct Compiler {
 	privates: HashMap<String, HashSet<String>>,
 	reexports: HashMap<String, String>,
 	consts: HashMap<String, Spanned<Expr>>,
+	annotations: HashMap<String, Vec<Annotation>>,
 	map: SourceMap,
 	hoisted: HashMap<String, FnSig>,
 }
@@ -246,6 +351,7 @@ impl Default for Compiler {
 			privates: HashMap::new(),
 			reexports: HashMap::new(),
 			consts: HashMap::new(),
+			annotations: HashMap::new(),
 			map: SourceMap::default(),
 			hoisted: HashMap::new(),
 		}
@@ -367,6 +473,11 @@ impl Compiler {
 		self.map = program.map.clone();
 		let scopes: HashMap<&str, &Scope> = program.modules.iter().map(|m| (m.name.as_str(), &m.scope)).collect();
 		let scope_of = |key: &str| scopes[key.split_once("::").map_or("main", |(m, _)| m)];
+		self.annotations = program
+			.annotations
+			.iter()
+			.map(|(k, anns)| (k.clone(), qualify_anns(scope_of(k), anns)))
+			.collect();
 
 		// expand user macros to AST
 		let expanded = expand(program)?;
@@ -595,6 +706,7 @@ impl Compiler {
 				typ,
 				default: p.default.clone(),
 				embedded: embedded(p),
+				annotations: qualify_anns(types.scope, &p.annotations),
 			})
 		};
 		while !pending.is_empty() {
@@ -635,6 +747,8 @@ impl Compiler {
 			}
 			structs.extend(done);
 		}
+		check_annotations(&self.annotations, &structs, &generics, scope_of)?;
+
 		let field_types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits);
 		check_impls(
 			trait_bodies,

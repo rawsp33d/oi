@@ -287,6 +287,9 @@ pub enum Expr {
 	// `pub expr`
 	Pub(Box<Spanned<Expr>>),
 
+	// `@annotation`
+	Annotated(Vec<Annotation>, Box<Spanned<Expr>>),
+
 	// operators
 
 	// `T is not? Trait`
@@ -328,6 +331,7 @@ impl Expr {
 			| Expr::Spread(v)
 			| Expr::Ref(v)
 			| Expr::Pub(v)
+			| Expr::Annotated(_, v)
 			| Expr::Propagate(v)
 			| Expr::Negative(v)
 			| Expr::Not(v)
@@ -599,4 +603,12 @@ pub struct Param {
 	pub default: Option<Spanned<Expr>>,
 	pub mutable: bool,
 	pub public: bool,
+	pub annotations: Vec<Annotation>,
+}
+
+// A value attached to a definition or field.
+#[derive(Debug, Clone)]
+pub enum Annotation {
+	Tag(String, Span),
+	Value(Spanned<Expr>),
 }

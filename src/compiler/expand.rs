@@ -139,6 +139,7 @@ impl Expander {
 			publics: HashSet::new(),
 			reexports: HashMap::new(),
 			consts: HashMap::new(),
+			annotations: HashMap::new(),
 		};
 		let mut compiler = Compiler::default();
 		compiler.compile(&synthetic)?;

@@ -211,6 +211,7 @@ impl TypeCtx<'_> {
 							typ: self.resolve(&p.typ, p.span)?,
 							default: p.default.clone(),
 							embedded: embedded(p),
+							annotations: qualify_anns(self.scope, &p.annotations),
 						})
 					})
 					.collect::<Result<Vec<_>, Diagnostic>>()?;
@@ -308,6 +309,7 @@ impl TypeCtx<'_> {
 					typ: inner.resolve(&f.typ, f.span)?,
 					default: f.default.clone(),
 					embedded: embedded(f),
+					annotations: f.annotations.clone(),
 				})
 			})
 			.collect::<Result<Vec<_>, _>>()?;

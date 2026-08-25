@@ -67,6 +67,7 @@ impl<'a> Translator<'a> {
 								default: None,
 								mutable: false,
 								public: false,
+								annotations: vec![],
 							})
 							.collect(),
 						ptyps.len() != 1,

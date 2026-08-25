@@ -1,5 +1,6 @@
 use crate::ast::{
-	BinOp, Capture, EnumVariant, Expr, MatchArm, Param, Pattern, Span, Spanned, TypeExpr, TypeParam, UseItem,
+	Annotation, BinOp, Capture, EnumVariant, Expr, MatchArm, Param, Pattern, Span, Spanned, TypeExpr, TypeParam,
+	UseItem,
 };
 use crate::lexer::Token;
 
@@ -86,6 +87,7 @@ fn fn_def(
 			default: None,
 			mutable: false,
 			public: false,
+			annotations: vec![],
 		};
 		(vec![param], false)
 	});
@@ -318,6 +320,7 @@ where
 			default: None,
 			mutable: mutable.is_some(),
 			public: false,
+			annotations: vec![],
 		});
 	// NOTE: a trailing comma forces a tuple even for one param
 	let params = paren(
@@ -1159,6 +1162,22 @@ where
 	};
 	expr.define(definition);
 
+	// annotations
+	let ann_entry = ident().then_ignore(just(Token::Assign)).or_not().then(expr.clone());
+	let ann_tag = select! { Token::Atom(name) => name }.map_with(|name, ex| Annotation::Tag(name, ex.span()));
+	let ann_value = ident()
+		.then_ignore(adjacent.then(just(Token::Dot)))
+		.then(brace(loose_list(ann_entry)))
+		.map_with(|(name, fields), ex| {
+			let lit = Expr::StructLit {
+				name,
+				type_args: vec![],
+				fields,
+			};
+			Annotation::Value((lit, ex.span()))
+		});
+	let annotation = just(Token::At).then_ignore(adjacent).ignore_then(ann_tag.or(ann_value)).boxed();
+
 	// item bindings
 	let item_head = ident().then(type_params.clone()).then_ignore(just(Token::DoubleColon));
 
@@ -1180,13 +1199,15 @@ where
 		.then_ignore(just(Token::Colon))
 		.then(type_expr.clone())
 		.then(just(Token::Assign).ignore_then(expr.clone().or(block_lit.clone())).or_not())
-		.map_with(|(((public, name), typ), default), ex| Param {
+		.then(same_line.ignore_then(annotation.clone()).repeated().collect::<Vec<_>>())
+		.map_with(|((((public, name), typ), default), annotations), ex| Param {
 			name,
 			typ,
 			span: ex.span(),
 			default,
 			mutable: false,
 			public: public.is_some(),
+			annotations,
 		})
 		.boxed();
 	anon_fields.define(loose_list(struct_field.clone()));
@@ -1198,6 +1219,7 @@ where
 		default: None,
 		mutable: false,
 		public: public.is_some(),
+		annotations: vec![],
 	});
 	let struct_def = item_head
 		.clone()
@@ -1380,6 +1402,7 @@ where
 		.then_ignore(just(Token::DoubleColon))
 		.then(block.clone())
 		.map_with(|(name, body), ex| fn_def((name, vec![]), Some((vec![], false)), None, body, ex.span()));
+	let fill_docs = select! { Token::Doc(_) => () }.or(just(Token::DocBreak).ignored()).repeated();
 	let fill = just(Token::Pub)
 		.or_not()
 		.then(func.clone().or(bare_fill))
@@ -1387,7 +1410,14 @@ where
 			Some(_) => (Expr::Pub(Box::new(f)), ex.span()),
 			None => f,
 		});
-	let fill_block = brace(fill.repeated().collect::<Vec<_>>());
+	let fill_block = brace(
+		fill_docs
+			.clone()
+			.ignore_then(fill)
+			.repeated()
+			.collect::<Vec<_>>()
+			.then_ignore(fill_docs),
+	);
 	let via = just(Token::Via).ignore_then(ident()).or_not();
 	let claim = ident()
 		.then(type_params.clone())
@@ -1445,7 +1475,24 @@ where
 		.ignore_then(def.clone().or(use_decl.clone()).or(bind))
 		.map_with(|d, ex| (Expr::Pub(Box::new(d)), ex.span()));
 
-	def.or(public)
+	// annotations
+	let annotated = annotation
+		.repeated()
+		.at_least(1)
+		.collect::<Vec<_>>()
+		.then(just(Token::Pub).or_not())
+		.then(def.clone())
+		.map_with(|((anns, public), item), ex| {
+			let item = match public {
+				Some(_) => (Expr::Pub(Box::new(item)), ex.span()),
+				None => item,
+			};
+			(Expr::Annotated(anns, Box::new(item)), ex.span())
+		});
+
+	annotated
+		.or(def)
+		.or(public)
 		.or(module_decl)
 		.or(use_decl)
 		.or(stmt)
