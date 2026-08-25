@@ -117,9 +117,10 @@ pub(crate) fn is_literal(e: &Expr) -> bool {
 	}
 }
 
-// A struct literal also counts as a const value when all its fields are.
+// Unit and struct literals also count as const values.
 fn is_const_value(e: &Expr) -> bool {
 	match e {
+		Expr::Tuple(fields) => fields.is_empty(),
 		Expr::StructLit { fields, .. } => fields.iter().all(|(_, v)| is_literal(&v.0)),
 		_ => is_literal(e),
 	}
@@ -242,7 +243,11 @@ impl Loader<'_> {
 						| Expr::TypeAlias { .. }
 						| Expr::TraitDef { .. }
 				) {
-				return Err(err("annotations only attach to definitions", item.1, "not a definition"));
+				return Err(err(
+					"annotations only attach to definitions",
+					item.1,
+					"not a definition",
+				));
 			}
 			if let Expr::Use { name, path, group } = &item.0 {
 				let (module, _) = &path[0];

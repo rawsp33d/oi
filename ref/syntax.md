@@ -1874,8 +1874,8 @@ main :: fn() {
 	@strict
 	pub shout :: fn() string { ... }
 
-	# blessed builtins are just consts in core, declared the same way
-	# pub required :: .{}
+	# blessed builtins are just consts in core
+	# pub required :: ()
 	Player :: struct { name: string @required }
 
 	# TODO: the comp and reflection stuff not fleshed out yet

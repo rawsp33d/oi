@@ -26,4 +26,4 @@ string : Error {
 
 # annotations
 
-pub required :: .{}
+pub required :: ()

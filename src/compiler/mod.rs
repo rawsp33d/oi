@@ -173,9 +173,10 @@ fn check_annotation(
 		Expr::StructLit { name, fields, .. } => check_struct_lit(name, fields, a.1, structs, generics),
 		Expr::Ident(name) => match consts.get(name) {
 			Some((Expr::StructLit { name, fields, .. }, _)) => check_struct_lit(name, fields, a.1, structs, generics),
+			Some((Expr::Tuple(fields), _)) if fields.is_empty() => Ok(()),
 			Some(_) => err(
-				format!("`{name}` is not a struct value"),
-				"an annotation is a struct value".into(),
+				format!("`{name}` is not an annotation value"),
+				"a bare annotation names a unit or struct const".into(),
 			),
 			None if structs.contains_key(name) || generics.structs.contains_key(name) => err(
 				format!("`{name}` is a struct, not a value"),
@@ -183,7 +184,7 @@ fn check_annotation(
 			),
 			None => err(
 				format!("`{name}` is not a constant"),
-				"a bare annotation names a const struct value".into(),
+				"a bare annotation names a unit or struct const".into(),
 			),
 		},
 		_ => Ok(()),

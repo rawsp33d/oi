@@ -39,6 +39,11 @@ fn bare_const_marker_from_core() {
 }
 
 #[test]
+fn builtin_marker_is_a_real_value() {
+	check("print(required)", "()");
+}
+
+#[test]
 fn unknown_annotation_is_not_a_struct() {
 	fail_with(
 		indoc! {"
