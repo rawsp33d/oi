@@ -1,6 +1,32 @@
 use super::generic::unify;
 use super::*;
 
+// Error when a `@required` field isn't fulfilled.
+fn check_required(
+	name: &str,
+	struct_fields: &[FieldDef],
+	entries: &[(Option<String>, Spanned<Expr>)],
+	span: Span,
+) -> Result<(), Diagnostic> {
+	let required = |f: &&FieldDef| {
+		f.annotations
+			.iter()
+			.any(|a| matches!(&a.0, Expr::Ident(n) if n == "core::required"))
+	};
+	for (i, f) in struct_fields.iter().enumerate().filter(|(_, f)| required(f)) {
+		let set = entries.iter().enumerate().any(|(j, (n, v))| {
+			matches!(v.0, Expr::Spread(_)) || n.as_deref() == Some(f.name.as_str()) || (n.is_none() && i == j)
+		});
+		if !set {
+			return Err(
+				Diagnostic::new(format!("`{name}.{}` is required", f.name), span.into_range())
+					.with_label("set it in the literal"),
+			);
+		}
+	}
+	Ok(())
+}
+
 impl<'a> Translator<'a> {
 	pub(super) fn str_const(&mut self, s: &str) -> Value {
 		let len = s.len() as i64;
@@ -888,6 +914,7 @@ impl<'a> Translator<'a> {
 		if !fields.is_empty() && prefix == fields.len() && prefix != struct_fields.len() {
 			return Err(arity(prefix));
 		}
+		check_required(&name, &struct_fields, fields, span)?;
 		Ok((ptr, Typ::Struct(name.clone(), struct_fields)))
 	}
 
@@ -1010,6 +1037,7 @@ impl<'a> Translator<'a> {
 		let Typ::Struct(_, struct_fields) = &typ else {
 			unreachable!()
 		};
+		check_required(name, struct_fields, fields, span)?;
 		let ptr = self.struct_slot(struct_fields)?;
 		for (idx, val, vtyp, vspan) in provided {
 			let expected = &struct_fields[idx].typ;

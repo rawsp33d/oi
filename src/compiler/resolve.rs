@@ -309,7 +309,7 @@ impl TypeCtx<'_> {
 					typ: inner.resolve(&f.typ, f.span)?,
 					default: f.default.clone(),
 					embedded: embedded(f),
-					annotations: f.annotations.clone(),
+					annotations: qualify_anns(self.scope, &f.annotations),
 				})
 			})
 			.collect::<Result<Vec<_>, _>>()?;

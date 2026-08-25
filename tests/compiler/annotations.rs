@@ -119,3 +119,39 @@ fn bare_struct_name_is_not_a_value() {
 		"is a struct, not a value",
 	);
 }
+
+#[test]
+fn required_field_omitted() {
+	fail_with(
+		indoc! {"
+			Foo :: struct { n: int @required }
+			f := Foo.{}
+		"},
+		"`Foo.n` is required",
+	);
+}
+
+#[test]
+fn required_field_provided() {
+	check(
+		indoc! {r#"
+			Foo :: struct { n: int @required }
+			a := Foo.{n = 1}
+			b := Foo.{2}
+			c := Foo.{...a}
+			print("{a.n} {b.n} {c.n}")
+		"#},
+		"1 2 1",
+	);
+}
+
+#[test]
+fn generic_required_omitted() {
+	fail_with(
+		indoc! {"
+			Box[T] :: struct { v: T, n: int @required }
+			b := Box.{v = 1}
+		"},
+		"is required",
+	);
+}
