@@ -1066,6 +1066,7 @@ impl Compiler {
 			privates: &self.privates,
 			reexports: &self.reexports,
 			consts: &self.consts,
+			annotations: &self.annotations,
 			mono: &mut self.mono,
 			pending: &mut self.pending,
 			descs: &mut self.descs,

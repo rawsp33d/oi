@@ -155,3 +155,48 @@ fn generic_required_omitted() {
 		"is required",
 	);
 }
+
+#[test]
+fn params_omits_trailing_struct() {
+	check(
+		indoc! {"
+			@params
+			Settings :: struct { idk: int = 7 }
+			User :: struct {}
+			User :{
+				with_settings :: fn(self, settings: Settings) { print(settings.idk) }
+			}
+			take :: fn(settings: Settings) { print(settings.idk) }
+			u := User.{}
+			u.with_settings()
+			take()
+			take(.{idk = 1})
+		"},
+		["7", "7", "1"],
+	);
+}
+
+#[test]
+fn params_only_on_marked_struct() {
+	fail_with(
+		indoc! {"
+			Settings :: struct { idk: int = 7 }
+			take :: fn(settings: Settings) { print(settings.idk) }
+			take()
+		"},
+		"expects 1 argument",
+	);
+}
+
+#[test]
+fn params_synthesized_literal_checks_required() {
+	fail_with(
+		indoc! {"
+			@params
+			Settings :: struct { idk: int @required }
+			take :: fn(settings: Settings) { print(settings.idk) }
+			take()
+		"},
+		"is required",
+	);
+}

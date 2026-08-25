@@ -13,7 +13,7 @@ use super::{
 	VariantInfo, builtin_claim, cl_int_for_width, cl_type, display_name, elem_size, embeds, enum_boxed, enum_slots,
 	mentions, oi_symbol, option_variants, result_variants, sum_remap, trait_fns, type_expr,
 };
-use crate::ast::{BinOp, Expr, MatchArm, Pattern, Span, Spanned, TypeExpr};
+use crate::ast::{Annotation, BinOp, Expr, MatchArm, Pattern, Span, Spanned, TypeExpr};
 use crate::diagnostics::{Diagnostic, SourceMap};
 use crate::loader::Scope;
 use crate::runtime;
@@ -62,6 +62,7 @@ pub(super) struct Translator<'a> {
 	pub privates: &'a HashMap<String, HashSet<String>>,
 	pub reexports: &'a HashMap<String, String>,
 	pub consts: &'a HashMap<String, Spanned<Expr>>,
+	pub annotations: &'a HashMap<String, Vec<Annotation>>,
 	pub mono: &'a mut HashMap<String, FnSig>,
 	pub pending: &'a mut Vec<Pending>,
 	pub descs: &'a mut HashMap<String, DataId>,

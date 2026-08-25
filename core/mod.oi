@@ -27,3 +27,4 @@ string : Error {
 # annotations
 
 pub required :: ()
+pub params :: ()

@@ -78,6 +78,20 @@ impl<'a> Translator<'a> {
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
 		let self_n = recv.is_some() as usize;
+		// `@params`
+		let synth;
+		let args = if args.len() + self_n + 1 == sig.params.len()
+			&& let Some(Typ::Struct(n, _)) = sig.params.last()
+			&& self
+				.annotations
+				.get(n)
+				.is_some_and(|anns| anns.iter().any(|(e, _)| matches!(e, Expr::Ident(q) if q == "core::params")))
+		{
+			synth = [args, &[(Expr::Record(vec![]), span)]].concat();
+			&synth[..]
+		} else {
+			args
+		};
 		if args.len() + self_n != sig.params.len() {
 			return Err(Diagnostic::new(
 				format!(
