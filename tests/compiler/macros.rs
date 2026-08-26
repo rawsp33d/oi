@@ -27,6 +27,15 @@ fn unknown_macro_errors() {
 }
 
 #[test]
+fn macro_run_error_is_a_diagnostic() {
+	let src = indoc! {r"
+		grow! :: fn(n: Ast) Ast { `%{n.int() + 1}` }
+		print(grow!(true))
+	"};
+	fail_with(src, "while running `grow!`");
+}
+
+#[test]
 fn bare_call_suggests_macro() {
 	fail_with("assert(true)", "write `assert!(...)`");
 }

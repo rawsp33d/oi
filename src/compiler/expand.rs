@@ -1,5 +1,6 @@
 // User-defined comptime macros.
 
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -226,6 +227,9 @@ impl Expander {
 		// SAFETY: stage-0 fns take at most MAX_PARAMS pointer args, all in registers on the ABIs cranelift targets, so a fixed-shape call just leaves the extras unread.
 		let f = unsafe { std::mem::transmute::<*const u8, fn(Ptr, Ptr, Ptr, Ptr) -> Ptr>(ptr) };
 		let (e0, span) = unsafe { *Box::from_raw(f(arg(0), arg(1), arg(2), arg(3))) };
+		if let Some(msg) = ERROR.take() {
+			return fail(msg, e.1, &format!("while running `{name}!`"));
+		}
 		let mut body = match e0 {
 			Expr::Block(stmts) => stmts,
 			other => vec![(other, span)],
@@ -319,10 +323,15 @@ struct Template {
 
 static HYGIENE: AtomicUsize = AtomicUsize::new(0);
 
-// Macro-run failures can't recover.
-fn die(msg: &str) -> ! {
-	eprintln!("macro error: {msg}");
-	std::process::exit(1)
+thread_local! {
+	static ERROR: RefCell<Option<String>> = const { RefCell::new(None) };
+}
+
+// Record a macro-run failure.
+fn flag(msg: &str) {
+	ERROR.with_borrow_mut(|e| {
+		e.get_or_insert_with(|| msg.to_string());
+	});
 }
 
 // One unquote site in a template.
@@ -402,7 +411,10 @@ fn fill(e: &mut Spanned<Expr>, bound: &HashSet<String>, args: &HashMap<&str, Arg
 	if let Expr::Unquote(name) = &e.0 {
 		match &args[name.as_str()] {
 			Arg::Ast(v) => *e = (*v).clone(),
-			Arg::Seq(_) => die("%{...} spread needs a sequence position"),
+			Arg::Seq(_) => {
+				flag("%{...} spread needs a sequence position");
+				e.0 = Expr::Tuple(vec![]);
+			}
 		}
 		return;
 	}
@@ -434,10 +446,10 @@ fn fill(e: &mut Spanned<Expr>, bound: &HashSet<String>, args: &HashMap<&str, Arg
 	if let Expr::Bind { name, .. } = &mut e.0
 		&& let Some(param) = name.strip_prefix('%')
 	{
-		let Arg::Ast((Expr::Ident(n), _)) = &args[param] else {
-			die("a `%name` binder needs a plain name argument");
-		};
-		*name = n.clone();
+		match &args[param] {
+			Arg::Ast((Expr::Ident(n), _)) => *name = n.clone(),
+			_ => flag("a `%name` binder needs a plain name argument"),
+		}
 	}
 	match &mut e.0 {
 		Expr::Call { args: list, .. }
@@ -524,7 +536,10 @@ pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const runtime:
 	let m = unsafe { runtime::str_bytes(m) };
 	match (m, unsafe { &(*a).0 }) {
 		(b"int", Expr::Int(n)) => *n,
-		(b"int", _) => die("`.int()` needs an Ast holding an Int literal"),
+		(b"int", _) => {
+			flag("`.int()` needs an Ast holding an Int literal");
+			0
+		}
 		(
 			b"name",
 			Expr::StructDef { name, .. }
@@ -533,7 +548,10 @@ pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const runtime:
 			| Expr::MacroCall { name, .. },
 		) => ast(Expr::Ident(name.clone())),
 		(b"name", ident @ Expr::Ident(_)) => ast(ident.clone()),
-		(b"name", _) => die("this Ast has no name"),
+		(b"name", _) => {
+			flag("this Ast has no name");
+			ast(Expr::Tuple(vec![]))
+		}
 		(
 			b"items",
 			Expr::Array(v)
@@ -548,12 +566,18 @@ pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const runtime:
 		(b"items", Expr::EnumDef { variants, .. }) => {
 			list(variants.iter().map(|v| ast(Expr::Ident(v.name.clone()))).collect())
 		}
-		(b"items", _) => die("this Ast has no items"),
+		(b"items", _) => {
+			flag("this Ast has no items");
+			list(vec![])
+		}
 		(b"==", Expr::Ident(n)) => {
 			let bytes = unsafe { runtime::str_bytes(arg as *const runtime::StrHeader) };
 			(n.as_bytes() == bytes) as i64
 		}
 		(b"==", _) => 0,
-		_ => die("unknown Ast method"),
+		_ => {
+			flag("unknown Ast method");
+			ast(Expr::Tuple(vec![]))
+		}
 	}
 }
