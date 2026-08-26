@@ -532,6 +532,7 @@ impl Loader<'_> {
 								| Expr::EnumDef { name, .. }
 								| Expr::TypeAlias { name, .. }
 								| Expr::TraitDef { name, .. }
+								| Expr::MacroDef { name, .. }
 								| Expr::Bind { name, .. } if name == q)
 						})
 					})

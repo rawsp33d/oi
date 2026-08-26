@@ -277,3 +277,11 @@ fn qualified_macro_call_resolves_module_locally() {
 		)
 		.check("42");
 }
+
+#[test]
+fn imported_macro_called_bare() {
+	Project::new()
+		.file("main.oi", ["module main", "use util.{ answer }", "print(answer!())"])
+		.file("util/lib.oi", ["module util", "pub answer! :: fn() Ast { `42` }"])
+		.check("42");
+}
