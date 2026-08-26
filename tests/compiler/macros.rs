@@ -156,6 +156,25 @@ fn macro_ret_must_be_ast() {
 }
 
 #[test]
+fn unquote_lifts_primitives() {
+	check(
+		indoc! {r#"
+			mk! :: fn() Ast {
+				s := "hi"
+				b := true
+				f := 2.5
+				`if %b {
+					print(%s)
+					print(%f)
+				}`
+			}
+			mk!()
+		"#},
+		["hi", "2.5"],
+	);
+}
+
+#[test]
 fn unquote_expr_splices_int_result() {
 	check(
 		indoc! {r"

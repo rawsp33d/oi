@@ -1,4 +1,4 @@
-use crate::compiler::expand;
+use crate::compiler::{comp, expand};
 
 use super::*;
 
@@ -55,21 +55,30 @@ impl<'a> Translator<'a> {
 		Ok((self.b.inst_results(call)[0], Typ::Ast))
 	}
 
-	// Lift an unquoted value into an Ast pointer, ready to splice into a template.
+	// Lift an unquoted value into a Ast literal pointer, ready to splice into a template.
 	fn lift_unquote(&mut self, val: Value, typ: &Typ, span: Span) -> Result<Value, Diagnostic> {
-		match typ {
-			Typ::Ast => Ok(val),
-			Typ::Int(_) => {
-				let v64 = self.intcast(val, types::I64, true);
-				let func = self.import_fn(expand::RT_AST_INT, &[types::I64], Some(self.int));
-				let call = self.b.ins().call(func, &[v64]);
-				Ok(self.b.inst_results(call)[0])
+		let (tag, bits) = match typ {
+			Typ::Ast => return Ok(val),
+			Typ::Int(_) | Typ::ISize => (comp::TAG_INT, self.intcast(val, types::I64, true)),
+			Typ::UInt(_) | Typ::USize => (comp::TAG_INT, self.intcast(val, types::I64, false)),
+			Typ::Bool => (comp::TAG_BOOL, val),
+			Typ::Str => (comp::TAG_STR, val),
+			Typ::Float(32) => {
+				let f64v = self.b.ins().fpromote(types::F64, val);
+				(comp::TAG_FLOAT, self.b.ins().bitcast(self.int, MemFlags::new(), f64v))
 			}
-			other => Err(
-				Diagnostic::new(format!("can't unquote a `{other}` yet"), span.into_range())
-					.with_label("unsupported unquote type"),
-			),
-		}
+			Typ::Float(_) => (comp::TAG_FLOAT, self.b.ins().bitcast(self.int, MemFlags::new(), val)),
+			other => {
+				return Err(
+					Diagnostic::new(format!("can't unquote a `{other}` yet"), span.into_range())
+						.with_label("unsupported unquote type"),
+				);
+			}
+		};
+		let tagv = self.b.ins().iconst(self.int, tag);
+		let func = self.import_fn(expand::RT_AST_LIT, &[self.int; 2], Some(self.int));
+		let call = self.b.ins().call(func, &[tagv, bits]);
+		Ok(self.b.inst_results(call)[0])
 	}
 
 	// Call the runtime panic path with `msg` and mark the current block unreachable.

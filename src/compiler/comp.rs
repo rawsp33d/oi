@@ -87,6 +87,18 @@ fn is_def(e: &Expr) -> bool {
 	)
 }
 
+// Decode one scalar into its literal.
+pub(crate) fn scalar(tag: i64, v: i64) -> Expr {
+	match tag {
+		TAG_INT => Expr::Int(v),
+		TAG_FLOAT => Expr::Float(f64::from_bits(v as u64)),
+		TAG_BOOL => Expr::Bool(v != 0),
+		// SAFETY: `v` is a str handle the runtime just produced
+		TAG_STR => Expr::String(String::from_utf8_lossy(unsafe { runtime::str_bytes(v as *const _) }).into_owned()),
+		_ => Expr::Tuple(vec![]),
+	}
+}
+
 // Decode the stack.
 fn reify(span: Span) -> Expr {
 	STACK
@@ -94,14 +106,7 @@ fn reify(span: Span) -> Expr {
 			let mut exprs: Vec<Expr> = Vec::new();
 			for entry in stack.drain(..) {
 				let e = match entry {
-					Entry::Scalar(TAG_INT, v) => Expr::Int(v),
-					Entry::Scalar(TAG_FLOAT, v) => Expr::Float(f64::from_bits(v as u64)),
-					Entry::Scalar(TAG_BOOL, v) => Expr::Bool(v != 0),
-					// SAFETY: `v` is a str handle the runtime just produced
-					Entry::Scalar(TAG_STR, v) => {
-						Expr::String(String::from_utf8_lossy(unsafe { runtime::str_bytes(v as *const _) }).into_owned())
-					}
-					Entry::Scalar(..) => Expr::Tuple(vec![]),
+					Entry::Scalar(tag, v) => scalar(tag, v),
 					Entry::Struct(name, nfields) => {
 						let at = exprs.len() - nfields;
 						let fields = exprs.split_off(at).into_iter().map(|e| (None, (e, span))).collect();

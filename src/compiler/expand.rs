@@ -17,7 +17,7 @@ const MAX_DEPTH: usize = 64;
 const MAX_PARAMS: usize = 4;
 
 pub(crate) const RT_QUOTE: &str = "oi_rt_quote";
-pub(crate) const RT_AST_INT: &str = "oi_rt_ast_int";
+pub(crate) const RT_AST_LIT: &str = "oi_rt_ast_lit";
 pub(crate) const RT_AST_METHOD: &str = "oi_rt_ast_method";
 
 fn fail<T>(msg: impl Into<String>, span: Span, label: &str) -> Result<T, Diagnostic> {
@@ -513,8 +513,8 @@ pub(crate) extern "C" fn rt_quote(tpl: usize, args: *const *mut Spanned<Expr>, l
 	Box::into_raw(Box::new(result))
 }
 
-pub(crate) extern "C" fn rt_ast_int(v: i64) -> *mut Spanned<Expr> {
-	Box::into_raw(Box::new((Expr::Int(v), (0..0).into())))
+pub(crate) extern "C" fn rt_ast_lit(tag: i64, bits: i64) -> *mut Spanned<Expr> {
+	Box::into_raw(Box::new((super::comp::scalar(tag, bits), (0..0).into())))
 }
 
 // Ast dispatch for the lowerer.
