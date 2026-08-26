@@ -369,6 +369,7 @@ impl Default for Compiler {
 		builder.symbol(expand::RT_AST_INT, expand::rt_ast_int as *const u8);
 		builder.symbol(expand::RT_AST_METHOD, expand::rt_ast_method as *const u8);
 		builder.symbol(comp::RT_COMP_YIELD, comp::rt_comp_yield as *const u8);
+		builder.symbol(comp::RT_COMP_STRUCT, comp::rt_comp_struct as *const u8);
 
 		let module = JITModule::new(builder);
 		Self {

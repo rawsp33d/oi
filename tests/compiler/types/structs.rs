@@ -600,6 +600,31 @@ fn anonymous_inferred_from_the_literal() {
 }
 
 #[test]
+fn nested_struct_survives_return() {
+	let src = indoc! {r#"
+		Point :: struct { x: int, y: int }
+		Config :: struct { origin: Point, name: string }
+		make :: fn() Config { Config.{ Point.{ 3, 4 }, "grid" } }
+		C := make()
+		print("{C.origin.y}")
+	"#};
+	check(src, "4");
+}
+
+#[test]
+fn nested_struct_field_copy_is_independent() {
+	let src = indoc! {r#"
+		Point :: struct { x: int, y: int }
+		Config :: struct { origin: Point, name: string }
+		p :: Config.{ Point.{ 3, 4 }, "grid" }
+		q := p
+		q.origin = Point.{ 99, 4 }
+		p.origin.x
+	"#};
+	check(src, "3");
+}
+
+#[test]
 fn duplicate_field_errors() {
 	fail_with(
 		indoc! {"

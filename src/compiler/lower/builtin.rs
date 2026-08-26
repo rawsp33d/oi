@@ -134,33 +134,52 @@ impl<'a> Translator<'a> {
 			// hands a `comp` site's value back to the host, tagged so it can be reified as a literal
 			"__comp_yield" => {
 				let (val, typ) = self.expr(&args[0])?;
-				let narrow = |w: u16| cl_int_for_width(w).bits() < self.int.bits();
-				let (tag, bits) = match &typ {
-					Typ::Bool => (comp::TAG_BOOL, val),
-					Typ::Str => (comp::TAG_STR, val),
-					Typ::Int(w) if narrow(*w) => (comp::TAG_INT, self.b.ins().sextend(self.int, val)),
-					Typ::Int(_) | Typ::ISize => (comp::TAG_INT, val),
-					Typ::UInt(w) if narrow(*w) => (comp::TAG_INT, self.b.ins().uextend(self.int, val)),
-					Typ::UInt(_) | Typ::USize => (comp::TAG_INT, val),
-					Typ::Float(32) => {
-						let f64v = self.b.ins().fpromote(types::F64, val);
-						(comp::TAG_FLOAT, self.b.ins().bitcast(self.int, MemFlags::new(), f64v))
-					}
-					Typ::Float(64) => (comp::TAG_FLOAT, self.b.ins().bitcast(self.int, MemFlags::new(), val)),
-					t if t.is_unit() => (comp::TAG_UNIT, self.b.ins().iconst(self.int, 0)),
-					_ => {
-						return Err(Diagnostic::new(comp::UNREIFIABLE, args[0].1.into_range())
-							.with_label("not comptime-reifiable"));
-					}
-				};
-				let tag_v = self.b.ins().iconst(self.int, tag);
-				let func = self.import_fn(comp::RT_COMP_YIELD, &[self.int, self.int], None);
-				self.b.ins().call(func, &[tag_v, bits]);
+				self.comp_yield(val, &typ, args[0].1)?;
 				Ok(Some(self.unit_value()))
 			}
 
 			_ => self.cast_call(name, args, span),
 		}
+	}
+
+	// Yield a value to the `comp` host (recursive).
+	fn comp_yield(&mut self, val: Value, typ: &Typ, span: Span) -> Result<(), Diagnostic> {
+		let narrow = |w: u16| cl_int_for_width(w).bits() < self.int.bits();
+		let (tag, bits) = match typ {
+			Typ::Struct(name, fields) => {
+				for (i, f) in fields.iter().enumerate() {
+					let fv = self
+						.b
+						.ins()
+						.load(cl_type(&f.typ, self.int), MemFlags::new(), val, (i * 8) as i32);
+					self.comp_yield(fv, &f.typ, span)?;
+				}
+				let name = self.str_const(name);
+				let nfields = self.b.ins().iconst(self.int, fields.len() as i64);
+				let func = self.import_fn(comp::RT_COMP_STRUCT, &[self.int; 2], None);
+				self.b.ins().call(func, &[name, nfields]);
+				return Ok(());
+			}
+			Typ::Bool => (comp::TAG_BOOL, val),
+			Typ::Str => (comp::TAG_STR, val),
+			Typ::Int(w) if narrow(*w) => (comp::TAG_INT, self.b.ins().sextend(self.int, val)),
+			Typ::Int(_) | Typ::ISize => (comp::TAG_INT, val),
+			Typ::UInt(w) if narrow(*w) => (comp::TAG_INT, self.b.ins().uextend(self.int, val)),
+			Typ::UInt(_) | Typ::USize => (comp::TAG_INT, val),
+			Typ::Float(32) => {
+				let f64v = self.b.ins().fpromote(types::F64, val);
+				(comp::TAG_FLOAT, self.b.ins().bitcast(self.int, MemFlags::new(), f64v))
+			}
+			Typ::Float(64) => (comp::TAG_FLOAT, self.b.ins().bitcast(self.int, MemFlags::new(), val)),
+			t if t.is_unit() => (comp::TAG_UNIT, self.b.ins().iconst(self.int, 0)),
+			_ => {
+				return Err(Diagnostic::new(comp::UNREIFIABLE, span.into_range()).with_label("not comptime-reifiable"));
+			}
+		};
+		let tag_v = self.b.ins().iconst(self.int, tag);
+		let func = self.import_fn(comp::RT_COMP_YIELD, &[self.int, self.int], None);
+		self.b.ins().call(func, &[tag_v, bits]);
+		Ok(())
 	}
 
 	// A numeric cast builtin.

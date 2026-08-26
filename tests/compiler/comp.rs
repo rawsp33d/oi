@@ -33,6 +33,18 @@ fn comp_str_result() {
 }
 
 #[test]
+fn comp_folds_structs() {
+	let src = indoc! {r#"
+		Point :: struct { x: int, y: int }
+		Config :: struct { name: string, origin: Point }
+		mk :: fn() Config { Config.{ "grid", Point.{ 3, 4 } } }
+		C :: comp mk()
+		print("{C.name} {C.origin.x} {C.origin.y}")
+	"#};
+	check(src, "grid 3 4");
+}
+
+#[test]
 fn comp_rejects_unreifiable_type() {
 	fail_with("A :: comp [1, 2, 3]", "can't use this type in `comp` yet");
 }

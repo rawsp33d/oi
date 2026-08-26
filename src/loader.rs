@@ -88,6 +88,7 @@ pub struct Visible {
 }
 
 // A whole program, with its source files and modules and pubs, oh my.
+#[derive(Default)]
 pub struct Program {
 	pub map: SourceMap,
 	pub modules: Vec<Module>,

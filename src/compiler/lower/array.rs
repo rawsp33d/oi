@@ -134,6 +134,12 @@ impl<'a> Translator<'a> {
 	// RC bump.
 	// The underlying buffer clone waits for a write.
 	pub(super) fn copy_in(&mut self, val: Value, typ: &Typ) -> Value {
+		if let Typ::Struct(_, fields) = typ {
+			let fields = fields.clone();
+			let heap = self.call_alloc(fields.len());
+			self.assign_fields(val, heap, &fields, false);
+			return heap;
+		}
 		let Some((share, _)) = rc::handle_fns(typ) else {
 			return val;
 		};

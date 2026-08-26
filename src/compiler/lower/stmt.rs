@@ -71,11 +71,9 @@ impl<'a> Translator<'a> {
 					if let Some(v) = value {
 						self.move_resource(v, &typ)?;
 					}
-					let val = self.copy_in(val, &typ);
 					let final_val = match &typ {
-						Typ::Struct(_, fields) => self.struct_copy(val, fields),
 						Typ::FixedArray(elem, n) => self.fixed_copy(val, elem, *n),
-						_ => val,
+						_ => self.copy_bind(val, &typ),
 					};
 					// `:=` always declares a fresh binding, shadowing any earlier ones
 					self.bind_local(name, final_val, typ, *mutable);
@@ -452,14 +450,8 @@ impl<'a> Translator<'a> {
 			return Ok(());
 		}
 		let val = self.copy_in(val, &typ);
-		// structs and fixed arrays live on the stack, so copy to heap before returning
+		// `copy_in` already heap-copied structs, but fixed arrays still need to escape the frame
 		let final_val = match &typ {
-			Typ::Struct(_, fields) => {
-				let fields = fields.clone();
-				let heap = self.call_alloc(fields.len());
-				self.assign_fields(val, heap, &fields, false);
-				heap
-			}
 			Typ::FixedArray(elem, n) => {
 				let (elem, n) = ((**elem).clone(), *n);
 				let stride = self.elem_stride(&elem);

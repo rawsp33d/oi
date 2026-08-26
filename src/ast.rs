@@ -121,6 +121,7 @@ pub enum Expr {
 
 	// control flow
 
+	// conditionals
 	If {
 		cond: Box<Spanned<Expr>>,
 		then: Vec<Spanned<Expr>>,

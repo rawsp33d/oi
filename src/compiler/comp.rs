@@ -1,10 +1,9 @@
 // Compile-time evaluation.
 
-use std::cell::Cell;
-use std::collections::{HashMap, HashSet};
+use std::cell::RefCell;
+use std::collections::HashMap;
 
-use crate::ast::Child::{List, One};
-use crate::ast::{Expr, Spanned};
+use crate::ast::{Expr, Span, Spanned};
 use crate::diagnostics::Diagnostic;
 use crate::loader::{Module, Program};
 use crate::runtime;
@@ -12,6 +11,7 @@ use crate::runtime;
 use super::Compiler;
 
 pub(crate) const RT_COMP_YIELD: &str = "oi_rt_comp_yield";
+pub(crate) const RT_COMP_STRUCT: &str = "oi_rt_comp_struct";
 pub(crate) const UNREIFIABLE: &str = "can't use this type in `comp` yet";
 
 pub(crate) const TAG_INT: i64 = 0;
@@ -20,33 +20,60 @@ pub(crate) const TAG_BOOL: i64 = 2;
 pub(crate) const TAG_STR: i64 = 3;
 pub(crate) const TAG_UNIT: i64 = 4;
 
+enum Entry {
+	Scalar(i64, i64),
+	Struct(String, usize),
+}
+
 thread_local! {
-	static RESULT: Cell<(i64, i64)> = const { Cell::new((0, 0)) };
+	static STACK: RefCell<Vec<Entry>> = const { RefCell::new(Vec::new()) };
 }
 
-// Stores the yielded value for `eval` to pick up later.
 pub(crate) extern "C" fn rt_comp_yield(tag: i64, val: i64) {
-	RESULT.with(|c| c.set((tag, val)));
+	STACK.with_borrow_mut(|s| s.push(Entry::Scalar(tag, val)));
 }
 
-// Find the first not-yet-evaluated `comp` site.
-fn find_comp(e: &mut Expr) -> Option<*mut Expr> {
-	if matches!(e, Expr::Comp(_)) {
-		return Some(e as *mut Expr);
-	}
+pub(crate) extern "C" fn rt_comp_struct(name: *const runtime::StrHeader, nfields: i64) {
+	// SAFETY: `name` is a str constant the JIT just built
+	let name = String::from_utf8_lossy(unsafe { runtime::str_bytes(name) }).into_owned();
+	STACK.with_borrow_mut(|s| s.push(Entry::Struct(name, nfields as usize)));
+}
+
+// Find the first unevaluated comp site.
+fn first_comp(items: &mut [Spanned<Expr>]) -> Option<Spanned<Expr>> {
 	let mut found = None;
-	e.for_children(|c| {
-		if found.is_none() {
-			found = match c {
-				List(list) => list.iter_mut().find_map(|(e, _)| find_comp(e)),
-				One((e, _)) => find_comp(e),
-			};
-		}
-	});
+	for (e, _) in items.iter_mut() {
+		e.walk(&mut |x| {
+			if found.is_none()
+				&& let Expr::Comp(inner) = x
+			{
+				found = Some((**inner).clone());
+			}
+		});
+	}
 	found
 }
 
-// Definitions and consts that may be needed.
+// Swap comp site for its folded literal.
+fn patch_first(items: &mut [Spanned<Expr>], lit: Expr) {
+	let mut lit = Some(lit);
+	for (e, _) in items.iter_mut() {
+		e.walk(&mut |x| {
+			if matches!(x, Expr::Comp(_))
+				&& let Some(lit) = lit.take()
+			{
+				*x = lit;
+			}
+		});
+	}
+}
+
+fn has_comp(e: &mut Expr) -> bool {
+	let mut found = false;
+	e.walk(&mut |x| found |= matches!(x, Expr::Comp(_)));
+	found
+}
+
 fn is_def(e: &Expr) -> bool {
 	matches!(
 		e,
@@ -60,43 +87,52 @@ fn is_def(e: &Expr) -> bool {
 	)
 }
 
-fn reify(tag: i64, val: i64) -> Expr {
-	match tag {
-		TAG_INT => Expr::Int(val),
-		TAG_FLOAT => Expr::Float(f64::from_bits(val as u64)),
-		TAG_BOOL => Expr::Bool(val != 0),
-		// SAFETY: `val` is a str handle the runtime just produced for this call
-		TAG_STR => Expr::String(String::from_utf8_lossy(unsafe { runtime::str_bytes(val as *const _) }).into_owned()),
-		TAG_UNIT => Expr::Tuple(vec![]),
-		_ => unreachable!("unknown comp tag"),
-	}
+// Decode the stack.
+fn reify(span: Span) -> Expr {
+	STACK
+		.with_borrow_mut(|stack| {
+			let mut exprs: Vec<Expr> = Vec::new();
+			for entry in stack.drain(..) {
+				let e = match entry {
+					Entry::Scalar(TAG_INT, v) => Expr::Int(v),
+					Entry::Scalar(TAG_FLOAT, v) => Expr::Float(f64::from_bits(v as u64)),
+					Entry::Scalar(TAG_BOOL, v) => Expr::Bool(v != 0),
+					// SAFETY: `v` is a str handle the runtime just produced
+					Entry::Scalar(TAG_STR, v) => {
+						Expr::String(String::from_utf8_lossy(unsafe { runtime::str_bytes(v as *const _) }).into_owned())
+					}
+					Entry::Scalar(..) => Expr::Tuple(vec![]),
+					Entry::Struct(name, nfields) => {
+						let at = exprs.len() - nfields;
+						let fields = exprs.split_off(at).into_iter().map(|e| (None, (e, span))).collect();
+						Expr::StructLit {
+							name,
+							type_args: vec![],
+							fields,
+						}
+					}
+				};
+				exprs.push(e);
+			}
+			exprs.pop()
+		})
+		.expect("a comp site always yields exactly one value")
 }
 
-// Evaluate every `comp` site in the main module.
+// Fold every `comp` site in the main module to a literal.
 pub(crate) fn eval(expanded: &mut HashMap<String, Vec<Spanned<Expr>>>, program: &Program) -> Result<(), Diagnostic> {
-	let scope = program
+	let main = program
 		.modules
 		.iter()
 		.find(|m| m.name == "main")
-		.expect("a `main` module always exists")
-		.scope
-		.clone();
+		.expect("a `main` module always exists");
 	let main_items = expanded.get_mut("main").expect("a `main` module always exists");
-	loop {
+	while let Some(inner) = first_comp(main_items) {
+		let span = inner.1;
 		let mut items: Vec<Spanned<Expr>> = main_items
 			.iter_mut()
-			.filter_map(|it| (is_def(&it.0) && find_comp(&mut it.0).is_none()).then(|| it.clone()))
+			.filter_map(|it| (is_def(&it.0) && !has_comp(&mut it.0)).then(|| it.clone()))
 			.collect();
-		let Some(ptr) = main_items.iter_mut().find_map(|(e, _)| find_comp(e)) else {
-			break;
-		};
-		// SAFETY: `ptr` points inside `main_items`, which nothing below borrows again
-		let (inner, span) = unsafe {
-			let Expr::Comp(inner) = &*ptr else {
-				unreachable!("find_comp only returns Comp nodes")
-			};
-			(inner.as_ref().clone(), inner.1)
-		};
 		items.push((
 			Expr::Fn {
 				name: "__comp".into(),
@@ -120,21 +156,16 @@ pub(crate) fn eval(expanded: &mut HashMap<String, Vec<Spanned<Expr>>>, program: 
 			modules: vec![Module {
 				name: "main".into(),
 				items,
-				scope: scope.clone(),
+				scope: main.scope.clone(),
 			}],
-			publics: HashSet::new(),
-			reexports: HashMap::new(),
-			consts: HashMap::new(),
-			annotations: HashMap::new(),
+			..Program::default()
 		};
 		let mut compiler = Compiler::default();
 		compiler.compile(&synthetic)?;
 		let f = compiler.module.get_finalized_function(compiler.hoisted["__comp"].id);
-		// SAFETY: takes no args and returns unit
+		// SAFETY: fn takes no args and returns unit
 		unsafe { std::mem::transmute::<*const u8, fn()>(f)() };
-		let (tag, val) = RESULT.with(Cell::get);
-		// SAFETY: `ptr` is still valid, we only patch the node it points to
-		unsafe { *ptr = reify(tag, val) };
+		patch_first(main_items, reify(span));
 	}
 	Ok(())
 }
