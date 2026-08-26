@@ -3,9 +3,9 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use crate::ast::{Expr, Span, Spanned};
+use crate::ast::{Annotation, Expr, Span, Spanned};
 use crate::diagnostics::Diagnostic;
-use crate::loader::{Module, Program};
+use crate::loader::{Module, Program, Scope};
 use crate::runtime;
 
 use super::Compiler;
@@ -119,8 +119,59 @@ fn reify(span: Span) -> Expr {
 		.expect("a comp site always yields exactly one value")
 }
 
-// Fold every `comp` site in the main module to a literal.
-pub(crate) fn eval(expanded: &mut HashMap<String, Vec<Spanned<Expr>>>, program: &Program) -> Result<(), Diagnostic> {
+// Compile and run a single comp site, folding it to its reified literal.
+fn fold(
+	inner: Spanned<Expr>,
+	main_items: &mut [Spanned<Expr>],
+	scope: &Scope,
+	program: &Program,
+) -> Result<Expr, Diagnostic> {
+	let span = inner.1;
+	let mut items: Vec<Spanned<Expr>> = main_items
+		.iter_mut()
+		.filter_map(|it| (is_def(&it.0) && !has_comp(&mut it.0)).then(|| it.clone()))
+		.collect();
+	items.push((
+		Expr::Fn {
+			name: "__comp".into(),
+			type_params: vec![],
+			params: vec![],
+			params_tuple: true,
+			ret: None,
+			body: vec![(
+				Expr::Call {
+					name: "__comp_yield".into(),
+					type_args: vec![],
+					args: vec![inner],
+				},
+				span,
+			)],
+		},
+		span,
+	));
+	let synthetic = Program {
+		map: program.map.clone(),
+		modules: vec![Module {
+			name: "main".into(),
+			items,
+			scope: scope.clone(),
+		}],
+		..Program::default()
+	};
+	let mut compiler = Compiler::default();
+	compiler.compile(&synthetic)?;
+	let f = compiler.module.get_finalized_function(compiler.hoisted["__comp"].id);
+	// SAFETY: fn takes no args and returns unit
+	unsafe { std::mem::transmute::<*const u8, fn()>(f)() };
+	Ok(reify(span))
+}
+
+// Fold every `comp` site in the main module, and every call in annotation position, to a literal.
+pub(crate) fn eval(
+	expanded: &mut HashMap<String, Vec<Spanned<Expr>>>,
+	annotations: &mut HashMap<String, Vec<Annotation>>,
+	program: &Program,
+) -> Result<(), Diagnostic> {
 	let main = program
 		.modules
 		.iter()
@@ -128,44 +179,14 @@ pub(crate) fn eval(expanded: &mut HashMap<String, Vec<Spanned<Expr>>>, program: 
 		.expect("a `main` module always exists");
 	let main_items = expanded.get_mut("main").expect("a `main` module always exists");
 	while let Some(inner) = first_comp(main_items) {
-		let span = inner.1;
-		let mut items: Vec<Spanned<Expr>> = main_items
-			.iter_mut()
-			.filter_map(|it| (is_def(&it.0) && !has_comp(&mut it.0)).then(|| it.clone()))
-			.collect();
-		items.push((
-			Expr::Fn {
-				name: "__comp".into(),
-				type_params: vec![],
-				params: vec![],
-				params_tuple: true,
-				ret: None,
-				body: vec![(
-					Expr::Call {
-						name: "__comp_yield".into(),
-						type_args: vec![],
-						args: vec![inner],
-					},
-					span,
-				)],
-			},
-			span,
-		));
-		let synthetic = Program {
-			map: program.map.clone(),
-			modules: vec![Module {
-				name: "main".into(),
-				items,
-				scope: main.scope.clone(),
-			}],
-			..Program::default()
-		};
-		let mut compiler = Compiler::default();
-		compiler.compile(&synthetic)?;
-		let f = compiler.module.get_finalized_function(compiler.hoisted["__comp"].id);
-		// SAFETY: fn takes no args and returns unit
-		unsafe { std::mem::transmute::<*const u8, fn()>(f)() };
-		patch_first(main_items, reify(span));
+		let lit = fold(inner, main_items, &main.scope, program)?;
+		patch_first(main_items, lit);
+	}
+	// an annotation call is implicitly comptime
+	for a in annotations.iter_mut().filter(|(k, _)| !k.contains("::")).flat_map(|(_, v)| v) {
+		if matches!(a.0, Expr::Call { .. }) {
+			a.0 = fold(a.clone(), main_items, &main.scope, program)?;
+		}
 	}
 	Ok(())
 }

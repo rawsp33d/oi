@@ -1172,20 +1172,28 @@ where
 	// annotations
 	let ann_entry = ident().then_ignore(just(Token::Assign)).or_not().then(expr.clone());
 	let ann_tag = spanned(select! { Token::Atom(name) => Expr::Atom(name) });
+	enum AnnTail {
+		Fields(Vec<(Option<String>, Spanned<Expr>)>),
+		Args(Vec<Spanned<Expr>>),
+	}
+	let ann_tail = just(Token::Dot)
+		.ignore_then(brace(loose_list(ann_entry)))
+		.map(AnnTail::Fields)
+		.or(paren(loose_list(expr.clone())).map(AnnTail::Args));
 	let ann_value = spanned(
 		ident()
 			.then_ignore(adjacent.then(just(Token::Not)).not())
-			.then(
-				adjacent
-					.then_ignore(just(Token::Dot))
-					.ignore_then(brace(loose_list(ann_entry)))
-					.or_not(),
-			)
-			.map(|(name, fields)| match fields {
-				Some(fields) => Expr::StructLit {
+			.then(adjacent.ignore_then(ann_tail).or_not())
+			.map(|(name, tail)| match tail {
+				Some(AnnTail::Fields(fields)) => Expr::StructLit {
 					name,
 					type_args: vec![],
 					fields,
+				},
+				Some(AnnTail::Args(args)) => Expr::Call {
+					name,
+					type_args: vec![],
+					args,
 				},
 				None => Expr::Ident(name),
 			}),

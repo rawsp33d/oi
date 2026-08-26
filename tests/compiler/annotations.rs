@@ -189,6 +189,20 @@ fn params_only_on_marked_struct() {
 }
 
 #[test]
+fn annotation_fn_call_is_folded() {
+	check(
+		indoc! {r#"
+			deprecated :: struct { reason: string }
+			mark :: fn(who: string) deprecated { deprecated.{ "use " + who } }
+			@mark("speak")
+			yell :: fn() string { "AAA" }
+			print(yell())
+		"#},
+		"AAA",
+	);
+}
+
+#[test]
 fn params_synthesized_literal_checks_required() {
 	fail_with(
 		indoc! {"

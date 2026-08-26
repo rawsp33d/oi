@@ -136,7 +136,9 @@ fn qualify_anns(scope: &Scope, anns: &[Annotation]) -> Vec<Annotation> {
 	let mut anns = anns.to_vec();
 	for a in &mut anns {
 		match &mut a.0 {
-			Expr::StructLit { name, .. } | Expr::Ident(name) => *name = scope.qualify_name(name),
+			Expr::StructLit { name, .. } | Expr::Ident(name) | Expr::Call { name, .. } => {
+				*name = scope.qualify_name(name)
+			}
 			_ => {}
 		}
 	}
@@ -188,6 +190,10 @@ fn check_annotation(
 				"a bare annotation names a unit or struct const".into(),
 			),
 		},
+		Expr::Call { .. } => err(
+			"annotation fns aren't supported here yet".into(),
+			"only main-file items take fn annotations".into(),
+		),
 		_ => Ok(()),
 	}
 }
@@ -519,7 +525,7 @@ impl Compiler {
 		// expand user macros to AST
 		let mut expanded = expand(program)?;
 		// fold `comp` expressions to literals
-		comp::eval(&mut expanded, program)?;
+		comp::eval(&mut expanded, &mut self.annotations, program)?;
 		let items = || {
 			program
 				.modules
