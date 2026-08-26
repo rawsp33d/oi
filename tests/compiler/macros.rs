@@ -1,4 +1,4 @@
-use crate::common::{Project, Run, oi, ok};
+use crate::common::Project;
 use crate::helpers::*;
 
 #[test]
@@ -262,7 +262,7 @@ fn macro_body_calls_an_imported_fn() {
 
 #[test]
 fn qualified_macro_call_resolves_module_locally() {
-	let p = Project::new()
+	Project::new()
 		.file("main.oi", ["module main", "use util", "print(util.answer!())"])
 		.file(
 			"util/lib.oi",
@@ -274,6 +274,6 @@ fn qualified_macro_call_resolves_module_locally() {
 				"`%v`",
 				"}",
 			],
-		);
-	assert_eq!(ok(oi(&["run", "main.oi"]).current_dir(&p).run(None)), "42");
+		)
+		.check("42");
 }

@@ -96,6 +96,21 @@ impl Project {
 		std::fs::write(full, content.text()).unwrap();
 		self
 	}
+
+	/// Run main.oi and assert its output.
+	pub fn check(self, expected: impl Lines) {
+		assert_eq!(ok(self.run()), expected.text());
+	}
+
+	/// Run main.oi and assert the failure mentions `expected`.
+	pub fn fail_with(self, expected: &str) {
+		let out = err(self.run());
+		assert!(out.contains(expected), "{out}");
+	}
+
+	fn run(&self) -> Output {
+		oi(&["run", "main.oi"]).current_dir(self).run(None)
+	}
 }
 
 impl Default for Project {

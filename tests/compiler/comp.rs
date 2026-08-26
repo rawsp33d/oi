@@ -1,4 +1,4 @@
-use crate::common::{Lines, Project, Run, oi, ok};
+use crate::common::Project;
 use crate::helpers::*;
 
 #[test]
@@ -72,12 +72,11 @@ fn comp_rejects_unreifiable_type() {
 
 #[test]
 fn comp_folds_in_an_imported_module() {
-	let p = Project::new()
+	Project::new()
 		.file("main.oi", ["module main", "use util", "print(util.f())"])
 		.file(
 			"util/lib.oi",
 			["module util", r#"pub f :: fn() int { comp { print("fold") 40 + 2 } }"#],
-		);
-	let out = oi(&["run", "main.oi"]).current_dir(&p).run(None);
-	assert_eq!(ok(out), ["fold", "42"].text());
+		)
+		.check(["fold", "42"]);
 }
