@@ -71,10 +71,16 @@ impl Tag {
 			5 => Tag::Raw,
 			_ => {
 				eprintln!("invalid tag: {v}");
-				std::process::abort();
+				die();
 			}
 		}
 	}
+}
+
+// Flush stdout, then fail without a core dump.
+fn die() -> ! {
+	let _ = std::io::Write::flush(&mut std::io::stdout());
+	std::process::exit(101);
 }
 
 // Output sink for writing.
@@ -94,7 +100,7 @@ impl Sink {
 			2 => Sink::Buf,
 			_ => {
 				eprintln!("invalid sink: {v}");
-				std::process::abort();
+				die();
 			}
 		}
 	}
@@ -187,14 +193,14 @@ pub extern "C" fn write_sep(i: i64, sink: i64) {
 // Panic with an out-of-bounds message.
 pub extern "C" fn panic_oob(index: i64, len: i64) {
 	eprintln!("index out of range: the length is {len} but the index is {index}");
-	std::process::abort();
+	die();
 }
 
 // Print `{prefix}{msg}` and abort.
 unsafe fn abort_with(prefix: &str, msg: *const StrHeader) -> ! {
 	let msg = unsafe { str_lossy(msg) };
 	eprintln!("{prefix}{msg}");
-	std::process::abort();
+	die();
 }
 
 /// Print an assertion failure message and abort.
@@ -397,7 +403,7 @@ pub unsafe extern "C" fn slice(header: *const Header, start: i64, end: i64, elem
 	let Header { data, len, .. } = unsafe { *header };
 	if start < 0 || start > end || end > len {
 		eprintln!("slice range {start}..{end} out of bounds for array of length {len}");
-		std::process::abort();
+		die();
 	}
 	let view_len = end - start;
 	let new_data = buffer_alloc(view_len * elem_size);
@@ -421,7 +427,7 @@ pub unsafe extern "C" fn str_slice(header: *const StrHeader, start: i64, end: i6
 	let StrHeader { data, len } = unsafe { *header };
 	if start < 0 || start > end || end > len {
 		eprintln!("slice range {start}..{end} out of bounds for string of length {len}");
-		std::process::abort();
+		die();
 	}
 	let out = alloc(size_of::<StrHeader>() as i64) as *mut StrHeader;
 	unsafe {
@@ -440,7 +446,7 @@ pub unsafe extern "C" fn array_write_back(parent: *mut Header, lo: i64, len: i64
 	let Header { data, len: slen, .. } = unsafe { *src };
 	if slen != len {
 		eprintln!("projection changed length: expected {len} elements, got {slen}");
-		std::process::abort();
+		die();
 	}
 	unsafe {
 		let dst = ((*parent).data + lo * elem_size) as *mut u8;
@@ -698,7 +704,7 @@ pub unsafe extern "C" fn map_get(map: *mut OiMap, tag: i64, bits: i64) -> i64 {
 		Some(v) => *v,
 		None => {
 			eprintln!("key not found in map");
-			std::process::abort();
+			die();
 		}
 	}
 }

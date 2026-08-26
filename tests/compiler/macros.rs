@@ -1,4 +1,4 @@
-use crate::common::Project;
+use crate::common::{Project, Run, oi, trim};
 use crate::helpers::*;
 
 #[test]
@@ -19,6 +19,13 @@ fn helpers_abort() {
 	fail_with("todo!()", "not yet implemented");
 	fail_with("unreachable!()", "entered unreachable code");
 	fail_with(r#"todo!("idk")"#, "idk");
+}
+
+#[test]
+fn panic_flushes_stdout_and_exits() {
+	let out = oi(&["exec"]).run(Some(r#"print("before"); panic!("boom")"#));
+	assert_eq!(out.status.code(), Some(101));
+	assert_eq!(trim(&out.stdout), "before");
 }
 
 #[test]
