@@ -20,6 +20,7 @@ const MAX_PARAMS: usize = 4;
 pub(crate) const RT_QUOTE: &str = "oi_rt_quote";
 pub(crate) const RT_AST_LIT: &str = "oi_rt_ast_lit";
 pub(crate) const RT_AST_METHOD: &str = "oi_rt_ast_method";
+pub(crate) const RT_QUOTE_MATCH: &str = "oi_rt_quote_match";
 
 fn fail<T>(msg: impl Into<String>, span: Span, label: &str) -> Result<T, Diagnostic> {
 	Err(Diagnostic::new(msg, span.into_range()).with_label(label))
@@ -540,6 +541,46 @@ pub(crate) extern "C" fn rt_quote(tpl: usize, args: *const *mut Spanned<Expr>, l
 		}
 	};
 	Box::into_raw(Box::new(result))
+}
+
+// Structurally match a template's pattern against `subject`, capturing `%name` holes.
+// `outs` receives leaked pointers to captured subtrees.
+pub(crate) extern "C" fn rt_quote_match(tpl: usize, subject: *mut Spanned<Expr>, outs: *mut *mut Spanned<Expr>) -> i64 {
+	// SAFETY: `tpl` was leaked by `register`, `subject` by the caller's Ast value.
+	let (tpl, subj) = unsafe { (&*(tpl as *const Template), &*subject) };
+	let mut binds = Vec::new();
+	if !unify(&tpl.stmts[0], subj, &mut binds) {
+		return 0;
+	}
+	for (i, b) in binds.into_iter().enumerate() {
+		unsafe { *outs.add(i) = Box::into_raw(Box::new(b)) };
+	}
+	1
+}
+
+// Take `e`'s child subtrees, leaving a placeholder.
+fn split(e: &Expr) -> (String, Vec<Spanned<Expr>>) {
+	let (mut e, mut kids) = (e.clone(), Vec::new());
+	e.for_children(|c| {
+		let list = match c {
+			List(list) => list.as_mut_slice(),
+			One(one) => std::slice::from_mut(one),
+		};
+		for one in list {
+			kids.push(std::mem::replace(one, (Expr::Tuple(vec![]), Span::from(0..0))));
+		}
+	});
+	(format!("{e:?}"), kids)
+}
+
+// Structurally unify a quote pattern against a runtime Ast, capturing `%name` holes.
+fn unify(pat: &Spanned<Expr>, subj: &Spanned<Expr>, binds: &mut Vec<Spanned<Expr>>) -> bool {
+	if matches!(pat.0, Expr::Unquote(_)) {
+		binds.push(subj.clone());
+		return true;
+	}
+	let ((ph, pk), (sh, sk)) = (split(&pat.0), split(&subj.0));
+	ph == sh && pk.iter().zip(&sk).all(|(p, s)| unify(p, s, binds))
 }
 
 pub(crate) extern "C" fn rt_ast_lit(tag: i64, bits: i64) -> *mut Spanned<Expr> {

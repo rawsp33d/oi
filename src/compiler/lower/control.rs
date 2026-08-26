@@ -1,3 +1,5 @@
+use crate::compiler::expand;
+
 use super::*;
 
 impl<'a> Translator<'a> {
@@ -147,6 +149,7 @@ impl<'a> Translator<'a> {
 
 			// bindings
 			let mut binds = vec![];
+			let mut quote_binds: Option<(Value, Vec<String>)> = None;
 			for (j, pat) in arm.patterns.iter().enumerate() {
 				let eq = if matches!(&pat.0, Expr::Ident(w) if w == "_") {
 					// `_` wildcard
@@ -201,6 +204,33 @@ impl<'a> Translator<'a> {
 					let (_, len) = self.array_parts(sv, &st);
 					let count = self.b.ins().iconst(self.int, elems.len() as i64);
 					self.b.ins().icmp(IntCC::Equal, len, count)
+				} else if st == Typ::Ast
+					&& let Expr::Quote(q) = &pat.0
+				{
+					if arm.patterns.len() != 1 || q.len() != 1 {
+						let msg = "a quote pattern is a single expression, alone in its arm";
+						return Err(Diagnostic::new(msg, pat.1.into_range()));
+					}
+					let (tpl, slots) = expand::register(q, pat.1)?;
+					let names: Vec<String> = slots
+						.into_iter()
+						.map(|s| match s {
+							expand::Slot::Name(n) => Some(n),
+							_ => None,
+						})
+						.collect::<Option<_>>()
+						.ok_or_else(|| {
+							let msg = "only `%name` captures are allowed in a quote pattern";
+							Diagnostic::new(msg, pat.1.into_range())
+						})?;
+					let outs = self.stack_slot((names.len().max(1) * 8) as u32);
+					let sv = self.b.use_var(sv_var);
+					let tplv = self.b.ins().iconst(self.int, tpl as i64);
+					let func = self.import_fn(expand::RT_QUOTE_MATCH, &[self.int; 3], Some(self.int));
+					let call = self.b.ins().call(func, &[tplv, sv, outs]);
+					let matched = self.b.inst_results(call)[0];
+					quote_binds = Some((outs, names));
+					self.b.ins().icmp_imm(IntCC::NotEqual, matched, 0)
 				} else {
 					let sv = self.b.use_var(sv_var);
 					let (pv, pt) = self.check_expr(pat, &st)?;
@@ -244,6 +274,12 @@ impl<'a> Translator<'a> {
 					};
 					let fv = s.copy_bind(fv, typ);
 					s.bind_local(name, fv, typ.clone(), false);
+				}
+				if let Some((outs, names)) = &quote_binds {
+					for (i, name) in names.iter().enumerate() {
+						let ptr = s.b.ins().load(s.int, MemFlags::new(), *outs, (i * 8) as i32);
+						s.bind_local(name, ptr, Typ::Ast, false);
+					}
 				}
 				s.block_tail(&arm.body, target)
 			})?;

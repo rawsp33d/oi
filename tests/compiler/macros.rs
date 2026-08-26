@@ -346,3 +346,21 @@ fn imported_macro_called_bare() {
 		.file("util/lib.oi", ["module util", "pub answer! :: fn() Ast { `42` }"])
 		.check("42");
 }
+
+#[test]
+fn quote_pattern_matches_and_captures() {
+	check(
+		indoc! {r"
+			sub :: fn(a: int, b: int) int { a - b }
+			flip! :: fn(e: Ast) Ast {
+				match e {
+					`sub(%x, %y)` => `sub(%y, %x)`,
+					_ => e,
+				}
+			}
+			print(flip!(sub(10, 4)))
+			print(flip!(42))
+		"},
+		["-6", "42"],
+	);
+}
