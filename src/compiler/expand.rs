@@ -142,7 +142,7 @@ impl Expander {
 	fn compile_stage0(
 		&mut self,
 		program: &Program,
-		rest: &HashMap<String, Vec<Spanned<Expr>>>,
+		rest: &mut HashMap<String, Vec<Spanned<Expr>>>,
 	) -> Result<(), Diagnostic> {
 		let scopes: HashMap<&str, &Scope> = program.modules.iter().map(|m| (m.name.as_str(), &m.scope)).collect();
 		for e in &mut self.defs {
@@ -157,7 +157,12 @@ impl Expander {
 				let mut items = if m.name == "main" {
 					vec![]
 				} else {
-					rest[&m.name].clone()
+					// a body calling a user macro needs expanded
+					rest.get_mut(&m.name)
+						.expect("every module was seeded")
+						.iter_mut()
+						.filter_map(|it| (!self.calls_macro(&mut it.0, &m.scope)).then(|| it.clone()))
+						.collect()
 				};
 				items.extend(defs.iter().filter(|d| owner(d) == m.name).cloned());
 				Module {
@@ -182,6 +187,18 @@ impl Expander {
 		}
 		self.stage0 = Some(compiler);
 		Ok(())
+	}
+
+	// Checks whether item calls a user macro.
+	fn calls_macro(&self, e: &mut Expr, scope: &Scope) -> bool {
+		let mut found = false;
+		e.walk(&mut |x| {
+			if let Expr::MacroCall { name, .. } = x {
+				let key = self.resolve(name, scope, (0..0).into()).unwrap_or_default();
+				found |= self.macros.contains_key(&key);
+			}
+		});
+		found
 	}
 
 	// Resolve a macro call against scope, enforcing privacy.
@@ -305,7 +322,7 @@ pub fn expand(program: &Program) -> Result<HashMap<String, Vec<Spanned<Expr>>>, 
 		rest.insert(m.name.clone(), items);
 	}
 	if !ex.macros.is_empty() {
-		ex.compile_stage0(program, &rest)?;
+		ex.compile_stage0(program, &mut rest)?;
 	}
 	for m in &program.modules {
 		let items = rest.get_mut(&m.name).expect("every module was seeded above");

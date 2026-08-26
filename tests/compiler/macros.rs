@@ -27,6 +27,21 @@ fn unknown_macro_errors() {
 }
 
 #[test]
+fn module_fn_body_uses_a_sibling_macro() {
+	Project::new()
+		.file("main.oi", ["module main", "use util", "print(util.f())"])
+		.file(
+			"util/lib.oi",
+			[
+				"module util",
+				"pub say! :: fn(n: Ast) Ast { `%n * 2` }",
+				"pub f :: fn() int { say!(21) }",
+			],
+		)
+		.check("42");
+}
+
+#[test]
 fn macro_run_error_is_a_diagnostic() {
 	let src = indoc! {r"
 		grow! :: fn(n: Ast) Ast { `%{n.int() + 1}` }
