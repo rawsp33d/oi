@@ -214,3 +214,47 @@ fn params_synthesized_literal_checks_required() {
 		"is required",
 	);
 }
+
+#[test]
+fn bare_attr_macro_is_identity() {
+	check(
+		indoc! {"
+			keep! :: fn(input: Ast) Ast { `%input` }
+			@keep!
+			f :: fn() int { 42 }
+			print(f())
+		"},
+		"42",
+	);
+}
+
+#[test]
+fn attr_macro_args_arrive_as_one_list() {
+	check(
+		indoc! {"
+			def! :: fn(input: Ast, args: Ast) Ast {
+				a := args.items
+				name := a[0]
+				`
+				%name :: %{a[1]}
+				%input
+				`
+			}
+			@def!(VERSION, 3)
+			compute :: fn() int { 39 }
+			print(VERSION + compute())
+		"},
+		"42",
+	);
+}
+
+#[test]
+fn unknown_attr_macro_errors() {
+	fail_with(
+		indoc! {"
+			@nope!
+			f :: fn() int { 1 }
+		"},
+		"no macro named",
+	);
+}
