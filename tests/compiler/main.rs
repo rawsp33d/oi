@@ -8,6 +8,7 @@ mod anon_fn;
 mod arithmetic;
 mod assertions;
 mod comments;
+mod comp;
 mod comparisons;
 mod control;
 mod destructuring;

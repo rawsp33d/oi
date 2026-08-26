@@ -1,3 +1,5 @@
+use crate::compiler::comp;
+
 use super::*;
 
 #[derive(Clone, Copy)]
@@ -127,6 +129,34 @@ impl<'a> Translator<'a> {
 					self.b.ins().ireduce(types::I32, tag)
 				};
 				Ok(Some((out, Typ::Int(32))))
+			}
+
+			// hands a `comp` site's value back to the host, tagged so it can be reified as a literal
+			"__comp_yield" => {
+				let (val, typ) = self.expr(&args[0])?;
+				let narrow = |w: u16| cl_int_for_width(w).bits() < self.int.bits();
+				let (tag, bits) = match &typ {
+					Typ::Bool => (comp::TAG_BOOL, val),
+					Typ::Str => (comp::TAG_STR, val),
+					Typ::Int(w) if narrow(*w) => (comp::TAG_INT, self.b.ins().sextend(self.int, val)),
+					Typ::Int(_) | Typ::ISize => (comp::TAG_INT, val),
+					Typ::UInt(w) if narrow(*w) => (comp::TAG_INT, self.b.ins().uextend(self.int, val)),
+					Typ::UInt(_) | Typ::USize => (comp::TAG_INT, val),
+					Typ::Float(32) => {
+						let f64v = self.b.ins().fpromote(types::F64, val);
+						(comp::TAG_FLOAT, self.b.ins().bitcast(self.int, MemFlags::new(), f64v))
+					}
+					Typ::Float(64) => (comp::TAG_FLOAT, self.b.ins().bitcast(self.int, MemFlags::new(), val)),
+					t if t.is_unit() => (comp::TAG_UNIT, self.b.ins().iconst(self.int, 0)),
+					_ => {
+						return Err(Diagnostic::new(comp::UNREIFIABLE, args[0].1.into_range())
+							.with_label("not comptime-reifiable"));
+					}
+				};
+				let tag_v = self.b.ins().iconst(self.int, tag);
+				let func = self.import_fn(comp::RT_COMP_YIELD, &[self.int, self.int], None);
+				self.b.ins().call(func, &[tag_v, bits]);
+				Ok(Some(self.unit_value()))
 			}
 
 			_ => self.cast_call(name, args, span),

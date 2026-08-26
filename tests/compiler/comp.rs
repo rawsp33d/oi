@@ -1,0 +1,38 @@
+use crate::helpers::*;
+
+#[test]
+fn comp_folds_const_arithmetic() {
+	check("PI :: comp 22.0 / 7.0\nprint(PI)", "3.142857142857143");
+}
+
+#[test]
+fn comp_calls_a_user_fn() {
+	let src = indoc! {"
+		f :: fn() int { 40 + 2 }
+		V :: comp f()
+		print(V)
+	"};
+	check(src, "42");
+}
+
+#[test]
+fn comp_block_with_a_local() {
+	let src = indoc! {"
+		X :: comp {
+			a := 10
+			a * 2
+		}
+		print(X)
+	"};
+	check(src, "20");
+}
+
+#[test]
+fn comp_str_result() {
+	check(r#"S :: comp "hi" + " there"; print(S)"#, "hi there");
+}
+
+#[test]
+fn comp_rejects_unreifiable_type() {
+	fail_with("A :: comp [1, 2, 3]", "can't use this type in `comp` yet");
+}

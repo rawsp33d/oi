@@ -901,6 +901,13 @@ where
 			})
 			.boxed();
 
+		// comptime eval
+		let comp_block = block.clone().map_with(|stmts, ex| (Expr::Block(stmts), ex.span()));
+		let comp_expr = just(Token::Comp)
+			.ignore_then(comp_block.or(expr.clone()))
+			.map_with(|inner, ex| (Expr::Comp(Box::new(inner)), ex.span()))
+			.boxed();
+
 		// anonymous functions
 		let capture = ident();
 		let capture = just(Token::Move)
@@ -946,6 +953,7 @@ where
 			array,
 			if_expr,
 			match_expr,
+			comp_expr,
 			for_expr,
 			loop_expr,
 			break_expr,

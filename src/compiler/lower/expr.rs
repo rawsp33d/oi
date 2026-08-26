@@ -652,6 +652,11 @@ impl<'a> Translator<'a> {
 				expr.1.into_range(),
 			)
 			.with_label("stray unquote")),
+
+			Expr::Comp(_) => Err(
+				Diagnostic::new("comp only works in the main file for now", expr.1.into_range())
+					.with_label("not evaluated at compile time"),
+			),
 		}
 	}
 }

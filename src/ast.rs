@@ -19,7 +19,7 @@ pub enum Expr {
 	None,
 	Foreign,
 
-	// `[mods] name [type] := value`: declares a new binding
+	// `[mods] name [type] := value`
 	Bind {
 		mutable: bool,
 		name: String,
@@ -39,7 +39,7 @@ pub enum Expr {
 		arg: Box<Spanned<Expr>>,
 	},
 
-	// `name = value`: assigns to an existing mutable binding
+	// `name = value`
 	Assign {
 		name: String,
 		value: Box<Spanned<Expr>>,
@@ -114,9 +114,13 @@ pub enum Expr {
 	// a macro expansion scoped block
 	Block(Vec<Spanned<Expr>>),
 
+	// `comp expr`
+	Comp(Box<Spanned<Expr>>),
+
 	MutArg(Box<Spanned<Expr>>),
 
 	// control flow
+
 	If {
 		cond: Box<Spanned<Expr>>,
 		then: Vec<Spanned<Expr>>,
@@ -341,7 +345,8 @@ impl Expr {
 			| Expr::MapDelete { key: v, .. }
 			| Expr::Is { subject: v, .. }
 			| Expr::UnquoteExpr(v)
-			| Expr::UnquoteSplat(v) => f(One(v)),
+			| Expr::UnquoteSplat(v)
+			| Expr::Comp(v) => f(One(v)),
 			Expr::Index {
 				collection: a,
 				index: b,

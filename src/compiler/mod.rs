@@ -11,6 +11,7 @@ use crate::diagnostics::{Diagnostic, SourceMap};
 use crate::loader::{Program, Scope, is_literal};
 use crate::runtime;
 
+mod comp;
 mod expand;
 mod lower;
 mod resolve;
@@ -367,6 +368,7 @@ impl Default for Compiler {
 		builder.symbol(expand::RT_QUOTE, expand::rt_quote as *const u8);
 		builder.symbol(expand::RT_AST_INT, expand::rt_ast_int as *const u8);
 		builder.symbol(expand::RT_AST_METHOD, expand::rt_ast_method as *const u8);
+		builder.symbol(comp::RT_COMP_YIELD, comp::rt_comp_yield as *const u8);
 
 		let module = JITModule::new(builder);
 		Self {
@@ -514,7 +516,9 @@ impl Compiler {
 			.collect();
 
 		// expand user macros to AST
-		let expanded = expand(program)?;
+		let mut expanded = expand(program)?;
+		// fold `comp` expressions to literals
+		comp::eval(&mut expanded, program)?;
 		let items = || {
 			program
 				.modules
