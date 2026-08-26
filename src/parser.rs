@@ -552,7 +552,7 @@ where
 		.or(index_assign)
 		.or(map_delete)
 		.or(append)
-		.or(macro_def)
+		.or(macro_def.clone())
 		.or(macro_stmt)
 		.or(expr.clone())
 		.boxed();
@@ -762,13 +762,20 @@ where
 			)
 			.map_with(|e, ex| (e, ex.span()));
 
-		// inline macro call
+		// inline macro calls
 		let macro_call = ident()
+			.then(just(Token::Dot).ignore_then(ident()).or_not())
 			.then_ignore(adjacent)
 			.then_ignore(just(Token::Not))
 			.then_ignore(adjacent)
 			.then(paren(loose_list(expr.clone())))
-			.map_with(|(name, args), ex| (Expr::MacroCall { name, args }, ex.span()));
+			.map_with(|((first, rest), args), ex| {
+				let name = match rest {
+					Some(second) => format!("{first}.{second}"),
+					None => first,
+				};
+				(Expr::MacroCall { name, args }, ex.span())
+			});
 
 		// map literals
 		let map_entry = expr
@@ -1494,7 +1501,7 @@ where
 		.map_with(|((name, path), group), ex| (Expr::Use { name, path, group }, ex.span()))
 		.boxed();
 	let public = just(Token::Pub)
-		.ignore_then(def.clone().or(use_decl.clone()).or(bind))
+		.ignore_then(def.clone().or(use_decl.clone()).or(bind).or(macro_def))
 		.map_with(|d, ex| (Expr::Pub(Box::new(d)), ex.span()));
 
 	// annotation macros

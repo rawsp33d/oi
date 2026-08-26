@@ -1,4 +1,4 @@
-use crate::common::{Project, Run, oi, ok};
+use crate::common::{Lines, Project, Run, oi, ok};
 use crate::helpers::*;
 
 #[test]
@@ -79,5 +79,5 @@ fn comp_folds_in_an_imported_module() {
 			["module util", r#"pub f :: fn() int { comp { print("fold") 40 + 2 } }"#],
 		);
 	let out = oi(&["run", "main.oi"]).current_dir(&p).run(None);
-	assert_eq!(ok(out), ["fold", "42"]);
+	assert_eq!(ok(out), ["fold", "42"].text());
 }

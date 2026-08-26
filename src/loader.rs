@@ -330,6 +330,7 @@ impl Loader<'_> {
 						self.annotations.entry(name.clone()).or_default().extend(anns);
 					}
 				}
+				Expr::MacroDef { name, .. } => self.define(m, name, !main, public, span)?,
 				Expr::Bind {
 					mutable,
 					name,

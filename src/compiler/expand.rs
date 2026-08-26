@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::ast::{Capture, Child, Expr, Param, Pattern, Span, Spanned, TypeExpr};
 use crate::diagnostics::Diagnostic;
-use crate::loader::{Module, Program};
+use crate::loader::{Module, Program, Scope};
 use crate::runtime;
 
 use super::Compiler;
@@ -30,6 +30,8 @@ struct Expander {
 	defs: Vec<Spanned<Expr>>,
 	// name -> (arity, stage-0 fn pointer)
 	macros: HashMap<String, (usize, *const u8)>,
+	// qualified names visible outside their own module
+	publics: HashSet<String>,
 	// keeps the stage-0 JIT and its code alive for every call this pass makes
 	stage0: Option<Compiler>,
 }
@@ -53,20 +55,33 @@ fn for_binders(e: &mut Expr, f: &mut impl FnMut(&mut String)) {
 	}
 }
 
+// Resolve a bare macro name through scope.
+fn resolve_bare(name: &str, scope: &Scope) -> String {
+	scope.env.get(name).cloned().unwrap_or_else(|| name.to_string())
+}
+
+// Get a fn's defining module, encoded in its qualified name.
+fn owner(e: &Spanned<Expr>) -> &str {
+	match &e.0 {
+		Expr::Fn { name, .. } => name.rsplit_once("::").map_or("main", |(m, _)| m),
+		_ => "main",
+	}
+}
+
 // Rewrite direct macro calls from stage-0 bodies into calls of their compiled fns.
 // Unquote expressions run at comptime.
 // Other calls inside quotes stay as calls and expand later, when the produced Ast is spliced.
-fn direct_calls(e: &mut Expr, macros: &HashMap<String, (usize, *const u8)>, in_quote: bool) {
-	if !in_quote
-		&& let Expr::MacroCall { name, args } = e
-		&& macros.contains_key(name.as_str())
-	{
-		let (name, args) = (format!("{name}!"), std::mem::take(args));
-		*e = Expr::Call {
-			name,
-			type_args: vec![],
-			args,
-		};
+fn direct_calls(e: &mut Expr, macros: &HashMap<String, (usize, *const u8)>, scope: &Scope, in_quote: bool) {
+	if !in_quote && let Expr::MacroCall { name, args } = e {
+		let resolved = resolve_bare(name, scope);
+		if macros.contains_key(&resolved) {
+			let args = std::mem::take(args);
+			*e = Expr::Call {
+				name: format!("{resolved}!"),
+				type_args: vec![],
+				args,
+			};
+		}
 	}
 	let child_in_quote = match e {
 		Expr::Quote(_) => true,
@@ -74,8 +89,10 @@ fn direct_calls(e: &mut Expr, macros: &HashMap<String, (usize, *const u8)>, in_q
 		_ => in_quote,
 	};
 	e.for_children(|c| match c {
-		List(list) => list.iter_mut().for_each(|(e, _)| direct_calls(e, macros, child_in_quote)),
-		One((e, _)) => direct_calls(e, macros, child_in_quote),
+		List(list) => list
+			.iter_mut()
+			.for_each(|(e, _)| direct_calls(e, macros, scope, child_in_quote)),
+		One((e, _)) => direct_calls(e, macros, scope, child_in_quote),
 	});
 }
 
@@ -89,7 +106,8 @@ impl Expander {
 		span: Span,
 	) -> Result<(), Diagnostic> {
 		let ast = |te: &TypeExpr| matches!(te, TypeExpr::Name(n) if n == "Ast");
-		if BUILTINS.contains(&name.as_str()) {
+		let bare = name.rsplit("::").next().unwrap_or(&name);
+		if BUILTINS.contains(&bare) {
 			return fail(format!("`{name}!` is a builtin macro"), span, "reserved name");
 		}
 		if self.macros.contains_key(&name) {
@@ -120,22 +138,34 @@ impl Expander {
 	}
 
 	// Compile every macro body as a real fn, in one synthetic program, and grab their pointers.
-	fn compile_stage0(&mut self, program: &Program) -> Result<(), Diagnostic> {
-		for (e, _) in &mut self.defs {
-			direct_calls(e, &self.macros, false);
+	fn compile_stage0(
+		&mut self,
+		program: &Program,
+		rest: &HashMap<String, Vec<Spanned<Expr>>>,
+	) -> Result<(), Diagnostic> {
+		let scopes: HashMap<&str, &Scope> = program.modules.iter().map(|m| (m.name.as_str(), &m.scope)).collect();
+		for e in &mut self.defs {
+			let scope = scopes[owner(e)];
+			direct_calls(&mut e.0, &self.macros, scope, false);
 		}
-		let main = program
+		let defs = std::mem::take(&mut self.defs);
+		let modules: Vec<Module> = program
 			.modules
 			.iter()
-			.find(|m| m.name == "main")
-			.expect("a `main` module always exists");
-		// enable macro bodies to call imports
-		let mut modules: Vec<Module> = program.modules.iter().filter(|m| m.name != "main").cloned().collect();
-		modules.push(Module {
-			name: "main".into(),
-			items: std::mem::take(&mut self.defs),
-			scope: main.scope.clone(),
-		});
+			.map(|m| {
+				let mut items = if m.name == "main" {
+					vec![]
+				} else {
+					rest[&m.name].clone()
+				};
+				items.extend(defs.iter().filter(|d| owner(d) == m.name).cloned());
+				Module {
+					name: m.name.clone(),
+					items,
+					scope: m.scope.clone(),
+				}
+			})
+			.collect();
 		let synthetic = Program {
 			map: program.map.clone(),
 			modules,
@@ -153,12 +183,33 @@ impl Expander {
 		Ok(())
 	}
 
+	// Resolve a macro call against scope, enforcing privacy.
+	fn resolve(&self, name: &str, scope: &Scope, span: Span) -> Result<String, Diagnostic> {
+		let Some((module, rest)) = name.split_once('.') else {
+			return Ok(resolve_bare(name, scope));
+		};
+		let Some(vis) = scope.visible.get(module) else {
+			return fail(format!("cannot find module `{module}`"), span, "no such module");
+		};
+		let key = format!("{}::{rest}", vis.module);
+		if !self.publics.contains(&key) {
+			return fail(format!("`{rest}` is private to module `{module}`"), span, "not public");
+		}
+		Ok(key)
+	}
+
 	// Instantiate expr if it calls a user macro.
-	fn call(&mut self, e: &Spanned<Expr>, depth: usize) -> Result<Option<Vec<Spanned<Expr>>>, Diagnostic> {
+	fn call(
+		&mut self,
+		e: &Spanned<Expr>,
+		scope: &Scope,
+		depth: usize,
+	) -> Result<Option<Vec<Spanned<Expr>>>, Diagnostic> {
 		let Expr::MacroCall { name, args } = &e.0 else {
 			return Ok(None);
 		};
-		let Some(&(arity, ptr)) = self.macros.get(name) else {
+		let key = self.resolve(name, scope, e.1)?;
+		let Some(&(arity, ptr)) = self.macros.get(&key) else {
 			return Ok(None);
 		};
 		if args.len() != arity {
@@ -179,24 +230,24 @@ impl Expander {
 			Expr::Block(stmts) => stmts,
 			other => vec![(other, span)],
 		};
-		self.expand(List(&mut body), depth + 1)?;
+		self.expand(List(&mut body), scope, depth + 1)?;
 		Ok(Some(body))
 	}
 
 	// Walk the tree, expanding macro calls.
-	fn expand(&mut self, c: Child, depth: usize) -> Result<(), Diagnostic> {
+	fn expand(&mut self, c: Child, scope: &Scope, depth: usize) -> Result<(), Diagnostic> {
 		match c {
 			List(body) => {
 				let mut i = 0;
 				while i < body.len() {
-					match self.call(&body[i], depth)? {
+					match self.call(&body[i], scope, depth)? {
 						Some(stmts) => {
 							let n = stmts.len();
 							body.splice(i..i + 1, stmts);
 							i += n;
 						}
 						None => {
-							self.expand(One(&mut body[i]), depth)?;
+							self.expand(One(&mut body[i]), scope, depth)?;
 							i += 1;
 						}
 					}
@@ -204,7 +255,7 @@ impl Expander {
 				Ok(())
 			}
 			One(e) => {
-				if let Some(mut stmts) = self.call(e, depth)? {
+				if let Some(mut stmts) = self.call(e, scope, depth)? {
 					e.0 = match stmts.len() {
 						1 => stmts.pop().unwrap().0,
 						_ => Expr::Block(stmts),
@@ -220,7 +271,7 @@ impl Expander {
 					Expr::MacroDef { .. } => {
 						fail("macros can only be defined at the top level", e.1, "nested macro def")
 					}
-					_ => e.0.try_children(|c| self.expand(c, depth)),
+					_ => e.0.try_children(|c| self.expand(c, scope, depth)),
 				}
 			}
 		}
@@ -229,7 +280,10 @@ impl Expander {
 
 // Expand all macro calls across a program's modules.
 pub fn expand(program: &Program) -> Result<HashMap<String, Vec<Spanned<Expr>>>, Diagnostic> {
-	let mut ex = Expander::default();
+	let mut ex = Expander {
+		publics: program.publics.clone(),
+		..Default::default()
+	};
 	let mut rest: HashMap<String, Vec<Spanned<Expr>>> = HashMap::new();
 	for m in &program.modules {
 		let mut items = Vec::with_capacity(m.items.len());
@@ -247,10 +301,11 @@ pub fn expand(program: &Program) -> Result<HashMap<String, Vec<Spanned<Expr>>>, 
 		rest.insert(m.name.clone(), items);
 	}
 	if !ex.macros.is_empty() {
-		ex.compile_stage0(program)?;
+		ex.compile_stage0(program, &rest)?;
 	}
-	for items in rest.values_mut() {
-		ex.expand(List(items), 0)?;
+	for m in &program.modules {
+		let items = rest.get_mut(&m.name).expect("every module was seeded above");
+		ex.expand(List(items), &m.scope, 0)?;
 	}
 	Ok(rest)
 }
