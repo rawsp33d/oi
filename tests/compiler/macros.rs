@@ -279,6 +279,17 @@ fn qualified_macro_call_resolves_module_locally() {
 }
 
 #[test]
+fn qualified_macro_statement_form() {
+	Project::new()
+		.file("main.oi", ["module main", "use util", "util.say! 6"])
+		.file(
+			"util/lib.oi",
+			["module util", "pub say! :: fn(n: Ast) Ast { `print(%n)` }"],
+		)
+		.check("6");
+}
+
+#[test]
 fn imported_macro_called_bare() {
 	Project::new()
 		.file("main.oi", ["module main", "use util.{ answer }", "print(answer!())"])

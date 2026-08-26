@@ -136,6 +136,13 @@ where
 
 	let ident = || select! { Token::Ident(name) => name };
 
+	let macro_name = ident()
+		.then(just(Token::Dot).ignore_then(ident()).or_not())
+		.map(|(first, rest)| match rest {
+			Some(second) => format!("{first}.{second}"),
+			None => first,
+		});
+
 	// a guard that the next token has no token gap following it
 	let adjacent = empty().map_with(|_, ex| ex.span()).try_map(move |sp: Span, _| {
 		match src.get(sp.end - origin..sp.start - origin) {
@@ -535,7 +542,8 @@ where
 			)
 		});
 
-	let macro_stmt = ident()
+	let macro_stmt = macro_name
+		.clone()
 		.then_ignore(adjacent)
 		.then_ignore(just(Token::Not))
 		.then_ignore(adjacent.then(just(Token::LParen)).not())
@@ -763,19 +771,13 @@ where
 			.map_with(|e, ex| (e, ex.span()));
 
 		// inline macro calls
-		let macro_call = ident()
-			.then(just(Token::Dot).ignore_then(ident()).or_not())
+		let macro_call = macro_name
+			.clone()
 			.then_ignore(adjacent)
 			.then_ignore(just(Token::Not))
 			.then_ignore(adjacent)
 			.then(paren(loose_list(expr.clone())))
-			.map_with(|((first, rest), args), ex| {
-				let name = match rest {
-					Some(second) => format!("{first}.{second}"),
-					None => first,
-				};
-				(Expr::MacroCall { name, args }, ex.span())
-			});
+			.map_with(|(name, args), ex| (Expr::MacroCall { name, args }, ex.span()));
 
 		// map literals
 		let map_entry = expr
@@ -1507,7 +1509,7 @@ where
 	// annotation macros
 	let attr_macro = just(Token::At)
 		.then_ignore(adjacent)
-		.ignore_then(ident())
+		.ignore_then(macro_name)
 		.then_ignore(adjacent)
 		.then_ignore(just(Token::Not))
 		.then(spanned(adjacent.ignore_then(paren(loose_list(expr.clone())))).or_not())

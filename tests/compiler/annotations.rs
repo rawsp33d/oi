@@ -249,6 +249,26 @@ fn attr_macro_args_arrive_as_one_list() {
 }
 
 #[test]
+fn qualified_attr_macro() {
+	crate::common::Project::new()
+		.file(
+			"main.oi",
+			[
+				"module main",
+				"use util",
+				"@util.keep!",
+				"f :: fn() int { 42 }",
+				"print(f())",
+			],
+		)
+		.file(
+			"util/lib.oi",
+			["module util", "pub keep! :: fn(input: Ast) Ast { `%input` }"],
+		)
+		.check("42");
+}
+
+#[test]
 fn unknown_attr_macro_errors() {
 	fail_with(
 		indoc! {"
