@@ -45,6 +45,16 @@ fn comp_folds_structs() {
 }
 
 #[test]
+fn comp_calls_an_imported_fn() {
+	let src = indoc! {"
+		use math
+		V :: comp math.abs(0 - 5)
+		print(V)
+	"};
+	check(src, "5");
+}
+
+#[test]
 fn comp_rejects_unreifiable_type() {
 	fail_with("A :: comp [1, 2, 3]", "can't use this type in `comp` yet");
 }

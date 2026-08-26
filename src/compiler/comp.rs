@@ -149,14 +149,20 @@ fn fold(
 		},
 		span,
 	));
+	// enable comp code to call imports
+	let mut modules: Vec<Module> = program.modules.iter().filter(|m| m.name != "main").cloned().collect();
+	modules.push(Module {
+		name: "main".into(),
+		items,
+		scope: scope.clone(),
+	});
 	let synthetic = Program {
 		map: program.map.clone(),
-		modules: vec![Module {
-			name: "main".into(),
-			items,
-			scope: scope.clone(),
-		}],
-		..Program::default()
+		modules,
+		publics: program.publics.clone(),
+		reexports: program.reexports.clone(),
+		consts: program.consts.clone(),
+		annotations: HashMap::new(),
 	};
 	let mut compiler = Compiler::default();
 	compiler.compile(&synthetic)?;

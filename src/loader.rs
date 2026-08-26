@@ -34,6 +34,7 @@ fn core_files(dir: &Dir) -> Vec<(String, String)> {
 }
 
 // A parsed module.
+#[derive(Clone)]
 pub struct Module {
 	pub name: String,
 	pub items: Vec<Spanned<Expr>>,
