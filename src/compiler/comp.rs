@@ -129,6 +129,7 @@ fn fold(
 	inner: Spanned<Expr>,
 	target: &str,
 	expanded: &mut HashMap<String, Vec<Spanned<Expr>>>,
+	consts: &HashMap<String, Spanned<Expr>>,
 	program: &Program,
 ) -> Result<Expr, Diagnostic> {
 	let span = inner.1;
@@ -176,7 +177,11 @@ fn fold(
 		modules,
 		publics: program.publics.clone(),
 		reexports: program.reexports.clone(),
-		consts: program.consts.clone(),
+		consts: consts
+			.iter()
+			.filter(|(_, v)| !matches!(v.0, Expr::Comp(_)))
+			.map(|(k, v)| (k.clone(), v.clone()))
+			.collect(),
 		annotations: HashMap::new(),
 	};
 	let mut compiler = Compiler::default();
@@ -191,19 +196,34 @@ fn fold(
 pub(crate) fn eval(
 	expanded: &mut HashMap<String, Vec<Spanned<Expr>>>,
 	annotations: &mut HashMap<String, Vec<Annotation>>,
+	consts: &mut HashMap<String, Spanned<Expr>>,
 	program: &Program,
 ) -> Result<(), Diagnostic> {
 	// push order is importer-first, so folding in reverse handles dependencies first
 	for m in program.modules.iter().rev() {
+		let comps: Vec<String> = consts
+			.iter()
+			.filter(|(k, v)| {
+				k.split_once("::").map_or("main", |(owner, _)| owner) == m.name && matches!(v.0, Expr::Comp(_))
+			})
+			.map(|(k, _)| k.clone())
+			.collect();
+		for k in comps {
+			let (Expr::Comp(inner), span) = consts[&k].clone() else {
+				unreachable!()
+			};
+			let lit = fold(*inner, &m.name, expanded, consts, program)?;
+			consts.insert(k, (lit, span));
+		}
 		while let Some(inner) = first_comp(expanded.get_mut(&m.name).expect("every module is expanded")) {
-			let lit = fold(inner, &m.name, expanded, program)?;
+			let lit = fold(inner, &m.name, expanded, consts, program)?;
 			patch_first(expanded.get_mut(&m.name).expect("every module is expanded"), lit);
 		}
 	}
 	// an annotation call is implicitly comptime
 	for a in annotations.iter_mut().filter(|(k, _)| !k.contains("::")).flat_map(|(_, v)| v) {
 		if matches!(a.0, Expr::Call { .. }) {
-			a.0 = fold(a.clone(), "main", expanded, program)?;
+			a.0 = fold(a.clone(), "main", expanded, consts, program)?;
 		}
 	}
 	Ok(())

@@ -525,7 +525,7 @@ impl Compiler {
 		// expand user macros to AST
 		let mut expanded = expand(program)?;
 		// fold `comp` expressions to literals
-		comp::eval(&mut expanded, &mut self.annotations, program)?;
+		comp::eval(&mut expanded, &mut self.annotations, &mut self.consts, program)?;
 		let items = || {
 			program
 				.modules

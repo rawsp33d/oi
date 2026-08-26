@@ -71,6 +71,17 @@ fn comp_rejects_unreifiable_type() {
 }
 
 #[test]
+fn comp_const_in_a_module() {
+	Project::new()
+		.file("main.oi", ["module main", "use util", "print(util.BEST)"])
+		.file(
+			"util/lib.oi",
+			["module util", "pick :: fn() int { 40 + 2 }", "pub BEST :: comp pick()"],
+		)
+		.check("42");
+}
+
+#[test]
 fn comp_folds_in_an_imported_module() {
 	Project::new()
 		.file("main.oi", ["module main", "use util", "print(util.f())"])

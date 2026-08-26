@@ -349,7 +349,7 @@ impl Loader<'_> {
 						(_, true, _) => {
 							Some(("type annotations on consts aren't supported yet", "drop the annotation"))
 						}
-						(_, _, Some(v)) if is_const_value(&v.0) => {
+						(_, _, Some(v)) if is_const_value(&v.0) || matches!(v.0, Expr::Comp(_)) => {
 							self.define(m, name, true, public, span)?;
 							let mut v = v.clone();
 							if let Expr::StructLit { name: n, .. } = &mut v.0
