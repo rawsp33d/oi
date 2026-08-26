@@ -129,16 +129,19 @@ impl Expander {
 			.iter()
 			.find(|m| m.name == "main")
 			.expect("a `main` module always exists");
+		// enable macro bodies to call imports
+		let mut modules: Vec<Module> = program.modules.iter().filter(|m| m.name != "main").cloned().collect();
+		modules.push(Module {
+			name: "main".into(),
+			items: std::mem::take(&mut self.defs),
+			scope: main.scope.clone(),
+		});
 		let synthetic = Program {
 			map: program.map.clone(),
-			modules: vec![Module {
-				name: "main".into(),
-				items: std::mem::take(&mut self.defs),
-				scope: main.scope.clone(),
-			}],
-			publics: HashSet::new(),
-			reexports: HashMap::new(),
-			consts: HashMap::new(),
+			modules,
+			publics: program.publics.clone(),
+			reexports: program.reexports.clone(),
+			consts: program.consts.clone(),
 			annotations: HashMap::new(),
 		};
 		let mut compiler = Compiler::default();

@@ -243,3 +243,18 @@ fn items_list_struct_fields() {
 		"3",
 	);
 }
+
+#[test]
+fn macro_body_calls_an_imported_fn() {
+	check(
+		indoc! {r"
+			use math
+			five! :: fn() Ast {
+				v := math.abs(0 - 5)
+				`%v`
+			}
+			print(five!())
+		"},
+		"5",
+	);
+}
