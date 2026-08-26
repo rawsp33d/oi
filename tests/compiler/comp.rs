@@ -2,7 +2,7 @@ use crate::helpers::*;
 
 #[test]
 fn comp_folds_const_arithmetic() {
-	check("PI :: comp 22.0 / 7.0\nprint(PI)", "3.142857142857143");
+	check(["PI :: comp 22.0 / 7.0", "print(PI)"], "3.142857142857143");
 }
 
 #[test]
@@ -52,6 +52,16 @@ fn comp_calls_an_imported_fn() {
 		print(V)
 	"};
 	check(src, "5");
+}
+
+#[test]
+fn comp_is_actually_comptime() {
+	let src = indoc! {r#"
+		print("run")
+		V :: comp { print("fold") 7 }
+		print(V)
+	"#};
+	check(src, ["fold", "run", "7"]);
 }
 
 #[test]
