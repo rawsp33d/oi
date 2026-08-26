@@ -126,12 +126,30 @@ fn reify(span: Span) -> Expr {
 
 // Compile and run a single comp site, folding it to its reified literal.
 fn fold(
-	inner: Spanned<Expr>,
+	mut inner: Spanned<Expr>,
 	target: &str,
 	expanded: &mut HashMap<String, Vec<Spanned<Expr>>>,
 	consts: &HashMap<String, Spanned<Expr>>,
 	program: &Program,
 ) -> Result<Expr, Diagnostic> {
+	// conditional compilation
+	while let Expr::If { cond, then, els } = inner.0 {
+		let span = cond.1;
+		let mut arm = match fold(*cond, target, expanded, consts, program)? {
+			Expr::Bool(true) => then,
+			Expr::Bool(false) if matches!(els.as_deref(), Some([(Expr::If { .. }, _)])) => {
+				inner = els.expect("guard matched").remove(0);
+				continue;
+			}
+			Expr::Bool(false) => els.unwrap_or_default(),
+			_ => return Err(Diagnostic::new("`comp if` needs a bool condition", span.into_range())),
+		};
+		return Ok(if arm.len() == 1 {
+			arm.remove(0).0
+		} else {
+			Expr::Block(arm)
+		});
+	}
 	let span = inner.1;
 	let thunk = (
 		Expr::Fn {

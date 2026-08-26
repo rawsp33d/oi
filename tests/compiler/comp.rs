@@ -66,6 +66,19 @@ fn comp_is_actually_comptime() {
 }
 
 #[test]
+fn comp_if_is_conditional_compilation() {
+	let src = indoc! {r#"
+		log :: fn(msg: string) {
+			comp if 1 == 1 { print(msg) } else { missing() }
+		}
+		comp if 2 < 1 { missing() }
+		log("hi")
+		print(comp if 1 == 2 { missing() } else if 2 == 2 { 42 })
+	"#};
+	check(src, ["hi", "42"]);
+}
+
+#[test]
 fn comp_rejects_unreifiable_type() {
 	fail_with("A :: comp [1, 2, 3]", "can't use this type in `comp` yet");
 }
