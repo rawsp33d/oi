@@ -157,6 +157,11 @@ three :: fn() r := 2 {
 	r = 3
 }
 
+# trailing params can default too, evaluated at the callsite
+# a default may reference any earlier param, including `self`
+wrap :: fn(s: string, left: string, right: string = left) string { left + s + right }
+assert!(wrap("hi", "|") == "|hi|")
+
 # this really just skips the step of explicitly initializing a zeroed var
 divmod :: fn(a: int, b: int) out: (int, int) {
 	out.0 = a / b

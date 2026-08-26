@@ -18,6 +18,10 @@ impl<'a> Translator<'a> {
 		body: &[Spanned<Expr>],
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
+		if let Some(p) = params.iter().find(|p| p.default.is_some()) {
+			let msg = "default params are only supported on named fns";
+			return Err(Diagnostic::new(msg, p.span.into_range()).with_label("remove the default"));
+		}
 		let self_name = self.self_name.take();
 		let inferred;
 		let captures: &[Capture] = match captures {

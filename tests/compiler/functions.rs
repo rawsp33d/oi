@@ -122,3 +122,34 @@ fn fn_return_bare() {
 	"};
 	check(src, "0");
 }
+
+#[test]
+fn default_param() {
+	let src = indoc! {"
+		add :: fn(x: int, y: int = 10) int { x + y }
+		print(add(1))
+		print(add(1, 2))
+	"};
+	check(src, ["11", "3"]);
+}
+
+#[test]
+fn default_param_refs_earlier_param() {
+	let src = indoc! {r#"
+		Wrapper :: struct { s: string }
+		Wrapper :{
+			wrap :: fn(self, left: string, right: string = left) string { left + self.s + right }
+		}
+		Wrapper.{"hi"}.wrap("|")
+	"#};
+	check(src, "|hi|");
+}
+
+#[test]
+fn default_param_not_trailing() {
+	let src = indoc! {"
+		add :: fn(x: int = 1, y: int) int { x + y }
+		add(1)
+	"};
+	fail_with(src, "defaults must be trailing");
+}

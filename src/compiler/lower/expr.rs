@@ -233,6 +233,15 @@ impl<'a> Translator<'a> {
 							Some(TypeExpr::TupleStruct(..))
 						)) {
 					(self.qualify(name).to_string(), None)
+				} else if let Expr::Ident(name) = &recv.0
+					&& !self.vars.contains_key(name)
+					&& let Some(typ) = self.types().named(name, recv.1).ok().filter(|t| {
+						matches!(
+							t,
+							Typ::Int(_) | Typ::UInt(_) | Typ::Float(_) | Typ::Bool | Typ::ISize | Typ::USize | Typ::Str
+						)
+					}) {
+					(typ.to_string(), None)
 				} else {
 					let (recv_val, recv_typ) = self.expr(recv)?;
 					let recv_typ = self.peeled(&recv_typ);
@@ -262,10 +271,13 @@ impl<'a> Translator<'a> {
 							(name.clone(), Some((recv_val, recv_typ)))
 						}
 						Typ::Str => ("string".to_string(), Some((recv_val, recv_typ))),
+						Typ::Int(_) | Typ::UInt(_) | Typ::Float(_) | Typ::Bool | Typ::ISize | Typ::USize => {
+							(recv_typ.to_string(), Some((recv_val, recv_typ)))
+						}
 						_ => {
 							return Err(
 								Diagnostic::new(format!("`{recv_typ}` has no methods"), recv.1.into_range())
-									.with_label("methods are only defined on structs"),
+									.with_label("methods are only defined on structs and primitives"),
 							);
 						}
 					}

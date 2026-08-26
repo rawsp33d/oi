@@ -41,6 +41,7 @@ pub(crate) struct FnSig {
 	pub params: Vec<Typ>,
 	pub muts: Vec<bool>,
 	pub ret: Typ,
+	pub args: Vec<(String, Option<Spanned<Expr>>)>,
 }
 
 impl FnSig {
@@ -52,6 +53,20 @@ impl FnSig {
 			.map(|(t, &m)| if m { Typ::Mut(Box::new(t.clone())) } else { t.clone() })
 			.collect()
 	}
+}
+
+// Enforce default param rules.
+fn check_param_defaults(params: &[Param]) -> Result<(), Diagnostic> {
+	if let Some(p) = params.iter().find(|p| p.mutable && p.default.is_some()) {
+		let msg = format!("`{}` is `mut` so it can't have a default value", p.name);
+		return Err(Diagnostic::new(msg, p.span.into_range()).with_label("remove `mut` or the default"));
+	}
+	let tail = params.iter().skip_while(|p| p.default.is_none());
+	if let Some(p) = tail.skip(1).find(|p| p.default.is_none()) {
+		let msg = format!("`{}` needs a default value", p.name);
+		return Err(Diagnostic::new(msg, p.span.into_range()).with_label("defaults must be trailing"));
+	}
+	Ok(())
 }
 
 // A generic free function, monomorphized per callsite.
@@ -837,7 +852,9 @@ impl Compiler {
 				Some((ret_te, ret_span)) => types.resolve(ret_te, *ret_span)?,
 				None => Typ::unit(),
 			};
-			let sig = self.declare_fn(&oi_symbol(&item.key), Linkage::Local, params, muts, ret);
+			check_param_defaults(&item.params)?;
+			let mut sig = self.declare_fn(&oi_symbol(&item.key), Linkage::Local, params, muts, ret);
+			sig.args = item.params.iter().map(|p| (p.name.clone(), p.default.clone())).collect();
 			funcs.insert(item.key.clone(), sig);
 		}
 
@@ -1023,7 +1040,13 @@ impl Compiler {
 			sig.returns.push(AbiParam::new(cl_type(&ret, int)));
 		}
 		let id = self.module.declare_function(symbol, linkage, &sig).expect("declare function");
-		FnSig { id, params, muts, ret }
+		FnSig {
+			id,
+			params,
+			muts,
+			ret,
+			args: vec![],
+		}
 	}
 
 	fn finish_fn(&mut self, name: &str) -> FuncId {

@@ -203,6 +203,7 @@ impl<'a> Translator<'a> {
 			muts: params.iter().map(|(_, _, m)| *m).collect(),
 			params: params.into_iter().map(|(_, t, _)| t).collect(),
 			ret,
+			args: vec![],
 		};
 		self.mono.insert(sym.clone(), fn_sig.clone());
 		self.pending.push((sym, def.clone(), subst));

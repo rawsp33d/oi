@@ -92,16 +92,15 @@ impl<'a> Translator<'a> {
 		} else {
 			args
 		};
-		if args.len() + self_n != sig.params.len() {
-			return Err(Diagnostic::new(
-				format!(
-					"`{name}` expects {} argument(s), got {}",
-					sig.params.len() - self_n,
-					args.len()
-				),
-				span.into_range(),
-			)
-			.with_label("wrong number of arguments"));
+		let n_defaults = sig.args.iter().rev().take_while(|(_, d)| d.is_some()).count();
+		let total = args.len() + self_n;
+		if total + n_defaults < sig.params.len() || total > sig.params.len() {
+			let mut want = (sig.params.len() - n_defaults - self_n).to_string();
+			if n_defaults > 0 {
+				want = format!("{want}..{}", sig.params.len() - self_n);
+			}
+			let msg = format!("`{name}` expects {want} argument(s), got {}", args.len());
+			return Err(Diagnostic::new(msg, span.into_range()).with_label("wrong number of arguments"));
 		}
 		self.check_muts(&sig.muts, recv_expr, args)?;
 		let mut vals = Vec::with_capacity(args.len() + self_n);
@@ -127,6 +126,30 @@ impl<'a> Translator<'a> {
 				);
 			}
 			vals.push(val);
+		}
+		// fill missing trailing args from defaults, left-to-right
+		if vals.len() < sig.params.len() {
+			let saved: Vec<_> = sig.args.iter().map(|(n, _)| (n.clone(), self.vars.remove(n))).collect();
+			for (i, ((name, default), typ)) in sig.args.iter().zip(&sig.params).enumerate() {
+				let val = match vals.get(i) {
+					Some(&val) => val,
+					None => {
+						let default = default.as_ref().expect("validated trailing defaults");
+						let val = self.check_typed(default, typ, "not a valid default for this parameter")?;
+						vals.push(val);
+						val
+					}
+				};
+				let var = self.b.declare_var(cl_type(typ, self.int));
+				self.b.def_var(var, val);
+				self.vars.insert(name.clone(), Local::plain(var, typ.clone(), false));
+			}
+			for (name, old) in saved {
+				match old {
+					Some(local) => self.vars.insert(name, local),
+					None => self.vars.remove(&name),
+				};
+			}
 		}
 		let out = self.emit_call(&sig, &vals);
 		self.reload_lent(&lent);

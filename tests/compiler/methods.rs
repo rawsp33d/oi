@@ -113,11 +113,6 @@ fn no_such_method() {
 }
 
 #[test]
-fn methods_only_on_structs() {
-	fail_with("(5).double()", "no methods");
-}
-
-#[test]
 fn wrong_arg_count() {
 	fail_with(
 		indoc! {"
@@ -133,6 +128,17 @@ fn wrong_arg_count() {
 fn builtin_amendment() {
 	check(r#"print("".is_empty())"#, "true");
 	check(r#"print("hi".is_empty())"#, "false");
+}
+
+#[test]
+fn builtin_amendment_primitives() {
+	let src = indoc! {r#"
+		print(int.max())
+		print(int.min())
+		print((0.0).is_nan())
+		print(float.epsilon())
+	"#};
+	check(src, ["2147483647", "-2147483648", "false", "2.220446049250313e-16"]);
 }
 
 #[test]

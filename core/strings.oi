@@ -41,4 +41,9 @@ string :{
 		}
 		string(out)
 	}
+
+	## Wrap with given characters.
+	wrap :: fn(self, left: string, right: string = left) string {
+		left + self + right
+	}
 }

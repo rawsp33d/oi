@@ -318,15 +318,23 @@ where
 	let param = just(Token::Mut)
 		.or_not()
 		.then(ident())
-		.then(just(Token::Colon).ignore_then(type_expr.clone()).or_not())
-		.map_with(|((mutable, name), typ), ex| Param {
-			typ: typ.unwrap_or_else(|| TypeExpr::Name(if name == "self" { "Self" } else { "$?" }.into())),
-			name,
-			span: ex.span(),
-			default: None,
-			mutable: mutable.is_some(),
-			public: false,
-			annotations: vec![],
+		.then(
+			just(Token::Colon)
+				.ignore_then(type_expr.clone())
+				.then(just(Token::Assign).ignore_then(expr.clone()).or_not())
+				.or_not(),
+		)
+		.map_with(|((mutable, name), typed), ex| {
+			let (typ, default) = typed.unzip();
+			Param {
+				typ: typ.unwrap_or_else(|| TypeExpr::Name(if name == "self" { "Self" } else { "$?" }.into())),
+				name,
+				span: ex.span(),
+				default: default.flatten(),
+				mutable: mutable.is_some(),
+				public: false,
+				annotations: vec![],
+			}
 		});
 	// NOTE: a trailing comma forces a tuple even for one param
 	let params = paren(
