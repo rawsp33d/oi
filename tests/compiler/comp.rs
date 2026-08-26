@@ -71,12 +71,17 @@ fn comp_rejects_unreifiable_type() {
 }
 
 #[test]
-fn comp_const_in_a_module() {
+fn comp_consts_in_a_module() {
 	Project::new()
 		.file("main.oi", ["module main", "use util", "print(util.BEST)"])
 		.file(
 			"util/lib.oi",
-			["module util", "pick :: fn() int { 40 + 2 }", "pub BEST :: comp pick()"],
+			[
+				"module util",
+				"pick :: fn() int { 40 + 2 }",
+				"pub BEST :: comp SEED * 21",
+				"pub SEED :: comp pick() / 21",
+			],
 		)
 		.check("42");
 }

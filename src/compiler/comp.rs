@@ -201,19 +201,34 @@ pub(crate) fn eval(
 ) -> Result<(), Diagnostic> {
 	// push order is importer-first, so folding in reverse handles dependencies first
 	for m in program.modules.iter().rev() {
-		let comps: Vec<String> = consts
+		let mut comps: Vec<String> = consts
 			.iter()
 			.filter(|(k, v)| {
 				k.split_once("::").map_or("main", |(owner, _)| owner) == m.name && matches!(v.0, Expr::Comp(_))
 			})
 			.map(|(k, _)| k.clone())
 			.collect();
-		for k in comps {
-			let (Expr::Comp(inner), span) = consts[&k].clone() else {
-				unreachable!()
-			};
-			let lit = fold(*inner, &m.name, expanded, consts, program)?;
-			consts.insert(k, (lit, span));
+		// comp expressions may reference siblings, so retry until a pass gets stuck
+		while !comps.is_empty() {
+			let (n, mut err) = (comps.len(), None);
+			comps.retain(|k| {
+				let (Expr::Comp(inner), span) = consts[k].clone() else {
+					unreachable!()
+				};
+				match fold(*inner, &m.name, expanded, consts, program) {
+					Ok(lit) => {
+						consts.insert(k.clone(), (lit, span));
+						false
+					}
+					Err(d) => {
+						err = Some(d);
+						true
+					}
+				}
+			});
+			if comps.len() == n {
+				return Err(err.expect("a stuck pass saw an error"));
+			}
 		}
 		while let Some(inner) = first_comp(expanded.get_mut(&m.name).expect("every module is expanded")) {
 			let lit = fold(inner, &m.name, expanded, consts, program)?;
