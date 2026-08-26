@@ -1,11 +1,4 @@
-use std::process::Output;
-
 use crate::common::{Project, Run, err, oi, ok};
-
-// Run main.oi in a project.
-fn run_main(p: Project) -> Output {
-	oi(&["run", "main.oi"]).current_dir(&p).run(None)
-}
 
 #[test]
 fn imports_work() {
@@ -22,7 +15,7 @@ fn imports_work() {
 			],
 		)
 		.file("bar/lib.oi", ["module bar", "pub twice :: fn(n: int) int { n * 2 }"]);
-	assert_eq!(ok(run_main(p)), "14");
+	p.check("14");
 }
 
 #[test]
@@ -30,8 +23,7 @@ fn private_fn_rejected() {
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo", "print(foo.secret())"])
 		.file("foo/lib.oi", ["module foo", "secret :: fn() int { 1 }"]);
-	let out = err(run_main(p));
-	assert!(out.contains("private to module `foo`"), "{out}");
+	p.fail_with("private to module `foo`");
 }
 
 #[test]
@@ -39,7 +31,7 @@ fn wrong_module_decl_names_the_file() {
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo", "print(foo.hi())"])
 		.file("foo/lib.oi", ["module bar", "pub hi :: fn() int { 1 }"]);
-	let out = err(run_main(p));
+	let out = err(p.run());
 	assert!(out.contains("foo/lib.oi"), "{out}");
 	assert!(out.contains("module foo"), "{out}");
 }
@@ -50,8 +42,7 @@ fn import_cycle_rejected() {
 		.file("main.oi", ["module main", "use a", "print(a.v())"])
 		.file("a/m.oi", ["module a", "use b", "pub v :: fn() int { b.v() }"])
 		.file("b/m.oi", ["module b", "use a", "pub v :: fn() int { a.v() }"]);
-	let out = err(run_main(p));
-	assert!(out.contains("import cycle"), "{out}");
+	p.fail_with("import cycle");
 }
 
 #[test]
@@ -60,8 +51,7 @@ fn duplicate_name_across_files_rejected() {
 		.file("main.oi", ["module main", "use foo", "print(foo.hi())"])
 		.file("foo/a.oi", ["module foo", "pub hi :: fn() int { 1 }"])
 		.file("foo/b.oi", ["module foo", "hi :: fn() int { 2 }"]);
-	let out = err(run_main(p));
-	assert!(out.contains("defined twice"), "{out}");
+	p.fail_with("defined twice");
 }
 
 #[test]
@@ -69,13 +59,12 @@ fn import_alias() {
 	let p = Project::new()
 		.file("main.oi", ["module main", "f :: use foo", "print(f.hi())"])
 		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
-	assert_eq!(ok(run_main(p)), "7");
+	p.check("7");
 
 	let p = Project::new()
 		.file("main.oi", ["module main", "f :: use foo", "print(foo.hi())"])
 		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
-	let out = err(run_main(p));
-	assert!(out.contains("foo"), "{out}");
+	p.fail_with("foo");
 }
 
 #[test]
@@ -88,7 +77,7 @@ fn selective_import() {
 		let p = Project::new()
 			.file("main.oi", ["module main", main])
 			.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
-		assert_eq!(ok(run_main(p)), "14");
+		p.check("14");
 	}
 }
 
@@ -97,14 +86,12 @@ fn selective_import_fails() {
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo.{ nope }", "print(nope())"])
 		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
-	let out = err(run_main(p));
-	assert!(out.contains("has no `nope`"), "{out}");
+	p.fail_with("has no `nope`");
 
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo.{ secret }", "print(secret())"])
 		.file("foo/lib.oi", ["module foo", "secret :: fn() int { 1 }"]);
-	let out = err(run_main(p));
-	assert!(out.contains("private to module `foo`"), "{out}");
+	p.fail_with("private to module `foo`");
 }
 
 #[test]
@@ -128,7 +115,7 @@ fn type_import() {
 		let p = Project::new()
 			.file("main.oi", ["module main", main])
 			.file("foo/lib.oi", ["module foo", lib]);
-		assert_eq!(ok(run_main(p)), "7");
+		p.check("7");
 	}
 }
 
@@ -138,8 +125,7 @@ fn type_import_fails() {
 		let p = Project::new()
 			.file("main.oi", ["module main", "use foo.{ P }", "print(1)"])
 			.file("foo/lib.oi", ["module foo", lib]);
-		let out = err(run_main(p));
-		assert!(out.contains("private to module `foo`"), "{out}");
+		p.fail_with("private to module `foo`");
 	}
 }
 
@@ -172,8 +158,7 @@ fn member_visibility() {
 		let p = Project::new()
 			.file("main.oi", ["module main", main])
 			.file("foo/lib.oi", ["module foo", lib, "pub make :: fn() P { P.{ x = 1 } }"]);
-		let out = err(run_main(p));
-		assert!(out.contains("private to module `foo`"), "{out}");
+		p.fail_with("private to module `foo`");
 	}
 
 	let p = Project::new()
@@ -189,7 +174,7 @@ fn member_visibility() {
 				"P :{ pub shown :: fn(self) int { self.x * 2 } }",
 			],
 		);
-	assert_eq!(ok(run_main(p)), "6");
+	p.check("6");
 
 	let p = Project::new()
 		.file(
@@ -208,7 +193,7 @@ fn member_visibility() {
 				"pub make :: fn() P { P.{ x = 9 } }",
 			],
 		);
-	assert_eq!(ok(run_main(p)), "9");
+	p.check("9");
 }
 
 #[test]
@@ -241,7 +226,7 @@ fn traits_are_module_scoped() {
 				"P : T {}",
 			],
 		);
-	assert_eq!(ok(run_main(p)), "true true");
+	p.check("true true");
 }
 
 #[test]
@@ -259,7 +244,7 @@ fn std_trait_claimed_without_import_in_module() {
 				"P : Add { add :: fn(self, other: P) P { P.{ x = self.x + other.x } } }",
 			],
 		);
-	assert_eq!(ok(run_main(p)), "5");
+	p.check("5");
 }
 
 #[test]
@@ -274,7 +259,7 @@ fn generic_fn_uses_local_type() {
 				"pub pack[T] :: fn(v: T) int { P.{ x = 3 }.x + v }",
 			],
 		);
-	assert_eq!(ok(run_main(p)), "10");
+	p.check("10");
 }
 
 #[test]
@@ -289,7 +274,7 @@ fn generic_struct_in_module() {
 				"pub mk :: fn() Box[int] { Box.{ v = 7 } }",
 			],
 		);
-	assert_eq!(ok(run_main(p)), "7");
+	p.check("7");
 }
 
 #[test]
@@ -298,7 +283,7 @@ fn type_reexport() {
 		.file("main.oi", ["module main", "use mid.{ P }", "print(P.{ x = 7 }.x)"])
 		.file("mid/lib.oi", ["module mid", "pub use base.P"])
 		.file("base/lib.oi", ["module base", "pub P :: struct { pub x: int }"]);
-	assert_eq!(ok(run_main(p)), "7");
+	p.check("7");
 }
 
 #[test]
@@ -310,7 +295,7 @@ fn narrowed_import() {
 		let p = Project::new()
 			.file("main.oi", ["module main", main])
 			.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
-		assert_eq!(ok(run_main(p)), "7");
+		p.check("7");
 	}
 }
 
@@ -324,8 +309,7 @@ fn narrowed_import_fails() {
 			"foo/lib.oi",
 			["module foo", "pub hi :: fn() int { 7 }", "pub yo :: fn() int { 8 }"],
 		);
-		let out = err(run_main(p));
-		assert!(out.contains(expected), "{out}");
+		p.fail_with(expected);
 	}
 }
 
@@ -340,7 +324,7 @@ fn reexport() {
 			.file("main.oi", ["module main", "use mid", &format!("print({call})")])
 			.file("mid/lib.oi", ["module mid", mid])
 			.file("base/lib.oi", ["module base", "pub hi :: fn() int { 7 }"]);
-		assert_eq!(ok(run_main(p)), "7");
+		p.check("7");
 	}
 }
 
@@ -350,7 +334,7 @@ fn reexport_selected() {
 		.file("main.oi", ["module main", "use mid.{ hi }", "print(hi())"])
 		.file("mid/lib.oi", ["module mid", "pub use base.hi"])
 		.file("base/lib.oi", ["module base", "pub hi :: fn() int { 7 }"]);
-	assert_eq!(ok(run_main(p)), "7");
+	p.check("7");
 }
 
 #[test]
@@ -360,7 +344,7 @@ fn reexport_chain() {
 		.file("top/lib.oi", ["module top", "pub use mid.hi"])
 		.file("mid/lib.oi", ["module mid", "pub use base.hi"])
 		.file("base/lib.oi", ["module base", "pub hi :: fn() int { 7 }"]);
-	assert_eq!(ok(run_main(p)), "7");
+	p.check("7");
 }
 
 #[test]
@@ -374,8 +358,7 @@ fn reexport_fails() {
 			.file("main.oi", ["module main", "use mid", "print(mid.hi())"])
 			.file("mid/lib.oi", ["module mid", mid])
 			.file("base/lib.oi", ["module base", "pub hi :: fn() int { 7 }"]);
-		let out = err(run_main(p));
-		assert!(out.contains(expected), "{out}");
+		p.fail_with(expected);
 	}
 }
 
@@ -389,7 +372,7 @@ fn const_import() {
 		let p = Project::new()
 			.file("main.oi", ["module main", main])
 			.file("foo/lib.oi", ["module foo", "pub name :: 7"]);
-		assert_eq!(ok(run_main(p)), "7");
+		p.check("7");
 	}
 }
 
@@ -403,8 +386,7 @@ fn const_import_fails() {
 		let p = Project::new()
 			.file("main.oi", ["module main", "use foo.{ name }", "print(name)"])
 			.file("foo/lib.oi", ["module foo", lib]);
-		let out = err(run_main(p));
-		assert!(out.contains(expected), "{out}");
+		p.fail_with(expected);
 	}
 }
 
@@ -414,7 +396,7 @@ fn const_reexport() {
 		.file("main.oi", ["module main", "use mid", "print(mid.name)"])
 		.file("mid/lib.oi", ["module mid", "pub use base.name"])
 		.file("base/lib.oi", ["module base", "pub name :: 7"]);
-	assert_eq!(ok(run_main(p)), "7");
+	p.check("7");
 }
 
 #[test]
@@ -425,8 +407,7 @@ fn module_cannot_call_main_private_fn() {
 			["module main", "secret :: fn() int { 1 }", "use foo", "print(foo.hi())"],
 		)
 		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { secret() }"]);
-	let out = err(run_main(p));
-	assert!(out.contains("undefined function"), "{out}");
+	p.fail_with("undefined function");
 }
 
 #[test]
@@ -435,7 +416,7 @@ fn module_fn_uses_builtins_and_prints() {
 		"foo/lib.oi",
 		["module foo", "pub go :: fn() { n: int = 3\nprint(n + 1) }"],
 	);
-	assert_eq!(ok(run_main(p)), "4");
+	p.check("4");
 }
 
 #[test]
@@ -443,7 +424,7 @@ fn single_file_module() {
 	let p = Project::new()
 		.file("main.oi", ["module main", "use foo", "print(foo.hi())"])
 		.file("foo.oi", ["module foo", "pub hi :: fn() int { 7 }"]);
-	assert_eq!(ok(run_main(p)), "7");
+	p.check("7");
 }
 
 #[test]
@@ -452,7 +433,7 @@ fn dir_wins_over_single_file_module() {
 		.file("main.oi", ["module main", "use foo", "print(foo.hi())"])
 		.file("foo.oi", ["module foo", "pub hi :: fn() int { 1 }"])
 		.file("foo/lib.oi", ["module foo", "pub hi :: fn() int { 2 }"]);
-	assert_eq!(ok(run_main(p)), "2");
+	p.check("2");
 }
 
 #[test]
@@ -461,7 +442,7 @@ fn single_file_module_chains_import() {
 		.file("main.oi", ["module main", "use foo", "print(foo.hi())"])
 		.file("foo.oi", ["module foo", "use bar", "pub hi :: fn() int { bar.hi() }"])
 		.file("bar.oi", ["module bar", "pub hi :: fn() int { 7 }"]);
-	assert_eq!(ok(run_main(p)), "7");
+	p.check("7");
 }
 
 #[test]

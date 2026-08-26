@@ -108,7 +108,8 @@ impl Project {
 		assert!(out.contains(expected), "{out}");
 	}
 
-	fn run(&self) -> Output {
+	/// Run main.oi and return the raw output.
+	pub fn run(&self) -> Output {
 		oi(&["run", "main.oi"]).current_dir(self).run(None)
 	}
 }
