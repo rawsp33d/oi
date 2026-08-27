@@ -5,7 +5,7 @@ use crate::lexer::Token;
 
 use chumsky::{
 	input::ValueInput,
-	pratt::{infix, left, postfix, prefix},
+	pratt::{infix, left, postfix, prefix, right},
 	prelude::*,
 };
 
@@ -1070,6 +1070,9 @@ where
 					|_, rhs, ex| (Expr::Not(Box::new(rhs)), ex.span()),
 				),
 				// arithmetic
+				infix(right(8), just(Token::StarStar), |l, _, r, ex| {
+					(Expr::Binary(BinOp::Pow, Box::new(l), Box::new(r)), ex.span())
+				}),
 				binop(7, Token::Asterisk, BinOp::Mul),
 				binop(7, Token::Slash, BinOp::Div),
 				infix(left(7), same_line.ignore_then(just(Token::Percent)), |l, _, r, ex| {

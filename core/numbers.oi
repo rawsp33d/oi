@@ -1,14 +1,13 @@
 module core
 
 # TODO: add max/min for all numeric types
-# TODO: add and use exponent ops
 
 int :{
 	## Largest representable `int` (2^31 - 1).
-	max :: 2147483647
+	max :: 2 ** 31 - 1
 
 	## Smallest representable `int` (-2^31).
-	min :: -2147483647 - 1
+	min :: -2 ** 31
 }
 
 float :{
@@ -19,7 +18,7 @@ float :{
 	min :: -1.7976931348623157e308
 
 	## Smallest step between distinct `float` values near 1.0.
-	epsilon :: 2.220446049250313e-16
+	epsilon :: 2.0 ** -52.0
 
 	## Whether this is NaN.
 	is_nan :: fn(self) bool {

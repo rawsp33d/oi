@@ -138,7 +138,9 @@ impl<'a> Translator<'a> {
 			}
 
 			Expr::Binary(op, l, r) => match op {
-				BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Mod => self.binop(*op, l, r, expr.1),
+				BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Mod | BinOp::Pow => {
+					self.binop(*op, l, r, expr.1)
+				}
 				BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Gt | BinOp::Le | BinOp::Ge => {
 					let (icc, fcc) = cmp_cc(*op);
 					self.cmp(icc, fcc, l, r, expr.1)

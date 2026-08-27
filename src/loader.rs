@@ -138,6 +138,8 @@ fn fold_const(e: &Expr, consts: &HashMap<String, Spanned<Expr>>, scope: &Scope) 
 			(BinOp::Sub, Expr::Float(a), Expr::Float(b)) => Expr::Float(a - b),
 			(BinOp::Mul, Expr::Float(a), Expr::Float(b)) => Expr::Float(a * b),
 			(BinOp::Div, Expr::Float(a), Expr::Float(b)) => Expr::Float(a / b),
+			(BinOp::Pow, Expr::Int(a), Expr::Int(b)) => Expr::Int(a.checked_pow(u32::try_from(b).ok()?)?),
+			(BinOp::Pow, Expr::Float(a), Expr::Float(b)) => Expr::Float(a.powf(b)),
 			_ => return None,
 		},
 		_ if is_literal(e) => e.clone(),

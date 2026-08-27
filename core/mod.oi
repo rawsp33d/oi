@@ -13,6 +13,7 @@ pub Sub :: trait { sub: fn(self, other: Self) Self }
 pub Mul :: trait { mul: fn(self, other: Self) Self }
 pub Div :: trait { div: fn(self, other: Self) Self }
 pub Mod :: trait { mod: fn(self, other: Self) Self }
+pub Pow :: trait { pow: fn(self, other: Self) Self }
 
 # errors
 pub Error :: trait {

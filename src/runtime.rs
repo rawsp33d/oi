@@ -45,6 +45,8 @@ symbols! {
 	MAP_SHARE = map_share,
 	REF_SHARE = ref_share,
 	REF_RELEASE = ref_release,
+	POW_INT = pow_int,
+	POW_FLOAT = pow_float,
 }
 
 // Type tag shared with the compiler.
@@ -194,6 +196,19 @@ pub extern "C" fn write_sep(i: i64, sink: i64) {
 pub extern "C" fn panic_oob(index: i64, len: i64) {
 	eprintln!("index out of range: the length is {len} but the index is {index}");
 	die();
+}
+
+// Wrap integer exponents.
+pub extern "C" fn pow_int(base: i64, exp: i64) -> i64 {
+	if exp < 0 {
+		eprintln!("negative exponent: {exp}");
+		die();
+	}
+	base.wrapping_pow(exp as u32)
+}
+
+pub extern "C" fn pow_float(base: f64, exp: f64) -> f64 {
+	base.powf(exp)
 }
 
 // Print `{prefix}{msg}` and abort.

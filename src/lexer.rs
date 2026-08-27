@@ -121,6 +121,8 @@ pub enum Token {
 	Minus,
 	#[token("*")]
 	Asterisk,
+	#[token("**")]
+	StarStar,
 	#[token("/")]
 	Slash,
 	#[token("%")]
@@ -254,6 +256,7 @@ impl fmt::Display for Token {
 			Token::Plus => write!(f, "+"),
 			Token::Minus => write!(f, "-"),
 			Token::Asterisk => write!(f, "*"),
+			Token::StarStar => write!(f, "**"),
 			Token::Slash => write!(f, "/"),
 			Token::Percent => write!(f, "%"),
 			Token::Eq => write!(f, "=="),

@@ -54,3 +54,12 @@ fn float_add() {
 fn negation() {
 	check("-5", "-5");
 }
+
+#[test]
+fn pow() {
+	check("2 ** 10", "1024");
+	check("2 ** 3 ** 2", "512");
+	check("-2 ** 2", "-4");
+	check("2.0 ** -1.0", "0.5");
+	fail_with("2 ** -1", "negative exponent");
+}

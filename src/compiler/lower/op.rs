@@ -207,6 +207,7 @@ impl<'a> Translator<'a> {
 			BinOp::Mul => ("core::Mul", "mul"),
 			BinOp::Div => ("core::Div", "div"),
 			BinOp::Mod => ("core::Mod", "mod"),
+			BinOp::Pow => ("core::Pow", "pow"),
 			_ => unreachable!("non-arithmetic op in binop"),
 		};
 
@@ -272,8 +273,25 @@ impl<'a> Translator<'a> {
 					.with_label("only integer operands"),
 			);
 		}
+		// cranelift apparently has no pow instruction, so `**` widens to 64 bits and calls into the runtime
+		let pow = matches!(op, BinOp::Pow).then(|| {
+			let (name, wide, t) = match kind {
+				NumKind::Float => (runtime::POW_FLOAT, Typ::Float(64), types::F64),
+				_ => (runtime::POW_INT, Typ::ISize, types::I64),
+			};
+			let (l, r) = (self.numcast(lv, &lt, &wide), self.numcast(rv, &rt, &wide));
+			let func = self.import_fn(name, &[t, t], Some(t));
+			let call = self.b.ins().call(func, &[l, r]);
+			let out = self.b.inst_results(call)[0];
+			match cl_type(&lt, self.int) {
+				cl if cl == t => out,
+				cl if cl.is_float() => self.b.ins().fdemote(cl, out),
+				cl => self.intcast(out, cl, matches!(kind, NumKind::Int)),
+			}
+		});
 		let b = self.b.ins();
 		let out = match (op, kind) {
+			(BinOp::Pow, _) => pow.unwrap(),
 			(BinOp::Add, NumKind::Float) => b.fadd(lv, rv),
 			(BinOp::Add, _) => b.iadd(lv, rv),
 			(BinOp::Sub, NumKind::Float) => b.fsub(lv, rv),
