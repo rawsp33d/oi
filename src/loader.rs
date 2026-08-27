@@ -437,13 +437,19 @@ impl Loader<'_> {
 		if self.modules.iter().any(|m| m.name == name) {
 			return Ok(());
 		}
-		let mut disk: Vec<_> = fs::read_dir(self.root.join(name))
-			.into_iter()
-			.flatten()
-			.flatten()
-			.map(|e| e.path())
-			.filter(|p| p.extension().is_some_and(|x| x == "oi"))
-			.collect();
+		// resolve core's imports from internal files
+		let from_core = self.loading.last().is_some_and(|m| self.core_origin.contains(m));
+		let mut disk: Vec<_> = if from_core {
+			vec![]
+		} else {
+			fs::read_dir(self.root.join(name))
+				.into_iter()
+				.flatten()
+				.flatten()
+				.map(|e| e.path())
+				.filter(|p| p.extension().is_some_and(|x| x == "oi"))
+				.collect()
+		};
 		disk.sort();
 		let candidate = self.root.join(format!("{name}.oi"));
 		let mut files: Vec<(String, String)> = if !disk.is_empty() {
@@ -455,7 +461,7 @@ impl Loader<'_> {
 					)
 				})
 				.collect()
-		} else if candidate.is_file() && candidate != self.entry_path {
+		} else if !from_core && candidate.is_file() && candidate != self.entry_path {
 			vec![(
 				candidate.display().to_string(),
 				fs::read_to_string(&candidate).unwrap_or_default(),

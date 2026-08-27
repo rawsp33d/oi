@@ -1,7 +1,5 @@
 module core
 
-use math.{ inf }
-
 # TODO: make max/min consts
 # TODO: add max/min for all numeric types
 # TODO: add and use exponent ops
