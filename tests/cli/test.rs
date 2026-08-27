@@ -26,11 +26,15 @@ fn test_runs_all_in_order() {
 }
 
 #[test]
-fn failing_test_exits_nonzero() {
+fn failing_test_is_isolated() {
 	let dir = project(indoc! {r#"
-		@test first :: fn() { assert!(true) }
-		@test second :: fn() { assert!(false) }
+		@test first :: fn() { assert! false }
+		@test second :: fn() { assert! true }
 	"#});
 	let out = oi(&["test"]).current_dir(&dir).run(None);
-	assert!(!out.status.success() && String::from_utf8_lossy(&out.stdout).contains("first"));
+	let stdout = String::from_utf8_lossy(&out.stdout);
+	assert!(!out.status.success());
+	assert!(stdout.contains("first ... FAILED") && stdout.contains("second ... ok"));
+	assert!(stdout.contains("1 passed; 1 failed"));
+	assert!(String::from_utf8_lossy(&out.stderr).contains("assertion failed"));
 }

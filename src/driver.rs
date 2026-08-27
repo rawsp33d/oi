@@ -47,12 +47,38 @@ pub fn test_source(name: &str, src: &str, root: &Path) -> Result<(), Reported> {
 		error.report_mapped(&program.map);
 		return Err(Reported);
 	}
+	let mut passed = 0;
 	for test in &compiler.tests {
 		print!("test {test} ... ");
 		std::io::Write::flush(&mut std::io::stdout()).ok();
-		compiler.finalized_test(test)();
-		println!("ok");
+		// SAFETY: there are no other threads, the child only runs the fn and exits
+		let ok = match unsafe { libc::fork() } {
+			0 => {
+				compiler.finalized_test(test)();
+				std::process::exit(0)
+			}
+			-1 => {
+				eprintln!("oi: fork failed");
+				return Err(Reported);
+			}
+			pid => {
+				let mut status = 0;
+				// SAFETY: `pid` is our own child, `status` is a valid out-pointer
+				unsafe { libc::waitpid(pid, &mut status, 0) };
+				libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0
+			}
+		};
+		println!("{}", if ok { "ok" } else { "FAILED" });
+		passed += ok as usize;
 	}
-	println!("{} passed", compiler.tests.len());
-	Ok(())
+	match compiler.tests.len() - passed {
+		0 => {
+			println!("{passed} passed");
+			Ok(())
+		}
+		failed => {
+			println!("{passed} passed; {failed} failed");
+			Err(Reported)
+		}
+	}
 }
