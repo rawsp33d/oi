@@ -62,7 +62,7 @@ tags: []
 - documantation tests `rust`
 - first-class
 	- `assert` `rust v zig`
-	- `test` (and also `suite` and `test/skip`) `zig revo`
+	- `@test` `rust odin`
 	- `build` `zig revo`
 	- units and unit conversion (can be an imported stdlib that adds `impl`s)
 	- primitive data type for paths `nu nix gdscript just`
@@ -159,6 +159,9 @@ tags: []
 - treat all args as optional since they have zero values?
 - sandwich ops like `a == b == c`, `a < b <= c`, `x == y < z`, etc. `python`
 - comments being assignable or otherwise DRY-able
+- ?allow `.{}` projection on structs
+	- `Foo :: struct { x: int, y: int }; foo :: Foo{ 2, 3 }; foo.{....` actually idk what I was going for
+- callable structs, which has a lot more precedent than struct projection above and would do the same thing for me `lua`
 # stdlib
 - `os`
 - `fs`

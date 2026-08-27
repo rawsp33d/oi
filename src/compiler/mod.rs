@@ -371,6 +371,8 @@ pub struct Compiler {
 	annotations: HashMap<String, Vec<Annotation>>,
 	map: SourceMap,
 	hoisted: HashMap<String, FnSig>,
+	pub(crate) include_tests: bool,
+	pub(crate) tests: Vec<String>,
 }
 
 impl Default for Compiler {
@@ -413,6 +415,8 @@ impl Default for Compiler {
 			annotations: HashMap::new(),
 			map: SourceMap::default(),
 			hoisted: HashMap::new(),
+			include_tests: false,
+			tests: Vec::new(),
 		}
 	}
 }
@@ -711,14 +715,31 @@ impl Compiler {
 					ret,
 					body,
 					..
-				} => others.push(FnItem {
-					key: name.clone(),
-					scope,
-					params: params.clone(),
-					params_tuple: *params_tuple,
-					ret: ret.clone(),
-					body,
-				}),
+				} => {
+					let is_test = !name.contains("::")
+						&& self.annotations.get(name).is_some_and(|anns| {
+							anns.iter().any(|a| matches!(&a.0, Expr::Ident(n) if n == "core::test"))
+						});
+					if is_test {
+						if !self.include_tests {
+							continue;
+						}
+						if !params.is_empty() || ret.is_some() {
+							let msg = format!("test `{name}` must be `fn()`");
+							return Err(Diagnostic::new(msg, item.1.into_range())
+								.with_label("tests take no params and return nothing"));
+						}
+						self.tests.push(name.clone());
+					}
+					others.push(FnItem {
+						key: name.clone(),
+						scope,
+						params: params.clone(),
+						params_tuple: *params_tuple,
+						ret: ret.clone(),
+						body,
+					})
+				}
 				Expr::Doc(_) => {}
 				Expr::Bind {
 					name,
@@ -1057,6 +1078,12 @@ impl Compiler {
 		self.module.define_function(id, &mut self.ctx).expect("define function");
 		self.module.clear_context(&mut self.ctx);
 		id
+	}
+
+	pub(crate) fn finalized_test(&self, name: &str) -> fn() {
+		let ptr = self.module.get_finalized_function(self.hoisted[name].id);
+		// SAFETY: `@test` fns are checked to be `fn()` at compile
+		unsafe { std::mem::transmute::<*const u8, fn()>(ptr) }
 	}
 
 	fn translator<'a>(

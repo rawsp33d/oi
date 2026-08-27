@@ -27,5 +27,6 @@ string : Error {
 
 # annotations
 
-pub required :: ()
 pub params :: ()
+pub required :: ()
+pub test :: ()

@@ -30,6 +30,13 @@ pub enum Command {
 		source: Option<String>,
 	},
 
+	/// Compile and run a file's `@test` fns.
+	Test {
+		/// Path to the .oi source file.
+		#[arg(default_value = "main.oi")]
+		file: PathBuf,
+	},
+
 	/// Start an interactive Oi REPL.
 	Repl,
 }

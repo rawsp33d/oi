@@ -208,7 +208,6 @@ sleep 1_000
 log.group :process
 
 # this can be used in conjunction with trailing functions
-test "foo" { assert!(foo == bar) }
 benchmark 1_000_000 { do_work() }
 config :production { ... }
 hook .startup { ... }
@@ -1608,11 +1607,7 @@ main :: fn() {
 	mutex.with { do_work() }
 
 	# composed with leading literals, function calls may be written like this:
-	# test("registration", fn { ... })
-	test "registration" {
-		user := make_user()
-		assert!(user.can_register())
-	}
+	# retry(3, fn { ... })
 	retry 3 {
 		fetch(url)?
 	}
@@ -1882,6 +1877,10 @@ main :: fn() {
 	# blessed builtins are just consts in core
 	# pub required :: ()
 	Player :: struct { name: string @required }
+
+	# `@test` marks a fn as a test
+	# they get stripped from normal builds, and are run by `oi test`
+	@test trims_edges :: fn() { assert! trim(" hi ") == "hi" }
 
 	# TODO: the comp and reflection stuff not fleshed out yet
 	comp for note in typeinfo(yell).annotations { ... }

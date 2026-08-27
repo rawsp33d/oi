@@ -37,3 +37,22 @@ pub fn run_source(name: &str, src: &str, root: &Path, debug_ast: bool) -> Result
 	}
 	Ok(())
 }
+
+/// Compile a program in test mode and run every `@test` fn in the main module.
+pub fn test_source(name: &str, src: &str, root: &Path) -> Result<(), Reported> {
+	let program = loader::load(name, src.to_string(), root)?;
+	let mut compiler = Compiler::default();
+	compiler.include_tests = true;
+	if let Err(error) = compiler.compile(&program) {
+		error.report_mapped(&program.map);
+		return Err(Reported);
+	}
+	for test in &compiler.tests {
+		print!("test {test} ... ");
+		std::io::Write::flush(&mut std::io::stdout()).ok();
+		compiler.finalized_test(test)();
+		println!("ok");
+	}
+	println!("{} passed", compiler.tests.len());
+	Ok(())
+}
