@@ -158,6 +158,7 @@ tags: []
 - CLI help docs, like Nushell and Cargo
 - treat all args as optional since they have zero values?
 - sandwich ops like `a == b == c`, `a < b <= c`, `x == y < z`, etc. `python`
+- comments being assignable or otherwise DRY-able
 # stdlib
 - `os`
 - `fs`

@@ -1,22 +1,6 @@
 module core
 
-# TODO: add max/min for all numeric types
-
-int :{
-	## Largest representable `int` (2^31 - 1).
-	max :: 2 ** 31 - 1
-
-	## Smallest representable `int` (-2^31).
-	min :: -2 ** 31
-}
-
 float :{
-	## Largest finite `float`.
-	max :: 1.7976931348623157e308
-
-	## Smallest finite `float`.
-	min :: -1.7976931348623157e308
-
 	## Smallest step between distinct `float` values near 1.0.
 	epsilon :: 2.0 ** -52.0
 
@@ -29,4 +13,8 @@ float :{
 	is_inf :: fn(self) bool {
 		self == inf || self == -inf
 	}
+}
+
+f32 :{
+	epsilon :: 2.0 ** -23.0
 }

@@ -137,8 +137,28 @@ fn builtin_amendment_primitives() {
 		print(int.min)
 		print((0.0).is_nan())
 		print(float.epsilon)
+		print(i8.max == i8(127))
+		print(isize.min)
+		print(u64.max)
+		print(usize.max)
+		print(u13.max)
+		print(i13.min)
 	"#};
-	check(src, ["2147483647", "-2147483648", "false", "2.220446049250313e-16"]);
+	check(
+		src,
+		[
+			"2147483647",
+			"-2147483648",
+			"false",
+			"2.220446049250313e-16",
+			"true",
+			"-9223372036854775808",
+			"18446744073709551615",
+			"18446744073709551615",
+			"8191",
+			"-4096",
+		],
+	);
 }
 
 #[test]

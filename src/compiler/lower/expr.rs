@@ -377,9 +377,13 @@ impl<'a> Translator<'a> {
 				if let Expr::Ident(name) = &tuple.0
 					&& !self.vars.contains_key(name)
 					&& let Ok(t) = self.types().named(name, tuple.1)
-					&& let Some(c) = self.consts.get(&format!("{t}::{field}")).cloned()
 				{
-					return self.expr(&c);
+					if let Some(c) = self.consts.get(&format!("{t}::{field}")).cloned() {
+						return self.check_expr(&c, &t);
+					}
+					if let Some(v) = self.numeric_bound(&t, field) {
+						return Ok((v, t));
+					}
 				}
 
 				let (ptr, typ) = self.expr(tuple)?;
@@ -679,5 +683,24 @@ impl<'a> Translator<'a> {
 			Expr::Comp(_) => Err(Diagnostic::new("`comp` isn't supported here", expr.1.into_range())
 				.with_label("can't run at compile time")),
 		}
+	}
+
+	// Get arch bounds of numeric types.
+	fn numeric_bound(&mut self, t: &Typ, field: &str) -> Option<Value> {
+		let hi = match field {
+			"max" => true,
+			"min" => false,
+			_ => return None,
+		};
+		let ins = self.b.ins();
+		Some(match t {
+			Typ::Int(w) => ins.iconst(cl_int_for_width(*w), if hi { int_max(*w) } else { int_min(*w) }),
+			Typ::UInt(w) => ins.iconst(cl_int_for_width(*w), if hi { uint_max(*w) } else { 0 }),
+			Typ::ISize => ins.iconst(self.int, if hi { int_max(64) } else { int_min(64) }),
+			Typ::USize => ins.iconst(self.int, if hi { uint_max(64) } else { 0 }),
+			Typ::Float(64) => ins.f64const(if hi { f64::MAX } else { f64::MIN }),
+			Typ::Float(32) => ins.f32const(if hi { f32::MAX } else { f32::MIN }),
+			_ => return None,
+		})
 	}
 }
