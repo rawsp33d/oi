@@ -51,7 +51,7 @@ pub enum Token {
 	String(String),
 	#[regex(r#"r"[^"]*""#, |lex| { let s = lex.slice(); s[2..s.len() - 1].to_string() })]
 	RawString(String),
-	#[regex(r":[A-Za-z0-9_]+", |lex| lex.slice()[1..].to_string())]
+	#[regex(r":\p{XID_Continue}+", |lex| lex.slice()[1..].to_string())]
 	Atom(String),
 
 	// keywords
@@ -103,7 +103,7 @@ pub enum Token {
 	None,
 	#[token("or")]
 	Or,
-	#[regex(r"[A-Za-z_][A-Za-z0-9_]*", |lex| lex.slice().to_string())]
+	#[regex(r"[\p{XID_Start}_]\p{XID_Continue}*", |lex| lex.slice().to_string())]
 	Ident(String),
 	#[token(":=")]
 	Bind,

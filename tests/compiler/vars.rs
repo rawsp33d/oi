@@ -2,7 +2,12 @@ use crate::helpers::*;
 
 #[test]
 fn variable() {
-	check("x :: 42\nx", "42");
+	check(["x :: 42", "x"], "42");
+}
+
+#[test]
+fn unicode_idents() {
+	check(["π :: 3.14", "π"], "3.14");
 }
 
 #[test]
@@ -22,12 +27,12 @@ fn assign_string() {
 
 #[test]
 fn declare_zero_int() {
-	check("n: int\nn", "0");
+	check(["n: int", "n"], "0");
 }
 
 #[test]
 fn declare_zero_string() {
-	check("s: string\ns", "");
+	check(["s: string", "s"], "");
 }
 
 #[test]
@@ -50,7 +55,7 @@ fn declare_zero_struct() {
 
 #[test]
 fn annotated_binding() {
-	check("a : int : 2\na", "2");
+	check(["a : int : 2", "a"], "2");
 	check(r#"b : string : "hi"; b"#, "hi");
 }
 
@@ -62,16 +67,16 @@ fn annotation_type_mismatch() {
 #[test]
 fn annotation_pins_width() {
 	// the literal fits an i32, but the annotation widens it to i64
-	check("big : i64 : 50_000\nbig", "50000");
+	check(["big : i64 : 50_000", "big"], "50000");
 }
 
 #[test]
 fn annotation_coerces_float() {
-	check("f : f32 : 1.5\nf", "1.5");
-	check("x : f64 : 5\nx", "5.0");
+	check(["f : f32 : 1.5", "f"], "1.5");
+	check(["x : f64 : 5", "x"], "5.0");
 }
 
 #[test]
 fn annotation_out_of_range() {
-	fail_with("x : i8 : 9999\nx", "out of range for i8");
+	fail_with(["x : i8 : 9999", "x"], "out of range for i8");
 }
