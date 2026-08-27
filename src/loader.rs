@@ -9,7 +9,7 @@ use chumsky::{input::Stream, prelude::*};
 use include_dir::{Dir, include_dir};
 
 use crate::Reported;
-use crate::ast::{Annotation, Expr, Span, Spanned, TypeExpr, UseItem};
+use crate::ast::{Annotation, BinOp, Expr, Span, Spanned, TypeExpr, UseItem};
 use crate::diagnostics::{Diagnostic, SourceMap};
 use crate::lexer::lex_at;
 use crate::parser::parser;
@@ -117,6 +117,32 @@ pub(crate) fn is_literal(e: &Expr) -> bool {
 		Expr::Negative(inner) => is_literal(&inner.0),
 		_ => false,
 	}
+}
+
+// Fold a const initializer down to a literal, so simple arithmetic doesn't need `comp`.
+fn fold_const(e: &Expr, consts: &HashMap<String, Spanned<Expr>>, scope: &Scope) -> Option<Expr> {
+	let fold = |e: &Spanned<Expr>| fold_const(&e.0, consts, scope);
+	Some(match e {
+		Expr::Negative(v) => match fold(v)? {
+			Expr::Int(n) => Expr::Int(n.checked_neg()?),
+			Expr::Float(f) => Expr::Float(-f),
+			_ => return None,
+		},
+		Expr::Ident(n) => fold_const(&consts.get(&scope.qualify_name(n))?.0, consts, scope)?,
+		Expr::Binary(op, a, b) => match (op, fold(a)?, fold(b)?) {
+			(BinOp::Add, Expr::Int(a), Expr::Int(b)) => Expr::Int(a.checked_add(b)?),
+			(BinOp::Sub, Expr::Int(a), Expr::Int(b)) => Expr::Int(a.checked_sub(b)?),
+			(BinOp::Mul, Expr::Int(a), Expr::Int(b)) => Expr::Int(a.checked_mul(b)?),
+			(BinOp::Div, Expr::Int(a), Expr::Int(b)) => Expr::Int(a.checked_div(b)?),
+			(BinOp::Add, Expr::Float(a), Expr::Float(b)) => Expr::Float(a + b),
+			(BinOp::Sub, Expr::Float(a), Expr::Float(b)) => Expr::Float(a - b),
+			(BinOp::Mul, Expr::Float(a), Expr::Float(b)) => Expr::Float(a * b),
+			(BinOp::Div, Expr::Float(a), Expr::Float(b)) => Expr::Float(a / b),
+			_ => return None,
+		},
+		_ if is_literal(e) => e.clone(),
+		_ => return None,
+	})
 }
 
 // Unit and struct literals also count as const values.
@@ -337,6 +363,11 @@ impl Loader<'_> {
 					typ,
 					value,
 				} if !main => {
+					if let Some(v) = value.as_deref_mut()
+						&& let Some(f) = fold_const(&v.0, &self.consts, &m.scope)
+					{
+						v.0 = f;
+					}
 					let bad = match (*mutable, typ.is_some(), value.as_deref()) {
 						(true, ..) => Some(("a module-level binding must be a const", "use `::`")),
 						(_, _, Some(v)) if matches!(v.0, Expr::Foreign) => match typ {
@@ -364,7 +395,7 @@ impl Loader<'_> {
 							self.define(m, name, true, public, span)?;
 							None
 						}
-						_ => Some(("only literal consts are allowed in a module", "not a literal")),
+						_ => Some(("cannot evaluate this at compile time", "not a const expression")),
 					};
 					if let Some((msg, label)) = bad {
 						return Err(err(msg, span, label));

@@ -381,7 +381,6 @@ fn const_import_fails() {
 	for (lib, expected) in [
 		("name :: 7", "private to module `foo`"),
 		("pub name := 7", "must be a const"),
-		("pub name :: 1 + 2", "only literal consts"),
 	] {
 		let p = Project::new()
 			.file("main.oi", ["module main", "use foo.{ name }", "print(name)"])

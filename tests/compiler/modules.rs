@@ -1,3 +1,4 @@
+use crate::common::Project;
 use crate::helpers::{check, fail_with};
 
 #[test]
@@ -45,4 +46,18 @@ fn foreign_outside_module_scope_fails() {
 		["x : fn() int : foreign", "print(1)"],
 		"only allowed as a module-level binding",
 	);
+}
+
+#[test]
+fn const_exprs() {
+	Project::new()
+		.file(
+			"main.oi",
+			["module main", "use util", "print(util.half)", "print(util.low)"],
+		)
+		.file(
+			"util/lib.oi",
+			["module util", "pub half :: 10 / 2", "pub low :: -2147483647 - 1"],
+		)
+		.check(["5", "-2147483648"]);
 }

@@ -4,5 +4,4 @@ module core
 pub inf :: 1e400
 
 ## Not a number.
-# TODO: support const expressions
-pub nan :: fn() float { inf - inf }
+pub nan :: inf - inf

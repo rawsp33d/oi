@@ -3,8 +3,6 @@ module core
 # TODO: make max/min consts
 # TODO: add max/min for all numeric types
 # TODO: add and use exponent ops
-# TODO: support const expressions
-# TODO: support all literals (namely exponents)
 
 int :{
 	## Largest representable `int` (2^31 - 1).
