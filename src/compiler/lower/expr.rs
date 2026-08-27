@@ -371,6 +371,15 @@ impl<'a> Translator<'a> {
 					return self.construct_variant(&name, field, &[], expr.1);
 				}
 
+				// associated consts
+				if let Expr::Ident(name) = &tuple.0
+					&& !self.vars.contains_key(name)
+					&& let Ok(t) = self.types().named(name, tuple.1)
+					&& let Some(c) = self.consts.get(&format!("{t}::{field}")).cloned()
+				{
+					return self.expr(&c);
+				}
+
 				let (ptr, typ) = self.expr(tuple)?;
 				let typ = self.peeled(&typ);
 

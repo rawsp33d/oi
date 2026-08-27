@@ -133,12 +133,22 @@ fn builtin_amendment() {
 #[test]
 fn builtin_amendment_primitives() {
 	let src = indoc! {r#"
-		print(int.max())
-		print(int.min())
+		print(int.max)
+		print(int.min)
 		print((0.0).is_nan())
-		print(float.epsilon())
+		print(float.epsilon)
 	"#};
 	check(src, ["2147483647", "-2147483648", "false", "2.220446049250313e-16"]);
+}
+
+#[test]
+fn associated_const() {
+	let src = indoc! {"
+		Point :: struct { x: int, y: int }
+		Point :{ origin :: Point.{0, 0} }
+		print(Point.origin.x)
+	"};
+	check(src, "0");
 }
 
 #[test]

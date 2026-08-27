@@ -1,9 +1,10 @@
-assert! int.max() == 2147483647
-assert! int.min() == -2147483648
-assert! float.max() > 0.0
-assert! float.min() < 0.0
-assert! float.epsilon() > 0.0
+assert! int.max == 2147483647
+assert! int.min == -2147483648
+assert! float.max > 0.0
+assert! float.min < 0.0
+assert! float.epsilon > 0.0
 assert! (0.0 / 0.0).is_nan()
+assert! nan.is_nan()
 assert! !(1.0).is_nan()
 assert! (1.0 / 0.0).is_inf()
 assert! !(1.0).is_inf()

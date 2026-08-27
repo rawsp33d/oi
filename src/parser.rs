@@ -1441,10 +1441,25 @@ where
 		.then_ignore(just(Token::DoubleColon))
 		.then(block.clone())
 		.map_with(|(name, body), ex| fn_def((name, vec![]), Some((vec![], false)), None, body, ex.span()));
+	// associated consts
+	let const_fill = ident()
+		.then_ignore(just(Token::DoubleColon))
+		.then(expr.clone())
+		.map_with(|(name, v), ex| {
+			(
+				Expr::Bind {
+					mutable: false,
+					name,
+					typ: None,
+					value: Some(Box::new(v)),
+				},
+				ex.span(),
+			)
+		});
 	let fill_docs = select! { Token::Doc(_) => () }.or(just(Token::DocBreak).ignored()).repeated();
 	let fill = just(Token::Pub)
 		.or_not()
-		.then(func.clone().or(bare_fill))
+		.then(func.clone().or(bare_fill).or(const_fill))
 		.map_with(|(p, f), ex| match p {
 			Some(_) => (Expr::Pub(Box::new(f)), ex.span()),
 			None => f,

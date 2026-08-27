@@ -145,6 +145,17 @@ fn fold_const(e: &Expr, consts: &HashMap<String, Spanned<Expr>>, scope: &Scope) 
 	})
 }
 
+// Fill an associated const fill.
+fn const_fill(e: &Expr) -> Option<(&String, &Spanned<Expr>)> {
+	match e {
+		Expr::Pub(b) => const_fill(&b.0),
+		Expr::Bind {
+			name, value: Some(v), ..
+		} => Some((name, v)),
+		_ => None,
+	}
+}
+
 // Unit and struct literals also count as const values.
 fn is_const_value(e: &Expr) -> bool {
 	match e {
@@ -415,10 +426,27 @@ impl Loader<'_> {
 					}
 					self.consts.insert(name.clone(), c);
 				}
-				Expr::Claim { typ, .. } if !main && !crate::compiler::TypeCtx::builtin_type(typ) => {
-					*typ = format!("{}::{typ}", m.name)
+				Expr::Claim { typ, fills, .. } => {
+					if !main && !crate::compiler::TypeCtx::builtin_type(typ) {
+						*typ = format!("{}::{typ}", m.name);
+					}
+					// pull const fills out as associated consts, keyed `Type::name`
+					for (n, v) in fills.iter().filter_map(|f| const_fill(&f.0)) {
+						let mut lit = fold_const(&v.0, &self.consts, &m.scope)
+							.or_else(|| is_const_value(&v.0).then(|| v.0.clone()))
+							.ok_or_else(|| {
+								err("cannot evaluate this at compile time", v.1, "not a const expression")
+							})?;
+						if let Expr::StructLit { name: sn, .. } = &mut lit
+							&& !sn.is_empty()
+						{
+							*sn = m.scope.qualify_name(sn);
+						}
+						self.consts.insert(format!("{typ}::{n}"), (lit, v.1));
+					}
+					fills.retain(|f| const_fill(&f.0).is_none());
 				}
-				Expr::Claim { .. } | Expr::Doc(_) => {}
+				Expr::Doc(_) => {}
 				_ if !main => {
 					return Err(err(
 						"top-level statements aren't allowed in a module",
