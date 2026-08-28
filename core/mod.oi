@@ -29,4 +29,7 @@ string : Error {
 
 pub params :: ()
 pub required :: ()
-pub test :: ()
+pub test :: struct {
+	name: string = ""
+	skip: bool = false
+}

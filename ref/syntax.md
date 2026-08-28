@@ -1869,6 +1869,10 @@ main :: fn() {
 	@deprecated.{"use speak()"}
 	pub yell :: fn() string { ... }
 
+	# a struct type in annotation position denotes its zero value (`@foo` -> `@foo.{}`)
+	@deprecated
+	pub bellow :: fn() string { ... }
+
 	# comptime values may be used too
 	strict :: deprecated.{"use speak()"}
 	@strict
@@ -1880,7 +1884,10 @@ main :: fn() {
 
 	# `@test` marks a fn as a test
 	# they get stripped from normal builds, and are run by `oi test`
+	# pub test :: struct { name: string = "", skip: bool = false }
 	@test trims_edges :: fn() { assert! trim(" hi ") == "hi" }
+	@test.{"trims nothing", skip = true}
+	trims_empty :: fn() { assert! trim("") == "" }
 
 	# TODO: the comp and reflection stuff not fleshed out yet
 	comp for note in typeinfo(yell).annotations { ... }

@@ -109,14 +109,15 @@ fn annotation_only_goes_on_definitions() {
 }
 
 #[test]
-fn bare_struct_name_is_not_a_value() {
-	fail_with(
-		indoc! {"
+fn bare_struct_name_is_its_zero_value() {
+	check(
+		indoc! {r#"
 			deprecated :: struct { reason: string }
 			@deprecated
-			thing :: fn() int { 1 }
-		"},
-		"is a struct, not a value",
+			thing :: fn() string { "ok" }
+			print(thing())
+		"#},
+		"ok",
 	);
 }
 

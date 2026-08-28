@@ -48,13 +48,19 @@ pub fn test_source(name: &str, src: &str, root: &Path) -> Result<(), Reported> {
 		return Err(Reported);
 	}
 	let mut passed = 0;
-	for test in &compiler.tests {
-		print!("test {test} ... ");
+	let mut skipped = 0;
+	for (fn_name, display, skip) in &compiler.tests {
+		print!("test {display} ... ");
 		std::io::Write::flush(&mut std::io::stdout()).ok();
+		if *skip {
+			println!("skipped");
+			skipped += 1;
+			continue;
+		}
 		// SAFETY: there are no other threads, the child only runs the fn and exits
 		let ok = match unsafe { libc::fork() } {
 			0 => {
-				compiler.finalized_test(test)();
+				compiler.finalized_test(fn_name)();
 				std::process::exit(0)
 			}
 			-1 => {
@@ -71,14 +77,12 @@ pub fn test_source(name: &str, src: &str, root: &Path) -> Result<(), Reported> {
 		println!("{}", if ok { "ok" } else { "FAILED" });
 		passed += ok as usize;
 	}
-	match compiler.tests.len() - passed {
-		0 => {
-			println!("{passed} passed");
-			Ok(())
-		}
-		failed => {
-			println!("{passed} passed; {failed} failed");
-			Err(Reported)
-		}
-	}
+	let failed = compiler.tests.len() - passed - skipped;
+	let tail: String = [(failed, "failed"), (skipped, "skipped")]
+		.iter()
+		.filter(|(n, _)| *n > 0)
+		.map(|(n, what)| format!("; {n} {what}"))
+		.collect();
+	println!("{passed} passed{tail}");
+	if failed == 0 { Ok(()) } else { Err(Reported) }
 }

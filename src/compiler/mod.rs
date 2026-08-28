@@ -196,10 +196,12 @@ fn check_annotation(
 				format!("`{name}` is not an annotation value"),
 				"a bare annotation names a unit or struct const".into(),
 			),
-			None if structs.contains_key(name) || generics.structs.contains_key(name) => err(
-				format!("`{name}` is a struct, not a value"),
-				format!("write `{name}.{{}}` or bind a const"),
-			),
+			// a bare struct type denotes its zero value
+			None if structs.contains_key(name) => Ok(()),
+			None if generics.structs.contains_key(name) => {
+				let msg = "a generic struct can't be an annotation";
+				Err(Diagnostic::new(msg, a.1.into_range()).with_label("pick a concrete struct"))
+			}
 			None => err(
 				format!("`{name}` is not a constant"),
 				"a bare annotation names a unit or struct const".into(),
@@ -372,7 +374,7 @@ pub struct Compiler {
 	map: SourceMap,
 	hoisted: HashMap<String, FnSig>,
 	pub(crate) include_tests: bool,
-	pub(crate) tests: Vec<String>,
+	pub(crate) tests: Vec<(String, String, bool)>,
 }
 
 impl Default for Compiler {
@@ -716,11 +718,21 @@ impl Compiler {
 					body,
 					..
 				} => {
-					let is_test = !name.contains("::")
-						&& self.annotations.get(name).is_some_and(|anns| {
-							anns.iter().any(|a| matches!(&a.0, Expr::Ident(n) if n == "core::test"))
-						});
-					if is_test {
+					// `@test`
+					let test_ann =
+						(!name.contains("::"))
+							.then(|| self.annotations.get(name))
+							.flatten()
+							.and_then(|anns| {
+								anns.iter().find_map(|a| match &a.0 {
+									Expr::Ident(n) if n == "core::test" => Some([].as_slice()),
+									Expr::StructLit { name: n, fields, .. } if n == "core::test" => {
+										Some(fields.as_slice())
+									}
+									_ => None,
+								})
+							});
+					if let Some(fields) = test_ann {
 						if !self.include_tests {
 							continue;
 						}
@@ -729,7 +741,17 @@ impl Compiler {
 							return Err(Diagnostic::new(msg, item.1.into_range())
 								.with_label("tests take no params and return nothing"));
 						}
-						self.tests.push(name.clone());
+						let lit = |key: &str, i: usize| {
+							fields.iter().enumerate().find_map(|(j, (k, v))| {
+								(k.as_deref() == Some(key) || k.is_none() && j == i).then_some(&v.0)
+							})
+						};
+						let display = match lit("name", 0) {
+							Some(Expr::String(s)) => s.clone(),
+							_ => name.clone(),
+						};
+						let skip = matches!(lit("skip", 1), Some(Expr::Bool(true)));
+						self.tests.push((name.clone(), display, skip));
 					}
 					others.push(FnItem {
 						key: name.clone(),

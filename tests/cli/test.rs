@@ -26,6 +26,17 @@ fn test_runs_all_in_order() {
 }
 
 #[test]
+fn test_payload_renames_and_skips() {
+	let dir = project(indoc! {r#"
+		@test.{"alt name"} first :: fn() { assert! true }
+		@test.{skip = true} second :: fn() { assert! false }
+	"#});
+	let out = ok(oi(&["test"]).current_dir(&dir).run(None));
+	assert!(out.contains("alt name ... ok") && out.contains("second ... skipped"));
+	assert!(out.contains("1 passed; 1 skipped"));
+}
+
+#[test]
 fn failing_test_is_isolated() {
 	let dir = project(indoc! {r#"
 		@test first :: fn() { assert! false }
