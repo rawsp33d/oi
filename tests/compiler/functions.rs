@@ -115,12 +115,33 @@ fn fn_return_short_circuits() {
 
 #[test]
 fn fn_return_bare() {
-	// a bare `return` yields the zero value of the return type
 	let src = indoc! {"
 		z :: fn() int { return }
 		z()
 	"};
 	check(src, "0");
+}
+
+#[test]
+fn named_result() {
+	let src = indoc! {r#"
+		User :: struct { name: string = "" }
+		rename :: fn(who: string) u: User {
+			assert!(u.name == "")
+			u.name = who
+			return
+		}
+		first :: fn(xs: []int) n: int {
+			loop x in xs {
+				n = x
+				return
+			}
+			return
+		}
+		print(first([7, 8]))
+		rename("me").name
+	"#};
+	check(src, ["7", "me"]);
 }
 
 #[test]

@@ -19,7 +19,7 @@ Its features [try to] encourage uninterrupted thought:
 - trailing functions
 - trailing records
 - pipelines
-- named returns
+- named results
 - zero values
 - destructuring
 - error handling

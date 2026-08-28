@@ -14,8 +14,8 @@ tags: []
 # facets
 - leading literals `oi`
 - trailing functions `oi`
-- named returns `oi go`
-- destructured named returns `fn divmod(a int, b int) (q int, r int) { (a / b, a % b) }` `oi go`
+- named results `oi go`
+- destructured named results `fn divmod(a int, b int) (q int, r int) { (a / b, a % b) }` `oi go`
 - trailing records `v`
 - bare `return` `v go`
 - strongly & statically typed `rust v go zig`
@@ -45,7 +45,7 @@ tags: []
 - compound types `rust`
 - `discard`/`pass` `nim gdscript`
 - macros `rust revo`
-- ~~multiple returns `v go lua`~~ (replaced by destuctured named returns)
+- ~~multiple returns `v go lua`~~ (replaced by destuctured named results)
 - enum literals `zig v`
 - doc comments `zig v rust`
 - namespaced variables/functions`clojure revo`

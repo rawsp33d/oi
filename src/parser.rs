@@ -1,5 +1,5 @@
 use crate::ast::{
-	BinOp, Capture, EnumVariant, Expr, MatchArm, Param, Pattern, Span, Spanned, TypeExpr, TypeParam, UseItem,
+	BinOp, Capture, Child, EnumVariant, Expr, MatchArm, Param, Pattern, Span, Spanned, TypeExpr, TypeParam, UseItem,
 };
 use crate::lexer::Token;
 
@@ -64,6 +64,32 @@ fn pipe(value: Spanned<Expr>, step: Spanned<Expr>, span: Span) -> Spanned<Expr> 
 		},
 		span,
 	)
+}
+
+// Handle named results.
+fn named_ret(name: String, typ: &Spanned<TypeExpr>, mut body: Vec<Spanned<Expr>>, span: Span) -> Vec<Spanned<Expr>> {
+	body.iter_mut().for_each(|e| bind_return(e, &name));
+	let decl = Expr::Bind {
+		mutable: true,
+		name,
+		typ: Some(typ.clone()),
+		value: None,
+	};
+	body.insert(0, (decl, span));
+	body
+}
+
+// Bind return variables for named results.
+fn bind_return((e, span): &mut Spanned<Expr>, name: &str) {
+	match e {
+		Expr::Fn { .. } | Expr::AnonFn { .. } | Expr::MacroDef { .. } | Expr::Quote(_) => return,
+		Expr::Return(v @ None) => *v = Some(Box::new((Expr::Ident(name.into()), *span))),
+		_ => {}
+	}
+	e.for_children(|c| match c {
+		Child::List(list) => list.iter_mut().for_each(|x| bind_return(x, name)),
+		Child::One(x) => bind_return(x, name),
+	});
 }
 
 // Assemble a fn item.
@@ -349,8 +375,9 @@ where
 	})
 	.boxed();
 
-	// optional return type annotation
+	// optional return type annotation, optionally bound to a name
 	let ret = spanned(type_expr.clone()).or_not();
+	let fn_ret = ident().then_ignore(just(Token::Colon)).or_not().then(ret.clone()).boxed();
 
 	// generics
 	let type_param = ident()
@@ -1256,10 +1283,16 @@ where
 		.clone()
 		.then_ignore(just(Token::Fn))
 		.then(params.clone())
-		.then(ret.clone())
+		.then(fn_ret.clone())
 		.then(block.clone())
 		.then_ignore(just(Token::Pipeline).not())
-		.map_with(|(((head, params), ret), body), ex| fn_def(head, Some(params), ret, body, ex.span()))
+		.map_with(|(((head, params), (bound, ret)), body), ex| {
+			let body = match (bound, &ret) {
+				(Some(name), Some(typ)) => named_ret(name, typ, body, ex.span()),
+				_ => body,
+			};
+			fn_def(head, Some(params), ret, body, ex.span())
+		})
 		.boxed();
 
 	// struct defs

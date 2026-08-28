@@ -117,7 +117,7 @@ This is especially useful inside pipelines.
 "goodbye" |> wrap("[", $, "]")
 ```
 
-# named returns
+# named results
 
 Bindings may be provided to return signatures, creating a mutable zeroed value.
 
@@ -148,11 +148,11 @@ oi
 oi repl
 oi run .
 oi exec "2 + 5"
+oi test
 
 # not yet implemented:
 oi fmt
 oi init
-oi test
 oi doc
 oi build
 oi watch

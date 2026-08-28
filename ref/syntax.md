@@ -148,6 +148,7 @@ assert!(two() == 2)
 random_user :: fn() u: User {
 	print(u) # User.{}
 	u.name = "I Dunno"
+	return
 }
 ru :: random_user()
 assert!(ru.name == "I Dunno")
@@ -155,6 +156,7 @@ assert!(ru.name == "I Dunno")
 # default values
 three :: fn() r := 2 {
 	r = 3
+	return
 }
 
 # trailing params can default too, evaluated at the callsite
