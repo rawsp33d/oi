@@ -1,6 +1,5 @@
 module math
 
-
 ## Absolute value.
 pub abs[T] :: fn(x: T) T {
 	if x < 0 { -x } else { x }

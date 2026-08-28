@@ -236,8 +236,9 @@ where
 		let base = recursive(|base| {
 			let name = ident().map(TypeExpr::Name);
 			let unit = just(Token::LParen).then(just(Token::RParen)).to(TypeExpr::Tuple(vec![]));
+			let tuple_field = ident().then_ignore(just(Token::Colon)).or_not().then(te.clone());
 			let tuple = paren(
-				te.clone()
+				tuple_field
 					.separated_by(just(Token::Comma).or_not())
 					.allow_trailing()
 					.at_least(1)
@@ -1456,7 +1457,7 @@ where
 		match t {
 			TypeExpr::Name(_) => true,
 			TypeExpr::AtomSum(atoms) => atoms.len() == 1,
-			TypeExpr::Tuple(ts) => ts.iter().all(expr_shaped),
+			TypeExpr::Tuple(ts) => ts.iter().all(|(n, t)| n.is_none() && expr_shaped(t)),
 			TypeExpr::Generic(_, args) => matches!(args.as_slice(), [a] if expr_shaped(a)),
 			_ => false,
 		}

@@ -35,7 +35,7 @@ pub(super) fn unify(
 		(TypeExpr::Tuple(elems), Typ::Tuple(fields)) if elems.len() == fields.len() => elems
 			.iter()
 			.zip(fields)
-			.try_for_each(|(e, (_, f))| unify(e, f, params, subst, generics)),
+			.try_for_each(|((_, e), (_, f))| unify(e, f, params, subst, generics)),
 		(TypeExpr::Generic(_, gargs), Typ::Struct(sname, _)) => {
 			let cached = generics.instance_args.borrow().get(sname).cloned();
 			match cached {

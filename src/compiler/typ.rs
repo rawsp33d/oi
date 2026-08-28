@@ -227,7 +227,11 @@ pub(crate) fn type_expr(typ: &Typ) -> Option<TypeExpr> {
 			TypeExpr::Result(Box::new(type_expr(ok)?), err)
 		}
 		Typ::Map(k, v) => TypeExpr::Map(Box::new(type_expr(k)?), Box::new(type_expr(v)?)),
-		Typ::Tuple(fs) => TypeExpr::Tuple(fs.iter().map(|(_, t)| type_expr(t)).collect::<Option<_>>()?),
+		Typ::Tuple(fs) => TypeExpr::Tuple(
+			fs.iter()
+				.map(|(n, t)| Some((n.clone(), type_expr(t)?)))
+				.collect::<Option<_>>()?,
+		),
 		Typ::Fn(ps, r) => TypeExpr::Fn(
 			ps.iter().map(|p| type_expr(mut_peel(p))).collect::<Option<_>>()?,
 			ps.iter().map(|p| matches!(p, Typ::Mut(_))).collect(),

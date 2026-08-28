@@ -177,6 +177,26 @@ fn field_names_are_hints() {
 }
 
 #[test]
+fn named_type_annotation() {
+	check(
+		indoc! {"
+			dimensions :: fn() (width: int, height: int) { (1920, 1080) }
+			d :: dimensions()
+			print(d)
+			d.width + d.0
+		"},
+		["(width = 1920, height = 1080)", "3840"],
+	);
+	check(
+		indoc! {"
+			d : (int, int) = (w = 1, h = 2)
+			d
+		"},
+		"(1, 2)",
+	);
+}
+
+#[test]
 fn array_slot_is_independent_copy() {
 	check(
 		indoc! {"

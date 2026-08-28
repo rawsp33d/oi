@@ -166,7 +166,7 @@ impl TypeCtx<'_> {
 			TypeExpr::Tuple(elems) => {
 				let fields = elems
 					.iter()
-					.map(|e| Ok((None, self.resolve(e, span)?)))
+					.map(|(n, e)| Ok((n.clone(), self.resolve(e, span)?)))
 					.collect::<Result<Vec<_>, _>>()?;
 				Ok(Typ::Tuple(fields))
 			}

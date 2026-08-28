@@ -1,6 +1,5 @@
-dimensions :: fn() (int, int) {
-	# TODO: once tuple comparisons ignore labels this can just return with labels
-	(width = 1920, height = 1080)
+dimensions :: fn() (width: int, height: int) {
+	(1920, 1080)
 }
 
 dimensions()

@@ -514,7 +514,7 @@ impl fmt::Display for BinOp {
 #[derive(Debug, Clone)]
 pub enum TypeExpr {
 	Name(String),
-	Tuple(Vec<TypeExpr>),
+	Tuple(Vec<(Option<String>, TypeExpr)>),
 	Array(Box<TypeExpr>),
 	FixedArray(Box<TypeExpr>, usize),
 	Fn(Vec<TypeExpr>, Vec<bool>, Box<TypeExpr>),
@@ -536,7 +536,7 @@ impl TypeExpr {
 			Expr::Ident(n) => Some(TypeExpr::Name(n.clone())),
 			Expr::Tuple(fields) if !fields.is_empty() && fields.iter().all(|(n, _)| n.is_none()) => fields
 				.iter()
-				.map(|(_, v)| TypeExpr::from_expr(&v.0))
+				.map(|(_, v)| Some((None, TypeExpr::from_expr(&v.0)?)))
 				.collect::<Option<_>>()
 				.map(TypeExpr::Tuple),
 			Expr::Index { collection, index } => match &collection.0 {

@@ -6,9 +6,7 @@ use crate::common::{Run, oi, ok};
 const EXPECTED: &[(&str, &str)] = &[
 	("animals", "Larry says bark!"),
 	("boxes", "hi"),
-	// TODO: make fns forward tuple labels
-	// ("dimensions", "(width = 1920, height = 1080)"),
-	("dimensions", "(1920, 1080)"),
+	("dimensions", "(width = 1920, height = 1080)"),
 	("errors", "84"),
 	("grades", "B"),
 	("main", "3.2"),

@@ -129,7 +129,8 @@ fn mentions(te: &TypeExpr, name: &str) -> bool {
 		TypeExpr::Name(n) => n == name,
 		TypeExpr::Array(e) | TypeExpr::FixedArray(e, _) | TypeExpr::Option(e) => mentions(e, name),
 		TypeExpr::Result(e, err) => mentions(e, name) || err.as_deref().is_some_and(|e| mentions(e, name)),
-		TypeExpr::Tuple(es) | TypeExpr::Sum(es) | TypeExpr::Generic(_, es) => es.iter().any(|e| mentions(e, name)),
+		TypeExpr::Sum(es) | TypeExpr::Generic(_, es) => es.iter().any(|e| mentions(e, name)),
+		TypeExpr::Tuple(fs) => fs.iter().any(|(_, t)| mentions(t, name)),
 		TypeExpr::Fn(ps, _, r) => ps.iter().any(|p| mentions(p, name)) || mentions(r, name),
 		TypeExpr::TupleStruct(_, fs) => fs.iter().any(|(_, t)| mentions(t, name)),
 		TypeExpr::AnonStruct(fs) => fs.iter().any(|f| mentions(&f.typ, name)),
@@ -314,7 +315,9 @@ fn replace_self(te: &TypeExpr, self_ty: &TypeExpr) -> TypeExpr {
 		TypeExpr::FixedArray(e, n) => TypeExpr::FixedArray(Box::new(replace_self(e, self_ty)), *n),
 		TypeExpr::Option(e) => TypeExpr::Option(Box::new(replace_self(e, self_ty))),
 		TypeExpr::Result(e, err) => TypeExpr::Result(Box::new(replace_self(e, self_ty)), err.clone()),
-		TypeExpr::Tuple(es) => TypeExpr::Tuple(es.iter().map(|e| replace_self(e, self_ty)).collect()),
+		TypeExpr::Tuple(fs) => {
+			TypeExpr::Tuple(fs.iter().map(|(n, t)| (n.clone(), replace_self(t, self_ty))).collect())
+		}
 		TypeExpr::Fn(ps, muts, r) => TypeExpr::Fn(
 			ps.iter().map(|p| replace_self(p, self_ty)).collect(),
 			muts.clone(),
