@@ -420,11 +420,27 @@ where
 			)
 		});
 
+	// compound assignment
+	let assign_op = choice((
+		just(Token::PlusEq).to(Some(BinOp::Add)),
+		just(Token::MinusEq).to(Some(BinOp::Sub)),
+		just(Token::StarStarEq).to(Some(BinOp::Pow)),
+		just(Token::StarEq).to(Some(BinOp::Mul)),
+		just(Token::SlashEq).to(Some(BinOp::Div)),
+		just(Token::PercentEq).to(Some(BinOp::Mod)),
+		just(Token::Assign).to(None),
+	));
+	let fold = |op, lhs, value: Spanned<Expr>, span| match op {
+		None => value,
+		Some(op) => (Expr::Binary(op, Box::new((lhs, span)), Box::new(value)), span),
+	};
+
 	// assignment
 	let assign = ident()
-		.then_ignore(just(Token::Assign))
+		.then(assign_op.clone())
 		.then(expr.clone().or(block_lit.clone()))
-		.map_with(|(name, value), ex| {
+		.map_with(move |((name, op), value), ex| {
+			let value = fold(op, Expr::Ident(name.clone()), value, ex.span());
 			(
 				Expr::Assign {
 					name,
@@ -442,9 +458,15 @@ where
 	// index assignment
 	let index_assign = ident()
 		.then(bracket(expr.clone()))
-		.then_ignore(just(Token::Assign))
+		.then(assign_op.clone())
 		.then(expr.clone())
-		.map_with(|((name, index), value), ex| {
+		.map_with(move |(((name, index), op), value), ex| {
+			let collection = Box::new((Expr::Ident(name.clone()), ex.span()));
+			let lhs = Expr::Index {
+				collection,
+				index: Box::new(index.clone()),
+			};
+			let value = fold(op, lhs, value, ex.span());
 			(
 				Expr::IndexAssign {
 					name,
@@ -488,9 +510,15 @@ where
 	let field_assign = ident()
 		.then_ignore(just(Token::Dot))
 		.then(ident())
-		.then_ignore(just(Token::Assign))
+		.then(assign_op)
 		.then(expr.clone())
-		.map_with(|((name, field), value), ex| {
+		.map_with(move |(((name, field), op), value), ex| {
+			let tuple = Box::new((Expr::Ident(name.clone()), ex.span()));
+			let lhs = Expr::Field {
+				tuple,
+				field: field.clone(),
+			};
+			let value = fold(op, lhs, value, ex.span());
 			(
 				Expr::FieldAssign {
 					name,

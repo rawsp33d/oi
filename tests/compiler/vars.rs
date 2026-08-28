@@ -26,6 +26,34 @@ fn assign_string() {
 }
 
 #[test]
+fn compound_assign() {
+	check(["x := 10", "x += 5", "x"], "15");
+	check(["x := 10", "x -= 5", "x"], "5");
+	check(["x := 10", "x *= 5", "x"], "50");
+	check(["x := 10", "x /= 5", "x"], "2");
+	check(["x := 10", "x %= 4", "x"], "2");
+	check(["x := 2", "x **= 5", "x"], "32");
+}
+
+#[test]
+fn compound_assign_index() {
+	check(["a := [1, 2, 3]", "a[1] += 10", "a[1]"], "12");
+}
+
+#[test]
+fn compound_assign_field() {
+	check(
+		indoc! {"
+			Point :: struct { x: int, y: int }
+			p := Point.{ x = 1, y = 2 }
+			p.x += 10
+			p.x
+		"},
+		"11",
+	);
+}
+
+#[test]
 fn declare_zero_int() {
 	check(["n: int", "n"], "0");
 }

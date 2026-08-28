@@ -128,6 +128,20 @@ pub enum Token {
 	#[token("%")]
 	Percent,
 
+	// compound assignment operators
+	#[token("+=")]
+	PlusEq,
+	#[token("-=")]
+	MinusEq,
+	#[token("*=")]
+	StarEq,
+	#[token("**=")]
+	StarStarEq,
+	#[token("/=")]
+	SlashEq,
+	#[token("%=")]
+	PercentEq,
+
 	// comparison operators
 	#[token("==")]
 	Eq,
@@ -257,6 +271,12 @@ impl fmt::Display for Token {
 			Token::Minus => write!(f, "-"),
 			Token::Asterisk => write!(f, "*"),
 			Token::StarStar => write!(f, "**"),
+			Token::PlusEq => write!(f, "+="),
+			Token::MinusEq => write!(f, "-="),
+			Token::StarEq => write!(f, "*="),
+			Token::StarStarEq => write!(f, "**="),
+			Token::SlashEq => write!(f, "/="),
+			Token::PercentEq => write!(f, "%="),
 			Token::Slash => write!(f, "/"),
 			Token::Percent => write!(f, "%"),
 			Token::Eq => write!(f, "=="),
