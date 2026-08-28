@@ -11,7 +11,7 @@ pub fn dispatch(command: Command) -> Result<(), Reported> {
 	match command {
 		Command::Run { file } => run::run(&file),
 		Command::Exec { source } => exec::run(source),
-		Command::Test { file } => run::test(&file),
+		Command::Test { file, pattern } => run::test(&file, pattern.as_deref()),
 		Command::Repl => repl::run(),
 	}
 }

@@ -33,7 +33,7 @@ pub fn run_source(name: &str, src: &str, root: &Path) -> Result<(), Reported> {
 }
 
 /// Compile a program in test mode and run every `@test` fn in the main module.
-pub fn test_source(name: &str, src: &str, root: &Path) -> Result<(), Reported> {
+pub fn test_source(name: &str, src: &str, root: &Path, pattern: Option<&str>) -> Result<(), Reported> {
 	let program = loader::load(name, src.to_string(), root)?;
 	let mut compiler = Compiler::default();
 	compiler.include_tests = true;
@@ -41,6 +41,11 @@ pub fn test_source(name: &str, src: &str, root: &Path) -> Result<(), Reported> {
 		error.report_mapped(&program.map);
 		return Err(Reported);
 	}
+	let total = compiler.tests.len();
+	if let Some(pattern) = pattern {
+		compiler.tests.retain(|(_, display, _)| display.contains(pattern));
+	}
+	let filtered = total - compiler.tests.len();
 	let mut passed = 0;
 	let mut skipped = 0;
 	for (fn_name, display, skip) in &compiler.tests {
@@ -72,7 +77,7 @@ pub fn test_source(name: &str, src: &str, root: &Path) -> Result<(), Reported> {
 		passed += ok as usize;
 	}
 	let failed = compiler.tests.len() - passed - skipped;
-	let tail: String = [(failed, "failed"), (skipped, "skipped")]
+	let tail: String = [(failed, "failed"), (skipped, "skipped"), (filtered, "filtered out")]
 		.iter()
 		.filter(|(n, _)| *n > 0)
 		.map(|(n, what)| format!("; {n} {what}"))

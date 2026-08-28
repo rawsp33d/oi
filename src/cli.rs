@@ -31,6 +31,9 @@ pub enum Command {
 		/// Path to the .oi source file.
 		#[arg(default_value = "main.oi")]
 		file: PathBuf,
+
+		/// Only run tests whose name matches pattern.
+		pattern: Option<String>,
 	},
 
 	/// Start an interactive Oi REPL.

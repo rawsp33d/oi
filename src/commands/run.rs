@@ -9,8 +9,8 @@ pub fn run(file: &Path) -> Result<(), Reported> {
 }
 
 /// Read a source file, then compile and run its `@test` fns.
-pub fn test(file: &Path) -> Result<(), Reported> {
-	test_source(&file.display().to_string(), &read(file)?, root(file))
+pub fn test(file: &Path, pattern: Option<&str>) -> Result<(), Reported> {
+	test_source(&file.display().to_string(), &read(file)?, root(file), pattern)
 }
 
 fn read(file: &Path) -> Result<String, Reported> {
