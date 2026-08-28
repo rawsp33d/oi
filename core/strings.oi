@@ -22,6 +22,19 @@ string :{
 		false
 	}
 
+	## Trim whitespace from either side.
+	trim :: fn(self) string {
+		a := 0
+		b := self.len
+		loop a < b && is_space(self[a]) {
+			a = a + 1
+		}
+		loop b > a && is_space(self[b - 1]) {
+			b = b - 1
+		}
+		self[a..b]
+	}
+
 	## Return string in uppercase.
 	upper :: fn(self) string {
 		out: []u8 = []
@@ -42,8 +55,34 @@ string :{
 		string(out)
 	}
 
+	## Replace `from` with `to`.
+	replace :: fn(self, from: string, to: string) string {
+		if from.len == 0 { return self }
+
+		out: []u8 = []
+		i := 0
+		loop i < self.len {
+			if self[i..].starts_with(from) {
+				loop j in 0..to.len {
+					out << to[j]
+				}
+				i = i + from.len
+			} else {
+				out << self[i]
+				i = i + 1
+			}
+		}
+
+		string(out)
+	}
+
 	## Wrap with given characters.
 	wrap :: fn(self, left: string, right: string = left) string {
 		left + self + right
 	}
+}
+
+## Whether the given character is a space.
+is_space :: fn(x: u8) bool {
+	x == 32 || (x >= 9 && x <= 13)
 }

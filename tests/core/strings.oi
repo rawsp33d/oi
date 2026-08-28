@@ -8,3 +8,8 @@ assert! "hello".ends_with("lo")
 assert! !"hello".ends_with("he")
 assert! "Hi There!".upper() == "HI THERE!"
 assert! "Hi There!".lower() == "hi there!"
+assert! "  pad\t\n".trim() == "pad"
+assert! "".trim() == ""
+assert! "a-b-c".replace("-", "+") == "a+b+c"
+assert! "aaa".replace("aa", "b") == "ba"
+assert! "abc".replace("", "x") == "abc"

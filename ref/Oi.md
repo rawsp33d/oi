@@ -125,7 +125,7 @@ tags: []
 - [ ] async
 	- not sure on model yet, but will probably start with V's and then figure out implementing a model with an effect system
 - [ ] FFI
-- [ ] some sort of `todo`/`unimplemented` macros `rust`
+- [x] some sort of `todo`/`unimplemented` macros `rust`
 - [x] a way to type a var without declaring it, like `var` in Go `go`
 - [ ] `loop match {...}` `revo`
 - [ ] `Contains` trait that lets any type be used with `in` operator
@@ -162,6 +162,7 @@ tags: []
 - ?allow `.{}` projection on structs
 	- `Foo :: struct { x: int, y: int }; foo :: Foo{ 2, 3 }; foo.{....` actually idk what I was going for
 - callable structs, which has a lot more precedent than struct projection above and would do the same thing for me `lua`
+- reconsider multiple returns now that Oi has solidified
 # stdlib
 - `os`
 - `fs`

@@ -25,7 +25,92 @@ pub clamp[T] :: fn(x: T, low: T, high: T) T {
 	}
 }
 
-# pub floor :: fn(x: float) float {
-# 	if x >= 0 {
-# 	}
-# }
+## Round down to the nearest integer.
+## ref: https://github.com/rust-lang/libm/blob/rewritten-libm-v0.2.8/src/math/floor.rs
+pub floor :: fn(x: float) float {
+	if x != x || abs(x) >= 4503599627370496.0 { return x }
+	magic :: 6755399441055744.0
+	t :: x + magic - magic
+	match true {
+		t > x => t - 1.0,
+		x - t >= 1.0 => t + 1.0,
+		else => t
+	}
+}
+
+## Round up to the nearest integer.
+pub ceil :: fn(x: float) float {
+	-floor(-x)
+}
+
+## -1, 0, or 1 depending on the sign of `x`.
+pub sign :: fn(x: float) int {
+	match true {
+		x < 0.0 => -1,
+		x > 0.0 => 1,
+		else => 0
+	}
+}
+
+## Natural logarithm.
+pub log :: fn(x: float) float {
+	if x != x || x == inf { return x }
+	if x < 0.0 { return nan }
+	if x == 0.0 { return -inf }
+
+	m := x
+	k := 0
+	loop m >= 2.0 {
+		m = m / 2.0
+		k = k + 1
+	}
+	loop m < 1.0 {
+		m = m * 2.0
+		k = k - 1
+	}
+	if m > sqrt2 {
+		m = m / 2.0
+		k = k + 1
+	}
+
+	# ln m = 2 atanh((m - 1) / (m + 1))
+	t :: (m - 1.0) / (m + 1.0)
+	t2 :: t * t
+	sum := t
+	term := t
+	loop i in 1..10 {
+		term = term * t2
+		sum = sum + term / float(2 * i + 1)
+	}
+
+	2.0 * sum + float(k) * ln2
+}
+
+## Sine of `x`, in radians.
+## ref: https://dlmf.nist.gov/4.19
+pub sin :: fn(x: float) float {
+	if x != x || abs(x) == inf { return nan }
+
+	y := x - tau * floor(x / tau)
+	if y > pi { y = y - tau }
+	if y > pi / 2.0 { y = pi - y }
+	if y < -(pi / 2.0) { y = -pi - y }
+
+	term := y
+	sum := y
+	loop i in 1..11 {
+		term = -term * y * y / float(2 * i * (2 * i + 1))
+		sum = sum + term
+	}
+	sum
+}
+
+## Cosine of `x`, in radians.
+pub cos :: fn(x: float) float {
+	sin(pi / 2.0 - x)
+}
+
+## Tangent of `x`, in radians.
+pub tan :: fn(x: float) float {
+	sin(x) / cos(x)
+}
