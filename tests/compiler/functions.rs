@@ -138,10 +138,15 @@ fn named_result() {
 			}
 			return
 		}
+		three :: fn() r := 2 {
+			r += 1
+			return
+		}
 		print(first([7, 8]))
+		print(three())
 		rename("me").name
 	"#};
-	check(src, ["7", "me"]);
+	check(src, ["7", "3", "me"]);
 }
 
 #[test]

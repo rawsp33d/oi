@@ -67,13 +67,17 @@ fn pipe(value: Spanned<Expr>, step: Spanned<Expr>, span: Span) -> Spanned<Expr> 
 }
 
 // Handle named results.
-fn named_ret(name: String, typ: &Spanned<TypeExpr>, mut body: Vec<Spanned<Expr>>, span: Span) -> Vec<Spanned<Expr>> {
+type Bound = (String, (Spanned<TypeExpr>, Option<Spanned<Expr>>));
+fn named_ret(bound: Option<Bound>, mut body: Vec<Spanned<Expr>>, span: Span) -> Vec<Spanned<Expr>> {
+	let Some((name, (typ, default))) = bound else {
+		return body;
+	};
 	body.iter_mut().for_each(|e| bind_return(e, &name));
 	let decl = Expr::Bind {
 		mutable: true,
 		name,
-		typ: Some(typ.clone()),
-		value: None,
+		typ: Some(typ),
+		value: default.map(Box::new),
 	};
 	body.insert(0, (decl, span));
 	body
@@ -377,7 +381,20 @@ where
 
 	// optional return type annotation, optionally bound to a name
 	let ret = spanned(type_expr.clone()).or_not();
-	let fn_ret = ident().then_ignore(just(Token::Colon)).or_not().then(ret.clone()).boxed();
+	let typed = just(Token::Colon)
+		.ignore_then(spanned(type_expr.clone()))
+		.then(just(Token::Assign).ignore_then(expr.clone()).or_not());
+	let inferred = just(Token::Bind).ignore_then(expr.clone()).try_map(|(value, span), _| {
+		let typ = match &value {
+			Expr::Bool(_) => "bool",
+			Expr::Int(_) => "int",
+			Expr::Float(_) => "float",
+			Expr::String(_) => "string",
+			_ => return Err(Rich::custom(span, "a `:=` default must be a literal, or name the type")),
+		};
+		Ok(((TypeExpr::Name(typ.into()), span), Some((value, span))))
+	});
+	let fn_ret = ident().then(typed.or(inferred)).or_not().then(ret.clone()).boxed();
 
 	// generics
 	let type_param = ident()
@@ -1287,11 +1304,8 @@ where
 		.then(block.clone())
 		.then_ignore(just(Token::Pipeline).not())
 		.map_with(|(((head, params), (bound, ret)), body), ex| {
-			let body = match (bound, &ret) {
-				(Some(name), Some(typ)) => named_ret(name, typ, body, ex.span()),
-				_ => body,
-			};
-			fn_def(head, Some(params), ret, body, ex.span())
+			let ret = bound.as_ref().map(|(_, (typ, _))| typ.clone()).or(ret);
+			fn_def(head, Some(params), ret, named_ret(bound, body, ex.span()), ex.span())
 		})
 		.boxed();
 
