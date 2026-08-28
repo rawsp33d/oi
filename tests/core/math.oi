@@ -1,15 +1,23 @@
 use math
 
-assert! math.pi > 3.1 && math.pi < 3.2
+@test constants :: fn() {
+	assert! math.pi > 3.1 && math.pi < 3.2
+}
 
-assert! math.abs(4) == 4
-assert! math.abs(-6.9) == 6.9
+@test abs :: fn() {
+	assert! math.abs(4) == 4
+	assert! math.abs(-6.9) == 6.9
+}
 
-assert!(math.min(3, 7) == 3)
-assert!(math.min(7.2, 3.2) == 3.2)
-assert!(math.max(3, 7) == 7)
-assert!(math.max(7.2, 3.2) == 7.2)
+@test min_max :: fn() {
+	assert! math.min(3, 7) == 3
+	assert! math.min(7.2, 3.2) == 3.2
+	assert! math.max(3, 7) == 7
+	assert! math.max(7.2, 3.2) == 7.2
+}
 
-assert!(math.clamp(-1, 0, 10) == 0)
-assert!(math.clamp(5.2, 0.0, 10.2) == 5.2)
-assert!(math.clamp(11, 0, 10) == 10)
+@test clamp :: fn() {
+	assert! math.clamp(-1, 0, 10) == 0
+	assert! math.clamp(5.2, 0.0, 10.2) == 5.2
+	assert! math.clamp(11, 0, 10) == 10
+}
