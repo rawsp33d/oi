@@ -179,7 +179,7 @@ impl<'a> Translator<'a> {
 					}
 					let idx = self.int_value(index, "array index")?;
 					let idx = self.b.ins().sextend(self.int, idx);
-					let (val, vtyp) = self.expr(value)?;
+					let (val, vtyp) = self.check_expr(value, &elem)?;
 					if vtyp != elem {
 						return Err(Diagnostic::new(
 							format!("cannot assign {vtyp} to element of {elem} array"),
@@ -332,7 +332,7 @@ impl<'a> Translator<'a> {
 							}
 						},
 					};
-					let (val, vtyp) = self.expr(value)?;
+					let (val, vtyp) = self.check_expr(value, &ftyp)?;
 					if vtyp != ftyp {
 						return Err(Diagnostic::new(
 							format!("cannot assign {vtyp} to field `{field}` of type {ftyp}"),

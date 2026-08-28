@@ -2,13 +2,13 @@ use crate::helpers::*;
 
 #[test]
 fn qualified_access() {
-	check("Color :: enum { red green blue }\nColor.red", "red");
-	check("Color :: enum { red green blue }\nColor.blue", "blue");
+	check(["Color :: enum { red green blue }", "Color.red"], "red");
+	check(["Color :: enum { red green blue }", "Color.blue"], "blue");
 }
 
 #[test]
 fn bind() {
-	check("Color :: enum { red green blue }\nc :: Color.green\nc", "green");
+	check(["Color :: enum { red green blue }", "c :: Color.green", "c"], "green");
 }
 
 #[test]
@@ -26,38 +26,38 @@ fn reassign() {
 
 #[test]
 fn first_variant_is_default() {
-	check("Color :: enum { red green blue }\nc: Color\nc", "red");
+	check(["Color :: enum { red green blue }", "c: Color", "c"], "red");
 }
 
 #[test]
 fn empty_literal_is_default() {
-	check("Color :: enum { red green blue }\nColor.{}", "red");
+	check(["Color :: enum { red green blue }", "Color.{}"], "red");
 }
 
 #[test]
 fn empty_literal_rejects_fields() {
-	fail_with("Color :: enum { red green blue }\nColor.{ red }", "only supports");
+	fail_with(["Color :: enum { red green blue }", "Color.{ red }"], "only supports");
 }
 
 #[test]
 fn eq_same() {
-	check("Color :: enum { red green blue }\nColor.red == Color.red", "true");
+	check(["Color :: enum { red green blue }", "Color.red == Color.red"], "true");
 }
 
 #[test]
 fn eq_different() {
-	check("Color :: enum { red green blue }\nColor.red == Color.blue", "false");
+	check(["Color :: enum { red green blue }", "Color.red == Color.blue"], "false");
 }
 
 #[test]
 fn ne() {
-	check("Color :: enum { red green blue }\nColor.red != Color.blue", "true");
+	check(["Color :: enum { red green blue }", "Color.red != Color.blue"], "true");
 }
 
 #[test]
 fn returned_from_fn() {
 	check(
-		"Color :: enum { red green blue }\nfav :: fn() Color { Color.blue }\nfav()",
+		["Color :: enum { red green blue }", "fav :: fn() Color { Color.blue }", "fav()"],
 		"blue",
 	);
 }
@@ -91,7 +91,7 @@ fn in_match() {
 
 #[test]
 fn unknown_variant() {
-	fail_with("Color :: enum { red green blue }\nColor.purple", "no variant `purple`");
+	fail_with(["Color :: enum { red green blue }", "Color.purple"], "no variant `purple`");
 }
 
 #[test]
@@ -109,13 +109,13 @@ fn shorthand_in_assignment() {
 
 #[test]
 fn shorthand_in_annotated_binding() {
-	check("Color :: enum { red green blue }\nc : Color : .blue\nc", "blue");
+	check(["Color :: enum { red green blue }", "c : Color : .blue", "c"], "blue");
 }
 
 #[test]
 fn shorthand_in_comparison() {
-	check("Color :: enum { red green blue }\nc :: Color.red\nc == .red", "true");
-	check("Color :: enum { red green blue }\nc :: Color.red\nc != .blue", "true");
+	check(["Color :: enum { red green blue }", "c :: Color.red", "c == .red"], "true");
+	check(["Color :: enum { red green blue }", "c :: Color.red", "c != .blue"], "true");
 }
 
 #[test]
@@ -153,16 +153,39 @@ fn shorthand_in_struct_field() {
 }
 
 #[test]
+fn shorthand_in_field_and_element_assignment() {
+	check(
+		indoc! {"
+			Color :: enum { red green blue }
+			Pen :: struct { ink: Color }
+			p := Pen.{}
+			p.ink = .blue
+			p.ink
+		"},
+		"blue",
+	);
+	check(
+		indoc! {"
+			Color :: enum { red green blue }
+			cs := [Color.red]
+			cs[0] = .green
+			cs[0]
+		"},
+		"green",
+	);
+}
+
+#[test]
 fn shorthand_unknown_variant() {
 	fail_with(
-		"Color :: enum { red green blue }\nc :: Color.red\nc == .purple",
+		["Color :: enum { red green blue }", "c :: Color.red", "c == .purple"],
 		"no variant `purple`",
 	);
 }
 
 #[test]
 fn shorthand_without_context_errors() {
-	fail_with("Color :: enum { red green blue }\n.red", "cannot infer the enum type");
+	fail_with(["Color :: enum { red green blue }", ".red"], "cannot infer the enum type");
 }
 
 #[test]
@@ -178,43 +201,43 @@ fn auto_increment_from_explicit() {
 #[test]
 fn payload_construct() {
 	check(
-		"Shape :: enum { point triangle(f64, f64, f64) }\nShape.triangle(3.0, 4.0, 5.0)",
+		["Shape :: enum { point triangle(f64, f64, f64) }", "Shape.triangle(3.0, 4.0, 5.0)"],
 		"triangle(3.0, 4.0, 5.0)",
 	);
 }
 
 #[test]
 fn payloadless_variant_of_boxed_enum() {
-	check("Opt :: enum { nope some(int) }\nOpt.nope", "nope");
-	check("Opt :: enum { nope some(int) }\no : Opt : .nope\no", "nope");
+	check(["Opt :: enum { nope some(int) }", "Opt.nope"], "nope");
+	check(["Opt :: enum { nope some(int) }", "o : Opt : .nope", "o"], "nope");
 }
 
 #[test]
 fn payload_enum_default_is_first() {
-	check("Opt :: enum { nope some(int) }\no: Opt\no", "nope");
+	check(["Opt :: enum { nope some(int) }", "o: Opt", "o"], "nope");
 }
 
 #[test]
 fn payload_empty_literal_is_default() {
-	check("Opt :: enum { nope some(int) }\nOpt.{}", "nope");
+	check(["Opt :: enum { nope some(int) }", "Opt.{}"], "nope");
 }
 
 #[test]
 fn payload_int_cast_errors() {
-	fail_with("Opt :: enum { nope some(int) }\nint(Opt.some(1))", "no backing value");
+	fail_with(["Opt :: enum { nope some(int) }", "int(Opt.some(1))"], "no backing value");
 }
 
 #[test]
 fn payload_field_type_mismatch() {
 	fail_with(
-		"Opt :: enum { nope some(int) }\nOpt.some(3.0)",
+		["Opt :: enum { nope some(int) }", "Opt.some(3.0)"],
 		"expected int, got float",
 	);
 }
 
 #[test]
 fn payload_wrong_arity() {
-	fail_with("Opt :: enum { nope some(int) }\nOpt.some()", "takes 1 field(s), got 0");
+	fail_with(["Opt :: enum { nope some(int) }", "Opt.some()"], "takes 1 field(s), got 0");
 }
 
 #[test]
@@ -265,17 +288,17 @@ fn payload_match_multiple_fields() {
 #[test]
 fn shorthand_payload_construct() {
 	check(
-		"Opt :: enum { nope some(int) }\no : Opt : .some(5)\nmatch o { .some(n) => n, .nope => 0 }",
+		["Opt :: enum { nope some(int) }", "o : Opt : .some(5)", "match o { .some(n) => n, .nope => 0 }"],
 		"5",
 	);
 }
 
 #[test]
 fn payload_eq() {
-	check("Opt :: enum { nope some(int) }\nOpt.some(1) == Opt.some(1)", "true");
-	check("Opt :: enum { nope some(int) }\nOpt.some(1) == Opt.some(2)", "false");
-	check("Opt :: enum { nope some(int) }\nOpt.nope == Opt.some(1)", "false");
-	check("Opt :: enum { nope some(int) }\nOpt.nope != Opt.some(1)", "true");
+	check(["Opt :: enum { nope some(int) }", "Opt.some(1) == Opt.some(1)"], "true");
+	check(["Opt :: enum { nope some(int) }", "Opt.some(1) == Opt.some(2)"], "false");
+	check(["Opt :: enum { nope some(int) }", "Opt.nope == Opt.some(1)"], "false");
+	check(["Opt :: enum { nope some(int) }", "Opt.nope != Opt.some(1)"], "true");
 }
 
 #[test]
@@ -299,7 +322,7 @@ fn payload_eq_string_field() {
 #[test]
 fn payload_ordering_rejected() {
 	fail_with(
-		"Opt :: enum { nope some(int) }\nOpt.some(1) < Opt.some(2)",
+		["Opt :: enum { nope some(int) }", "Opt.some(1) < Opt.some(2)"],
 		"claim `Ord` for `Opt` to define ordering",
 	);
 }
@@ -390,7 +413,7 @@ fn struct_form_zero_is_first_variant() {
 #[test]
 fn struct_form_unknown_field() {
 	fail_with(
-		"S :: enum { circle { radius: f64 } }\nS.circle { r = 1.0 }",
+		["S :: enum { circle { radius: f64 } }", "S.circle { r = 1.0 }"],
 		"no field `r`",
 	);
 }
@@ -410,7 +433,7 @@ fn struct_form_omitted_field_zeroes() {
 #[test]
 fn struct_form_positional_rejected() {
 	fail_with(
-		"S :: enum { circle { radius: f64 } }\nS.circle(1.0)",
+		["S :: enum { circle { radius: f64 } }", "S.circle(1.0)"],
 		"takes named fields",
 	);
 }
@@ -418,7 +441,7 @@ fn struct_form_positional_rejected() {
 #[test]
 fn tuple_form_record_rejected() {
 	fail_with(
-		"S :: enum { tri(f64, f64) }\nS.tri { a = 1.0 }",
+		["S :: enum { tri(f64, f64) }", "S.tri { a = 1.0 }"],
 		"takes 2 field(s), got 1",
 	);
 }
@@ -446,12 +469,12 @@ fn payload_unknown_type_rejected() {
 
 #[test]
 fn explicit_disc_default_is_first() {
-	check("E :: enum { a = 5, b c }\nx: E\nx", "a");
+	check(["E :: enum { a = 5, b c }", "x: E", "x"], "a");
 }
 
 #[test]
 fn atom_coerces_in_annotated_binding() {
-	check("Color :: enum { red green blue }\nc : Color : :blue\nc", "blue");
+	check(["Color :: enum { red green blue }", "c : Color : :blue", "c"], "blue");
 }
 
 #[test]
@@ -469,8 +492,8 @@ fn atom_coerces_in_assignment() {
 
 #[test]
 fn atom_coerces_in_comparison() {
-	check("Color :: enum { red green blue }\nc :: Color.red\nc == :red", "true");
-	check("Color :: enum { red green blue }\nColor.blue == :blue", "true");
+	check(["Color :: enum { red green blue }", "c :: Color.red", "c == :red"], "true");
+	check(["Color :: enum { red green blue }", "Color.blue == :blue"], "true");
 }
 
 #[test]
@@ -489,24 +512,24 @@ fn atom_coerces_in_struct_field() {
 #[test]
 fn atom_unknown_variant() {
 	fail_with(
-		"Color :: enum { red green blue }\nc : Color : :purple",
+		["Color :: enum { red green blue }", "c : Color : :purple"],
 		"no variant `purple`",
 	);
 }
 
 #[test]
 fn cast_to_int() {
-	check("Color :: enum { red green blue }\nint(Color.blue)", "2");
+	check(["Color :: enum { red green blue }", "int(Color.blue)"], "2");
 }
 
 #[test]
 fn cast_to_int_explicit_disc() {
-	check("Status :: enum { ok = 200, err = 500 }\nint(Status.err)", "500");
+	check(["Status :: enum { ok = 200, err = 500 }", "int(Status.err)"], "500");
 }
 
 #[test]
 fn backed_cast_to_backing() {
-	check("Status : u8 : enum { ok = 200, err = 250 }\nu8(Status.ok)", "200");
+	check(["Status : u8 : enum { ok = 200, err = 250 }", "u8(Status.ok)"], "200");
 }
 
 #[test]
@@ -526,23 +549,23 @@ fn backing_with_payload_errors() {
 
 #[test]
 fn ord_gives_discriminant() {
-	check("Color :: enum { red green blue }\nord(Color.blue)", "2");
+	check(["Color :: enum { red green blue }", "ord(Color.blue)"], "2");
 }
 
 #[test]
 fn ord_on_payload_variant() {
-	check("Opt :: enum { nope some(int) }\nord(Opt.some(1))", "1");
+	check(["Opt :: enum { nope some(int) }", "ord(Opt.some(1))"], "1");
 }
 
 #[test]
 fn str_method() {
-	check("Color :: enum { red green blue }\nColor.blue.str()", "blue");
+	check(["Color :: enum { red green blue }", "Color.blue.str()"], "blue");
 }
 
 #[test]
 fn no_such_method() {
 	fail_with(
-		"Color :: enum { red green blue }\nColor.red.hex()",
+		["Color :: enum { red green blue }", "Color.red.hex()"],
 		"has no method `hex`",
 	);
 }
@@ -550,7 +573,7 @@ fn no_such_method() {
 #[test]
 fn from_int_match() {
 	check(
-		"Color :: enum { red green blue }\nColor.from(1) or { Color.red }",
+		["Color :: enum { red green blue }", "Color.from(1) or { Color.red }"],
 		"green",
 	);
 }
@@ -558,7 +581,7 @@ fn from_int_match() {
 #[test]
 fn from_int_no_match() {
 	check(
-		"Color :: enum { red green blue }\nColor.from(9) or { Color.red }",
+		["Color :: enum { red green blue }", "Color.from(9) or { Color.red }"],
 		"red",
 	);
 }
@@ -566,7 +589,7 @@ fn from_int_no_match() {
 #[test]
 fn from_int_no_match_carries_error() {
 	check(
-		"Color :: enum { red green blue }\nColor.from(9) or { print($)\nColor.red }",
+		["Color :: enum { red green blue }", "Color.from(9) or { print($)", "Color.red }"],
 		["no matching variant", "red"],
 	);
 }
@@ -574,7 +597,7 @@ fn from_int_no_match_carries_error() {
 #[test]
 fn from_str_match() {
 	check(
-		"Color :: enum { red green blue }\nColor.from(\"blue\") or { Color.red }",
+		["Color :: enum { red green blue }", r#"Color.from("blue") or { Color.red }"#],
 		"blue",
 	);
 }
@@ -582,15 +605,15 @@ fn from_str_match() {
 #[test]
 fn from_str_no_match() {
 	check(
-		"Color :: enum { red green blue }\nColor.from(\"purple\") or { print($)\nColor.red }",
-		"no matching variant\nred",
+		["Color :: enum { red green blue }", r#"Color.from("purple") or { print($)"#, "Color.red }"],
+		["no matching variant", "red"],
 	);
 }
 
 #[test]
 fn from_atom_match() {
 	check(
-		"Color :: enum { red green blue }\nColor.from(:blue) or { Color.red }",
+		["Color :: enum { red green blue }", "Color.from(:blue) or { Color.red }"],
 		"blue",
 	);
 }
@@ -598,7 +621,7 @@ fn from_atom_match() {
 #[test]
 fn from_atom_no_match() {
 	check(
-		"Color :: enum { red green blue }\nColor.from(:purple) or { print($)\nColor.red }",
+		["Color :: enum { red green blue }", "Color.from(:purple) or { print($)", "Color.red }"],
 		["no matching variant", "red"],
 	);
 }
@@ -606,7 +629,7 @@ fn from_atom_no_match() {
 #[test]
 fn from_payload_zero_fills() {
 	check(
-		"Shape :: enum { point triangle(f64, f64, f64) }\nShape.from(1) or { Shape.point }",
+		["Shape :: enum { point triangle(f64, f64, f64) }", "Shape.from(1) or { Shape.point }"],
 		"triangle(0.0, 0.0, 0.0)",
 	);
 }
@@ -614,7 +637,7 @@ fn from_payload_zero_fills() {
 #[test]
 fn from_wrong_type() {
 	fail_with(
-		"Color :: enum { red green blue }\nColor.from(true)",
+		["Color :: enum { red green blue }", "Color.from(true)"],
 		"needs an int, string, or atom",
 	);
 }
@@ -756,16 +779,16 @@ fn string_backed_raws() {
 		"#},
 		["♠", "♥", "spades", "1", "true", "♥", "s"],
 	);
-	check("S : string : enum { a b }\nstring(S.b)", "b");
+	check(["S : string : enum { a b }", "string(S.b)"], "b");
 }
 
 #[test]
 fn string_backed_errors() {
-	fail_with("S : string : enum { a b }\nint(S.a)", "cannot cast string");
-	fail_with("S :: enum { a = \"x\" }", "needs a string backing");
-	fail_with("S : string : enum { a = 2 }", "uses raw values");
-	fail_with("S : string : enum { a = \"x\" b = \"x\" }", "assigned more than once");
-	fail_with("S : string : enum { a b = \"a\" }", "assigned more than once");
+	fail_with(["S : string : enum { a b }", "int(S.a)"], "cannot cast string");
+	fail_with(r#"S :: enum { a = "x" }"#, "needs a string backing");
+	fail_with(r#"S : string : enum { a = 2 }"#, "uses raw values");
+	fail_with(r#"S : string : enum { a = "x" b = "x" }"#, "assigned more than once");
+	fail_with(r#"S : string : enum { a b = "a" }"#, "assigned more than once");
 }
 
 #[test]

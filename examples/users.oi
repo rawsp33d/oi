@@ -34,10 +34,7 @@ User :{
 user := User.create(
 	"ur_mom_lolol"
 )
-# FIX: this should work...
-# user.status = .online
-user.status = Status.online
+user.status = .online
 
-# NOTE: string interpolation doesn't work yet
 badge(user) |> print
 user.greet()
