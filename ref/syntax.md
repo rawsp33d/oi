@@ -260,6 +260,9 @@ normal :: Point.{
 }
 short :: Point.{3, 2}
 
+# a positional prefix can stop early, leaving the rest zeroed
+partial :: Point.{3}
+
 # the type name can be dropped when it's known from context (typed decl, call arg, return, field value)
 p : Point = .{ x = 2, y = 1 }
 

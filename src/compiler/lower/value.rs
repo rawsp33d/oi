@@ -910,10 +910,6 @@ impl<'a> Translator<'a> {
 			let val = self.copy_in(val, &ftyp);
 			self.b.ins().store(MemFlags::new(), val, base, (idx * 8) as i32);
 		}
-		// positional alone must cover every field
-		if !fields.is_empty() && prefix == fields.len() && prefix != struct_fields.len() {
-			return Err(arity(prefix));
-		}
 		check_required(&name, &struct_fields, fields, span)?;
 		Ok((ptr, Typ::Struct(name.clone(), struct_fields)))
 	}

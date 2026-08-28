@@ -19,8 +19,7 @@ badge :: fn(u: User) string {
 
 User :{
 	create :: fn(name: string) Self {
-		# TODO: this should let you create without all fields, zeroing the rest
-		return User.{ name, status = .offline }
+		return User.{ name }
 	}
 
 	greet :: fn(self) string {
@@ -35,7 +34,7 @@ User :{
 user := User.create(
 	"ur_mom_lolol"
 )
-# TODO: this should work...
+# FIX: this should work...
 # user.status = .online
 user.status = Status.online
 

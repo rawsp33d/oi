@@ -50,6 +50,21 @@ fn positional_literal() {
 }
 
 #[test]
+fn partial_positional_literal() {
+	check(
+		"Point :: struct { x: int, y: int }
+		p :: Point.{3}
+		p.y",
+		"0",
+	);
+	fail_with(
+		"Point :: struct { x: int, y: int }
+		Point.{3, 4, 5}",
+		"has 2 fields but 3 values were provided",
+	);
+}
+
+#[test]
 fn field_mutation() {
 	check(
 		"Point :: struct { x: int, y: int }
