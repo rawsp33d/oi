@@ -532,3 +532,20 @@ fn in_compares_structurally() {
 		["true", "false"],
 	);
 }
+
+#[test]
+fn equality_is_structural() {
+	check(
+		indoc! {"
+			print([1, 2, 3] == [1, 2, 3])
+			print([1, 2] == [1, 2, 3])
+			print([[1, 2], [3]] == [[1, 2], [3]])
+		"},
+		["true", "false", "true"],
+	);
+}
+
+#[test]
+fn ordering_rejected() {
+	fail_with("[1, 2] < [1, 3]", "only `==` and `!=`");
+}
