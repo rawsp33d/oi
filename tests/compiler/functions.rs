@@ -179,3 +179,14 @@ fn default_param_not_trailing() {
 	"};
 	fail_with(src, "defaults must be trailing");
 }
+
+#[test]
+fn redefinition_shadows() {
+	let src = indoc! {r#"
+		call :: fn() { f() }
+		f :: fn() { print("one") }
+		f :: fn() { print("two") }
+		call()
+	"#};
+	check(src, "two");
+}

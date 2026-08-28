@@ -236,6 +236,7 @@ impl Loader<'_> {
 		mut file: Vec<Spanned<Expr>>,
 	) -> Result<(), Diagnostic> {
 		let main = m.name == "main";
+		let file_start = m.items.len();
 		// enforce V-like module declaration rules (for now, as a pretty sane starting point)
 		match file.first() {
 			Some((Expr::Module(name), span)) if main && name != "main" => {
@@ -358,6 +359,18 @@ impl Loader<'_> {
 				continue;
 			}
 			let span = item.1;
+			// make fn bindings shadow
+			if let Expr::Fn { name, .. } = &item.0
+				&& let Some(prev) = m.scope.env.get(name.as_str()).cloned()
+				&& let Some(i) = m.items[file_start..]
+					.iter()
+					.position(|it| matches!(&it.0, Expr::Fn { name: n, .. } if *n == prev))
+			{
+				m.items.remove(file_start + i);
+				m.scope.env.remove(name.as_str());
+				self.annotations.remove(&prev);
+				self.publics.remove(&prev);
+			}
 			match &mut item.0 {
 				Expr::Fn { name, .. }
 				| Expr::StructDef { name, .. }
