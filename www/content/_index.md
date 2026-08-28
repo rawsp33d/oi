@@ -26,7 +26,7 @@ Its features [try to] encourage uninterrupted thought:
 
 # examples
 
-```odin
+```odin,linenos,name=examples/shapes.oi
 Shape :: enum {
 	point
 	circle { radius: f64 }
@@ -36,7 +36,7 @@ Shape :: enum {
 
 area :: fn(s: Shape) f64 {
 	match s {
-		.circle(r) => 3.14159 * r * r,
+		.circle(r) => 3.14159 * r ** 2,
 		.rect(w, h) => w * h,
 		else => 0.0,
 	}
@@ -44,7 +44,7 @@ area :: fn(s: Shape) f64 {
 
 Shape.rect(w = 3.0, h = 4.0)
 	|> area
-	|> assert($ == 12.0)
+	|> assert!($ == 12.0)
 
 shape := Shape.triangle(3.0, 4.0, 5.0)
 

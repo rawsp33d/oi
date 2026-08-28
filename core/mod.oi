@@ -16,6 +16,7 @@ pub Mod :: trait { mod: fn(self, other: Self) Self }
 pub Pow :: trait { pow: fn(self, other: Self) Self }
 
 # errors
+
 pub Error :: trait {
 	message: fn(self) string
 	cause :: fn(self) ?Error { none }
@@ -29,6 +30,7 @@ string : Error {
 
 pub params :: ()
 pub required :: ()
+
 pub test :: struct {
 	name: string = ""
 	skip: bool = false

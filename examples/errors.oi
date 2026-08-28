@@ -5,7 +5,7 @@ find :: fn(id: int) ?int {
 
 total := 0
 loop id in [1, 7, 3, 7] {
-	total = total + (find(id) or { 0 })
+	total += find(id) or { 0 }
 }
 
 total

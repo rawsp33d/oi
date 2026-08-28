@@ -52,6 +52,7 @@ pub sign :: fn(x: float) int {
 }
 
 ## Natural logarithm.
+## ref: https://dlmf.nist.gov/4.6
 pub log :: fn(x: float) float {
 	if x != x || x == inf { return x }
 	if x < 0.0 { return nan }
@@ -60,16 +61,16 @@ pub log :: fn(x: float) float {
 	m := x
 	k := 0
 	loop m >= 2.0 {
-		m = m / 2.0
-		k = k + 1
+		m /= 2.0
+		k += 1
 	}
 	loop m < 1.0 {
-		m = m * 2.0
-		k = k - 1
+		m *= 2.0
+		k -= 1
 	}
 	if m > sqrt2 {
-		m = m / 2.0
-		k = k + 1
+		m /= 2.0
+		k += 1
 	}
 
 	# ln m = 2 atanh((m - 1) / (m + 1))
@@ -78,8 +79,8 @@ pub log :: fn(x: float) float {
 	sum := t
 	term := t
 	loop i in 1..10 {
-		term = term * t2
-		sum = sum + term / float(2 * i + 1)
+		term *= t2
+		sum += term / float(2 * i + 1)
 	}
 
 	2.0 * sum + float(k) * ln2
@@ -91,7 +92,7 @@ pub sin :: fn(x: float) float {
 	if x != x || abs(x) == inf { return nan }
 
 	y := x - tau * floor(x / tau)
-	if y > pi { y = y - tau }
+	if y > pi { y -= tau }
 	if y > pi / 2.0 { y = pi - y }
 	if y < -(pi / 2.0) { y = -pi - y }
 
@@ -99,7 +100,7 @@ pub sin :: fn(x: float) float {
 	sum := y
 	loop i in 1..11 {
 		term = -term * y * y / float(2 * i * (2 * i + 1))
-		sum = sum + term
+		sum += term
 	}
 	sum
 }

@@ -42,7 +42,7 @@ ci: build fmt-check lint test
 # build rustdocs
 [group("cargo")]
 [group("docs")]
-@doc:
+@docs: make::examples
 	cargo doc --no-deps --verbose
 
 # generate and serve static website

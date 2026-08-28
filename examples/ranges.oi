@@ -1,7 +1,7 @@
 total := 0
 
 loop i in 1..10 {
-	total = total + i
+	total += i
 }
 
 assert! total == 45

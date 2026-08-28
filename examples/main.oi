@@ -21,9 +21,12 @@ main :: fn() {
 	## primatives
 
 	bull := true
-	str := "string"
-	integer := 1337
-	float := 69.420
+	str : string
+	integer :: 1337
+	float :: 69.420
+
+	bull = false
+	str = "string"
 
 	2.0 + 1.2
 }

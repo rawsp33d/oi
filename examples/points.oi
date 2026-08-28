@@ -4,6 +4,6 @@ Point :: struct {
 }
 
 p := Point.{3, 4}
-p.x = p.x + 10
+p.x += 10
 
 (p.x p.y) |> print

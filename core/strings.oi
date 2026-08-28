@@ -27,10 +27,10 @@ string :{
 		a := 0
 		b := self.len
 		loop a < b && is_space(self[a]) {
-			a = a + 1
+			a += 1
 		}
 		loop b > a && is_space(self[b - 1]) {
-			b = b - 1
+			b -= 1
 		}
 		self[a..b]
 	}
@@ -66,10 +66,10 @@ string :{
 				loop j in 0..to.len {
 					out << to[j]
 				}
-				i = i + from.len
+				i += from.len
 			} else {
 				out << self[i]
-				i = i + 1
+				i += 1
 			}
 		}
 

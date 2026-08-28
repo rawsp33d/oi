@@ -7,7 +7,7 @@ Shape :: enum {
 
 area :: fn(s: Shape) f64 {
 	match s {
-		.circle(r) => 3.14159 * r * r,
+		.circle(r) => 3.14159 * r ** 2,
 		.rect(w, h) => w * h,
 		else => 0.0,
 	}
