@@ -12,6 +12,16 @@ fn comparable(t: &Typ) -> bool {
 		)
 }
 
+// Get the pointer-sized slots of a heap block.
+fn eq_slots(t: &Typ) -> Option<Vec<Typ>> {
+	match t {
+		Typ::Struct(_, fields) => Some(fields.iter().map(|f| f.typ.clone()).collect()),
+		Typ::Tuple(fields) | Typ::TupleStruct(_, fields) => Some(fields.iter().map(|(_, t)| t.clone()).collect()),
+		Typ::Range => Some(vec![Typ::ISize; 2]),
+		_ => None,
+	}
+}
+
 impl<'a> Translator<'a> {
 	pub(super) fn emit_eq(&mut self, a: Value, b: Value, typ: &Typ) -> Value {
 		match typ {
@@ -75,13 +85,13 @@ impl<'a> Translator<'a> {
 
 	// `Eq` fill, or structural diff by default.
 	fn emit_val_eq(&mut self, a: Value, b: Value, t: &Typ, owner: &str, span: Span) -> Result<Value, Diagnostic> {
-		if let Typ::Struct(n, _) | Typ::Enum(n) = t
+		if let Typ::Struct(n, _) | Typ::TupleStruct(n, _) | Typ::Enum(n) = t
 			&& let Some(sig) = self.fill(n, "core::Eq", "eq", 2)
 		{
 			return Ok(self.emit_call(&sig, &[a, b]).0);
 		}
 		match t {
-			Typ::Struct(..) => self.emit_struct_eq(a, b, t, span),
+			t if eq_slots(t).is_some() => self.emit_slots_eq(a, b, t, span),
 			t if t.is_enumish() && enum_boxed(&self.variants_of(t)) && !rc::opt_ref(t) => {
 				self.emit_enum_eq(a, b, t, span)
 			}
@@ -108,17 +118,18 @@ impl<'a> Translator<'a> {
 			|| (self.core_traits.contains(tn) && builtin_claim(typ, tn))
 	}
 
-	// Compare two structs field by field.
-	pub(super) fn emit_struct_eq(&mut self, a: Value, b: Value, typ: &Typ, span: Span) -> Result<Value, Diagnostic> {
-		let Typ::Struct(name, fields) = typ else {
-			unreachable!("emit_struct_eq on {typ}")
+	// Compare two heap blocks slot by slot.
+	fn emit_slots_eq(&mut self, a: Value, b: Value, typ: &Typ, span: Span) -> Result<Value, Diagnostic> {
+		let Some(slots) = eq_slots(typ) else {
+			unreachable!("emit_slots_eq on {typ}")
 		};
+		let owner = typ.to_string();
 		let mut acc = self.b.ins().iconst(types::I8, 1);
-		for (i, f) in fields.iter().enumerate() {
-			let cl = cl_type(&f.typ, self.int);
+		for (i, st) in slots.iter().enumerate() {
+			let cl = cl_type(st, self.int);
 			let fa = self.b.ins().load(cl, MemFlags::new(), a, (i * 8) as i32);
 			let fb = self.b.ins().load(cl, MemFlags::new(), b, (i * 8) as i32);
-			let eq = self.emit_val_eq(fa, fb, &f.typ, name, span)?;
+			let eq = self.emit_val_eq(fa, fb, st, &owner, span)?;
 			let eq = self.b.ins().icmp_imm(IntCC::NotEqual, eq, 0);
 			acc = self.b.ins().band(acc, eq);
 		}
@@ -367,7 +378,7 @@ impl<'a> Translator<'a> {
 			| (Typ::USize, Typ::USize)
 			| (Typ::Bool, Typ::Bool)
 			| (Typ::Atom, Typ::Atom) => self.b.ins().icmp(icc, lv, rv),
-			(l, _) if lt == rt && (l.is_enumish() || matches!(l, Typ::Struct(..))) => {
+			(l, _) if lt == rt && (l.is_enumish() || eq_slots(l).is_some()) => {
 				let reversed = matches!(icc, IntCC::SignedGreaterThan | IntCC::SignedLessThanOrEqual);
 				let negated = matches!(
 					icc,
@@ -377,7 +388,7 @@ impl<'a> Translator<'a> {
 				if let IntCC::Equal | IntCC::NotEqual = icc {
 					let eq = self.emit_val_eq(lv, rv, l, &lt.to_string(), span)?;
 					self.b.ins().icmp_imm(cc, eq, 0)
-				} else if let Typ::Struct(n, _) | Typ::Enum(n) = l
+				} else if let Typ::Struct(n, _) | Typ::TupleStruct(n, _) | Typ::Enum(n) = l
 					&& let Some(sig) = self.fill(n, "core::Ord", "lt", 2)
 				{
 					let (a, b) = if reversed { (rv, lv) } else { (lv, rv) };
@@ -387,8 +398,8 @@ impl<'a> Translator<'a> {
 					self.b.ins().icmp(icc, lv, rv)
 				} else {
 					let label = match l {
-						Typ::Struct(..) | Typ::Enum(_) => format!("claim `Ord` for `{lt}` to define ordering"),
-						_ => "only `==`&`!=` are supported on payloads".into(),
+						Typ::Enum(_) | Typ::Struct(..) => format!("claim `Ord` for `{lt}` to define ordering"),
+						_ => "only `==` and `!=` are supported".into(),
 					};
 					return Err(
 						Diagnostic::new(format!("cannot compare {lt} and {rt}"), span.into_range()).with_label(label),
@@ -422,7 +433,7 @@ impl<'a> Translator<'a> {
 			_ => {
 				return Err(
 					Diagnostic::new(format!("cannot compare {lt} and {rt}"), span.into_range())
-						.with_label("operands have mismatched types"),
+						.with_label("not comparable"),
 				);
 			}
 		};
@@ -493,7 +504,7 @@ impl<'a> Translator<'a> {
 		self.b.switch_to_block(body);
 		let iv = self.b.use_var(i);
 		let elem_val = self.load_nth(data, iv, &elem);
-		let equal = self.emit_eq(val, elem_val, &elem);
+		let equal = self.emit_val_eq(val, elem_val, &elem, &elem.to_string(), lhs.1)?;
 		self.b.ins().brif(equal, found_block, &[], continue_block, &[]);
 		self.b.seal_block(found_block);
 		self.b.seal_block(continue_block);

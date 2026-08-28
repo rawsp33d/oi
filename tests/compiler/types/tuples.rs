@@ -222,3 +222,15 @@ fn elements_take_the_expected_type() {
 		["3", "7"],
 	);
 }
+
+#[test]
+fn equality_is_structural() {
+	check(
+		indoc! {"
+			P :: struct { x: int }
+			print((1, (2, 3)) == (1, (2, 3)))
+			print((1, P.{2}) == (1, P.{3}))
+		"},
+		["true", "false"],
+	);
+}

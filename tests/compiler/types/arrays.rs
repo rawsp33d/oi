@@ -520,3 +520,15 @@ fn fixed_coerces_as_call_arg() {
 	"};
 	check(src, "3");
 }
+
+#[test]
+fn in_compares_structurally() {
+	check(
+		indoc! {"
+			P :: struct { x: int }
+			print(P.{1} in [P.{2}, P.{1}])
+			print((1, 2) in [(3, 4)])
+		"},
+		["true", "false"],
+	);
+}

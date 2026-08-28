@@ -456,7 +456,9 @@ Point : Add {
 }
 assert!(Point.{1, 0} + Point.{2, 3} == Point.{3, 3})
 
-# `==` compares structs field by field out of the box, and `!=` negates it
+# `==` and `!=` compare values
+assert!((1, "a") == (1, "a"))
+
 # claim `Eq` to define equality yourself
 Frac :: struct { num: int, den: int }
 Frac : Eq {

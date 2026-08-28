@@ -315,9 +315,7 @@ fn replace_self(te: &TypeExpr, self_ty: &TypeExpr) -> TypeExpr {
 		TypeExpr::FixedArray(e, n) => TypeExpr::FixedArray(Box::new(replace_self(e, self_ty)), *n),
 		TypeExpr::Option(e) => TypeExpr::Option(Box::new(replace_self(e, self_ty))),
 		TypeExpr::Result(e, err) => TypeExpr::Result(Box::new(replace_self(e, self_ty)), err.clone()),
-		TypeExpr::Tuple(fs) => {
-			TypeExpr::Tuple(fs.iter().map(|(n, t)| (n.clone(), replace_self(t, self_ty))).collect())
-		}
+		TypeExpr::Tuple(fs) => TypeExpr::Tuple(fs.iter().map(|(n, t)| (n.clone(), replace_self(t, self_ty))).collect()),
 		TypeExpr::Fn(ps, muts, r) => TypeExpr::Fn(
 			ps.iter().map(|p| replace_self(p, self_ty)).collect(),
 			muts.clone(),

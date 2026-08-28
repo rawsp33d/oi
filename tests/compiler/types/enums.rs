@@ -57,7 +57,11 @@ fn ne() {
 #[test]
 fn returned_from_fn() {
 	check(
-		["Color :: enum { red green blue }", "fav :: fn() Color { Color.blue }", "fav()"],
+		[
+			"Color :: enum { red green blue }",
+			"fav :: fn() Color { Color.blue }",
+			"fav()",
+		],
 		"blue",
 	);
 }
@@ -91,7 +95,10 @@ fn in_match() {
 
 #[test]
 fn unknown_variant() {
-	fail_with(["Color :: enum { red green blue }", "Color.purple"], "no variant `purple`");
+	fail_with(
+		["Color :: enum { red green blue }", "Color.purple"],
+		"no variant `purple`",
+	);
 }
 
 #[test]
@@ -114,8 +121,14 @@ fn shorthand_in_annotated_binding() {
 
 #[test]
 fn shorthand_in_comparison() {
-	check(["Color :: enum { red green blue }", "c :: Color.red", "c == .red"], "true");
-	check(["Color :: enum { red green blue }", "c :: Color.red", "c != .blue"], "true");
+	check(
+		["Color :: enum { red green blue }", "c :: Color.red", "c == .red"],
+		"true",
+	);
+	check(
+		["Color :: enum { red green blue }", "c :: Color.red", "c != .blue"],
+		"true",
+	);
 }
 
 #[test]
@@ -185,7 +198,10 @@ fn shorthand_unknown_variant() {
 
 #[test]
 fn shorthand_without_context_errors() {
-	fail_with(["Color :: enum { red green blue }", ".red"], "cannot infer the enum type");
+	fail_with(
+		["Color :: enum { red green blue }", ".red"],
+		"cannot infer the enum type",
+	);
 }
 
 #[test]
@@ -201,7 +217,10 @@ fn auto_increment_from_explicit() {
 #[test]
 fn payload_construct() {
 	check(
-		["Shape :: enum { point triangle(f64, f64, f64) }", "Shape.triangle(3.0, 4.0, 5.0)"],
+		[
+			"Shape :: enum { point triangle(f64, f64, f64) }",
+			"Shape.triangle(3.0, 4.0, 5.0)",
+		],
 		"triangle(3.0, 4.0, 5.0)",
 	);
 }
@@ -224,7 +243,10 @@ fn payload_empty_literal_is_default() {
 
 #[test]
 fn payload_int_cast_errors() {
-	fail_with(["Opt :: enum { nope some(int) }", "int(Opt.some(1))"], "no backing value");
+	fail_with(
+		["Opt :: enum { nope some(int) }", "int(Opt.some(1))"],
+		"no backing value",
+	);
 }
 
 #[test]
@@ -237,7 +259,10 @@ fn payload_field_type_mismatch() {
 
 #[test]
 fn payload_wrong_arity() {
-	fail_with(["Opt :: enum { nope some(int) }", "Opt.some()"], "takes 1 field(s), got 0");
+	fail_with(
+		["Opt :: enum { nope some(int) }", "Opt.some()"],
+		"takes 1 field(s), got 0",
+	);
 }
 
 #[test]
@@ -288,7 +313,11 @@ fn payload_match_multiple_fields() {
 #[test]
 fn shorthand_payload_construct() {
 	check(
-		["Opt :: enum { nope some(int) }", "o : Opt : .some(5)", "match o { .some(n) => n, .nope => 0 }"],
+		[
+			"Opt :: enum { nope some(int) }",
+			"o : Opt : .some(5)",
+			"match o { .some(n) => n, .nope => 0 }",
+		],
 		"5",
 	);
 }
@@ -296,7 +325,10 @@ fn shorthand_payload_construct() {
 #[test]
 fn payload_eq() {
 	check(["Opt :: enum { nope some(int) }", "Opt.some(1) == Opt.some(1)"], "true");
-	check(["Opt :: enum { nope some(int) }", "Opt.some(1) == Opt.some(2)"], "false");
+	check(
+		["Opt :: enum { nope some(int) }", "Opt.some(1) == Opt.some(2)"],
+		"false",
+	);
 	check(["Opt :: enum { nope some(int) }", "Opt.nope == Opt.some(1)"], "false");
 	check(["Opt :: enum { nope some(int) }", "Opt.nope != Opt.some(1)"], "true");
 }
@@ -492,7 +524,10 @@ fn atom_coerces_in_assignment() {
 
 #[test]
 fn atom_coerces_in_comparison() {
-	check(["Color :: enum { red green blue }", "c :: Color.red", "c == :red"], "true");
+	check(
+		["Color :: enum { red green blue }", "c :: Color.red", "c == :red"],
+		"true",
+	);
 	check(["Color :: enum { red green blue }", "Color.blue == :blue"], "true");
 }
 
@@ -589,7 +624,11 @@ fn from_int_no_match() {
 #[test]
 fn from_int_no_match_carries_error() {
 	check(
-		["Color :: enum { red green blue }", "Color.from(9) or { print($)", "Color.red }"],
+		[
+			"Color :: enum { red green blue }",
+			"Color.from(9) or { print($)",
+			"Color.red }",
+		],
 		["no matching variant", "red"],
 	);
 }
@@ -597,7 +636,10 @@ fn from_int_no_match_carries_error() {
 #[test]
 fn from_str_match() {
 	check(
-		["Color :: enum { red green blue }", r#"Color.from("blue") or { Color.red }"#],
+		[
+			"Color :: enum { red green blue }",
+			r#"Color.from("blue") or { Color.red }"#,
+		],
 		"blue",
 	);
 }
@@ -605,7 +647,11 @@ fn from_str_match() {
 #[test]
 fn from_str_no_match() {
 	check(
-		["Color :: enum { red green blue }", r#"Color.from("purple") or { print($)"#, "Color.red }"],
+		[
+			"Color :: enum { red green blue }",
+			r#"Color.from("purple") or { print($)"#,
+			"Color.red }",
+		],
 		["no matching variant", "red"],
 	);
 }
@@ -621,7 +667,11 @@ fn from_atom_match() {
 #[test]
 fn from_atom_no_match() {
 	check(
-		["Color :: enum { red green blue }", "Color.from(:purple) or { print($)", "Color.red }"],
+		[
+			"Color :: enum { red green blue }",
+			"Color.from(:purple) or { print($)",
+			"Color.red }",
+		],
 		["no matching variant", "red"],
 	);
 }
@@ -629,7 +679,10 @@ fn from_atom_no_match() {
 #[test]
 fn from_payload_zero_fills() {
 	check(
-		["Shape :: enum { point triangle(f64, f64, f64) }", "Shape.from(1) or { Shape.point }"],
+		[
+			"Shape :: enum { point triangle(f64, f64, f64) }",
+			"Shape.from(1) or { Shape.point }",
+		],
 		"triangle(0.0, 0.0, 0.0)",
 	);
 }

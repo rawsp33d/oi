@@ -55,7 +55,7 @@ fn field_type_mismatch() {
 
 #[test]
 fn ordering_rejected() {
-	fail_with("?int(1) < ?int(2)", "only `==`&`!=`");
+	fail_with("?int(1) < ?int(2)", "only `==` and `!=`");
 }
 
 #[test]
