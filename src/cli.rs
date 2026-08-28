@@ -17,10 +17,6 @@ pub enum Command {
 		/// Path to the .oi source file.
 		#[arg(default_value = "main.oi")]
 		file: PathBuf,
-
-		/// Dump the parsed AST to stderr.
-		#[arg(long)]
-		debug_ast: bool,
 	},
 
 	/// Compile and run an Oi script.

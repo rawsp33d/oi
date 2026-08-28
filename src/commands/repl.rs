@@ -66,7 +66,7 @@ pub fn run() -> Result<(), Reported> {
 				}
 
 				let candidate = format!("{session}{line}\n");
-				if run_source("<repl>", &candidate, std::path::Path::new("."), false).is_ok() {
+				if run_source("<repl>", &candidate, std::path::Path::new(".")).is_ok() {
 					session = candidate;
 				}
 			}

@@ -9,14 +9,8 @@ use crate::loader;
 /// `name` labels the source in diagnostics (a file path, or `<exec>` / `<stdin>`).
 /// `root` anchors module lookups.
 /// On failure the diagnostic is rendered to stderr.
-pub fn run_source(name: &str, src: &str, root: &Path, debug_ast: bool) -> Result<(), Reported> {
+pub fn run_source(name: &str, src: &str, root: &Path) -> Result<(), Reported> {
 	let program = loader::load(name, src.to_string(), root)?;
-
-	if debug_ast {
-		for m in &program.modules {
-			eprintln!("{:#?}", m.items);
-		}
-	}
 
 	let mut compiler = Compiler::default();
 	let code = match compiler.compile(&program) {

@@ -4,8 +4,8 @@ use oi::Reported;
 use oi::driver::{run_source, test_source};
 
 /// Read a source file, then compile and run it.
-pub fn run(file: &Path, debug_ast: bool) -> Result<(), Reported> {
-	run_source(&file.display().to_string(), &read(file)?, root(file), debug_ast)
+pub fn run(file: &Path) -> Result<(), Reported> {
+	run_source(&file.display().to_string(), &read(file)?, root(file))
 }
 
 /// Read a source file, then compile and run its `@test` fns.
