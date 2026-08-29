@@ -1,16 +1,12 @@
 Grade :: enum { A B C D F }
 
 grade :: fn(score: int) Grade {
-	if score >= 90 {
-		.A
-	} else if score >= 80 {
-		.B
-	} else if score >= 70 {
-		.C
-	} else if score >= 60 {
-		.C
-	} else {
-		.F
+	match true {
+		score >= 90 => .A,
+		score >= 80 => .B,
+		score >= 70 => .C,
+		score >= 60 => .C,
+		else => .F
 	}
 }
 
