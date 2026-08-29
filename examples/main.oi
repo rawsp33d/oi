@@ -24,6 +24,7 @@ main :: fn() {
 	str : string
 	integer :: 1337
 	float :: 69.420
+	atm :: :adam
 
 	bull = false
 	str = "string"

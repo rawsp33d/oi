@@ -1,6 +1,8 @@
 Dog :: struct {
 	name: string
 	greeting : string = "woof"
+	# TODO: get this working
+	# greeting := "woof"
 }
 
 Dog :{

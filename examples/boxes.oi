@@ -5,4 +5,4 @@ Box[T] :{
 
 b := Box.{ v = 21 }
 assert!(b.get() == 21)
-Box.{ v = "hi" }.get()
+Box.{ "hi" }.get()
