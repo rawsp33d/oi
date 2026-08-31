@@ -846,9 +846,14 @@ dependencies = [
  "indoc",
  "libc",
  "logos",
+ "oi-runtime",
  "pretty_assertions",
  "reedline",
 ]
+
+[[package]]
+name = "oi-runtime"
+version = "0.1.0"
 
 [[package]]
 name = "once_cell"

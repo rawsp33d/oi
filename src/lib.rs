@@ -1,4 +1,3 @@
-#![feature(f16)]
 pub mod ast;
 pub mod compiler;
 pub mod diagnostics;
