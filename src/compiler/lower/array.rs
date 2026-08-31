@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a> Translator<'a> {
+impl<'a, M: Module> Translator<'a, M> {
 	// array handle: { data @ 0, len @ 8, cap @ 16 }
 	pub(super) fn array_data(&mut self, header: Value) -> Value {
 		self.b.ins().load(self.int, MemFlags::new(), header, 0)

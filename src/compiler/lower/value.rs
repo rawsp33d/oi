@@ -27,7 +27,7 @@ fn check_required(
 	Ok(())
 }
 
-impl<'a> Translator<'a> {
+impl<'a, M: Module> Translator<'a, M> {
 	pub(super) fn str_const(&mut self, s: &str) -> Value {
 		let len = s.len() as i64;
 		let mut bytes = s.as_bytes().to_vec();

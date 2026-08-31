@@ -61,7 +61,7 @@ fn mangle(name: &str, subst: &HashMap<String, Typ>, order: &[TypeParam]) -> Stri
 	sym
 }
 
-impl<'a> Translator<'a> {
+impl<'a, M: Module> Translator<'a, M> {
 	// Emit a call to a generic fn, declaring a monomorphed instance on first use.
 	pub(super) fn call_generic(
 		&mut self,

@@ -8,7 +8,7 @@ enum Sign {
 	Unsigned,
 }
 
-impl<'a> Translator<'a> {
+impl<'a, M: Module> Translator<'a, M> {
 	// Widen/narrow integers.
 	// Sign-extend `val` to i64, clamp to `[low, hi]`.
 	fn clamp_to_width(

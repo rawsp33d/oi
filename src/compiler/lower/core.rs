@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use super::*;
 
-impl<'a> Translator<'a> {
+impl<'a, M: Module> Translator<'a, M> {
 	// The named types in scope.
 	pub(super) fn types(&self) -> TypeCtx<'a> {
 		TypeCtx::new(

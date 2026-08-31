@@ -2,7 +2,7 @@ use crate::compiler::expand;
 
 use super::*;
 
-impl<'a> Translator<'a> {
+impl<'a, M: Module> Translator<'a, M> {
 	pub fn expr(&mut self, expr: &Spanned<Expr>) -> Result<TypedVal, Diagnostic> {
 		match &expr.0 {
 			Expr::Int(n) => {

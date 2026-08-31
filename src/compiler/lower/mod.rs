@@ -5,7 +5,6 @@ use cranelift::codegen;
 use cranelift::codegen::ir::immediates::{Ieee16, Ieee128};
 use cranelift::codegen::ir::{StackSlotData, StackSlotKind};
 use cranelift::prelude::*;
-use cranelift_jit::JITModule;
 use cranelift_module::{DataDescription, DataId, FuncId, Linkage, Module};
 
 use super::{
@@ -40,13 +39,13 @@ use self::call::Callee;
 use self::core::ambiguous;
 use self::helpers::*;
 
-pub(super) struct Translator<'a> {
+pub(super) struct Translator<'a, M: Module> {
 	pub int: types::Type,
 	pub b: FunctionBuilder<'a>,
 	pub vars: HashMap<String, Local>,
 	pub params: Vec<Local>,
 	pub dollar: Option<TypedVal>,
-	pub module: &'a mut JITModule,
+	pub module: &'a mut M,
 	pub funcs: &'a HashMap<String, FnSig>,
 	pub structs: &'a HashMap<String, Vec<FieldDef>>,
 	pub enums: &'a HashMap<String, Vec<VariantInfo>>,

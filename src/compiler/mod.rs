@@ -355,10 +355,10 @@ pub(crate) struct LoopFrame {
 	pub depth: usize,
 }
 
-pub struct Compiler {
+pub struct Compiler<M: Module = JITModule> {
 	builder_ctx: FunctionBuilderContext,
 	ctx: codegen::Context,
-	module: JITModule,
+	module: M,
 	string_idx: usize,
 	atoms: HashSet<String>,
 	generics: HashMap<String, GenericFnDef>,
@@ -378,7 +378,7 @@ pub struct Compiler {
 	pub(crate) tests: Vec<(String, String, bool)>,
 }
 
-impl Default for Compiler {
+impl Default for Compiler<JITModule> {
 	fn default() -> Self {
 		let mut flag_builder = settings::builder();
 		flag_builder.set("use_colocated_libcalls", "false").unwrap();
@@ -398,7 +398,12 @@ impl Default for Compiler {
 		builder.symbol(comp::RT_COMP_YIELD, comp::rt_comp_yield as *const u8);
 		builder.symbol(comp::RT_COMP_STRUCT, comp::rt_comp_struct as *const u8);
 
-		let module = JITModule::new(builder);
+		Self::new(JITModule::new(builder))
+	}
+}
+
+impl<M: Module> Compiler<M> {
+	fn new(module: M) -> Self {
 		Self {
 			builder_ctx: FunctionBuilderContext::new(),
 			ctx: module.make_context(),
@@ -422,9 +427,7 @@ impl Default for Compiler {
 			tests: Vec::new(),
 		}
 	}
-}
 
-impl Compiler {
 	// Register a type's fills as `Type.method` fns.
 	fn register_fills<'a>(
 		&mut self,
@@ -521,7 +524,7 @@ impl Compiler {
 		}
 	}
 
-	pub fn compile(&mut self, program: &Program) -> Result<*const u8, Diagnostic> {
+	fn build(&mut self, program: &Program) -> Result<FuncId, Diagnostic> {
 		let mut struct_items: Vec<(&str, &[Param])> = vec![];
 		let mut generics = Generics::default();
 		let mut enum_items: Vec<EnumItem> = vec![];
@@ -1056,8 +1059,7 @@ impl Compiler {
 		let id = self.compile_entry(entry_id, typ, &funcs, types);
 		self.hoisted = funcs;
 
-		self.module.finalize_definitions().expect("finalize definitions");
-		Ok(self.module.get_finalized_function(id))
+		Ok(id)
 	}
 
 	fn compile_entry(&mut self, entry: FuncId, typ: Typ, funcs: &HashMap<String, FnSig>, types: TypeCtx) -> FuncId {
@@ -1103,18 +1105,12 @@ impl Compiler {
 		id
 	}
 
-	pub(crate) fn finalized_test(&self, name: &str) -> fn() {
-		let ptr = self.module.get_finalized_function(self.hoisted[name].id);
-		// SAFETY: `@test` fns are checked to be `fn()` at compile
-		unsafe { std::mem::transmute::<*const u8, fn()>(ptr) }
-	}
-
 	fn translator<'a>(
 		&'a mut self,
 		def: &FnDef,
 		funcs: &'a HashMap<String, FnSig>,
 		types: TypeCtx<'a>,
-	) -> (Translator<'a>, Block) {
+	) -> (Translator<'a, M>, Block) {
 		let int = self.module.target_config().pointer_type();
 		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
 		for (_, typ, _) in def.params {
@@ -1226,5 +1222,19 @@ impl Compiler {
 		trans.b.finalize();
 
 		Ok(trans.ret.map(|(t, _)| t).unwrap_or(Typ::unit()))
+	}
+}
+
+impl Compiler {
+	pub fn compile(&mut self, program: &Program) -> Result<*const u8, Diagnostic> {
+		let id = self.build(program)?;
+		self.module.finalize_definitions().expect("finalize definitions");
+		Ok(self.module.get_finalized_function(id))
+	}
+
+	pub(crate) fn finalized_test(&self, name: &str) -> fn() {
+		let ptr = self.module.get_finalized_function(self.hoisted[name].id);
+		// SAFETY: `@test` fns are checked to be `fn()` at compile
+		unsafe { std::mem::transmute::<*const u8, fn()>(ptr) }
 	}
 }

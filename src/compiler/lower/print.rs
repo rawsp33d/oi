@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a> Translator<'a> {
+impl<'a, M: Module> Translator<'a, M> {
 	pub fn write_lit(&mut self, s: &str, sink: runtime::Sink) {
 		let ptr = self.str_const(s);
 		self.emit_frag(runtime::Tag::Raw, ptr, 0, false, sink);

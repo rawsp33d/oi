@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a> Translator<'a> {
+impl<'a, M: Module> Translator<'a, M> {
 	// Evaluate a block of statements, returning the final value.
 	// Returns None if the block diverged (every path returned/broke).
 	pub fn block(&mut self, stmts: &[Spanned<Expr>]) -> Result<Option<TypedVal>, Diagnostic> {

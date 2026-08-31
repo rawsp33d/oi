@@ -4,7 +4,7 @@ use super::*;
 // Every ref has one owner: a named binding, a container slot, or the scope that produced it.
 // Owned values register in the innermost scope and release when it exits.
 
-impl<'a> Translator<'a> {
+impl<'a, M: Module> Translator<'a, M> {
 	// Check whether a struct has Drop trait.
 	pub(super) fn is_resource(&self, typ: &Typ) -> bool {
 		matches!(typ, Typ::Struct(name, _) if self.trait_impls.contains(&(name.clone(), "Drop".into())))

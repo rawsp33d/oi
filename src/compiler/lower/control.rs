@@ -2,7 +2,7 @@ use crate::compiler::expand;
 
 use super::*;
 
-impl<'a> Translator<'a> {
+impl<'a, M: Module> Translator<'a, M> {
 	// `if`/`else` lowered to branch&merge, yielding value of the chosen branch.
 	// A diverging branch contributes nothing to the merge.
 	// If all branches diverge, returns None.

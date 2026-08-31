@@ -14,7 +14,7 @@ fn called(name: String, type_args: Vec<Spanned<TypeExpr>>, args: Vec<Spanned<Exp
 	(Expr::Call { name, type_args, args }, span)
 }
 
-impl Translator<'_> {
+impl<M: Module> Translator<'_, M> {
 	// Pipeline operator.
 	pub(super) fn pipe(
 		&mut self,

@@ -22,7 +22,7 @@ pub(super) enum Lent {
 	Slice { parent: Local, lo: Value, len: Value },
 }
 
-impl<'a> Translator<'a> {
+impl<'a, M: Module> Translator<'a, M> {
 	pub(super) fn import_fn(
 		&mut self,
 		name: &str,

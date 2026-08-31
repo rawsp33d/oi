@@ -2,7 +2,7 @@ use crate::compiler::{comp, expand};
 
 use super::*;
 
-impl<'a> Translator<'a> {
+impl<'a, M: Module> Translator<'a, M> {
 	// Lower a quote. Register its template and build the Ast it produces at runtime.
 	pub(super) fn quote(&mut self, stmts: &[Spanned<Expr>], span: Span) -> Result<TypedVal, Diagnostic> {
 		let (tpl, slots) = expand::register(stmts, span)?;

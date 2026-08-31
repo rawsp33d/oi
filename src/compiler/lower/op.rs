@@ -27,7 +27,7 @@ fn eq_dispatchable(t: &Typ) -> bool {
 	t.is_enumish() || eq_slots(t).is_some() || matches!(t, Typ::Array(_) | Typ::FixedArray(..))
 }
 
-impl<'a> Translator<'a> {
+impl<'a, M: Module> Translator<'a, M> {
 	pub(super) fn emit_eq(&mut self, a: Value, b: Value, typ: &Typ) -> Value {
 		match typ {
 			Typ::Float(_) => self.b.ins().fcmp(FloatCC::Equal, a, b),

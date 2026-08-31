@@ -7,7 +7,7 @@ pub(super) enum AnonSig<'a> {
 	Inferred(Typ),
 }
 
-impl<'a> Translator<'a> {
+impl<'a, M: Module> Translator<'a, M> {
 	// Declare an anon fn literal.
 	pub(super) fn declare_anon_fn(
 		&mut self,
