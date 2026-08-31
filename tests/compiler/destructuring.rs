@@ -91,3 +91,24 @@ fn fail_struct_bind() {
 	fail_with("Point :: struct { x: int }\nPoint.{ z } :: Point.{ 1 }", "no field `z`");
 	fail_with("Point :: struct { x: int }\nPoint.{ x } :: 5", "cannot destructure");
 }
+
+#[test]
+fn array_bind() {
+	let src = indoc! {"
+		[a b] :: [1 2 3]
+		a + b
+	"};
+	check(src, "3");
+	let src = indoc! {"
+		[x] := int.[7]
+		x = x + 1
+		x
+	"};
+	check(src, "8");
+}
+
+#[test]
+fn fail_array_bind() {
+	fail_with("[a b] :: [1]", "out of range");
+	fail_with("[a b] :: 5", "cannot destructure");
+}

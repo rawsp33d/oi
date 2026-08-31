@@ -608,7 +608,7 @@ where
 		.then(brace(loose_list(struct_pat_field)))
 		.then(just(Token::Bind).to(true).or(just(Token::DoubleColon).to(false)))
 		.then(expr.clone())
-		.map(|((((name, nspan), fields), mutable), value)| Expr::StructBind {
+		.map(|((((name, nspan), fields), mutable), value)| Expr::PatBind {
 			pat: Box::new((
 				Expr::StructLit {
 					name,
@@ -621,7 +621,25 @@ where
 			value: Box::new(value),
 		});
 
-	let destructure = destructure.or(struct_destructure).map_with(|e, ex| (e, ex.span()));
+	// array destructuring
+	let array_destructure = spanned(bracket(loose_list(spanned(ident()).map(|(n, s)| (Expr::Ident(n), s)))))
+		.then(just(Token::Bind).to(true).or(just(Token::DoubleColon).to(false)))
+		.then(expr.clone())
+		.try_map(|(((elems, espan), mutable), value), span| {
+			if elems.is_empty() {
+				return Err(Rich::custom(span, "array destructuring needs at least 1 name"));
+			}
+			Ok(Expr::PatBind {
+				pat: Box::new((Expr::Array(elems), espan)),
+				mutable,
+				value: Box::new(value),
+			})
+		});
+
+	let destructure = destructure
+		.or(struct_destructure)
+		.or(array_destructure)
+		.map_with(|e, ex| (e, ex.span()));
 
 	let doc = select! { Token::Doc(text) => text }
 		.repeated()

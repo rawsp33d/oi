@@ -752,6 +752,9 @@ main :: fn() {
 	Point.{ x, y } :: Point.{ 1, 2 }
 	Point.{ y = b, x } := Point.{ 1, 2 }
 
+	# arrays
+	[first second] :: [1 2 3]
+
 	## primatives
 
 	bull :: true
