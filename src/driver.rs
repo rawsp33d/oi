@@ -1,5 +1,5 @@
 use std::io::Write as _;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::Reported;
 use crate::compiler::Compiler;
@@ -30,6 +30,9 @@ pub fn run_source(name: &str, src: &str, root: &Path) -> Result<(), Reported> {
 	Ok(())
 }
 
+/// The static runtime, embedded so the compiler is a single self-contained binary.
+static RUNTIME: &[u8] = include_bytes!(env!("CARGO_STATICLIB_FILE_OI_RUNTIME_oi_runtime"));
+
 /// Compile a program to a native executable at `out`, linked against the static runtime.
 pub fn build_source(name: &str, src: &str, root: &Path, out: &Path) -> Result<(), Reported> {
 	let program = loader::load(name, src.to_string(), root)?;
@@ -38,19 +41,21 @@ pub fn build_source(name: &str, src: &str, root: &Path, out: &Path) -> Result<()
 		e.report_mapped(&program.map);
 		Reported
 	})?;
-	let archive = std::env::var_os("OI_RUNTIME_LIB")
-		.map(PathBuf::from)
-		.or_else(|| Some(std::env::current_exe().ok()?.with_file_name("liboi_runtime.a")))
-		.filter(|p| p.exists())
-		.ok_or_else(|| fail("cannot find liboi_runtime.a next to the oi binary (or set OI_RUNTIME_LIB)"))?;
-	let tmp = std::env::temp_dir().join(format!("oi_{}.o", std::process::id()));
-	std::fs::write(&tmp, obj).map_err(|e| fail(format!("cannot write {}: {e}", tmp.display())))?;
+	let tmp = std::env::temp_dir().join(format!("oi_{}", std::process::id()));
+	let write = |ext: &str, bytes: &[u8]| {
+		let path = tmp.with_extension(ext);
+		std::fs::write(&path, bytes)
+			.map(|_| path)
+			.map_err(|e| fail(format!("cannot write {}: {e}", tmp.display())))
+	};
 	let cc = std::process::Command::new("cc")
-		.args([&tmp, &archive])
+		.args([write("o", &obj)?, write("a", RUNTIME)?])
 		.args(["-lgcc_s", "-lutil", "-lrt", "-lpthread", "-lm", "-ldl", "-o"])
 		.arg(out)
 		.output();
-	std::fs::remove_file(&tmp).ok();
+	for ext in ["o", "a"] {
+		std::fs::remove_file(tmp.with_extension(ext)).ok();
+	}
 	let cc = cc.map_err(|e| fail(format!("cc: {e}")))?;
 	if !cc.status.success() {
 		std::io::stderr().write_all(&cc.stderr).ok();

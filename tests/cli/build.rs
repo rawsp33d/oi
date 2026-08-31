@@ -1,6 +1,8 @@
+use std::process::Command;
+
 use indoc::indoc;
 
-use crate::common::{Project, Run, oi};
+use crate::common::{Project, Run, oi, ok, trim};
 
 /// Build main.oi with, and run the binary.
 fn build_and_run(src: &str, args: &[&str], bin: &str) -> String {
@@ -18,6 +20,27 @@ fn build_and_run(src: &str, args: &[&str], bin: &str) -> String {
 #[test]
 fn hello_world() {
 	assert_eq!(build_and_run(r#"print("hi")"#, &["main.oi", "-o", "hi"], "hi"), "hi");
+}
+
+#[test]
+fn macros_comp_foreign_and_leak_check() {
+	let main = indoc! {r#"
+		use util
+		sq! :: fn(e: Ast) Ast { `%e * %e` }
+		print(sq!(comp 2 + 3))
+		print(util.cube(3))
+	"#};
+	let util = indoc! {"
+		module util
+		pub cube :: fn(n: int) int { oi_pow_int(n, 3) }
+		oi_pow_int : fn(base: int, exp: int) int : foreign
+	"};
+	let dir = Project::new().file("main.oi", main).file("util.oi", util);
+	ok(oi(&["build"]).current_dir(&dir).run(None));
+	let mut bin = Command::new(dir.as_ref().join("main"));
+	let out = bin.env("OI_LEAK_CHECK", "1").output().unwrap();
+	assert_eq!(trim(&out.stdout), "25\n27");
+	assert_eq!(trim(&out.stderr), "leaked allocations: 0");
 }
 
 #[test]
