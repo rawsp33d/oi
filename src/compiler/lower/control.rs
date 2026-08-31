@@ -166,44 +166,20 @@ impl<'a> Translator<'a> {
 					let tag = self.enum_tag(&st, sv);
 					let disc = self.b.ins().iconst(self.int, disc);
 					self.b.ins().icmp(IntCC::Equal, tag, disc)
-				} else if let (Typ::Tuple(fields), Expr::Tuple(elems)) = (&st, &pat.0) {
-					if elems.len() != fields.len() {
-						let msg = format!(
-							"tuple pattern has {} elements, subject has {}",
-							elems.len(),
-							fields.len()
-						);
-						return Err(Diagnostic::new(msg, pat.1.into_range()).with_label("arity mismatch"));
-					}
+				} else if matches!(&pat.0, Expr::Tuple(_) | Expr::StructLit { .. } | Expr::Array(_)) {
+					let b = self.pat_binds(pat, &st)?;
 					if arm.patterns.len() == 1 {
-						let pairs = elems.iter().zip(fields).map(|((_, e), (_, t))| (e, t));
-						binds = field_binds(pairs, 0, 8)?;
+						binds = b;
 					}
-					self.b.ins().iconst(types::I8, 1)
-				} else if let (
-					Typ::Struct(sname, fdefs),
-					Expr::StructLit {
-						name: pname, fields, ..
-					},
-				) = (&st, &pat.0)
-				{
-					if arm.patterns.len() == 1 {
-						for (fname, e) in fields {
-							let Expr::Ident(local) = &e.0 else { continue };
-							self.check_member(sname, fname.as_deref().unwrap_or(local), e.1)?;
+					match &pat.0 {
+						Expr::Array(elems) => {
+							let sv = self.b.use_var(sv_var);
+							let (_, len) = self.array_parts(sv, &st);
+							let count = self.b.ins().iconst(self.int, elems.len() as i64);
+							self.b.ins().icmp(IntCC::Equal, len, count)
 						}
-						binds = struct_pattern(fdefs, &self.qualify(pname), sname, fields, pat.1)?;
+						_ => self.b.ins().iconst(types::I8, 1),
 					}
-					self.b.ins().iconst(types::I8, 1)
-				} else if let (Typ::Array(elem) | Typ::FixedArray(elem, _), Expr::Array(elems)) = (&st, &pat.0) {
-					if arm.patterns.len() == 1 {
-						let pairs = elems.iter().map(|e| (e, elem.as_ref()));
-						binds = field_binds(pairs, 0, self.elem_stride(elem) as i32)?;
-					}
-					let sv = self.b.use_var(sv_var);
-					let (_, len) = self.array_parts(sv, &st);
-					let count = self.b.ins().iconst(self.int, elems.len() as i64);
-					self.b.ins().icmp(IntCC::Equal, len, count)
 				} else if st == Typ::Ast
 					&& let Expr::Quote(q) = &pat.0
 				{
@@ -262,16 +238,9 @@ impl<'a> Translator<'a> {
 				{
 					s.vars.insert(name.clone(), Local::plain(sv_var, st.clone(), false));
 				}
-				let sv = s.b.use_var(sv_var);
-				let base = match &st {
-					Typ::Array(_) | Typ::FixedArray(..) => s.array_parts(sv, &st).0,
-					_ => sv,
-				};
 				for (name, typ, off) in cap.iter().chain(&binds) {
-					let fv = match &st {
-						Typ::Array(_) | Typ::FixedArray(..) => s.load_elem(base, *off, typ),
-						_ => s.opt_payload(base, &st, typ, *off),
-					};
+					let sv = s.b.use_var(sv_var);
+					let fv = s.load_bind(sv, &st, typ, *off);
 					let fv = s.copy_bind(fv, typ);
 					s.bind_local(name, fv, typ.clone(), false);
 				}
@@ -639,7 +608,7 @@ impl<'a> Translator<'a> {
 			depth,
 		});
 		let flow = self.scoped(|s| {
-			s.bind_pat(pat, val, &typ, false)?;
+			s.bind_pat(pat, val, &typ, Some(false))?;
 			s.block(body)
 		})?;
 		self.loops.pop().expect("loop frame");
@@ -662,83 +631,85 @@ impl<'a> Translator<'a> {
 		Ok(self.unit_value())
 	}
 
-	// Bind a pattern's names against a value.
+	// Bind or assign a pattern's names against a value.
 	pub(super) fn bind_pat(
 		&mut self,
 		pat: &Spanned<Expr>,
-		ptr: Value,
+		val: Value,
 		typ: &Typ,
-		mutable: bool,
+		mutable: Option<bool>,
 	) -> Result<(), Diagnostic> {
-		match &pat.0 {
-			Expr::Ident(name) if name == "_" => {}
-			Expr::Ident(name) => {
-				let val = self.copy_bind(ptr, typ);
-				self.bind_local(name, val, typ.clone(), mutable);
-			}
-			Expr::Tuple(elems) => {
-				let Typ::Tuple(fields) = typ else {
-					return Err(Diagnostic::new(
-						format!("cannot destructure {typ} with a tuple pattern"),
-						pat.1.into_range(),
-					)
-					.with_label("not a tuple"));
-				};
-				if elems.len() != fields.len() {
-					return Err(Diagnostic::new(
-						format!(
-							"pattern binds {} names but the tuple has {} fields",
-							elems.len(),
-							fields.len()
-						),
-						pat.1.into_range(),
-					)
-					.with_label("wrong number of fields"));
+		let parts = !matches!(&pat.0, Expr::Ident(_));
+		let binds = match &pat.0 {
+			Expr::Ident(name) if name == "_" => return Ok(()),
+			Expr::Ident(name) => vec![(name.clone(), typ.clone(), 0)],
+			_ => self.pat_binds(pat, typ)?,
+		};
+		for (name, ftyp, off) in binds {
+			let v = if parts {
+				self.load_bind(val, typ, &ftyp, off)
+			} else {
+				val
+			};
+			let v = self.copy_bind(v, &ftyp);
+			let Some(mutable) = mutable else {
+				let local = self.mutable_local(&name, pat.1.into_range(), Mutation::Assign)?;
+				if local.typ != ftyp {
+					let msg = format!("cannot assign {ftyp} to `{name}`, which is {}", local.typ);
+					return Err(Diagnostic::new(msg, pat.1.into_range()).with_label("type mismatch"));
 				}
-				let pairs = elems.iter().zip(fields).map(|((_, e), (_, t))| (e, t));
-				for (local, ftyp, off) in field_binds(pairs, 0, 8)? {
-					let fv = self.b.ins().load(cl_type(&ftyp, self.int), MemFlags::new(), ptr, off);
-					let fv = self.copy_bind(fv, &ftyp);
-					self.bind_local(&local, fv, ftyp, mutable);
-				}
-			}
-			Expr::StructLit { name, fields, .. } => {
-				let Typ::Struct(sname, fdefs) = typ else {
-					return Err(Diagnostic::new(
-						format!("cannot destructure {typ} with a struct pattern"),
-						pat.1.into_range(),
-					)
-					.with_label("not a struct"));
-				};
-				for (fname, e) in fields {
-					let Some(field) = fname.as_deref() else { continue };
-					self.check_member(sname, field, e.1)?;
-				}
-				for (local, ftyp, off) in struct_pattern(fdefs, &self.qualify(name), sname, fields, pat.1)? {
-					let val = self.opt_payload(ptr, typ, &ftyp, off);
-					let val = self.copy_bind(val, &ftyp);
-					self.bind_local(&local, val, ftyp, mutable);
-				}
-			}
-			Expr::Array(elems) => {
-				let (Typ::Array(e) | Typ::FixedArray(e, _)) = typ else {
-					return Err(Diagnostic::new(
-						format!("cannot destructure {typ} with an array pattern"),
-						pat.1.into_range(),
-					)
-					.with_label("not an array"));
-				};
-				let elem = (**e).clone();
-				let (data, len) = self.array_parts(ptr, typ);
-				for (local, ftyp, idx) in field_binds(elems.iter().map(|e| (e, &elem)), 0, 1)? {
-					let idx = self.b.ins().iconst(self.int, idx as i64);
-					let val = self.load_index(data, len, &ftyp, idx);
-					let val = self.copy_bind(val, &ftyp);
-					self.bind_local(&local, val, ftyp, mutable);
-				}
-			}
-			_ => unreachable!("pattern is always a name, tuple, struct literal, or array"),
+				let old = self.read_local(&local);
+				self.write_local(&local, v);
+				self.release_value(old, &ftyp);
+				continue;
+			};
+			self.bind_local(&name, v, ftyp, mutable);
 		}
 		Ok(())
+	}
+
+	// The names a pattern binds, with their offsets into the subject.
+	// Tuple and struct offsets are in bytes, array offsets are element indices. I couldn't think of a nicer way to do it.
+	pub(super) fn pat_binds(&self, pat: &Spanned<Expr>, typ: &Typ) -> Result<Vec<Bind>, Diagnostic> {
+		match (&pat.0, typ) {
+			(Expr::Tuple(elems), Typ::Tuple(fields)) => {
+				if elems.len() != fields.len() {
+					let msg = format!(
+						"pattern binds {} names but the tuple has {} fields",
+						elems.len(),
+						fields.len()
+					);
+					return Err(Diagnostic::new(msg, pat.1.into_range()).with_label("wrong number of fields"));
+				}
+				field_binds(elems.iter().zip(fields).map(|((_, e), (_, t))| (e, t)), 0, 8)
+			}
+			(Expr::StructLit { name, fields, .. }, Typ::Struct(sname, fdefs)) => {
+				for (fname, e) in fields {
+					let Expr::Ident(local) = &e.0 else { continue };
+					self.check_member(sname, fname.as_deref().unwrap_or(local), e.1)?;
+				}
+				struct_pattern(fdefs, &self.qualify(name), sname, fields, pat.1)
+			}
+			(Expr::Array(elems), Typ::Array(elem) | Typ::FixedArray(elem, _)) => {
+				field_binds(elems.iter().map(|e| (e, &**elem)), 0, 1)
+			}
+			_ => Err(Diagnostic::new(
+				format!("cannot destructure {typ} with this pattern"),
+				pat.1.into_range(),
+			)
+			.with_label("wrong shape")),
+		}
+	}
+
+	// Load a name from `pat_binds` out of the subject.
+	pub(super) fn load_bind(&mut self, subject: Value, typ: &Typ, field: &Typ, off: i32) -> Value {
+		match typ {
+			Typ::Array(_) | Typ::FixedArray(..) => {
+				let (data, len) = self.array_parts(subject, typ);
+				let idx = self.b.ins().iconst(self.int, off as i64);
+				self.load_index(data, len, field, idx)
+			}
+			_ => self.opt_payload(subject, typ, field, off),
+		}
 	}
 }

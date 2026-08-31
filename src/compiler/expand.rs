@@ -38,25 +38,29 @@ struct Expander {
 	stage0: Option<Compiler>,
 }
 
+// Every name a pattern binds.
+fn pat_names(pat: &mut Spanned<Expr>) -> Vec<&mut String> {
+	let elems: Vec<&mut Spanned<Expr>> = match &mut pat.0 {
+		Expr::Ident(n) => return vec![n],
+		Expr::Tuple(fields) | Expr::StructLit { fields, .. } => fields.iter_mut().map(|(_, e)| e).collect(),
+		Expr::Array(elems) => elems.iter_mut().collect(),
+		_ => return vec![],
+	};
+	elems
+		.into_iter()
+		.filter_map(|(e, _)| if let Expr::Ident(n) = e { Some(n) } else { None })
+		.collect()
+}
+
 // Visit every name-binding site in expr.
 // Skips deliberate `%name` captures.
 fn for_binders(e: &mut Expr, f: &mut impl FnMut(&mut String)) {
 	match e {
 		Expr::Bind { name, .. } if !name.starts_with('%') => f(name),
-		Expr::Destructure { names, bind: true, .. } => names.iter_mut().for_each(|(_, n)| f(n)),
-		Expr::PatBind { pat, .. } | Expr::For { pat, .. } => {
-			let locals: Vec<&mut Spanned<Expr>> = match &mut pat.0 {
-				Expr::Ident(_) => vec![pat],
-				Expr::Tuple(fields) | Expr::StructLit { fields, .. } => fields.iter_mut().map(|(_, e)| e).collect(),
-				Expr::Array(elems) => elems.iter_mut().collect(),
-				_ => vec![],
-			};
-			for e in locals {
-				if let Expr::Ident(n) = &mut e.0 {
-					f(n);
-				}
-			}
+		Expr::PatBind {
+			pat, mutable: Some(_), ..
 		}
+		| Expr::For { pat, .. } => pat_names(pat).into_iter().for_each(f),
 		Expr::AnonFn { params, .. } => params.iter_mut().for_each(|p| f(&mut p.name)),
 		Expr::Match { arms, .. } => arms.iter_mut().flat_map(|a| &mut a.binding).for_each(f),
 		_ => {}
@@ -456,7 +460,7 @@ fn fill(e: &mut Spanned<Expr>, bound: &HashSet<String>, args: &HashMap<&str, Arg
 		| Expr::IndexAssign { name: n, .. }
 		| Expr::Append { name: n, .. }
 		| Expr::MapDelete { name: n, .. } => rename(n),
-		Expr::Destructure { names, bind: false, .. } => names.iter_mut().for_each(|(_, n)| rename(n)),
+		Expr::PatBind { pat, mutable: None, .. } => pat_names(pat).into_iter().for_each(rename),
 		Expr::AnonFn {
 			captures: Some(list), ..
 		} => {

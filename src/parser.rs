@@ -574,25 +574,16 @@ where
 			)
 		});
 
-	// tuple destructuring
-	let destructure = paren(loose_list(ident()))
-		.then(
-			just(Token::Bind)
-				.to(Some(true))
-				.or(just(Token::DoubleColon).to(Some(false)))
-				.or(just(Token::Assign).to(None)),
-		)
-		.then(expr.clone())
-		.try_map(|((names, op), value), span| {
-			if names.len() < 2 {
+	// pattern bindings
+	let pat_name = spanned(ident()).map(|(n, s)| (Expr::Ident(n), s));
+
+	// tuple patterns
+	let tuple_pat =
+		spanned(paren(loose_list(pat_name.clone().map(|e| (None::<String>, e))))).try_map(|(elems, espan), span| {
+			if elems.len() < 2 {
 				return Err(Rich::custom(span, "tuple destructuring needs at least 2 names"));
 			}
-			let mutable = op == Some(true);
-			Ok(Expr::Destructure {
-				names: names.into_iter().map(|n| (mutable, n)).collect(),
-				bind: op.is_some(),
-				value: Box::new(value),
-			})
+			Ok((Expr::Tuple(elems), espan))
 		});
 
 	// struct patterns
@@ -617,28 +608,34 @@ where
 			)
 		});
 	// array patterns
-	let array_pat = spanned(bracket(loose_list(spanned(ident()).map(|(n, s)| (Expr::Ident(n), s))))).try_map(
-		|(elems, espan), span| {
-			if elems.is_empty() {
-				return Err(Rich::custom(span, "array destructuring needs at least 1 name"));
-			}
-			Ok((Expr::Array(elems), espan))
-		},
-	);
-	let pat = struct_pat.or(array_pat);
+	let array_pat = spanned(bracket(loose_list(pat_name.clone()))).try_map(|(elems, espan), span| {
+		if elems.is_empty() {
+			return Err(Rich::custom(span, "array destructuring needs at least 1 name"));
+		}
+		Ok((Expr::Array(elems), espan))
+	});
+	let pat = tuple_pat.or(struct_pat).or(array_pat).boxed();
 
-	// destructuring assignment
-	let pat_bind = pat
+	// pattern binds
+	let destructure = pat
 		.clone()
-		.then(just(Token::Bind).to(true).or(just(Token::DoubleColon).to(false)))
+		.then(
+			just(Token::Bind)
+				.to(Some(true))
+				.or(just(Token::DoubleColon).to(Some(false)))
+				.or(just(Token::Assign).to(None)),
+		)
 		.then(expr.clone())
-		.map(|((pat, mutable), value)| Expr::PatBind {
-			pat: Box::new(pat),
-			mutable,
-			value: Box::new(value),
+		.map_with(|((pat, mutable), value), ex| {
+			(
+				Expr::PatBind {
+					pat: Box::new(pat),
+					mutable,
+					value: Box::new(value),
+				},
+				ex.span(),
+			)
 		});
-
-	let destructure = destructure.or(pat_bind).map_with(|e, ex| (e, ex.span()));
 
 	let doc = select! { Token::Doc(text) => text }
 		.repeated()
@@ -962,15 +959,8 @@ where
 			})
 			.boxed();
 
-		// a for-loop binds/destructures into names
-		let pattern = {
-			let name = spanned(ident()).map(|(n, s)| (Expr::Ident(n), s));
-			let tuple = spanned(paren(loose_list(name.clone().map(|e| (None::<String>, e)))))
-				.map(|(elems, s)| (Expr::Tuple(elems), s));
-			tuple.or(pat.clone()).or(name)
-		};
 		let for_expr = just(Token::Loop)
-			.ignore_then(pattern)
+			.ignore_then(pat.clone().or(pat_name))
 			.then_ignore(just(Token::In))
 			.then(header_expr.clone().map(Box::new))
 			.then(block.clone())

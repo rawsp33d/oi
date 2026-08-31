@@ -61,7 +61,7 @@ fn fail_arity_mismatch() {
 
 #[test]
 fn fail_non_tuple() {
-	fail_with("(a, b) :: 5", "expected a tuple");
+	fail_with("(a, b) :: 5", "cannot destructure");
 }
 
 #[test]
@@ -115,6 +115,17 @@ fn skip_underscore() {
 		"Point :: struct { x: int, y: int }\nPoint.{ y = _, x } :: Point.{ 1, 2 }\nx",
 		"1",
 	);
+}
+
+#[test]
+fn assign_through_pattern() {
+	let src = indoc! {"
+		Point :: struct { x: int, y: int }
+		x := 0
+		Point.{ x } = Point.{ 1, 2 }
+		x
+	"};
+	check(src, "1");
 }
 
 #[test]

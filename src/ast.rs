@@ -45,18 +45,12 @@ pub enum Expr {
 		value: Box<Spanned<Expr>>,
 	},
 
-	// `(a, mut b) := value`, `(a, b) = value`
-	Destructure {
-		names: Vec<(bool, String)>,
-		value: Box<Spanned<Expr>>,
-		bind: bool,
-	},
-
-	// `pat := value`
+	// pattern bindings
 	PatBind {
 		pat: Box<Spanned<Expr>>,
 		value: Box<Spanned<Expr>>,
-		mutable: bool,
+		// `None` means assigning to existing locals
+		mutable: Option<bool>,
 	},
 
 	// `...expr`
@@ -338,7 +332,6 @@ impl Expr {
 			Expr::OptionInit { arg: v, .. }
 			| Expr::ResultInit { arg: v, .. }
 			| Expr::Assign { value: v, .. }
-			| Expr::Destructure { value: v, .. }
 			| Expr::PatBind { value: v, .. }
 			| Expr::MutArg(v)
 			| Expr::Spread(v)

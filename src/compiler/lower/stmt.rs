@@ -79,47 +79,10 @@ impl<'a> Translator<'a> {
 					self.bind_local(name, final_val, typ, *mutable);
 				}
 
-				// destructuring assignment
+				// pattern bindings
 				Expr::PatBind { pat, value, mutable } => {
 					let (ptr, typ) = self.expr(value)?;
 					self.bind_pat(pat, ptr, &typ, *mutable)?;
-				}
-
-				Expr::Destructure { names, value, bind } => {
-					let (ptr, typ) = self.expr(value)?;
-					let fields = match &typ {
-						Typ::Tuple(f) if f.len() == names.len() => f.clone(),
-						_ => {
-							return Err(Diagnostic::new(
-								format!("cannot destructure {typ} into {} names", names.len()),
-								value.1.into_range(),
-							)
-							.with_label(format!("expected a tuple with {} fields", names.len())));
-						}
-					};
-					for (i, ((mutable, name), (_, ftyp))) in names.iter().zip(fields).enumerate() {
-						if name == "_" {
-							continue;
-						}
-						let cl = cl_type(&ftyp, self.int);
-						let val = self.b.ins().load(cl, MemFlags::new(), ptr, (i * 8) as i32);
-						let val = self.copy_bind(val, &ftyp);
-						if *bind {
-							self.bind_local(name, val, ftyp, *mutable);
-						} else {
-							let local = self.mutable_local(name, stmt.1.into_range(), Mutation::Assign)?;
-							if local.typ != ftyp {
-								return Err(Diagnostic::new(
-									format!("cannot assign {ftyp} to `{name}`, which is {}", local.typ),
-									value.1.into_range(),
-								)
-								.with_label("type mismatch"));
-							}
-							let old = self.read_local(&local);
-							self.write_local(&local, val);
-							self.release_value(old, &ftyp);
-						}
-					}
 				}
 
 				Expr::Assign { name, value } => {

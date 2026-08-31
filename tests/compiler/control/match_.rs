@@ -139,7 +139,7 @@ fn match_tuple_destructure() {
 
 #[test]
 fn match_tuple_arity_mismatch() {
-	fail_with("match (1, 2) { (a, b, c) => a, }", "tuple pattern has 3");
+	fail_with("match (1, 2) { (a, b, c) => a, }", "pattern binds 3 names");
 }
 
 #[test]
