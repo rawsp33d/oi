@@ -286,7 +286,7 @@ pay :: fn(m: Money) {}
 pay(Money(500))
 
 # can receive methods
-Money :{
+Money :< {
 	str :: fn(self) string {
 		"${self.0}"
 	}
@@ -332,7 +332,7 @@ Options :: struct {
 	foo: int
 	bar: bool
 }
-User :{
+User :< {
 	with_options :: fn(self, opt: Options) {
 		print(opt)
 	}
@@ -348,7 +348,7 @@ user.with_options(bar = true, foo = 4)
 Settings :: struct {
 	idk: int
 }
-User :{
+User :< {
 	with_settings :: fn(self, settings: Settings) {
 		print(settings)
 	}
@@ -396,7 +396,7 @@ open :: fn(opts: struct { retries: int }) struct { ok: bool } {
 }
 
 # static struct methods
-User :{
+User :< {
 	new :: fn() Self {
 		Self {}
 	}
@@ -404,7 +404,7 @@ User :{
 user :: User.new()
 
 # struct methods
-User :{
+User :< {
 	can_register :: fn(self) bool {
 		self.age > 16
 	}
@@ -445,11 +445,11 @@ Point :: struct {
 	y: int
 }
 
-Point :{
+Point :< {
 	zero :: fn() Self { Point.{0, 0} }
 }
 
-Point : Add {
+Point : Add < {
 	add :: fn(self, other: Self) Self {
 		Self.{ self.x + other.x, self.y + other.y }
 	}
@@ -461,7 +461,7 @@ assert!((1, "a") == (1, "a"))
 
 # claim `Eq` to define equality yourself
 Frac :: struct { num: int, den: int }
-Frac : Eq {
+Frac : Eq < {
 	eq :: fn(self, other: Self) bool {
 		self.num * other.den == other.num * self.den
 	}
@@ -469,27 +469,27 @@ Frac : Eq {
 assert!(Frac.{1, 2} == Frac.{2, 4})
 
 # unary `-` dispatches to a `Neg` claim
-Point : Neg {
+Point : Neg < {
 	neg :: fn(self) Self { Self.{ -self.x, -self.y } }
 }
 assert!(-Point.{1, 2} == Point.{-1, -2})
 
 # `Ord` orders a type with a single `lt`. `< > <= >=` all derive from it
-Frac : Ord {
+Frac : Ord < {
 	lt :: fn(self, other: Self) bool { self.num * other.den < other.num * self.den }
 }
 assert!(Frac.{1, 3} < Frac.{1, 2})
 
 # enums can claim operator traits too
 Dir :: enum { up, down }
-Dir : Ord {
+Dir : Ord < {
 	lt :: fn(self, other: Self) bool { other == .up }
 }
 assert!(Dir.down < Dir.up)
 
 # arithmetic fills don't need to be of the same type
 Scale :: struct { f: int }
-Scale : Mul {
+Scale : Mul < {
 	mul :: fn(self, other: int) Self { Self.{ self.f * other } }
 }
 assert!(Scale.{3} * 2 == 2 * Scale.{3}) # "+/* are commutative
@@ -518,9 +518,13 @@ Person :: struct {
 }
 
 # traits are satisfied by an explicit implementation
-Dog : Animal { speak :: fn(self) string { "woof" } }
-Cat : Animal { speak :: fn(self) string { "meow" } }
-Person : Animal {
+Dog : Animal < {
+	speak :: fn(self) string { "woof" }
+}
+Cat : Animal < {
+	speak :: fn(self) string { "meow" }
+}
+Person : Animal < {
 	speak :: fn(self) string { "Lorem ipsum..." }
 }
 
@@ -530,7 +534,7 @@ Enemy :: struct {
 	Meta
 	hp: int
 }
-Enemy : Animal { speak :: fn(self) string { "rawr" } }
+Enemy : Animal < { speak :: fn(self) string { "rawr" } }
 
 demo_traits :: fn() {
 	dog :: Dog.{"Collie"}
@@ -564,7 +568,7 @@ Bike :: struct {
 	color: Color = :purple
 }
 # a bare claim needs no body when the shape is already satisfied
-Apple : Fruit
+Apple :< Fruit
 assert!(Kiwi is Fruit)
 assert!(Apple is Fruit)
 assert!(Bike is not Fruit)
@@ -587,7 +591,7 @@ Iterator :: trait {
 	next: fn(mut self) ?Item
 }
 Range :: struct { cur: int, end: int }
-Range : Iterator {
+Range : Iterator < {
 	Item :: int
 	next :: fn(mut self) ?int {
 		if self.cur >= self.end { return none }
@@ -613,7 +617,7 @@ Bounded :: trait {
 	min: Self
 	max: Self
 }
-i8 : Bounded {
+i8 : Bounded < {
 	min :: -128
 	max :: 127
 }
@@ -625,7 +629,7 @@ i8 : Bounded {
 ToString :: trait {
 	to_string: fn(self) string
 }
-[T: Display] T : ToString {
+[T: Display] T : ToString < {
 	to_string :: fn(self) string { self.display() }
 }
 }#
@@ -634,22 +638,22 @@ ToString :: trait {
 
 # traits don't have to have methods or fields or anything
 Copy :: trait {}
-Point : Copy
+Point :< Copy
 
 ## delegation
 
 # `via` routes a claim through an embedded field that already satisfies it
 Horn :: struct { kind: string }
-Horn : Animal {
+Horn : Animal < {
 	speak :: fn(self) string { "honk" }
 }
 Car :: struct {
 	Horn
 }
-Car : Animal via Horn
+Car :< Animal via Horn
 
 # a `via` claim may override individual methods, routing the rest through the stated field
-Car : Animal via Horn { speak :: fn(self) string { "HONK HONK" } }
+Car : Animal via Horn < { speak :: fn(self) string { "HONK HONK" } }
 
 ## composite types
 
@@ -1205,7 +1209,7 @@ main :: fn() {
 		cached_name ?string # zero value is `none`
 	}
 
-	Repo :{
+	Repo :< {
 		# !T returns a value or an error
 		find_user :: fn(id: int) !User {
 			loop user in self.users {
@@ -1299,7 +1303,7 @@ main :: fn() {
 		line: int
 		col: int
 	}
-	ParseError :{
+	ParseError :< {
 		message :: fn(self) string { "parse error at {self.line}:{self.col}" }
 	}
 
@@ -1316,7 +1320,7 @@ main :: fn() {
 		msg: string
 		inner: Error
 	}
-	WrappedError :{
+	WrappedError :< {
 		message :: fn(self) string { self.msg }
 		cause :: fn(self) ?Error { self.inner }
 	}
@@ -1468,8 +1472,8 @@ main :: fn() {
 
 	## sum types
 
-	type Id = int | string
-	type Json = :null | bool | f64 | string | []Json | Map[string, Json]
+	Id :: int | string
+	Json :: :null | bool | f64 | string | []Json | Map[string, Json]
 
 	# member values coerce when the type is known from context
 	id: Id = 7
@@ -1479,8 +1483,8 @@ main :: fn() {
 	lookup :: fn(id: Id) User | :missing { :missing }
 
 	# nested sum aliases splice in place
-	type Num = int | f64
-	type Value = Num | string # = int | f64 | string
+	Num :: int | f64
+	Value :: Num | string # = int | f64 | string
 
 	# matching is exhaustive
 	describe :: fn(id: Id) string {
@@ -1491,7 +1495,7 @@ main :: fn() {
 	}
 
 	# members must be distinct after alias resolution
-	# type Bad = int | int # error: duplicate member
+	# Bad :: int | int # error: duplicate member
 
 	# the zero value is the first member's zero
 	blank: Id # 0

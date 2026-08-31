@@ -1,5 +1,5 @@
 Box[T] :: struct { v: T }
-Box[T] :{
+Box[T] :< {
 	get :: fn(self) T { self.v }
 }
 

@@ -55,7 +55,7 @@ fn multiline() {
 fn user_str_impl() {
 	let src = indoc! {r#"
 		Money :: struct { n: int }
-		Money :{ str :: fn(self) string { "$" + self.n.str() } }
+		Money :< { str :: fn(self) string { "$" + self.n.str() } }
 		m :: Money.{5}
 		print("cost: {m}")
 	"#};

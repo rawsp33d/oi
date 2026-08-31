@@ -236,7 +236,7 @@ pub enum Expr {
 		value: Box<Spanned<Expr>>,
 	},
 
-	// `Type :{ fills }`
+	// `Type :< { fills }`
 	Claim {
 		typ: String,
 		type_params: Vec<TypeParam>,

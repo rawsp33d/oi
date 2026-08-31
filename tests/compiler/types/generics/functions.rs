@@ -150,7 +150,7 @@ fn explicit_type_arg_on_non_generic_errors() {
 fn bounded_type_param_parses_and_runs() {
 	let src = indoc! {"
 		Ord :: trait {}
-		int : Ord
+		int :< Ord
 		biggest[T: Ord] :: fn(a: T, b: T) T {
 			if a > b { a } else { b }
 		}

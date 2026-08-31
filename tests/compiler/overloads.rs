@@ -4,7 +4,7 @@ use crate::helpers::*;
 fn struct_op_dispatches() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
-		Point : Add {
+		Point : Add < {
 			add :: fn(self, other: Self) Self {
 				Self.{ self.x + other.x, self.y + other.y }
 			}
@@ -18,12 +18,12 @@ fn struct_op_dispatches() {
 fn eq_dispatches_to_the_fill() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
-		Point : Add {
+		Point : Add < {
 			add :: fn(self, other: Self) Self {
 				Self.{ self.x + other.x, self.y + other.y }
 			}
 		}
-		Point : Eq {
+		Point : Eq < {
 			eq :: fn(self, other: Self) bool { self.x == other.x && self.y == other.y }
 		}
 		assert!(Point.{1, 0} + Point.{2, 3} == Point.{3, 3})
@@ -50,7 +50,7 @@ fn eq_is_structural_by_default() {
 fn claimed_eq_beats_the_structural_default() {
 	let src = indoc! {"
 		Frac :: struct { num: int, den: int }
-		Frac : Eq {
+		Frac : Eq < {
 			eq :: fn(self, other: Self) bool { self.num * other.den == other.num * self.den }
 		}
 		print(Frac.{1, 2} == Frac.{2, 4})
@@ -62,7 +62,7 @@ fn claimed_eq_beats_the_structural_default() {
 fn neg_dispatches_to_the_fill() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
-		Point : Neg {
+		Point : Neg < {
 			neg :: fn(self) Self { Self.{ -self.x, -self.y } }
 		}
 		print(-Point.{1, 2})
@@ -74,7 +74,7 @@ fn neg_dispatches_to_the_fill() {
 fn orderings_derive_from_ord() {
 	let src = indoc! {"
 		Frac :: struct { num: int, den: int }
-		Frac : Ord {
+		Frac : Ord < {
 			lt :: fn(self, other: Self) bool { self.num * other.den < other.num * self.den }
 		}
 		a :: Frac.{1, 3}
@@ -117,10 +117,10 @@ fn unclaimed_struct_is_rejected() {
 fn enum_ops_dispatch() {
 	let src = indoc! {"
 		Dir :: enum { up, down }
-		Dir : Add {
+		Dir : Add < {
 			add :: fn(self, other: Self) Self { if self == .up { other } else { .down } }
 		}
-		Dir : Neg {
+		Dir : Neg < {
 			neg :: fn(self) Self { if self == .up { Dir.down } else { Dir.up } }
 		}
 		print(Dir.up + Dir.down, -Dir.up)
@@ -132,8 +132,8 @@ fn enum_ops_dispatch() {
 fn enum_claims_beat_structural_defaults() {
 	let src = indoc! {"
 		Rev :: enum { a, b }
-		Rev : Eq { eq :: fn(self, other: Self) bool { true } }
-		Rev : Ord { lt :: fn(self, other: Self) bool { true } }
+		Rev : Eq < { eq :: fn(self, other: Self) bool { true } }
+		Rev : Ord < { lt :: fn(self, other: Self) bool { true } }
 		print(Rev.a == Rev.b, Rev.b < Rev.a)
 	"};
 	check(src, "true true");
@@ -153,7 +153,7 @@ fn enum_payloads_compare_structurally() {
 fn fill_must_match_the_trait() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
-		Point : Eq {
+		Point : Eq < {
 			eq :: fn(self, other: int) bool { true }
 		}
 	"};
@@ -167,7 +167,7 @@ fn fill_must_match_the_trait() {
 fn arithmetic_fills_narrow_and_commute() {
 	let src = indoc! {"
 		Scale :: struct { f: int }
-		Scale : Mul {
+		Scale : Mul < {
 			mul :: fn(self, other: int) Self { Self.{ self.f * other } }
 		}
 		print((Scale.{3} * 2).f, (2 * Scale.{3}).f)
@@ -179,7 +179,7 @@ fn arithmetic_fills_narrow_and_commute() {
 fn non_commuting_ops_never_reverse() {
 	let src = indoc! {"
 		Scale :: struct { f: int }
-		Scale : Div {
+		Scale : Div < {
 			div :: fn(self, other: int) Self { Self.{ self.f / other } }
 		}
 		print(2 / Scale.{3})

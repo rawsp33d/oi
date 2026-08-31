@@ -1,6 +1,6 @@
 module core
 
-float :{
+float :< {
 	## Smallest step between distinct `float` values near 1.0.
 	epsilon :: 2.0 ** -52.0
 
@@ -15,6 +15,6 @@ float :{
 	}
 }
 
-f32 :{
+f32 :< {
 	epsilon :: 2.0 ** -23.0
 }

@@ -102,7 +102,7 @@ fn annotation_only_goes_on_definitions() {
 		indoc! {"
 			Foo :: struct {}
 			@:awesome
-			Foo : Eq {}
+			Foo :< Eq
 		"},
 		"annotations only attach to definitions",
 	);
@@ -164,7 +164,7 @@ fn params_omits_trailing_struct() {
 			@params
 			Settings :: struct { idk: int = 7 }
 			User :: struct {}
-			User :{
+			User :< {
 				with_settings :: fn(self, settings: Settings) { print(settings.idk) }
 			}
 			take :: fn(settings: Settings) { print(settings.idk) }

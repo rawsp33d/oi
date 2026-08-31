@@ -327,7 +327,7 @@ fn named_method_args() {
 	check(
 		"Options :: struct { foo: int, bar: bool }
 		User :: struct {}
-		User :{
+		User :< {
 			with_options :: fn(self, opt: Options) { print(opt.bar) }
 		}
 		user :: User.{}
@@ -497,7 +497,7 @@ fn embedded_structs() {
 fn embedded_method_promotion() {
 	let src = indoc! {"
 		Options :: struct { foo: int }
-		Options :{
+		Options :< {
 			show :: fn(self) int { self.foo }
 			bump :: fn(mut self) { self.foo = self.foo + 1 }
 		}

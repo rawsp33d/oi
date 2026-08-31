@@ -4,7 +4,7 @@ use crate::helpers::*;
 fn instance_method() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
-		Point :{
+		Point :< {
 			sum :: fn(self) int { self.x + self.y }
 		}
 		p :: Point.{3, 4}
@@ -17,7 +17,7 @@ fn instance_method() {
 fn method_with_args() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
-		Point :{
+		Point :< {
 			scaled :: fn(self, k: int) int { (self.x + self.y) * k }
 		}
 		Point.{3, 4}.scaled(10)
@@ -29,7 +29,7 @@ fn method_with_args() {
 fn method_on_literal() {
 	let src = indoc! {"
 		P :: struct { x: int, y: int }
-		P :{ sum :: fn(self) int { self.x + self.y } }
+		P :< { sum :: fn(self) int { self.x + self.y } }
 		P.{3, 4}.sum()
 	"};
 	check(src, "7");
@@ -39,7 +39,7 @@ fn method_on_literal() {
 fn static_method() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
-		Point :{
+		Point :< {
 			origin :: fn() Point { Point.{0, 0} }
 			sum :: fn(self) int { self.x + self.y }
 		}
@@ -52,7 +52,7 @@ fn static_method() {
 fn static_method_with_args() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
-		Point :{ make :: fn(a: int, b: int) Point { Point.{a, b} } }
+		Point :< { make :: fn(a: int, b: int) Point { Point.{a, b} } }
 		Point.make(3, 4).x
 	"};
 	check(src, "3");
@@ -62,7 +62,7 @@ fn static_method_with_args() {
 fn self_type_and_literal() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
-		Point :{
+		Point :< {
 			new :: fn() Self { Self.{} }
 			sum :: fn(self) int { self.x + self.y }
 		}
@@ -75,7 +75,7 @@ fn self_type_and_literal() {
 fn self_param_and_fields() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
-		Point :{
+		Point :< {
 			add :: fn(self, other: Self) Self { Self.{self.x + other.x, self.y + other.y} }
 		}
 		Point.{1, 2}.add(Point.{3, 4}).x
@@ -93,7 +93,7 @@ fn immutable_self_rejects_field_assign() {
 	fail_with(
 		indoc! {"
 			P :: struct { x: int }
-			P :{ bad :: fn(self) { self.x = 9 } }
+			P :< { bad :: fn(self) { self.x = 9 } }
 			P.{1}.bad()
 		"},
 		"immutably bound",
@@ -117,7 +117,7 @@ fn wrong_arg_count() {
 	fail_with(
 		indoc! {"
 			P :: struct { x: int }
-			P :{ add :: fn(self, k: int) int { self.x + k } }
+			P :< { add :: fn(self, k: int) int { self.x + k } }
 			P.{1}.add()
 		"},
 		"expects 1 argument",
@@ -165,7 +165,7 @@ fn builtin_amendment_primitives() {
 fn associated_const() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
-		Point :{ origin :: Point.{0, 0} }
+		Point :< { origin :: Point.{0, 0} }
 		print(Point.origin.x)
 	"};
 	check(src, "0");
@@ -175,7 +175,7 @@ fn associated_const() {
 fn builtin_amendment_outside_core() {
 	fail_with(
 		indoc! {r#"
-			string :{
+			string :< {
 				nope :: fn(self) bool { true }
 			}
 			print("hi".nope())

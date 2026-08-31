@@ -5,7 +5,7 @@ Dog :: struct {
 	# greeting := "woof"
 }
 
-Dog :{
+Dog :< {
 	greet :: fn(self) string {
 		"{self.name} says {self.greeting}!"
 	}

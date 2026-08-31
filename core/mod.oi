@@ -22,7 +22,7 @@ pub Error :: trait {
 	cause :: fn(self) ?Error { none }
 }
 
-string : Error {
+string : Error < {
 	message :: fn(self) string { self }
 }
 

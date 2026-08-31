@@ -864,7 +864,7 @@ fn method_on_receiver() {
 	check(
 		indoc! {r##"
 			Color :: enum { red green blue }
-			Color :{
+			Color :< {
 				hex :: fn(self) string {
 					match self {
 						.red => "#f00",
@@ -885,7 +885,7 @@ fn method_compares_self() {
 	check(
 		indoc! {"
 			Color :: enum { red green blue }
-			Color :{ is_warm :: fn(self) bool { self == .red } }
+			Color :< { is_warm :: fn(self) bool { self == .red } }
 			print(Color.red.is_warm())
 			print(Color.blue.is_warm())
 		"},
@@ -898,7 +898,7 @@ fn method_on_payload_enum() {
 	check(
 		indoc! {r#"
 			Shape :: enum { point triangle(f64, f64, f64) }
-			Shape :{
+			Shape :< {
 				perimeter :: fn(self) f64 {
 					match self {
 						.triangle(a, b, c) => a + b + c,
@@ -917,7 +917,7 @@ fn str_fill_overrides_derived() {
 	check(
 		indoc! {r#"
 			E :: enum { a b }
-			E :{ str :: fn(self) string { "custom" } }
+			E :< { str :: fn(self) string { "custom" } }
 			E.a.str()
 		"#},
 		"custom",

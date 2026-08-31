@@ -17,7 +17,7 @@ badge :: fn(u: User) string {
 	}
 }
 
-User :{
+User :< {
 	create :: fn(name: string) Self {
 		return User.{ name }
 	}

@@ -142,7 +142,7 @@ fn methods_and_self() {
 	check(
 		indoc! {"
 			Money :: struct (int)
-			Money :{
+			Money :< {
 				double :: fn(self) Self {
 					Money(self.0 * 2)
 				}
@@ -158,7 +158,7 @@ fn str_override() {
 	check(
 		indoc! {r#"
 			Money :: struct (int)
-			Money :{
+			Money :< {
 				str :: fn(self) string {
 					"money!"
 				}

@@ -31,9 +31,9 @@ never_change :: "hi there"
 sound := :loud
 sound = :quiet
 
-# fills :{}
+# fills :>
 Point :: struct { x: float, y: float }
-Point :{
+Point :< {
 	locate :: fn(self) {
 		print("I'm at ({self.x}, {self.y})")
 	}

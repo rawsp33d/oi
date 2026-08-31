@@ -283,7 +283,7 @@ fn error_cause_defaults_to_none() {
 fn claimed_error_bare_return() {
 	let src = indoc! {r#"
 		NetError :: enum { timeout refused }
-		NetError : Error {
+		NetError : Error < {
 			message :: fn(self) string { "net down" }
 		}
 		f :: fn() !int { return NetError.timeout }
@@ -299,7 +299,7 @@ fn claimed_error_bare_return() {
 fn claimed_error_wrapped() {
 	let src = indoc! {r#"
 		NetError :: enum { timeout refused }
-		NetError : Error {
+		NetError : Error < {
 			message :: fn(self) string { "net down" }
 		}
 		f :: fn() !int { return error(NetError.timeout) }
@@ -315,7 +315,7 @@ fn claimed_error_wrapped() {
 fn pinned_propagates_into_open() {
 	let src = indoc! {r#"
 		NetError :: enum { timeout refused }
-		NetError : Error {
+		NetError : Error < {
 			message :: fn(self) string { "net down" }
 		}
 		a :: fn() Result[int, NetError] { return NetError.refused }

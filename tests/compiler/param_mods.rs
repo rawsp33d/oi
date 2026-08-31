@@ -74,7 +74,7 @@ fn method_mut_arg() {
 	check(
 		indoc! {"
 			C :: struct { n: int }
-			C :{ take :: fn(self, mut xs: []int) { xs << self.n } }
+			C :< { take :: fn(self, mut xs: []int) { xs << self.n } }
 			a := [1]
 			c :: C.{n = 7}
 			c.take(mut a)
@@ -89,7 +89,7 @@ fn mut_self_on_mut_binding() {
 	check(
 		indoc! {"
 			C :: struct { n: int }
-			C :{ bump :: fn(mut self) { self.n = self.n + 1 } }
+			C :< { bump :: fn(mut self) { self.n = self.n + 1 } }
 			c := C.{n = 1}
 			c.bump()
 			c.n
@@ -191,7 +191,7 @@ fn exclusivity_covers_receiver() {
 	fail_with(
 		indoc! {"
 			C :: struct { xs: []int }
-			C :{ take :: fn(self, mut xs: []int) {} }
+			C :< { take :: fn(self, mut xs: []int) {} }
 			c := C.{xs = [1]}
 			c.take(mut c)
 		"},
@@ -204,7 +204,7 @@ fn mut_self_needs_mut_binding() {
 	fail_with(
 		indoc! {"
 			C :: struct { n: int }
-			C :{ bump :: fn(mut self) { self.n = self.n + 1 } }
+			C :< { bump :: fn(mut self) { self.n = self.n + 1 } }
 			c :: C.{n = 1}
 			c.bump()
 		"},

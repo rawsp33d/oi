@@ -3,13 +3,13 @@ use crate::helpers::*;
 const ANIMAL_DOG: &str = indoc! {r#"
 	Animal :: trait { speak : fn(self) string }
 	Dog :: struct {}
-	Dog : Animal { speak :: fn(self) string { "woof" } }
+	Dog : Animal < { speak :: fn(self) string { "woof" } }
 "#};
 
 const ANIMAL_DOG_KIND: &str = indoc! {r#"
 	Animal :: trait { speak : fn(self) string }
 	Dog :: struct { kind: string }
-	Dog : Animal { speak :: fn(self) string { "woof" } }
+	Dog : Animal < { speak :: fn(self) string { "woof" } }
 "#};
 
 const ANIMAL_KIND: &str = indoc! {r#"
@@ -18,7 +18,7 @@ const ANIMAL_KIND: &str = indoc! {r#"
 		speak : fn(self) string
 	}
 	Dog :: struct { kind: string }
-	Dog : Animal { speak :: fn(self) string { "woof" } }
+	Dog : Animal < { speak :: fn(self) string { "woof" } }
 "#};
 
 #[test]
@@ -30,7 +30,7 @@ fn trait_def_and_impl() {
 			shout :: fn(self) string { self.speak() + "!" }
 		}
 		Dog :: struct { kind: string }
-		Dog : Animal { speak :: fn(self) string { "woof" } }
+		Dog : Animal < { speak :: fn(self) string { "woof" } }
 		Dog.{ "Collie" }.speak()
 	"#};
 	check(src, "woof");
@@ -41,7 +41,7 @@ fn marker_impl() {
 	let src = indoc! {r#"
 		Copy :: trait {}
 		Dog :: struct { kind: string }
-		Dog : Copy
+		Dog :< Copy
 		Dog.{ "Collie" }.kind
 	"#};
 	check(src, "Collie");
@@ -65,8 +65,8 @@ fn supertraits() {
 		Eq :: trait {}
 		Ord : Eq : trait {}
 		X :: struct {}
-		X : Eq
-		X : Ord
+		X :< Eq
+		X :< Ord
 		print(X is Ord)
 	"};
 	check(src, "true");
@@ -75,7 +75,7 @@ fn supertraits() {
 		Eq :: trait {}
 		Ord :: trait is Eq {}
 		X :: struct {}
-		X : Ord
+		X :< Ord
 	"});
 }
 
@@ -92,7 +92,7 @@ fn default_methods() {
 			shout :: fn(self) string { self.speak() + "!" }
 		}
 		Dog :: struct {}
-		Dog : Animal { speak :: fn(self) string { "woof" } }
+		Dog : Animal < { speak :: fn(self) string { "woof" } }
 		Dog.{}.shout()
 	"#};
 	check(src, "woof!");
@@ -102,7 +102,7 @@ fn default_methods() {
 			shout :: fn(self) string { self.speak() + "!" }
 		}
 		Dog :: struct {}
-		Dog : Animal {
+		Dog : Animal < {
 			speak :: fn(self) string { "woof" }
 			shout :: fn(self) string { "WOOF" }
 		}
@@ -116,7 +116,7 @@ fn field_requirement_satisfied() {
 	let src = indoc! {r#"
 		Animal :: trait { kind: string }
 		Dog :: struct { kind: string }
-		Dog : Animal
+		Dog :< Animal
 		Dog.{ "Collie" }.kind
 	"#};
 	check(src, "Collie");
@@ -127,7 +127,7 @@ fn is_expression() {
 	let src = indoc! {"
 		Animal :: trait {}
 		Dog :: struct {}
-		Dog : Animal
+		Dog :< Animal
 		D :: Dog
 		print(Dog is Animal)
 		print(Dog is not Animal)
@@ -156,17 +156,17 @@ fn is_expression_unknown_type() {
 fn rejects_bad_impls() {
 	fail(indoc! {r#"
 		Dog :: struct {}
-		Dog : Animal { speak :: fn(self) string { "woof" } }
+		Dog : Animal < { speak :: fn(self) string { "woof" } }
 	"#});
 	fail(indoc! {r#"
 		Animal :: trait { speak: fn(self) string }
 		Dog :: struct {}
-		Dog : Animal {}
+		Dog : Animal < {}
 	"#});
 	fail(indoc! {r#"
 		Animal :: trait { kind: string }
 		Dog :: struct {}
-		Dog : Animal
+		Dog :< Animal
 	"#});
 }
 
@@ -183,7 +183,7 @@ fn allows_extra_helper_fills() {
 	let src = indoc! {r#"
 		Animal :: trait { speak: fn(self) string }
 		Dog :: struct {}
-		Dog : Animal {
+		Dog : Animal < {
 			speak :: fn(self) string { self.noise() }
 			noise :: fn(self) string { "woof" }
 		}
@@ -198,7 +198,7 @@ fn rejects_wrong_arity_impl() {
 		indoc! {r#"
 			Animal :: trait { speak: fn(self) string }
 			Dog :: struct {}
-			Dog : Animal { speak :: fn(self, loud: bool) string { "woof" } }
+			Dog : Animal < { speak :: fn(self, loud: bool) string { "woof" } }
 		"#},
 		"wrong signature",
 	);
@@ -210,7 +210,7 @@ fn one_fill_satisfies_two_traits() {
 		A :: trait { f: fn(self) int }
 		B :: trait { f: fn(self) int }
 		S :: struct {}
-		S : A, B { f :: fn(self) int { 9 } }
+		S : A, B < { f :: fn(self) int { 9 } }
 		S.{}.f()
 	"};
 	check(src, "9");
@@ -223,7 +223,7 @@ fn rejects_shared_fill_sig_mismatch() {
 			A :: trait { f: fn(self) int }
 			B :: trait { f: fn(self) string }
 			S :: struct {}
-			S : A, B { f :: fn(self) int { 9 } }
+			S : A, B < { f :: fn(self) int { 9 } }
 		"},
 		"declares",
 	);
@@ -236,7 +236,7 @@ fn rejects_conflicting_defaults() {
 			A :: trait { f :: fn(self) int { 1 } }
 			B :: trait { f :: fn(self) int { 2 } }
 			S :: struct {}
-			S : A, B
+			S :< A, B
 		"},
 		"takes default `f` from both",
 	);
@@ -248,7 +248,7 @@ fn own_fill_settles_default_conflict() {
 		A :: trait { f :: fn(self) int { 1 } }
 		B :: trait { f :: fn(self) int { 2 } }
 		S :: struct { f :: fn(self) int { 3 } }
-		S : A, B
+		S :< A, B
 		S.{}.f()
 	"};
 	check(src, "3");
@@ -259,7 +259,7 @@ fn body_fill_discharges_bare_claim() {
 	let src = indoc! {"
 		A :: trait { f: fn(self) int }
 		S :: struct { f :: fn(self) int { 7 } }
-		S : A
+		S :< A
 		S.{}.f()
 	"};
 	check(src, "7");
@@ -270,7 +270,7 @@ fn rejects_duplicate_fill() {
 	fail_with(
 		indoc! {"
 			S :: struct { f :: fn(self) int { 1 } }
-			S :{ f :: fn(self) int { 2 } }
+			S :< { f :: fn(self) int { 2 } }
 		"},
 		"duplicate fill",
 	);
@@ -280,7 +280,7 @@ fn rejects_duplicate_fill() {
 fn dyn_dispatch_zoo() {
 	let src = indoc! {r#"
 		Cat :: struct { legs: int, kind: string }
-		Cat : Animal { speak :: fn(self) string { "meow" } }
+		Cat : Animal < { speak :: fn(self) string { "meow" } }
 		zoo : []Animal : [ Dog.{ "collie" }, Cat.{ 4, "mau" } ]
 		loop a in zoo { print("a " + a.kind + " says " + a.speak()) }
 	"#};
@@ -289,20 +289,20 @@ fn dyn_dispatch_zoo() {
 
 const CAR_HORN: &str = indoc! {r#"
 	Horn :: struct { kind: string }
-	Horn : Animal { speak :: fn(self) string { "honk" } }
+	Horn : Animal < { speak :: fn(self) string { "honk" } }
 	Car :: struct { Horn }
 "#};
 
 #[test]
 fn via_delegation() {
 	let src = indoc! {r#"
-		Car : Animal via Horn
+		Car :< Animal via Horn
 		zoo : []Animal : [ Car.{ Horn = Horn.{ kind = "vroom" } } ]
 		loop a in zoo { print("a {a.kind} says {a.speak()}") }
 	"#};
 	check([ANIMAL_KIND, CAR_HORN, src], "a vroom says honk");
 
-	let over = r#"Car : Animal via Horn { speak :: fn(self) string { "HONK HONK" } }
+	let over = r#"Car : Animal via Horn < { speak :: fn(self) string { "HONK HONK" } }
 	Car.{ kind = "vroom" }.speak()"#;
 	check([ANIMAL_KIND, CAR_HORN, over], "HONK HONK");
 }
@@ -312,7 +312,7 @@ fn embedded_field_satisfies_requirement() {
 	let src = indoc! {r#"
 		Meta :: struct { kind: string, id: int }
 		Enemy :: struct { Meta, hp: int }
-		Enemy : Animal { speak :: fn(self) string { "rawr" } }
+		Enemy : Animal < { speak :: fn(self) string { "rawr" } }
 		zoo : []Animal : [ Enemy.{ Meta = Meta.{ kind = "goblin" } } ]
 		loop a in zoo { print("a {a.kind} says {a.speak()}") }
 	"#};
@@ -323,7 +323,7 @@ fn embedded_field_satisfies_requirement() {
 fn trait_object_array_literal() {
 	let src = indoc! {r#"
 		Cat :: struct { kind: string }
-		Cat : Animal { speak :: fn(self) string { "meow" } }
+		Cat : Animal < { speak :: fn(self) string { "meow" } }
 		animals :: Animal.[ Dog.{ "collie" }, Cat.{ "mau" } ]
 		loop a in animals { print("{a.kind}: {a.speak()}") }
 	"#};
@@ -339,8 +339,8 @@ fn dyn_trait_param_and_default() {
 		}
 		Dog :: struct {}
 		Cat :: struct {}
-		Dog : Animal { speak :: fn(self) string { "woof" } }
-		Cat : Animal { speak :: fn(self) string { "meow" } }
+		Dog : Animal < { speak :: fn(self) string { "woof" } }
+		Cat : Animal < { speak :: fn(self) string { "meow" } }
 		greet :: fn(a: Animal) string { a.shout() }
 		relay :: fn(a: Animal) string { greet(a) }
 		print(greet(Dog.{}))
@@ -364,7 +364,7 @@ fn self_sig_static_dispatch_ok() {
 	let src = indoc! {r#"
 		Cloner :: trait { dup : fn(self) Self }
 		Dog :: struct {}
-		Dog : Cloner { dup :: fn(self) Self { Dog.{} } }
+		Dog : Cloner < { dup :: fn(self) Self { Dog.{} } }
 		d :: Dog.{}.dup()
 		print("cloned")
 	"#};
@@ -376,13 +376,13 @@ fn rejects_non_object_safe_trait() {
 	fail(indoc! {r#"
 		Cloner :: trait { dup : fn(self) Self }
 		Dog :: struct {}
-		Dog : Cloner { dup :: fn(self) Self { Dog.{} } }
+		Dog : Cloner < { dup :: fn(self) Self { Dog.{} } }
 		f :: fn(c: Cloner) string { "no" }
 	"#});
 	fail(indoc! {r#"
 		Eater :: trait { eat : fn(self, other: Self) string }
 		Dog :: struct {}
-		Dog : Eater { eat :: fn(self, other: Self) string { "ate" } }
+		Dog : Eater < { eat :: fn(self, other: Self) string { "ate" } }
 		pack :: Eater.[ Dog.{} ]
 	"#});
 }
@@ -408,7 +408,7 @@ fn trait_object_renders_concrete_struct() {
 #[test]
 fn trait_object_uses_str_override() {
 	let src = indoc! {r#"
-		Dog :{ str :: fn(self) string { "a " + self.kind + " dog" } }
+		Dog :< { str :: fn(self) string { "a " + self.kind + " dog" } }
 		a : Animal : Dog.{ "collie" }
 		print(a)
 	"#};
@@ -419,7 +419,7 @@ fn trait_object_uses_str_override() {
 fn array_of_trait_objects_renders() {
 	let src = indoc! {r#"
 		Cat :: struct { kind: string }
-		Cat : Animal { speak :: fn(self) string { "meow" } }
+		Cat : Animal < { speak :: fn(self) string { "meow" } }
 		print(Animal.[ Dog.{ "collie" }, Cat.{ "mau" } ])
 	"#};
 	check(
@@ -433,7 +433,7 @@ fn trait_declared_str_dyn_dispatches() {
 	let src = indoc! {r#"
 		Animal :: trait { str : fn(self) string }
 		Dog :: struct { kind: string }
-		Dog : Animal { str :: fn(self) string { "custom-" + self.kind } }
+		Dog : Animal < { str :: fn(self) string { "custom-" + self.kind } }
 		a : Animal : Dog.{ "collie" }
 		print(a)
 		print(a.str())
@@ -445,7 +445,7 @@ fn trait_declared_str_dyn_dispatches() {
 fn append_boxes_struct_literal_into_trait_array() {
 	let src = indoc! {r#"
 		Cat :: struct {}
-		Cat : Animal { speak :: fn(self) string { "meow" } }
+		Cat : Animal < { speak :: fn(self) string { "meow" } }
 		zoo: []Animal = [ Dog.{} ]
 		zoo << Cat.{}
 		loop a in zoo { print(a.speak()) }
@@ -468,8 +468,8 @@ fn fill_headers_come_from_the_trait() {
 		Dbl :: trait { dbl: fn(n: int) int }
 		Foo :: struct {}
 		Bar :: struct {}
-		Foo : Dbl { dbl :: fn(i) int { i * 2 } }
-		Bar : Dbl { dbl :: { $ * 2 } }
+		Foo : Dbl < { dbl :: fn(i) int { i * 2 } }
+		Bar : Dbl < { dbl :: { $ * 2 } }
 		print(Foo.dbl(3))
 		print(Bar.dbl(4))
 	"};
@@ -481,7 +481,7 @@ fn headerless_fill_binds_self() {
 	let src = indoc! {"
 		Shape :: trait { area: fn(self) int }
 		Sq :: struct { s: int }
-		Sq : Shape { area :: { self.s * self.s } }
+		Sq : Shape < { area :: { self.s * self.s } }
 		print(Sq.{ 3 }.area())
 	"};
 	check(src, "9");
@@ -492,7 +492,7 @@ fn rejects_headerless_fill_the_trait_does_not_declare() {
 	let src = indoc! {"
 		Dbl :: trait { dbl: fn(n: int) int }
 		Foo :: struct {}
-		Foo : Dbl { nope :: { 1 } }
+		Foo : Dbl < { nope :: { 1 } }
 	"};
 	fail_with(src, "no trait method `nope` supplies a signature");
 }

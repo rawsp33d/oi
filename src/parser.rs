@@ -1557,13 +1557,14 @@ where
 		.then_ignore(just(Token::Colon))
 		.then(list(ident()))
 		.then(via.clone())
+		.then_ignore(just(Token::Lt))
 		.then(fill_block)
 		.or(ident()
 			.then(type_params.clone())
 			.then_ignore(just(Token::Colon))
+			.then_ignore(just(Token::Lt))
 			.then(ident().separated_by(just(Token::Comma)).at_least(1).collect::<Vec<_>>())
 			.then(via)
-			.then_ignore(one_of([Token::Colon, Token::Assign, Token::LBracket]).not())
 			.map(|(head, via)| ((head, via), vec![])))
 		.map_with(|((((typ, type_params), traits), via), fills), ex| {
 			(

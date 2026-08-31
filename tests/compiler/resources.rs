@@ -2,7 +2,7 @@ use crate::helpers::*;
 
 const FILE: &str = indoc! {r#"
 	File :: struct { fd: int }
-	File : Drop { drop :: fn(mut self) { print("drop", self.fd) } }
+	File : Drop < { drop :: fn(mut self) { print("drop", self.fd) } }
 "#};
 
 #[test]

@@ -149,10 +149,10 @@ fn member_visibility() {
 			"use foo.{ P, make }\nmatch make() { P.{ x } => print(x), }",
 			"pub P :: struct { x: int }",
 		),
-		// a private `:{` method call
+		// a private `:<` method call
 		(
 			"use foo.{ make }\nprint(make().hidden())",
-			"pub P :: struct { x: int }\nP :{ hidden :: fn(self) int { 1 } }",
+			"pub P :: struct { x: int }\nP :< { hidden :: fn(self) int { 1 } }",
 		),
 	] {
 		let p = Project::new()
@@ -171,7 +171,7 @@ fn member_visibility() {
 			[
 				"module foo",
 				"pub P :: struct { pub x: int }",
-				"P :{ pub shown :: fn(self) int { self.x * 2 } }",
+				"P :< { pub shown :: fn(self) int { self.x * 2 } }",
 			],
 		);
 	p.check("6");
@@ -214,7 +214,7 @@ fn traits_are_module_scoped() {
 				"module foo",
 				"pub T :: trait {}",
 				"pub P :: struct { x: int }",
-				"P : T {}",
+				"P : T < {}",
 			],
 		)
 		.file(
@@ -223,7 +223,7 @@ fn traits_are_module_scoped() {
 				"module bar",
 				"pub T :: trait {}",
 				"pub P :: struct { y: int }",
-				"P : T {}",
+				"P : T < {}",
 			],
 		);
 	p.check("true true");
@@ -241,7 +241,7 @@ fn std_trait_claimed_without_import_in_module() {
 			[
 				"module foo",
 				"pub P :: struct { pub x: int }",
-				"P : Add { add :: fn(self, other: P) P { P.{ x = self.x + other.x } } }",
+				"P : Add < { add :: fn(self, other: P) P { P.{ x = self.x + other.x } } }",
 			],
 		);
 	p.check("5");

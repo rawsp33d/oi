@@ -1,6 +1,6 @@
 module core
 
-string :{
+string :< {
 	is_empty :: fn(self) bool {
 		self.len == 0
 	}

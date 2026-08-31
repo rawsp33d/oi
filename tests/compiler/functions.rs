@@ -163,7 +163,7 @@ fn default_param() {
 fn default_param_refs_earlier_param() {
 	let src = indoc! {r#"
 		Wrapper :: struct { s: string }
-		Wrapper :{
+		Wrapper :< {
 			wrap :: fn(self, left: string, right: string = left) string { left + self.s + right }
 		}
 		Wrapper.{"hi"}.wrap("|")
