@@ -55,6 +55,19 @@ impl<'a> Translator<'a> {
 		self.data_addr(&hdr_sym)
 	}
 
+	// A capture-free fn's value.
+	pub(crate) fn fn_object(&mut self, id: FuncId) -> Value {
+		let mut desc = DataDescription::new();
+		desc.set_align(8);
+		desc.define(vec![0; 8].into_boxed_slice());
+		let fr = self.module.declare_func_in_data(id, &mut desc);
+		desc.write_function_addr(0, fr);
+		let data = self.module.declare_anonymous_data(false, false).unwrap();
+		self.module.define_data(data, &desc).unwrap();
+		let gv = self.module.declare_data_in_func(data, self.b.func);
+		self.b.ins().symbol_value(self.int, gv)
+	}
+
 	// Define a data symbol holding raw bytes.
 	fn define_data(&mut self, sym: &str, bytes: Vec<u8>) -> DataId {
 		let id = self.module.declare_data(sym, Linkage::Local, false, false).unwrap();

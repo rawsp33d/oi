@@ -98,14 +98,24 @@ fn capture_mut_requires_mut_binding() {
 }
 
 #[test]
-fn capturing_closure_rejected_as_plain_fn_param() {
+fn capturing_closure_passed_as_fn_param() {
 	let src = indoc! {"
 		apply :: fn(f: fn(int) int, x: int) int { f(x) }
 		factor :: 2
 		scale :: fn [factor] (n: int) int { n * factor }
 		apply(scale, 21)
 	"};
-	fail_with(src, "wrong argument type");
+	check(src, "42");
+}
+
+#[test]
+fn capturing_trailing_block() {
+	let src = indoc! {"
+		retry :: fn(times: int, f: fn() int) int { f() }
+		n := 21
+		retry(2) { n * 2 }
+	"};
+	check(src, "42");
 }
 
 #[test]
@@ -226,8 +236,6 @@ fn closure_cannot_be_stored_in_a_struct_field() {
 }
 
 #[test]
-#[ignore]
-// FIX: a capturing closure has no expressible return type
 fn move_capture_escapes_via_return() {
 	let src = indoc! {"
 		make :: fn() fn() int {
@@ -433,6 +441,19 @@ fn local_fn_recurses() {
 		print(run())
 	"};
 	check(src, "120");
+}
+
+#[test]
+fn capturing_local_fn_recurses() {
+	let src = indoc! {"
+		run :: fn() int {
+			step := 2
+			count :: fn(n: int) int { if n <= 0 { 0 } else { step + count(n - step) } }
+			count(20)
+		}
+		print(run())
+	"};
+	check(src, "20");
 }
 
 #[test]

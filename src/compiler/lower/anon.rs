@@ -103,17 +103,17 @@ impl<'a> Translator<'a> {
 			body: body.to_vec(),
 			type_params: vec![],
 			captures: resolved.iter().map(|(n, t, boxed, _)| (n.clone(), t.clone(), *boxed)).collect(),
-			self_name: resolved.is_empty().then_some(self_name).flatten(),
+			self_name,
 			module: self.scope.module.clone(),
 		};
 		let sig = self.declare_instance(&format!("anon${}_{}", span.start, span.end), &def, subst)?;
-		let func_ref = self.module.declare_func_in_func(sig.id, self.b.func);
-		let addr = self.b.ins().func_addr(self.int, func_ref);
 		let params = sig.value_params();
 		if resolved.is_empty() {
-			return Ok((addr, Typ::Fn(params, Box::new(sig.ret))));
+			return Ok((self.fn_object(sig.id), Typ::Fn(params, Box::new(sig.ret))));
 		}
 
+		let func_ref = self.module.declare_func_in_func(sig.id, self.b.func);
+		let addr = self.b.ins().func_addr(self.int, func_ref);
 		let env = self.call_alloc_bytes(((1 + resolved.len()) * 8) as i64);
 		self.b.ins().store(MemFlags::new(), addr, env, 0);
 		for (i, (_, _, _, val)) in resolved.iter().enumerate() {

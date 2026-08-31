@@ -1294,8 +1294,6 @@ main :: fn() {
 	}
 
 	# `$` in the `or` block is the return from the called fn, which by definition means it will always be the specified error type
-	# TODO: I'm realizing as I write this that they could just use the `res` binding. Is that always true? It might avoid confusion.
-	# TODO: what does `return` mean in `or`? Does it flow through to resolve `res` in this case?
 	res := fetch(url) or {
 		if $ == NetError.timeout { return retry(url) }
 		panic!("refused")
@@ -1577,7 +1575,7 @@ main :: fn() {
 		```
 		- captures: optional capture spec
 			- omitted: fn implicitly captures any enclosing locals it references as read-only borrows
-			- []: non-capturing. holds no closure environment, so it coerces to a plain function-pointer type and can be stored freely.
+			- []: non-capturing. borrows nothing, so it stores, returns, and escapes freely.
 				can still call named functions and read module-level consts/types
 			- [x]: captures `x` as a read-only borrow, and nothing else
 			- [mut x, y]: captures `x` as an exclusive scoped borrow, `y` read-only, and nothing else

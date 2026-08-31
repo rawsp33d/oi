@@ -100,8 +100,7 @@ impl Typ {
 			Typ::Mut(inner) => format!("mut {}", inner.key()),
 			Typ::Ref(inner) => format!("&{}", inner.key()),
 			Typ::Trait(name) => format!("dyn {name}"),
-			Typ::Fn(params, ret) => format!("fn({}) {}", keys(params), ret.key()),
-			Typ::Closure(params, ret, _) => format!("closure({}) {}", keys(params), ret.key()),
+			Typ::Fn(params, ret) | Typ::Closure(params, ret, _) => format!("fn({}) {}", keys(params), ret.key()),
 			Typ::Sum(variants) => variants
 				.iter()
 				.map(|v| match v.payload.is_empty() {
@@ -194,7 +193,7 @@ impl PartialEq for Typ {
 			(Typ::Result(a, e), Typ::Result(b, f)) => a == b && e == f,
 			(Typ::FixedArray(a, n), Typ::FixedArray(b, m)) => a == b && n == m,
 			(Typ::Sum(a), Typ::Sum(b)) => a == b,
-			(Typ::Fn(p, r), Typ::Fn(q, s)) | (Typ::Closure(p, r, _), Typ::Closure(q, s, _)) => p == q && r == s,
+			(Typ::Fn(p, r) | Typ::Closure(p, r, _), Typ::Fn(q, s) | Typ::Closure(q, s, _)) => p == q && r == s,
 			(Typ::Map(k, v), Typ::Map(l, w)) => k == l && v == w,
 			(Typ::Mut(a), Typ::Mut(b)) => a == b,
 			(Typ::Ref(a), Typ::Ref(b)) => match (&**a, &**b) {

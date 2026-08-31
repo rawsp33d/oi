@@ -1207,10 +1207,12 @@ impl Compiler {
 
 		// fn literal is bound in its own body and so it can refer to itself
 		if let Some((name, sig)) = def.self_fn {
-			let func_ref = trans.module.declare_func_in_func(sig.id, trans.b.func);
-			let addr = trans.b.ins().func_addr(trans.int, func_ref);
+			let val = match def.captures.is_empty() {
+				true => trans.fn_object(sig.id),
+				false => param_vals[def.params.len()],
+			};
 			let typ = Typ::Fn(sig.value_params(), Box::new(sig.ret.clone()));
-			trans.bind_local(name, addr, typ, false);
+			trans.bind_local(name, val, typ, false);
 		}
 
 		let tail_target = trans.ret.as_ref().map(|(t, _)| t.clone());

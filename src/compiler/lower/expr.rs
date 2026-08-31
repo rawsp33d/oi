@@ -84,9 +84,8 @@ impl<'a> Translator<'a> {
 				}
 				Err(e) => match self.funcs.get(self.qualify(name).as_ref()).cloned() {
 					Some(sig) => {
-						let func_ref = self.module.declare_func_in_func(sig.id, self.b.func);
-						let addr = self.b.ins().func_addr(self.int, func_ref);
-						Ok((addr, Typ::Fn(sig.value_params(), Box::new(sig.ret))))
+						let obj = self.fn_object(sig.id);
+						Ok((obj, Typ::Fn(sig.value_params(), Box::new(sig.ret))))
 					}
 					None => {
 						let key = self.qualify(name);
@@ -169,7 +168,7 @@ impl<'a> Translator<'a> {
 				}
 				if let Some(local) = self.vars.get(name).cloned() {
 					let callee = self.read_local(&local);
-					return self.call_value(name, callee, &local.typ, args, None, expr.1);
+					return self.call_value(name, Callee::Object(callee), &local.typ, args, None, expr.1);
 				}
 				match self.builtin_call(name, args, expr.1)? {
 					Some(result) => Ok(result),

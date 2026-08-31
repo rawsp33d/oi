@@ -6,7 +6,7 @@ use cranelift::codegen::ir::immediates::{Ieee16, Ieee128};
 use cranelift::codegen::ir::{StackSlotData, StackSlotKind};
 use cranelift::prelude::*;
 use cranelift_jit::JITModule;
-use cranelift_module::{DataDescription, DataId, Linkage, Module};
+use cranelift_module::{DataDescription, DataId, FuncId, Linkage, Module};
 
 use super::{
 	FieldDef, FnSig, GenericFnDef, GenericStructDef, Generics, Local, LoopFrame, Pending, TraitItem, Typ, TypeCtx,
@@ -36,6 +36,7 @@ mod stmt;
 mod value;
 
 use self::anon::AnonSig;
+use self::call::Callee;
 use self::core::ambiguous;
 use self::helpers::*;
 

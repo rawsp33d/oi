@@ -75,7 +75,7 @@ impl Translator<'_> {
 					_ => 1,
 				};
 				let args = self.stage_args(arity, span);
-				self.call_value("this stage", val, &typ, &args, None, span)
+				self.call_value("this stage", Callee::Object(val), &typ, &args, None, span)
 			}
 			Expr::Call { name, type_args, args } if matches!(args[..], [(Expr::Dollar, _)]) => {
 				let arity = self.callable(name).map_or(1, |(params, _)| params.len());

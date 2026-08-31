@@ -8,6 +8,14 @@ pub(super) fn mut_inner(arg: &Spanned<Expr>) -> &Spanned<Expr> {
 	}
 }
 
+// How a value call reaches its code.
+pub(super) enum Callee {
+	// a fn value
+	Object(Value),
+	// a vtable slot
+	Addr(Value),
+}
+
 // What a mut arg lends to a callee.
 pub(super) enum Lent {
 	Whole(Local),
@@ -274,18 +282,14 @@ impl<'a> Translator<'a> {
 	pub(super) fn call_value(
 		&mut self,
 		name: &str,
-		callee: Value,
+		callee: Callee,
 		typ: &Typ,
 		args: &[Spanned<Expr>],
 		recv: Option<Value>,
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
-		let (addr, env, params, ret) = match typ {
-			Typ::Fn(params, ret) => (callee, None, params, &**ret),
-			Typ::Closure(params, ret, _) => {
-				let addr = self.b.ins().load(self.int, MemFlags::new(), callee, 0);
-				(addr, Some(callee), params, &**ret)
-			}
+		let (params, ret) = match typ {
+			Typ::Fn(params, ret) | Typ::Closure(params, ret, _) => (params, &**ret),
 			typ => {
 				return Err(Diagnostic::new(format!("`{name}` is not callable"), span.into_range())
 					.with_label(format!("this is {typ}, not a function")));
@@ -332,10 +336,14 @@ impl<'a> Translator<'a> {
 		}
 		let mut sig = self.module.make_signature();
 		sig.params.extend(params.iter().map(|t| AbiParam::new(cl_type(t, self.int))));
-		if let Some(env) = env {
-			sig.params.push(AbiParam::new(self.int));
-			vals.push(env);
-		}
+		let addr = match callee {
+			Callee::Addr(addr) => addr,
+			Callee::Object(obj) => {
+				sig.params.push(AbiParam::new(self.int));
+				vals.push(obj);
+				self.b.ins().load(self.int, MemFlags::new(), obj, 0)
+			}
+		};
 		let is_unit = ret.is_unit();
 		if !is_unit {
 			sig.returns.push(AbiParam::new(cl_type(ret, self.int)));
@@ -472,7 +480,8 @@ impl<'a> Translator<'a> {
 		let vtable = self.b.ins().load(self.int, MemFlags::new(), boxv, 0);
 		let data = self.b.ins().load(self.int, MemFlags::new(), boxv, 8);
 		let fnptr = self.b.ins().load(self.int, MemFlags::new(), vtable, (idx * 8) as i32);
-		self.call_value(method, fnptr, &Typ::Fn(typs, Box::new(ret)), args, Some(data), span)
+		let typ = Typ::Fn(typs, Box::new(ret));
+		self.call_value(method, Callee::Addr(fnptr), &typ, args, Some(data), span)
 	}
 
 	// Dyn-dispatch `message()` on a boxed `Error`.
