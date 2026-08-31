@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::ast::{Capture, Child, Expr, Param, Pattern, Span, Spanned, TypeExpr};
+use crate::ast::{Capture, Child, Expr, Param, Span, Spanned, TypeExpr};
 use crate::diagnostics::Diagnostic;
 use crate::loader::{Module, Program, Scope};
 use crate::runtime;
@@ -44,9 +44,10 @@ fn for_binders(e: &mut Expr, f: &mut impl FnMut(&mut String)) {
 	match e {
 		Expr::Bind { name, .. } if !name.starts_with('%') => f(name),
 		Expr::Destructure { names, bind: true, .. } => names.iter_mut().for_each(|(_, n)| f(n)),
-		Expr::PatBind { pat, .. } => {
+		Expr::PatBind { pat, .. } | Expr::For { pat, .. } => {
 			let locals: Vec<&mut Spanned<Expr>> = match &mut pat.0 {
-				Expr::StructLit { fields, .. } => fields.iter_mut().map(|(_, e)| e).collect(),
+				Expr::Ident(_) => vec![pat],
+				Expr::Tuple(fields) | Expr::StructLit { fields, .. } => fields.iter_mut().map(|(_, e)| e).collect(),
 				Expr::Array(elems) => elems.iter_mut().collect(),
 				_ => vec![],
 			};
@@ -56,13 +57,6 @@ fn for_binders(e: &mut Expr, f: &mut impl FnMut(&mut String)) {
 				}
 			}
 		}
-		Expr::For {
-			pat: Pattern::Name(n), ..
-		} => f(n),
-		Expr::For {
-			pat: Pattern::Tuple(ns),
-			..
-		} => ns.iter_mut().for_each(f),
 		Expr::AnonFn { params, .. } => params.iter_mut().for_each(|p| f(&mut p.name)),
 		Expr::Match { arms, .. } => arms.iter_mut().flat_map(|a| &mut a.binding).for_each(f),
 		_ => {}

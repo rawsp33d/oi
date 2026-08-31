@@ -142,7 +142,7 @@ pub enum Expr {
 
 	// `loop <pat> in <iter> {}`
 	For {
-		pat: Pattern,
+		pat: Box<Spanned<Expr>>,
 		iter: Box<Spanned<Expr>>,
 		body: Vec<Spanned<Expr>>,
 	},
@@ -586,13 +586,6 @@ pub struct EnumVariant {
 	pub raw: Option<String>,
 	pub payload: Vec<Spanned<TypeExpr>>,
 	pub names: Vec<String>,
-}
-
-// A `loop` binding pattern (name or destruction).
-#[derive(Debug, Clone)]
-pub enum Pattern {
-	Name(String),
-	Tuple(Vec<String>),
 }
 
 // Capture list entry of an anon fn.

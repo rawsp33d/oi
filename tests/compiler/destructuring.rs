@@ -108,6 +108,16 @@ fn array_bind() {
 }
 
 #[test]
+fn skip_underscore() {
+	check("(a, _) :: (1, 2)\na", "1");
+	check("[_ b] :: [1 2]\nb", "2");
+	check(
+		"Point :: struct { x: int, y: int }\nPoint.{ y = _, x } :: Point.{ 1, 2 }\nx",
+		"1",
+	);
+}
+
+#[test]
 fn fail_array_bind() {
 	fail_with("[a b] :: [1]", "out of range");
 	fail_with("[a b] :: 5", "cannot destructure");

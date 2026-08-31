@@ -748,12 +748,12 @@ main :: fn() {
 
 	# destructuring
 
-	# structs
+	[first second] :: [1 2 3]
 	Point.{ x, y } :: Point.{ 1, 2 }
 	Point.{ y = b, x } := Point.{ 1, 2 }
 
-	# arrays
-	[first second] :: [1 2 3]
+	# `_` skips
+	(one, _) :: (1, 2)
 
 	## primatives
 
@@ -1178,6 +1178,12 @@ main :: fn() {
 	}
 	loop (x, y) in [(0, 0) (1, 2)] {
 		print((y, x))
+	}
+	loop Point.{ x } in [Point.{ 1, 2 }] {
+		print(x)
+	}
+	loop [a b] in [[1 2] [3 4]] {
+		print(a + b)
 	}
 
 	# TODO: custom iterators

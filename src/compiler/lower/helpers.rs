@@ -8,6 +8,7 @@ pub(super) fn field_binds<'a>(
 ) -> Result<Vec<Bind>, Diagnostic> {
 	elems
 		.enumerate()
+		.filter(|(_, (e, _))| !matches!(&e.0, Expr::Ident(n) if n == "_"))
 		.map(|(i, (e, t))| match &e.0 {
 			Expr::Ident(n) => Ok((n.clone(), t.clone(), base + i as i32 * stride)),
 			_ => Err(Diagnostic::new("patterns must bind names", e.1.into_range()).with_label("not a name")),
@@ -29,6 +30,7 @@ pub(super) fn struct_pattern(
 	}
 	entries
 		.iter()
+		.filter(|(_, e)| !matches!(&e.0, Expr::Ident(n) if n == "_"))
 		.map(|(fname, e)| {
 			let Expr::Ident(local) = &e.0 else {
 				return Err(

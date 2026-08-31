@@ -574,10 +574,9 @@ impl<'a> Translator<'a> {
 
 	pub(super) fn for_loop(
 		&mut self,
-		pat: &Pattern,
+		pat: &Spanned<Expr>,
 		iter: &Spanned<Expr>,
 		body: &[Spanned<Expr>],
-		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
 		let (val, typ) = self.expr(iter)?;
 		// counter var, upper bound, and (data ptr, elem type) for array iteration
@@ -640,7 +639,7 @@ impl<'a> Translator<'a> {
 			depth,
 		});
 		let flow = self.scoped(|s| {
-			s.bind_pattern(pat, val, &typ, span)?;
+			s.bind_pat(pat, val, &typ, false)?;
 			s.block(body)
 		})?;
 		self.loops.pop().expect("loop frame");
@@ -663,37 +662,82 @@ impl<'a> Translator<'a> {
 		Ok(self.unit_value())
 	}
 
-	pub(super) fn bind_pattern(&mut self, pat: &Pattern, val: Value, typ: &Typ, span: Span) -> Result<(), Diagnostic> {
-		match pat {
-			Pattern::Name(name) => {
-				let val = self.copy_bind(val, typ);
-				self.bind_local(name, val, typ.clone(), false);
+	// Bind a pattern's names against a value.
+	pub(super) fn bind_pat(
+		&mut self,
+		pat: &Spanned<Expr>,
+		ptr: Value,
+		typ: &Typ,
+		mutable: bool,
+	) -> Result<(), Diagnostic> {
+		match &pat.0 {
+			Expr::Ident(name) if name == "_" => {}
+			Expr::Ident(name) => {
+				let val = self.copy_bind(ptr, typ);
+				self.bind_local(name, val, typ.clone(), mutable);
 			}
-			Pattern::Tuple(names) => {
+			Expr::Tuple(elems) => {
 				let Typ::Tuple(fields) = typ else {
 					return Err(Diagnostic::new(
 						format!("cannot destructure {typ} with a tuple pattern"),
-						span.into_range(),
+						pat.1.into_range(),
 					)
 					.with_label("not a tuple"));
 				};
-				if names.len() != fields.len() {
+				if elems.len() != fields.len() {
 					return Err(Diagnostic::new(
 						format!(
 							"pattern binds {} names but the tuple has {} fields",
-							names.len(),
+							elems.len(),
 							fields.len()
 						),
-						span.into_range(),
+						pat.1.into_range(),
 					)
 					.with_label("wrong number of fields"));
 				}
-				for (i, (name, (_, ftyp))) in names.iter().zip(fields).enumerate() {
-					let fv = self.b.ins().load(cl_type(ftyp, self.int), MemFlags::new(), val, (i * 8) as i32);
-					let fv = self.copy_bind(fv, ftyp);
-					self.bind_local(name, fv, ftyp.clone(), false);
+				let pairs = elems.iter().zip(fields).map(|((_, e), (_, t))| (e, t));
+				for (local, ftyp, off) in field_binds(pairs, 0, 8)? {
+					let fv = self.b.ins().load(cl_type(&ftyp, self.int), MemFlags::new(), ptr, off);
+					let fv = self.copy_bind(fv, &ftyp);
+					self.bind_local(&local, fv, ftyp, mutable);
 				}
 			}
+			Expr::StructLit { name, fields, .. } => {
+				let Typ::Struct(sname, fdefs) = typ else {
+					return Err(Diagnostic::new(
+						format!("cannot destructure {typ} with a struct pattern"),
+						pat.1.into_range(),
+					)
+					.with_label("not a struct"));
+				};
+				for (fname, e) in fields {
+					let Some(field) = fname.as_deref() else { continue };
+					self.check_member(sname, field, e.1)?;
+				}
+				for (local, ftyp, off) in struct_pattern(fdefs, &self.qualify(name), sname, fields, pat.1)? {
+					let val = self.opt_payload(ptr, typ, &ftyp, off);
+					let val = self.copy_bind(val, &ftyp);
+					self.bind_local(&local, val, ftyp, mutable);
+				}
+			}
+			Expr::Array(elems) => {
+				let (Typ::Array(e) | Typ::FixedArray(e, _)) = typ else {
+					return Err(Diagnostic::new(
+						format!("cannot destructure {typ} with an array pattern"),
+						pat.1.into_range(),
+					)
+					.with_label("not an array"));
+				};
+				let elem = (**e).clone();
+				let (data, len) = self.array_parts(ptr, typ);
+				for (local, ftyp, idx) in field_binds(elems.iter().map(|e| (e, &elem)), 0, 1)? {
+					let idx = self.b.ins().iconst(self.int, idx as i64);
+					let val = self.load_index(data, len, &ftyp, idx);
+					let val = self.copy_bind(val, &ftyp);
+					self.bind_local(&local, val, ftyp, mutable);
+				}
+			}
+			_ => unreachable!("pattern is always a name, tuple, struct literal, or array"),
 		}
 		Ok(())
 	}

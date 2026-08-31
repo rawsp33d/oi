@@ -222,3 +222,13 @@ fn for_each_bind_is_independent_copy() {
 	"};
 	check(src, "[2]");
 }
+
+#[test]
+fn for_struct_and_array_patterns() {
+	let src = indoc! {"
+		Point :: struct { x: int, y: int }
+		loop Point.{ x } in [Point.{ 1, 2 }, Point.{ 3, 4 }] { print(x) }
+		loop [a b] in [[1 2] [3 4]] { print(a + b) }
+	"};
+	check(src, "1\n3\n3\n7");
+}

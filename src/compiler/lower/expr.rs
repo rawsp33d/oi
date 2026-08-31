@@ -572,7 +572,7 @@ impl<'a> Translator<'a> {
 				),
 			},
 
-			Expr::For { pat, iter, body } => self.for_loop(pat, iter, body, expr.1),
+			Expr::For { pat, iter, body } => self.for_loop(pat, iter, body),
 
 			Expr::Block(body) => self.block_expr(body, expr.1),
 

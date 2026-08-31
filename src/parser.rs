@@ -1,5 +1,5 @@
 use crate::ast::{
-	BinOp, Capture, Child, EnumVariant, Expr, MatchArm, Param, Pattern, Span, Spanned, TypeExpr, TypeParam, UseItem,
+	BinOp, Capture, Child, EnumVariant, Expr, MatchArm, Param, Span, Spanned, TypeExpr, TypeParam, UseItem,
 };
 use crate::lexer::Token;
 
@@ -595,7 +595,7 @@ where
 			})
 		});
 
-	// struct destructuring
+	// struct patterns
 	let struct_pat_field =
 		ident()
 			.then(just(Token::Assign).ignore_then(ident()).or_not())
@@ -603,43 +603,42 @@ where
 				let local = local.unwrap_or_else(|| field.clone());
 				(Some(field), (Expr::Ident(local), ex.span()))
 			});
-	let struct_destructure = spanned(ident())
+	let struct_pat = spanned(ident())
 		.then_ignore(just(Token::Dot))
 		.then(brace(loose_list(struct_pat_field)))
-		.then(just(Token::Bind).to(true).or(just(Token::DoubleColon).to(false)))
-		.then(expr.clone())
-		.map(|((((name, nspan), fields), mutable), value)| Expr::PatBind {
-			pat: Box::new((
+		.map(|((name, nspan), fields)| {
+			(
 				Expr::StructLit {
 					name,
 					type_args: vec![],
 					fields,
 				},
 				nspan,
-			)),
+			)
+		});
+	// array patterns
+	let array_pat = spanned(bracket(loose_list(spanned(ident()).map(|(n, s)| (Expr::Ident(n), s))))).try_map(
+		|(elems, espan), span| {
+			if elems.is_empty() {
+				return Err(Rich::custom(span, "array destructuring needs at least 1 name"));
+			}
+			Ok((Expr::Array(elems), espan))
+		},
+	);
+	let pat = struct_pat.or(array_pat);
+
+	// destructuring assignment
+	let pat_bind = pat
+		.clone()
+		.then(just(Token::Bind).to(true).or(just(Token::DoubleColon).to(false)))
+		.then(expr.clone())
+		.map(|((pat, mutable), value)| Expr::PatBind {
+			pat: Box::new(pat),
 			mutable,
 			value: Box::new(value),
 		});
 
-	// array destructuring
-	let array_destructure = spanned(bracket(loose_list(spanned(ident()).map(|(n, s)| (Expr::Ident(n), s)))))
-		.then(just(Token::Bind).to(true).or(just(Token::DoubleColon).to(false)))
-		.then(expr.clone())
-		.try_map(|(((elems, espan), mutable), value), span| {
-			if elems.is_empty() {
-				return Err(Rich::custom(span, "array destructuring needs at least 1 name"));
-			}
-			Ok(Expr::PatBind {
-				pat: Box::new((Expr::Array(elems), espan)),
-				mutable,
-				value: Box::new(value),
-			})
-		});
-
-	let destructure = destructure
-		.or(struct_destructure)
-		.or(array_destructure)
-		.map_with(|e, ex| (e, ex.span()));
+	let destructure = destructure.or(pat_bind).map_with(|e, ex| (e, ex.span()));
 
 	let doc = select! { Token::Doc(text) => text }
 		.repeated()
@@ -965,16 +964,26 @@ where
 
 		// a for-loop binds/destructures into names
 		let pattern = {
-			let name = ident();
-			let tuple = paren(loose_list(name)).map(Pattern::Tuple);
-			tuple.or(name.map(Pattern::Name))
+			let name = spanned(ident()).map(|(n, s)| (Expr::Ident(n), s));
+			let tuple = spanned(paren(loose_list(name.clone().map(|e| (None::<String>, e)))))
+				.map(|(elems, s)| (Expr::Tuple(elems), s));
+			tuple.or(pat.clone()).or(name)
 		};
 		let for_expr = just(Token::Loop)
 			.ignore_then(pattern)
 			.then_ignore(just(Token::In))
 			.then(header_expr.clone().map(Box::new))
 			.then(block.clone())
-			.map_with(|((pat, iter), body), ex| (Expr::For { pat, iter, body }, ex.span()))
+			.map_with(|((pat, iter), body), ex| {
+				(
+					Expr::For {
+						pat: Box::new(pat),
+						iter,
+						body,
+					},
+					ex.span(),
+				)
+			})
 			.boxed();
 		let break_expr = just(Token::Break).map_with(|_, ex| (Expr::Break, ex.span()));
 		let continue_expr = just(Token::Continue).map_with(|_, ex| (Expr::Continue, ex.span()));

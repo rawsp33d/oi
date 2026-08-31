@@ -163,6 +163,7 @@ tags: []
 	- maybe that's `:>`, making a view
 - callable structs, which has a lot more precedent than struct projection above and would do the same thing for me `lua`
 - reconsider multiple returns now that Oi has solidified
+- lua's `tbl.method(self)` vs `tbl:method()` or things in that kind of space
 # stdlib
 - `os`
 - `fs`
