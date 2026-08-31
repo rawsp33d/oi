@@ -88,7 +88,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4087686b4b0a3427190bae57a1d9a478dbb2d40c5dc1bd6e2b6d797913bdd348"
 dependencies = [
- "object",
+ "object 0.37.3",
 ]
 
 [[package]]
@@ -414,10 +414,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "cranelift-object"
+version = "0.132.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f306796804a85973d7336671c7ea7f280def13c33a6ac20d84d12c1ea16e0837"
+dependencies = [
+ "anyhow",
+ "cranelift-codegen",
+ "cranelift-control",
+ "cranelift-module",
+ "log",
+ "object 0.39.1",
+ "target-lexicon",
+]
+
+[[package]]
 name = "cranelift-srcgen"
 version = "0.132.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2cdbadda21e49798825a1ec795dab30bcb03235891f662b5ccf23fa45b39682f"
+
+[[package]]
+name = "crc32fast"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8498c871161e1742aaa9d52551b2d6ebdd4c3d45a3be423e3728f33b955be550"
+dependencies = [
+ "cfg-if",
+]
 
 [[package]]
 name = "crossterm"
@@ -832,6 +856,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "object"
+version = "0.39.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e5a6c098c7a3b6547378093f5cc30bc54fd361ce711e05293a5cc589562739b"
+dependencies = [
+ "crc32fast",
+ "hashbrown 0.17.1",
+ "indexmap",
+ "memchr",
+]
+
+[[package]]
 name = "oi"
 version = "0.1.0"
 dependencies = [
@@ -842,6 +878,7 @@ dependencies = [
  "cranelift-jit",
  "cranelift-module",
  "cranelift-native",
+ "cranelift-object",
  "include_dir",
  "indoc",
  "libc",

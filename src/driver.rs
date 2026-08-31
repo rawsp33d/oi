@@ -1,4 +1,5 @@
-use std::path::Path;
+use std::io::Write as _;
+use std::path::{Path, PathBuf};
 
 use crate::Reported;
 use crate::compiler::Compiler;
@@ -27,6 +28,40 @@ pub fn run_source(name: &str, src: &str, root: &Path) -> Result<(), Reported> {
 	f();
 	crate::runtime::epilogue();
 	Ok(())
+}
+
+/// Compile a program to a native executable at `out`, linked against the static runtime.
+pub fn build_source(name: &str, src: &str, root: &Path, out: &Path) -> Result<(), Reported> {
+	let program = loader::load(name, src.to_string(), root)?;
+	let stem = Path::new(name).file_stem().and_then(|s| s.to_str()).unwrap_or("main");
+	let obj = Compiler::object(stem).compile_object(&program).map_err(|e| {
+		e.report_mapped(&program.map);
+		Reported
+	})?;
+	let archive = std::env::var_os("OI_RUNTIME_LIB")
+		.map(PathBuf::from)
+		.or_else(|| Some(std::env::current_exe().ok()?.with_file_name("liboi_runtime.a")))
+		.filter(|p| p.exists())
+		.ok_or_else(|| fail("cannot find liboi_runtime.a next to the oi binary (or set OI_RUNTIME_LIB)"))?;
+	let tmp = std::env::temp_dir().join(format!("oi_{}.o", std::process::id()));
+	std::fs::write(&tmp, obj).map_err(|e| fail(format!("cannot write {}: {e}", tmp.display())))?;
+	let cc = std::process::Command::new("cc")
+		.args([&tmp, &archive])
+		.args(["-lgcc_s", "-lutil", "-lrt", "-lpthread", "-lm", "-ldl", "-o"])
+		.arg(out)
+		.output();
+	std::fs::remove_file(&tmp).ok();
+	let cc = cc.map_err(|e| fail(format!("cc: {e}")))?;
+	if !cc.status.success() {
+		std::io::stderr().write_all(&cc.stderr).ok();
+		return Err(Reported);
+	}
+	Ok(())
+}
+
+fn fail(msg: impl std::fmt::Display) -> Reported {
+	eprintln!("oi: {msg}");
+	Reported
 }
 
 /// Compile a program in test mode and run every `@test` fn in the main module.

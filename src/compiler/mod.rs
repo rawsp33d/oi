@@ -1,10 +1,13 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use cranelift::codegen;
+use cranelift::codegen::isa::TargetIsa;
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{DataDescription, DataId, FuncId, Linkage, Module};
+use cranelift_object::{ObjectBuilder, ObjectModule};
 
 use crate::ast::{Annotation, EnumVariant, Expr, Param, Span, Spanned, TypeExpr, TypeParam};
 use crate::diagnostics::{Diagnostic, SourceMap};
@@ -378,16 +381,20 @@ pub struct Compiler<M: Module = JITModule> {
 	pub(crate) tests: Vec<(String, String, bool)>,
 }
 
+// Enable position-independent code for AOT/JIT compilation.
+fn isa(pic: bool) -> Arc<dyn TargetIsa> {
+	let mut flag_builder = settings::builder();
+	flag_builder.set("use_colocated_libcalls", "false").unwrap();
+	flag_builder.set("is_pic", if pic { "true" } else { "false" }).unwrap();
+	cranelift_native::builder()
+		.unwrap_or_else(|e| panic!("unsupported host: {e}"))
+		.finish(settings::Flags::new(flag_builder))
+		.unwrap()
+}
+
 impl Default for Compiler<JITModule> {
 	fn default() -> Self {
-		let mut flag_builder = settings::builder();
-		flag_builder.set("use_colocated_libcalls", "false").unwrap();
-		flag_builder.set("is_pic", "false").unwrap();
-		let isa = cranelift_native::builder()
-			.unwrap_or_else(|e| panic!("unsupported host: {e}"))
-			.finish(settings::Flags::new(flag_builder))
-			.unwrap();
-		let mut builder = JITBuilder::with_isa(isa, cranelift_module::default_libcall_names());
+		let mut builder = JITBuilder::with_isa(isa(false), cranelift_module::default_libcall_names());
 		for (name, ptr) in runtime::symbols() {
 			builder.symbol(name, ptr);
 		}
@@ -399,6 +406,43 @@ impl Default for Compiler<JITModule> {
 		builder.symbol(comp::RT_COMP_STRUCT, comp::rt_comp_struct as *const u8);
 
 		Self::new(JITModule::new(builder))
+	}
+}
+
+impl Compiler<ObjectModule> {
+	pub fn object(name: &str) -> Self {
+		let builder = ObjectBuilder::new(isa(true), name, cranelift_module::default_libcall_names()).unwrap();
+		Self::new(ObjectModule::new(builder))
+	}
+
+	pub fn compile_object(mut self, program: &Program) -> Result<Vec<u8>, Diagnostic> {
+		let entry = self.build(program)?;
+		self.emit_cmain(entry);
+		Ok(self.module.finish().emit().expect("emit object"))
+	}
+
+	// A C `main`. Run the compiled entrypoint, then the runtime epilogue.
+	fn emit_cmain(&mut self, entry: FuncId) {
+		let sig = self.module.make_signature();
+		let epilogue = self.module.declare_function("oi_epilogue", Linkage::Import, &sig).unwrap();
+		self.ctx.func.signature.returns.push(AbiParam::new(types::I32));
+		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
+		let block = b.create_block();
+		b.switch_to_block(block);
+		b.seal_block(block);
+		for id in [entry, epilogue] {
+			let f = self.module.declare_func_in_func(id, b.func);
+			b.ins().call(f, &[]);
+		}
+		let zero = b.ins().iconst(types::I32, 0);
+		b.ins().return_(&[zero]);
+		b.finalize();
+		let id = self
+			.module
+			.declare_function("main", Linkage::Export, &self.ctx.func.signature)
+			.unwrap();
+		self.module.define_function(id, &mut self.ctx).unwrap();
+		self.module.clear_context(&mut self.ctx);
 	}
 }
 

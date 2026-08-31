@@ -19,6 +19,18 @@ pub enum Command {
 		file: PathBuf,
 	},
 
+	/// Compile an Oi file to a native executable.
+	Build {
+		/// Path to the source file.
+		#[arg(default_value = "main.oi")]
+		file: PathBuf,
+
+		/// Output path.
+		/// Defaults to the file stem in the current directory.
+		#[arg(short, long)]
+		out: Option<PathBuf>,
+	},
+
 	/// Compile and run an Oi script.
 	Exec {
 		/// Source to run, appended to piped stdin if any. If omitted, read from stdin.

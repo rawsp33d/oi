@@ -1,18 +1,30 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use oi::Reported;
-use oi::driver::{run_source, test_source};
+use oi::driver::{build_source, run_source, test_source};
 
-/// Read a source file, then compile and run it.
+/// Run a source file.
 pub fn run(file: &Path) -> Result<(), Reported> {
 	run_source(&file.display().to_string(), &read(file)?, root(file))
 }
 
-/// Read a source file, then compile and run its `@test` fns.
+/// Compile a source file to a native executable.
+pub fn build(file: &Path, out: Option<&Path>) -> Result<(), Reported> {
+	let stem = file.file_stem().map(PathBuf::from).unwrap_or_else(|| "main".into());
+	build_source(
+		&file.display().to_string(),
+		&read(file)?,
+		root(file),
+		out.unwrap_or(&stem),
+	)
+}
+
+/// Compile a source file and call its `@test` fns.
 pub fn test(file: &Path, pattern: Option<&str>) -> Result<(), Reported> {
 	test_source(&file.display().to_string(), &read(file)?, root(file), pattern)
 }
 
+/// Read a source file.
 fn read(file: &Path) -> Result<String, Reported> {
 	std::fs::read_to_string(file).map_err(|e| {
 		eprintln!("oi: cannot read {}: {e}", file.display());
