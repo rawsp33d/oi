@@ -10,7 +10,7 @@ use crate::cli::Command;
 pub fn dispatch(command: Command) -> Result<(), Reported> {
 	match command {
 		Command::Run { file } => run::run(&file),
-		Command::Build { file, out } => run::build(&file, out.as_deref()),
+		Command::Build { file, out, lib } => run::build(&file, out.as_deref(), lib),
 		Command::Exec { source } => exec::run(source),
 		Command::Test { file, pattern } => run::test(&file, pattern.as_deref()),
 		Command::Repl => repl::run(),

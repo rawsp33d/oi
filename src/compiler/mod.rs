@@ -377,6 +377,7 @@ pub struct Compiler<M: Module = JITModule> {
 	annotations: HashMap<String, Vec<Annotation>>,
 	map: SourceMap,
 	hoisted: HashMap<String, FnSig>,
+	lib: bool,
 	pub(crate) include_tests: bool,
 	pub(crate) tests: Vec<(String, String, bool)>,
 }
@@ -410,36 +411,46 @@ impl Default for Compiler<JITModule> {
 }
 
 impl Compiler<ObjectModule> {
-	pub fn object(name: &str) -> Self {
+	pub fn object(name: &str, lib: bool) -> Self {
 		let builder = ObjectBuilder::new(isa(true), name, cranelift_module::default_libcall_names()).unwrap();
-		Self::new(ObjectModule::new(builder))
+		let mut compiler = Self::new(ObjectModule::new(builder));
+		compiler.lib = lib;
+		compiler
 	}
 
 	pub fn compile_object(mut self, program: &Program) -> Result<Vec<u8>, Diagnostic> {
 		let entry = self.build(program)?;
-		self.emit_cmain(entry);
+		self.emit_entry(entry);
 		Ok(self.module.finish().emit().expect("emit object"))
 	}
 
-	// A C `main`. Run the compiled entrypoint, then the runtime epilogue.
-	fn emit_cmain(&mut self, entry: FuncId) {
+	// The object's entrypoint.
+	fn emit_entry(&mut self, entry: FuncId) {
 		let sig = self.module.make_signature();
-		let epilogue = self.module.declare_function("oi_epilogue", Linkage::Import, &sig).unwrap();
-		self.ctx.func.signature.returns.push(AbiParam::new(types::I32));
+		let mut calls = vec![entry];
+		if !self.lib {
+			calls.push(self.module.declare_function("oi_epilogue", Linkage::Import, &sig).unwrap());
+			self.ctx.func.signature.returns.push(AbiParam::new(types::I32));
+		}
 		let mut b = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_ctx);
 		let block = b.create_block();
 		b.switch_to_block(block);
 		b.seal_block(block);
-		for id in [entry, epilogue] {
+		for id in calls {
 			let f = self.module.declare_func_in_func(id, b.func);
 			b.ins().call(f, &[]);
 		}
-		let zero = b.ins().iconst(types::I32, 0);
-		b.ins().return_(&[zero]);
+		let ret = if self.lib {
+			vec![]
+		} else {
+			vec![b.ins().iconst(types::I32, 0)]
+		};
+		b.ins().return_(&ret);
 		b.finalize();
+		let name = if self.lib { "oi_init" } else { "main" };
 		let id = self
 			.module
-			.declare_function("main", Linkage::Export, &self.ctx.func.signature)
+			.declare_function(name, Linkage::Export, &self.ctx.func.signature)
 			.unwrap();
 		self.module.define_function(id, &mut self.ctx).unwrap();
 		self.module.clear_context(&mut self.ctx);
@@ -467,6 +478,7 @@ impl<M: Module> Compiler<M> {
 			annotations: HashMap::new(),
 			map: SourceMap::default(),
 			hoisted: HashMap::new(),
+			lib: false,
 			include_tests: false,
 			tests: Vec::new(),
 		}
@@ -944,7 +956,8 @@ impl<M: Module> Compiler<M> {
 				None => Typ::unit(),
 			};
 			check_param_defaults(&item.params)?;
-			let mut sig = self.declare_fn(&oi_symbol(&item.key), Linkage::Local, params, muts, ret);
+			let (sym, linkage) = self.symbol(&item.key);
+			let mut sig = self.declare_fn(&sym, linkage, params, muts, ret);
 			sig.args = item.params.iter().map(|p| (p.name.clone(), p.default.clone())).collect();
 			funcs.insert(item.key.clone(), sig);
 		}
@@ -988,7 +1001,7 @@ impl<M: Module> Compiler<M> {
 				&funcs,
 				types,
 			)?;
-			self.finish_fn(&oi_symbol(&item.key));
+			self.finish_fn(&self.symbol(&item.key).0);
 		}
 
 		// a `str` wrapper per struct
@@ -1119,6 +1132,14 @@ impl<M: Module> Compiler<M> {
 		trans.b.finalize();
 
 		self.finish_fn("__oi_main")
+	}
+
+	// A fn's object symbol.
+	fn symbol(&self, key: &str) -> (String, Linkage) {
+		match self.lib && self.publics.contains(key) && !key.contains("::") && !key.contains('.') {
+			true => (key.into(), Linkage::Export),
+			false => (oi_symbol(key), Linkage::Local),
+		}
 	}
 
 	// Declare a hoisted fn's signature ahead of its body.

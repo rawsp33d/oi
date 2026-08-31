@@ -8,14 +8,19 @@ pub fn run(file: &Path) -> Result<(), Reported> {
 	run_source(&file.display().to_string(), &read(file)?, root(file))
 }
 
-/// Compile a source file to a native executable.
-pub fn build(file: &Path, out: Option<&Path>) -> Result<(), Reported> {
-	let stem = file.file_stem().map(PathBuf::from).unwrap_or_else(|| "main".into());
+/// Compile a source file to a native executable or shared library.
+pub fn build(file: &Path, out: Option<&Path>, lib: bool) -> Result<(), Reported> {
+	let stem = file.file_stem().and_then(|s| s.to_str()).unwrap_or("main");
+	let default = match lib {
+		true => format!("{}{stem}{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX).into(),
+		false => PathBuf::from(stem),
+	};
 	build_source(
 		&file.display().to_string(),
 		&read(file)?,
 		root(file),
-		out.unwrap_or(&stem),
+		out.unwrap_or(&default),
+		lib,
 	)
 }
 

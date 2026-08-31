@@ -29,6 +29,10 @@ pub enum Command {
 		/// Defaults to the file stem in the current directory.
 		#[arg(short, long)]
 		out: Option<PathBuf>,
+
+		/// Build a shared library instead of an executable.
+		#[arg(long)]
+		lib: bool,
 	},
 
 	/// Compile and run an Oi script.

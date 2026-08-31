@@ -44,6 +44,28 @@ fn macros_comp_foreign_and_leak_check() {
 }
 
 #[test]
+fn lib_exports_pub_fns_and_init() {
+	let src = indoc! {r#"
+		pub add :: fn(a: int, b: int) int { a + b }
+		print("lib up")
+	"#};
+	let caller = indoc! {r#"
+		#include <stdio.h>
+		extern void oi_init(void);
+		extern long add(long, long);
+		int main(void) { oi_init(); printf("%ld\n", add(2, 3)); return 0; }
+	"#};
+	let dir = Project::new().file("main.oi", src).file("caller.c", caller);
+	ok(oi(&["build", "--lib"]).current_dir(&dir).run(None));
+	let lib = dir.as_ref().join("libmain.so");
+	let mut cc = Command::new("cc");
+	cc.arg("caller.c").arg(lib).args(["-o", "caller"]).current_dir(&dir);
+	assert!(cc.output().unwrap().status.success());
+	let run = Command::new(dir.as_ref().join("caller")).output().unwrap();
+	assert_eq!(trim(&run.stdout), "lib up\n5");
+}
+
+#[test]
 fn structs_traits_and_generics_reach_the_linker() {
 	let src = indoc! {r#"
 		Animal :: trait { speak : fn(self) string }
