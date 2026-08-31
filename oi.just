@@ -1,3 +1,5 @@
+set positional-arguments
+
 # compile and run an Oi script
 [group("oi")]
 @exec *args:
@@ -7,6 +9,11 @@
 [group("oi")]
 @run *args:
 	cargo run --quiet -- run "$@"
+
+# build executable
+[group("oi")]
+@build *args:
+	cargo run --quiet -- build "$@"
 
 # run tests
 [group("oi")]
