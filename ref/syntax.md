@@ -746,6 +746,12 @@ main :: fn() {
 	(baz, qux) := ("bazd", "quxd")
 	(baz, qux) = (qux, baz)
 
+	# destructuring
+
+	# structs
+	Point.{ x, y } :: Point.{ 1, 2 }
+	Point.{ y = b, x } := Point.{ 1, 2 }
+
 	## primatives
 
 	bull :: true

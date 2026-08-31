@@ -44,6 +44,15 @@ fn for_binders(e: &mut Expr, f: &mut impl FnMut(&mut String)) {
 	match e {
 		Expr::Bind { name, .. } if !name.starts_with('%') => f(name),
 		Expr::Destructure { names, bind: true, .. } => names.iter_mut().for_each(|(_, n)| f(n)),
+		Expr::StructBind { pat, .. } => {
+			if let Expr::StructLit { fields, .. } = &mut pat.0 {
+				fields.iter_mut().for_each(|(_, e)| {
+					if let Expr::Ident(n) = &mut e.0 {
+						f(n);
+					}
+				});
+			}
+		}
 		Expr::For {
 			pat: Pattern::Name(n), ..
 		} => f(n),

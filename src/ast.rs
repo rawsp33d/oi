@@ -52,6 +52,13 @@ pub enum Expr {
 		bind: bool,
 	},
 
+	// `Point.{ y = b, x } := value`
+	StructBind {
+		pat: Box<Spanned<Expr>>,
+		value: Box<Spanned<Expr>>,
+		mutable: bool,
+	},
+
 	// `...expr`
 	Spread(Box<Spanned<Expr>>),
 
@@ -332,6 +339,7 @@ impl Expr {
 			| Expr::ResultInit { arg: v, .. }
 			| Expr::Assign { value: v, .. }
 			| Expr::Destructure { value: v, .. }
+			| Expr::StructBind { value: v, .. }
 			| Expr::MutArg(v)
 			| Expr::Spread(v)
 			| Expr::Ref(v)

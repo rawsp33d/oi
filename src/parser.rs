@@ -593,8 +593,35 @@ where
 				bind: op.is_some(),
 				value: Box::new(value),
 			})
-		})
-		.map_with(|e, ex| (e, ex.span()));
+		});
+
+	// struct destructuring
+	let struct_pat_field =
+		ident()
+			.then(just(Token::Assign).ignore_then(ident()).or_not())
+			.map_with(|(field, local), ex| {
+				let local = local.unwrap_or_else(|| field.clone());
+				(Some(field), (Expr::Ident(local), ex.span()))
+			});
+	let struct_destructure = spanned(ident())
+		.then_ignore(just(Token::Dot))
+		.then(brace(loose_list(struct_pat_field)))
+		.then(just(Token::Bind).to(true).or(just(Token::DoubleColon).to(false)))
+		.then(expr.clone())
+		.map(|((((name, nspan), fields), mutable), value)| Expr::StructBind {
+			pat: Box::new((
+				Expr::StructLit {
+					name,
+					type_args: vec![],
+					fields,
+				},
+				nspan,
+			)),
+			mutable,
+			value: Box::new(value),
+		});
+
+	let destructure = destructure.or(struct_destructure).map_with(|e, ex| (e, ex.span()));
 
 	let doc = select! { Token::Doc(text) => text }
 		.repeated()

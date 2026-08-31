@@ -97,7 +97,7 @@ tags: []
 - [ ] implicit context `jai`
 - [ ] computed values `swift gdscript`
 - [ ] `main` return types (unit, uint, bool, ?int, ?atom) `capy`
-- [ ] V-like modules that don't _need_ a `mod` file, everything adds to the module its in
+- [x] V-like modules that don't _need_ a `mod` file, everything adds to the module its in
 - [ ] thread version through repl and cli and docs and everything
 - [ ] consider writing some blog posts for some of the bigger decisions and changes in the language as I make them
 - [ ] ptr type (ptr, voidptr, rawptr) `nim v odin`
@@ -141,14 +141,13 @@ tags: []
 - call `$` an `anaphor` everywhere? after learning about the concept I think it fits
 - opening up trailing fns to trailing anything, or at least anything with `.` + `{[(`
 - `loop <expr>` rather than any special case dispatch
-- adding colon before return type sig `fn foo(x int, y int): z int { ... }`
 - I kind of like Rust's `pub(scope)` concept where you specify what it's public for
 - [x] nushell's easy working with var parts in pipelines
 	- `("hi", "mom") |> "{$in.0}, {$in.1}!"`
 - `for/else`, `while/else` `python`
 - `match{}/or` (in addition to the planned `match{else}`)
 	- or at least clean up the usage of one of them
-- `if` unwrapping `v`
+- `if` unwrapping `v rust`
 - using `not` or `!` in pipelines to achieve things like V's `val !in arr`
 - `noop` macro
 - int/float suffixes `let y: i32 = 13i32; let f: f64 = 1.3f64;` `rust`
@@ -161,6 +160,7 @@ tags: []
 - comments being assignable or otherwise DRY-able
 - ?allow `.{}` projection on structs
 	- `Foo :: struct { x: int, y: int }; foo :: Foo{ 2, 3 }; foo.{....` actually idk what I was going for
+	- maybe that's `:>`, making a view
 - callable structs, which has a lot more precedent than struct projection above and would do the same thing for me `lua`
 - reconsider multiple returns now that Oi has solidified
 # stdlib

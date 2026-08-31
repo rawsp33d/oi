@@ -79,6 +79,29 @@ impl<'a> Translator<'a> {
 					self.bind_local(name, final_val, typ, *mutable);
 				}
 
+				Expr::StructBind { pat, value, mutable } => {
+					let Expr::StructLit { name, fields, .. } = &pat.0 else {
+						unreachable!("struct pattern is always a struct literal")
+					};
+					let (ptr, typ) = self.expr(value)?;
+					let Typ::Struct(sname, fdefs) = &typ else {
+						return Err(Diagnostic::new(
+							format!("cannot destructure {typ} with a struct pattern"),
+							value.1.into_range(),
+						)
+						.with_label("not a struct"));
+					};
+					for (fname, e) in fields {
+						let Some(field) = fname.as_deref() else { continue };
+						self.check_member(sname, field, e.1)?;
+					}
+					for (local, ftyp, off) in struct_pattern(fdefs, &self.qualify(name), sname, fields, pat.1)? {
+						let val = self.opt_payload(ptr, &typ, &ftyp, off);
+						let val = self.copy_bind(val, &ftyp);
+						self.bind_local(&local, val, ftyp, *mutable);
+					}
+				}
+
 				Expr::Destructure { names, value, bind } => {
 					let (ptr, typ) = self.expr(value)?;
 					let fields = match &typ {

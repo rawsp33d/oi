@@ -68,3 +68,26 @@ fn fail_non_tuple() {
 fn fail_assign_immutable() {
 	fail_with("(a, b) :: (1, 2)\n(a, b) = (3, 4)", "immutably bound");
 }
+
+#[test]
+fn struct_bind() {
+	let src = indoc! {"
+		Point :: struct { x: int, y: int }
+		Point.{ x, y = b } :: Point.{ 1, 2 }
+		x + b
+	"};
+	check(src, "3");
+	let src = indoc! {"
+		Point :: struct { x: int, y: int }
+		Point.{ x } := Point.{ 1, 2 }
+		x = x + 1
+		x
+	"};
+	check(src, "2");
+}
+
+#[test]
+fn fail_struct_bind() {
+	fail_with("Point :: struct { x: int }\nPoint.{ z } :: Point.{ 1 }", "no field `z`");
+	fail_with("Point :: struct { x: int }\nPoint.{ x } :: 5", "cannot destructure");
+}
