@@ -40,6 +40,7 @@ pub test :: struct {
 }
 
 pub link :: struct { name: string }
+pub export :: struct { name: string = "" }
 
 # ffi
 

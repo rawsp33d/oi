@@ -92,6 +92,14 @@ impl Typ {
 		}
 	}
 
+	// Whether a value can cross the C ABI.
+	pub fn is_c_repr(&self) -> bool {
+		matches!(
+			self.newtype().unwrap_or(self),
+			Typ::Int(_) | Typ::UInt(_) | Typ::ISize | Typ::USize | Typ::Float(_) | Typ::Bool | Typ::CStr
+		)
+	}
+
 	// 1:1 spelling for identity keys.
 	pub fn key(&self) -> String {
 		let keys = |ts: &[Typ]| ts.iter().map(Typ::key).collect::<Vec<_>>().join(", ");

@@ -165,6 +165,15 @@ fn qualify_anns(scope: &Scope, anns: &[Annotation]) -> Vec<Annotation> {
 	anns
 }
 
+// The literal fields of a `@name` annotation.
+fn ann<'a>(a: &'a Annotation, name: &str) -> Option<&'a [(Option<String>, Spanned<Expr>)]> {
+	match &a.0 {
+		Expr::StructLit { name: n, fields, .. } if n == name => Some(fields),
+		Expr::Ident(n) if n == name => Some(&[]),
+		_ => None,
+	}
+}
+
 // Check that annotations name a struct value and pass literal args.
 fn check_annotations<'p>(
 	anns: &HashMap<String, Vec<Annotation>>,
@@ -382,6 +391,7 @@ pub struct Compiler<M: Module = JITModule> {
 	pub(crate) include_tests: bool,
 	pub(crate) tests: Vec<(String, String, bool)>,
 	link_libs: Vec<String>,
+	exports: HashMap<String, String>,
 }
 
 /// Whether `name` resolves in the running process (libc/libm etc).
@@ -517,6 +527,7 @@ impl<M: Module> Compiler<M> {
 			include_tests: false,
 			tests: Vec::new(),
 			link_libs: Vec::new(),
+			exports: HashMap::new(),
 		}
 	}
 
@@ -833,19 +844,10 @@ impl<M: Module> Compiler<M> {
 					..
 				} => {
 					// `@test`
-					let test_ann =
-						(!name.contains("::"))
-							.then(|| self.annotations.get(name))
-							.flatten()
-							.and_then(|anns| {
-								anns.iter().find_map(|a| match &a.0 {
-									Expr::Ident(n) if n == "core::test" => Some([].as_slice()),
-									Expr::StructLit { name: n, fields, .. } if n == "core::test" => {
-										Some(fields.as_slice())
-									}
-									_ => None,
-								})
-							});
+					let test_ann = (!name.contains("::"))
+						.then(|| self.annotations.get(name))
+						.flatten()
+						.and_then(|anns| anns.iter().find_map(|a| ann(a, "core::test")));
 					if let Some(fields) = test_ann {
 						if !self.include_tests {
 							continue;
@@ -1020,6 +1022,22 @@ impl<M: Module> Compiler<M> {
 				None => Typ::unit(),
 			};
 			check_param_defaults(&item.params)?;
+			// `@export`
+			let mut anns = self.annotations.get(&item.key).into_iter().flatten();
+			if let Some((fields, span)) = anns.find_map(|a| Some((ann(a, "core::export")?, a.1))) {
+				let bad = params.iter().chain((!ret.is_unit()).then_some(&ret)).find(|t| !t.is_c_repr());
+				if let Some(t) = bad {
+					let msg = format!("`{}` can't cross the C ABI", item.key);
+					return Err(
+						Diagnostic::new(msg, span.into_range()).with_label(format!("`{t}` has no C representation"))
+					);
+				}
+				let sym = match fields.first() {
+					Some((_, (Expr::String(s), _))) if !s.is_empty() => s.clone(),
+					_ => display_name(&item.key).replace('.', "_"),
+				};
+				self.exports.insert(item.key.clone(), sym);
+			}
 			let (sym, linkage) = self.symbol(&item.key);
 			let mut sig = self.declare_fn(&sym, linkage, params, muts, ret);
 			sig.args = item.params.iter().map(|p| (p.name.clone(), p.default.clone())).collect();
@@ -1037,11 +1055,7 @@ impl<M: Module> Compiler<M> {
 			let bare = display_name(name);
 			// `@link`
 			for a in self.annotations.get(name).into_iter().flatten() {
-				let fields = match &a.0 {
-					Expr::StructLit { name: n, fields, .. } if n == "core::link" => fields.as_slice(),
-					Expr::Ident(n) if n == "core::link" => &[],
-					_ => continue,
-				};
+				let Some(fields) = ann(a, "core::link") else { continue };
 				let err = |msg: String, label: &str| Diagnostic::new(msg, a.1.into_range()).with_label(label);
 				let Some((_, (Expr::String(lib), _))) = fields.first() else {
 					return Err(err("`@link` needs a library name".into(), r#"like `@link.{"m"}`"#));
@@ -1231,9 +1245,9 @@ impl<M: Module> Compiler<M> {
 
 	// A fn's object symbol.
 	fn symbol(&self, key: &str) -> (String, Linkage) {
-		match self.lib && self.publics.contains(key) && !key.contains("::") && !key.contains('.') {
-			true => (key.into(), Linkage::Export),
-			false => (oi_symbol(key), Linkage::Local),
+		match self.exports.get(key) {
+			Some(sym) => (sym.clone(), Linkage::Export),
+			None => (oi_symbol(key), Linkage::Local),
 		}
 	}
 

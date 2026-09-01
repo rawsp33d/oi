@@ -270,6 +270,17 @@ fn qualified_attr_macro() {
 }
 
 #[test]
+fn export_rejects_non_c_repr_params() {
+	fail_with(
+		indoc! {r#"
+			@export
+			greet :: fn(name: string) int { 1 }
+		"#},
+		"has no C representation",
+	);
+}
+
+#[test]
 fn unknown_attr_macro_errors() {
 	fail_with(
 		indoc! {"

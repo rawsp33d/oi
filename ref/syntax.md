@@ -72,6 +72,12 @@ memset : fn(p: ptr, c: int, n: usize) : foreign
 memset(buf.ptr, 0, 4)
 assert!("hello".ptr.offset(1).string(2) == "el")
 
+# `@export` makes a fn callable from C
+@export
+add :: fn(a: int, b: int) int { a + b }
+@export.{"godot_init"}
+init :: fn(p: ptr) bool { !p.is_null() }
+
 ## functions
 
 # private within module by default
