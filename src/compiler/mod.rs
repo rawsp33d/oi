@@ -382,6 +382,22 @@ pub struct Compiler<M: Module = JITModule> {
 	pub(crate) tests: Vec<(String, String, bool)>,
 }
 
+/// Whether `name` resolves in the running process (libc/libm etc).
+fn process_symbol_exists(name: &str) -> bool {
+	#[cfg(unix)]
+	{
+		let Ok(cname) = std::ffi::CString::new(name) else {
+			return false;
+		};
+		!unsafe { libc::dlsym(libc::RTLD_DEFAULT, cname.as_ptr()) }.is_null()
+	}
+	#[cfg(not(unix))]
+	{
+		let _ = name;
+		true
+	}
+}
+
 // Enable position-independent code for AOT/JIT compilation.
 fn isa(pic: bool) -> Arc<dyn TargetIsa> {
 	let mut flag_builder = settings::builder();
@@ -971,9 +987,9 @@ impl<M: Module> Compiler<M> {
 			let params: Vec<Typ> = param_types.iter().map(|t| types.resolve(t, span)).collect::<Result<_, _>>()?;
 			let ret = types.resolve(ret, span)?;
 			let bare = display_name(name);
-			if !runtime::symbols().iter().any(|(sym, _)| *sym == bare) {
+			if !runtime::symbols().iter().any(|(sym, _)| *sym == bare) && !process_symbol_exists(bare) {
 				let msg = format!("unknown foreign symbol `{bare}`");
-				return Err(Diagnostic::new(msg, span.into_range()).with_label("no such runtime symbol"));
+				return Err(Diagnostic::new(msg, span.into_range()).with_label("no such symbol"));
 			}
 			let sig = self.declare_fn(bare, Linkage::Import, params, muts.clone(), ret);
 			funcs.insert(name.clone(), sig);

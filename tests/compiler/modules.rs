@@ -49,6 +49,25 @@ fn foreign_outside_module_scope_fails() {
 }
 
 #[test]
+fn foreign_resolves_process_symbols() {
+	Project::new()
+		.file("main.oi", ["use cext", "print(cext.abs(-5))"])
+		.file("cext.oi", ["module cext", "pub abs : fn(x: i32) i32 : foreign"])
+		.check("5");
+}
+
+#[test]
+fn foreign_unknown_symbol_fails() {
+	Project::new()
+		.file("main.oi", ["use cext", "print(1)"])
+		.file(
+			"cext.oi",
+			["module cext", "zzz_definitely_not_a_symbol : fn() int : foreign"],
+		)
+		.fail_with("unknown foreign symbol");
+}
+
+#[test]
 fn const_exprs() {
 	Project::new()
 		.file(
