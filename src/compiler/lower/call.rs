@@ -40,11 +40,27 @@ impl<'a, M: Module> Translator<'a, M> {
 		self.module.declare_func_in_func(id, self.b.func)
 	}
 
+	// Type arguments only mean something on a generic fn.
+	pub(super) fn check_type_args(
+		&self,
+		name: &str,
+		key: &str,
+		type_args: &[Spanned<TypeExpr>],
+		span: Span,
+	) -> Result<(), Diagnostic> {
+		match type_args.is_empty() || self.generic_fns.contains_key(key) {
+			true => Ok(()),
+			false => Err(Diagnostic::new(format!("`{name}` is not generic"), span.into_range())
+				.with_label("unexpected type arguments")),
+		}
+	}
+
 	// Call a `pub` function of an imported module.
 	pub(super) fn module_call(
 		&mut self,
 		module: &str,
 		method: &str,
+		type_args: &[Spanned<TypeExpr>],
 		args: &[Spanned<Expr>],
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
@@ -62,11 +78,12 @@ impl<'a, M: Module> Translator<'a, M> {
 			};
 			return Err(Diagnostic::new(msg, span.into_range()).with_label(label));
 		}
+		self.check_type_args(method, &key, type_args, span)?;
 		if let Some(sig) = self.funcs.get(&key).cloned() {
 			return self.call_sig(method, sig, None, None, args, span);
 		}
 		if let Some(def) = self.generic_fns.get(&key).cloned() {
-			return self.call_generic(&key, &def, &[], args, None, span);
+			return self.call_generic(&key, &def, type_args, args, None, span);
 		}
 		Err(Diagnostic::new(
 			format!("module `{module}` has no function `{method}`"),

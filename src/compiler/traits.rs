@@ -278,6 +278,7 @@ pub(super) fn check_impls<'p>(
 				let call = Expr::MethodCall {
 					recv: Box::new(s(recv)),
 					method: name.clone(),
+					type_args: vec![],
 					args: params.iter().skip(1).map(|p| s(Expr::Ident(p.name.clone()))).collect(),
 				};
 				others.push(FnItem {

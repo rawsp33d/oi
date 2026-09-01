@@ -84,6 +84,7 @@ pub enum Expr {
 	MethodCall {
 		recv: Box<Spanned<Expr>>,
 		method: String,
+		type_args: Vec<Spanned<TypeExpr>>,
 		args: Vec<Spanned<Expr>>,
 	},
 

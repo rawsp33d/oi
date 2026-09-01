@@ -162,10 +162,7 @@ impl<'a, M: Module> Translator<'a, M> {
 
 			Expr::Call { name, type_args, args } => {
 				let qn = self.qualify(name).to_string();
-				if !type_args.is_empty() && !self.generic_fns.contains_key(&qn) {
-					return Err(Diagnostic::new(format!("`{name}` is not generic"), expr.1.into_range())
-						.with_label("unexpected type arguments"));
-				}
+				self.check_type_args(name, &qn, type_args, expr.1)?;
 				if let Some(local) = self.vars.get(name).cloned() {
 					let callee = self.read_local(&local);
 					return self.call_value(name, Callee::Object(callee), &local.typ, args, None, expr.1);
@@ -199,7 +196,12 @@ impl<'a, M: Module> Translator<'a, M> {
 
 			Expr::MacroCall { name, args } => self.macro_call(name, args, expr.1),
 
-			Expr::MethodCall { recv, method, args } => {
+			Expr::MethodCall {
+				recv,
+				method,
+				type_args,
+				args,
+			} => {
 				// qualified access to an imported module's function
 				if let Expr::Ident(m) = &recv.0
 					&& !self.vars.contains_key(m)
@@ -214,7 +216,7 @@ impl<'a, M: Module> Translator<'a, M> {
 						})?,
 					};
 					let (module, target) = (vis.module.clone(), target.clone());
-					return self.module_call(&module, &target, args, expr.1);
+					return self.module_call(&module, &target, type_args, args, expr.1);
 				}
 
 				// enum payload
@@ -297,12 +299,13 @@ impl<'a, M: Module> Translator<'a, M> {
 				let recv_expr = bound.is_some().then(|| recv.as_ref());
 				self.check_member(&sname, method, expr.1)?;
 				let key = format!("{sname}.{method}");
+				let gkey = format!("{}.{method}", sname.split('[').next().unwrap());
+				self.check_type_args(method, &gkey, type_args, expr.1)?;
 				if let Some(sig) = self.funcs.get(&key).cloned() {
 					return self.call_sig(&key, sig, bound.map(|(v, _)| v), recv_expr, args, expr.1);
 				}
-				let gkey = format!("{}.{method}", sname.split('[').next().unwrap());
 				if let Some(def) = self.generic_fns.get(&gkey).cloned() {
-					return self.call_generic(&gkey, &def, &[], args, bound.zip(recv_expr), expr.1);
+					return self.call_generic(&gkey, &def, type_args, args, bound.zip(recv_expr), expr.1);
 				}
 				if method == "str"
 					&& args.is_empty()

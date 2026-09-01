@@ -18,7 +18,7 @@ fn two_instances_coexist() {
 		print(Box.{ v = 1 }.get())
 		print(Box.{ v = "hi" }.get())
 	"#};
-	check(src, "1\nhi");
+	check(src, ["1", "hi"]);
 }
 
 #[test]
@@ -81,5 +81,17 @@ fn static_fill_infers_from_args() {
 		print(Box.new(5).v)
 		print(Box.new("hi").v)
 	"#};
-	check(src, "5\nhi");
+	check(src, ["5", "hi"]);
+}
+
+#[test]
+fn explicit_type_arg() {
+	let src = indoc! {"
+		use math
+		Cell :: struct { n: int }
+		Cell :< { blank[T] :: fn(self) T { z: T; z } }
+		print(Cell.{ 1 }.blank[int]())
+		print(math.min[int](3, 7))
+	"};
+	check(src, ["0", "3"]);
 }

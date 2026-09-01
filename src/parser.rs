@@ -18,7 +18,7 @@ enum Subscript {
 // field/tuple/method access
 enum Access {
 	Fields(Vec<String>),
-	Method(String, Vec<Spanned<Expr>>),
+	Method(String, Vec<Spanned<TypeExpr>>, Vec<Spanned<Expr>>),
 }
 
 // One entry of a struct/enum/trait body.
@@ -786,16 +786,15 @@ where
 			)),
 		});
 
-		let var_or_call = ident()
-			.then(call_type_args.or_not().then(args.clone()).or_not())
-			.map(|(name, call)| match call {
-				Some((type_args, args)) => Expr::Call {
-					name,
-					type_args: type_args.unwrap_or_default(),
-					args,
-				},
-				None => Expr::Ident(name),
-			});
+		let call_tail = call_type_args.clone().or_not().then(args.clone());
+		let var_or_call = ident().then(call_tail.or_not()).map(|(name, call)| match call {
+			Some((type_args, args)) => Expr::Call {
+				name,
+				type_args: type_args.unwrap_or_default(),
+				args,
+			},
+			None => Expr::Ident(name),
+		});
 
 		// leaf atoms pair themselves with their span
 		let leaf = spanned(literal.or(foreign_lit).or(ref_lit).or(struct_lit).or(var_or_call)).boxed();
@@ -1108,10 +1107,11 @@ where
 			select! { Token::Int(n) => Access::Fields(vec![n.to_string()]) },
 			// NOTE: chained tuple access like `x.0.1` lexes `0.1` as a float, hence the split
 			select! { Token::Float(s) => Access::Fields(s.split('.').map(String::from).collect()) },
+			// `[T]` is type args or subscript, based on whether a call follows
 			ident()
-				.then(args.clone().or(record_arg.clone()).or_not())
+				.then(call_type_args.or_not().then(args.clone().or(record_arg.clone())).or_not())
 				.map(|(name, call)| match call {
-					Some(args) => Access::Method(name, args),
+					Some((type_args, args)) => Access::Method(name, type_args.unwrap_or_default(), args),
 					None => Access::Fields(vec![name]),
 				}),
 		))
@@ -1154,10 +1154,11 @@ where
 							ex.span(),
 						)
 					}),
-					Access::Method(method, args) => (
+					Access::Method(method, type_args, args) => (
 						Expr::MethodCall {
 							recv: Box::new(lhs),
 							method,
+							type_args,
 							args,
 						},
 						ex.span(),
@@ -1275,6 +1276,7 @@ where
 					Expr::Field { tuple, field } => Expr::MethodCall {
 						recv: tuple,
 						method: field,
+						type_args: vec![],
 						args,
 					},
 					Expr::Call {
@@ -1292,10 +1294,16 @@ where
 					Expr::MethodCall {
 						recv,
 						method,
+						type_args,
 						args: mut a,
 					} if !has_lit => {
 						a.extend(args);
-						Expr::MethodCall { recv, method, args: a }
+						Expr::MethodCall {
+							recv,
+							method,
+							type_args,
+							args: a,
+						}
 					}
 					_ => return Err(Rich::custom(span, "trailing arg needs a call or method callee")),
 				};
