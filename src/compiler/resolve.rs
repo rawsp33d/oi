@@ -361,10 +361,11 @@ impl TypeCtx<'_> {
 			"int"
 				| "isize" | "usize"
 				| "float" | "bool"
-				| "string" | "range"
-				| "atom" | "Map"
-				| "Option" | "Result"
-				| "Error" | "Ast"
+				| "string" | "cstr"
+				| "range" | "atom"
+				| "Map" | "Option"
+				| "Result" | "Error"
+				| "Ast"
 		) || name.strip_prefix(['i', 'u', 'f']).is_some_and(|w| w.parse::<u16>().is_ok())
 	}
 
@@ -386,6 +387,7 @@ impl TypeCtx<'_> {
 			"float" => return Ok(Typ::Float(64)),
 			"bool" => return Ok(Typ::Bool),
 			"string" => return Ok(Typ::Str),
+			"cstr" => return Ok(Typ::CStr),
 			"range" => return Ok(Typ::Range),
 			"()" => return Ok(Typ::unit()),
 			"Error" => return Ok(Typ::Error),

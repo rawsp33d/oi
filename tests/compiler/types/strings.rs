@@ -56,6 +56,12 @@ fn string_from_bytes() {
 }
 
 #[test]
+fn cstr_from_slice_copies() {
+	// data[5] is a space, not a NUL, which forces the copy branch
+	check(r#"print("hello world"[0..5].cstr().str())"#, "hello");
+}
+
+#[test]
 fn escapes() {
 	check(r#"print("a\nb\tc")"#, ["a", "b\tc"]);
 	check(r#"print("q: \" back: \\")"#, r#"q: " back: \"#);

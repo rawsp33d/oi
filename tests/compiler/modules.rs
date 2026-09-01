@@ -57,6 +57,14 @@ fn foreign_resolves_process_symbols() {
 }
 
 #[test]
+fn foreign_cstr_param_calls_strlen() {
+	Project::new()
+		.file("main.oi", ["use cext", r#"print(cext.strlen("hi!".cstr()))"#])
+		.file("cext.oi", ["module cext", "pub strlen : fn(s: cstr) usize : foreign"])
+		.check("3");
+}
+
+#[test]
 fn foreign_unknown_symbol_fails() {
 	Project::new()
 		.file("main.oi", ["use cext", "print(1)"])

@@ -15,6 +15,7 @@ pub(crate) enum Typ {
 	Float(u16),
 	Bool,
 	Str,
+	CStr,
 	Atom,
 	Tuple(Vec<(Option<String>, Typ)>),
 	Array(Box<Typ>),
@@ -126,6 +127,7 @@ impl fmt::Display for Typ {
 			Typ::Float(w) => write!(f, "f{w}"),
 			Typ::Bool => write!(f, "bool"),
 			Typ::Str => write!(f, "string"),
+			Typ::CStr => write!(f, "cstr"),
 			Typ::Atom => write!(f, "atom"),
 			Typ::Tuple(fields) if fields.is_empty() => write!(f, "()"),
 			Typ::Tuple(_) => write!(f, "tuple"),
@@ -209,7 +211,7 @@ impl PartialEq for Typ {
 pub(crate) fn type_expr(typ: &Typ) -> Option<TypeExpr> {
 	let named = |n: &String| (!n.contains('[')).then(|| TypeExpr::Name(n.clone()));
 	Some(match typ {
-		Typ::Int(_) | Typ::UInt(_) | Typ::ISize | Typ::USize | Typ::Float(_) | Typ::Bool | Typ::Str => {
+		Typ::Int(_) | Typ::UInt(_) | Typ::ISize | Typ::USize | Typ::Float(_) | Typ::Bool | Typ::Str | Typ::CStr => {
 			TypeExpr::Name(typ.to_string())
 		}
 		Typ::Range => TypeExpr::Name("range".into()),

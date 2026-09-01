@@ -37,6 +37,8 @@ symbols! {
 	ARRAY_EXTEND = array_extend,
 	STR_EQ = str_eq,
 	STR_FROM_BYTES = str_from_bytes,
+	STR_CSTR = str_cstr,
+	CSTR_STR = cstr_str,
 	ASSERT_FAIL = assert_fail,
 	PANIC = panic,
 	MAP_NEW = map_new,
@@ -274,6 +276,33 @@ pub unsafe extern "C" fn str_concat(a: *const StrHeader, b: *const StrHeader) ->
 	out.extend_from_slice(a);
 	out.extend_from_slice(b);
 	str_new(&out)
+}
+
+/// NUL-terminated pointer to the string's bytes.
+/// For owned strings (already NUL-terminated) this is the buffer as-is, and for views it's a fresh leaked copy.
+/// # Safety
+/// `header` must point to a valid string header.
+#[unsafe(export_name = "oi_str_cstr")]
+pub unsafe extern "C" fn str_cstr(header: *const StrHeader) -> i64 {
+	let StrHeader { data, len } = unsafe { *header };
+	if data != 0 && unsafe { *((data + len) as *const u8) } == 0 {
+		return data;
+	}
+	let mut buf = unsafe { str_bytes(header) }.to_vec();
+	buf.push(0);
+	Box::leak(buf.into_boxed_slice()).as_ptr() as i64
+}
+
+/// Build a string handle by copying a NUL-terminated C string's bytes.
+/// # Safety
+/// `ptr` must be null or point to a valid NUL-terminated C string.
+#[unsafe(export_name = "oi_cstr_str")]
+pub unsafe extern "C" fn cstr_str(ptr: i64) -> *const StrHeader {
+	if ptr == 0 {
+		return str_new(&[]);
+	}
+	let bytes = unsafe { std::ffi::CStr::from_ptr(ptr as *const std::ffi::c_char) }.to_bytes();
+	str_new(bytes)
 }
 
 // Resolve a trait object's field address.

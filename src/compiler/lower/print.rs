@@ -235,7 +235,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				let tag = match typ {
 					Typ::Bool => runtime::Tag::Bool,
 					Typ::Int(_) | Typ::ISize => runtime::Tag::Int,
-					Typ::UInt(_) | Typ::USize => runtime::Tag::UInt,
+					Typ::UInt(_) | Typ::USize | Typ::CStr => runtime::Tag::UInt,
 					Typ::Float(_) => runtime::Tag::Float,
 					Typ::Str => runtime::Tag::Str,
 					Typ::Atom

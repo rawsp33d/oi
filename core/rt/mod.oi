@@ -1,1 +1,4 @@
 module rt
+
+pub oi_str_cstr : fn(s: string) cstr : foreign
+pub oi_cstr_str : fn(p: cstr) string : foreign

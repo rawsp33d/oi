@@ -271,7 +271,7 @@ impl<'a, M: Module> Translator<'a, M> {
 						Typ::Struct(name, _) | Typ::TupleStruct(name, _) | Typ::Enum(name) => {
 							(name.clone(), Some((recv_val, recv_typ)))
 						}
-						Typ::Str => ("string".to_string(), Some((recv_val, recv_typ))),
+						Typ::Str | Typ::CStr => (recv_typ.to_string(), Some((recv_val, recv_typ))),
 						Typ::Int(_) | Typ::UInt(_) | Typ::Float(_) | Typ::Bool | Typ::ISize | Typ::USize => {
 							(recv_typ.to_string(), Some((recv_val, recv_typ)))
 						}

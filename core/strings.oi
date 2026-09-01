@@ -1,5 +1,7 @@
 module core
 
+use rt
+
 string :< {
 	is_empty :: fn(self) bool {
 		self.len == 0
@@ -79,6 +81,18 @@ string :< {
 	## Wrap with given characters.
 	wrap :: fn(self, left: string, right: string = left) string {
 		left + self + right
+	}
+
+	## Convert to a NUL-terminated pointer for C interop.
+	cstr :: fn(self) cstr {
+		rt.oi_str_cstr(self)
+	}
+}
+
+cstr :< {
+	## Copy a C string's bytes into an owned string.
+	str :: fn(self) string {
+		rt.oi_cstr_str(self)
 	}
 }
 

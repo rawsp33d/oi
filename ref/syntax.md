@@ -822,6 +822,10 @@ main :: fn() {
 	# (the buffer keeps a trailing NUL outside `len`, so it passes to C as-is)
 	assert!("hello".len == 5)
 
+	# `.cstr()` converts to `cstr`, a NUL-terminated pointer for C boundaries
+	# `.string()` copies back the other way
+	assert!("hello".cstr().string() == "hello")
+
 	# indexing is by byte and bounds-checked, like arrays
 	assert!("abc"[1] == 98)
 	assert!("abc".1 == 98)
