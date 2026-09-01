@@ -40,3 +40,8 @@ pub test :: struct {
 }
 
 pub link :: struct { name: string }
+
+# ffi
+
+## An untyped pointer for C boundaries.
+pub rawptr :: usize

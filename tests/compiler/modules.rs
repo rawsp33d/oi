@@ -65,6 +65,24 @@ fn foreign_cstr_param_calls_strlen() {
 }
 
 #[test]
+fn foreign_rawptr_roundtrips() {
+	Project::new()
+		.file(
+			"main.oi",
+			["use cext", "p := cext.malloc(16)", "cext.free(p)", "print(1)"],
+		)
+		.file(
+			"cext.oi",
+			[
+				"module cext",
+				"pub malloc : fn(size: usize) rawptr : foreign",
+				"pub free : fn(p: rawptr) : foreign",
+			],
+		)
+		.check("1");
+}
+
+#[test]
 fn foreign_unknown_symbol_fails() {
 	Project::new()
 		.file("main.oi", ["use cext", "print(1)"])

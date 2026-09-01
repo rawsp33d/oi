@@ -893,6 +893,9 @@ impl<M: Module> Compiler<M> {
 				} => {
 					if let Some(te) = TypeExpr::from_expr(&v.0) {
 						soft_aliases.push((name.clone(), te));
+						if !scope.module.is_empty() {
+							continue;
+						}
 					}
 					loose_refs.push(item);
 				}
