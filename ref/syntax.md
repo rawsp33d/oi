@@ -1446,7 +1446,7 @@ main :: fn() {
 		blue
 	}
 
-	Color :{
+	Color :< {
 		hex :: fn(self) string {
 			match self {
 				.red => "#ff0000",

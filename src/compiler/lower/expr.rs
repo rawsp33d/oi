@@ -223,17 +223,21 @@ impl<'a, M: Module> Translator<'a, M> {
 					&& self.enums.contains_key(self.qualify(name).as_ref())
 				{
 					let name = self.qualify(name).to_string();
-					return if method == "from" {
-						self.enum_from(&name, args, expr.1)
-					} else {
-						self.construct_variant(&name, method, args, expr.1)
-					};
+					if method == "from" {
+						return self.enum_from(&name, args, expr.1);
+					}
+					let key = format!("{name}.{method}");
+					if !self.funcs.contains_key(&key) || self.enum_variants(&name).iter().any(|v| v.name == *method) {
+						return self.construct_variant(&name, method, args, expr.1);
+					}
 				}
 
-				// method call is static when `recv` names a struct
+				// method call is static when `recv` names a type
 				let (sname, bound) = if let Expr::Ident(name) = &recv.0
 					&& !self.vars.contains_key(name)
 					&& (self.structs.contains_key(self.qualify(name).as_ref())
+						|| self.enums.contains_key(self.qualify(name).as_ref())
+						|| self.generics.structs.contains_key(self.qualify(name).as_ref())
 						|| matches!(
 							self.aliases.get(self.qualify(name).as_ref()),
 							Some(TypeExpr::TupleStruct(..))

@@ -72,3 +72,14 @@ fn field_through_self() {
 	"};
 	check(src, "14");
 }
+
+#[test]
+fn static_fill_infers_from_args() {
+	let src = indoc! {r#"
+		Box[T] :: struct { v: T }
+		Box[T] :< { new :: fn(v: T) Self { Box.{ v = v } } }
+		print(Box.new(5).v)
+		print(Box.new("hi").v)
+	"#};
+	check(src, "5\nhi");
+}

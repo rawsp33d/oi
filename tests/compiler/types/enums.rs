@@ -913,6 +913,19 @@ fn method_on_payload_enum() {
 }
 
 #[test]
+fn static_fill_beside_variants() {
+	check(
+		indoc! {"
+			Color :: enum { red green blue }
+			Color :< { primary :: fn() Color { .red } }
+			print(Color.primary())
+			print(Color.green)
+		"},
+		["red", "green"],
+	);
+}
+
+#[test]
 fn str_fill_overrides_derived() {
 	check(
 		indoc! {r#"
