@@ -4,7 +4,10 @@ use crate::common::{Run, oi, ok};
 
 /// Expected stdout for every file in `examples/`.
 const EXPECTED: &[(&str, &str)] = &[
-	("animals", "Larry says bark!"),
+	(
+		"animals",
+		"Jerry says meow!\nTerry the doggo says woof!\nLarry the doggo says bark!",
+	),
 	("boxes", "hi"),
 	("dimensions", "(width = 1920, height = 1080)"),
 	("errors", "84"),

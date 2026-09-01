@@ -1,18 +1,46 @@
-Dog :: struct {
+Animal :: trait {
 	name: string
-	greeting : string = "woof"
-	# TODO: get this working
-	# greeting := "woof"
-}
+	greeting: string = "hello"
 
-Dog :< {
 	greet :: fn(self) string {
 		"{self.name} says {self.greeting}!"
 	}
 }
 
-dog := Dog.{
+Cat :: struct {
+	name: string
+	greeting: string = "meow"
+}
+
+Cat :< Animal
+
+Dog :: struct {
+	name: string
+	greeting := "woof"
+}
+
+Dog :< {
+	legs :: fn(self) int { 4 }
+}
+
+Dog : Animal < {
+	greet :: {
+		"{self.name} the doggo says {self.greeting}!"
+	}
+}
+
+cat := Cat.{
+	name = "Jerry"
+}
+cat.greet() |> print
+
+terry := Dog.{
+	name = "Terry"
+}
+terry.greet() |> print
+
+larry := Dog.{
 	name = "Larry"
 	greeting = "bark"
 }
-dog.greet()
+larry.greet() |> print

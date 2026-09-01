@@ -28,6 +28,17 @@ enum Member {
 	Variant(EnumVariant),
 }
 
+// The type a binding default's literal names.
+fn literal_typ(e: &Expr) -> Option<&'static str> {
+	match e {
+		Expr::Bool(_) => Some("bool"),
+		Expr::Int(_) => Some("int"),
+		Expr::Float(_) => Some("float"),
+		Expr::String(_) => Some("string"),
+		_ => None,
+	}
+}
+
 fn split_members(members: Vec<Member>) -> (Vec<Param>, Vec<Spanned<Expr>>, Vec<EnumVariant>) {
 	let (mut fields, mut fns, mut variants) = (vec![], vec![], vec![]);
 	for m in members {
@@ -386,13 +397,8 @@ where
 		.ignore_then(spanned(type_expr.clone()))
 		.then(just(Token::Assign).ignore_then(expr.clone()).or_not());
 	let inferred = just(Token::Bind).ignore_then(expr.clone()).try_map(|(value, span), _| {
-		let typ = match &value {
-			Expr::Bool(_) => "bool",
-			Expr::Int(_) => "int",
-			Expr::Float(_) => "float",
-			Expr::String(_) => "string",
-			_ => return Err(Rich::custom(span, "a `:=` default must be a literal, or name the type")),
-		};
+		let typ = literal_typ(&value)
+			.ok_or_else(|| Rich::custom(span, "a `:=` default must be a literal, or name the type"))?;
 		Ok(((TypeExpr::Name(typ.into()), span), Some((value, span))))
 	});
 	let fn_ret = ident().then(typed.or(inferred)).or_not().then(ret.clone()).boxed();
@@ -1355,14 +1361,20 @@ where
 		.boxed();
 
 	// struct defs
+	let field_typed = just(Token::Colon)
+		.ignore_then(type_expr.clone())
+		.then(just(Token::Assign).ignore_then(expr.clone().or(block_lit.clone())).or_not());
+	let field_bind = just(Token::Bind).ignore_then(expr.clone()).try_map(|(value, span), _| {
+		let typ = literal_typ(&value)
+			.ok_or_else(|| Rich::custom(span, "a `:=` default must be a literal, or name the type"))?;
+		Ok((TypeExpr::Name(typ.into()), Some((value, span))))
+	});
 	let struct_field = just(Token::Pub)
 		.or_not()
 		.then(ident())
-		.then_ignore(just(Token::Colon))
-		.then(type_expr.clone())
-		.then(just(Token::Assign).ignore_then(expr.clone().or(block_lit.clone())).or_not())
+		.then(field_typed.or(field_bind))
 		.then(same_line.ignore_then(annotation.clone()).repeated().collect::<Vec<_>>())
-		.map_with(|((((public, name), typ), default), annotations), ex| Param {
+		.map_with(|(((public, name), (typ, default)), annotations), ex| Param {
 			name,
 			typ,
 			span: ex.span(),
