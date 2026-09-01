@@ -70,6 +70,32 @@ impl<'a, M: Module> Translator<'a, M> {
 		(data, self.b.ins().iconst(self.int, n as i64))
 	}
 
+	// Copy `n` elements of foreign memory into an owned array.
+	pub(super) fn ptr_array(
+		&mut self,
+		recv: Option<Value>,
+		type_args: &[Spanned<TypeExpr>],
+		args: &[Spanned<Expr>],
+		span: Span,
+	) -> Result<TypedVal, Diagnostic> {
+		let (Some(ptr), [(te, te_span)], [count]) = (recv, type_args, args) else {
+			return Err(
+				Diagnostic::new("`array` takes one type argument and a length", span.into_range())
+					.with_label("write `p.array[T](n)`"),
+			);
+		};
+		let elem = self.types().resolve(te, *te_span)?;
+		let n = self.int_value(count, "length")?;
+		let n = self.b.ins().sextend(self.int, n);
+		let stride = self.elem_stride(&elem);
+		let bytes = self.b.ins().imul_imm(n, stride);
+		let func = self.import_fn(runtime::PTR_BUFFER, &[self.int; 2], Some(self.int));
+		let call = self.b.ins().call(func, &[ptr, bytes]);
+		let data = self.b.inst_results(call)[0];
+		let typ = Typ::Array(Box::new(elem));
+		Ok((self.make_array(data, n, &typ), typ))
+	}
+
 	// Build an array literal.
 	pub(super) fn array_lit(
 		&mut self,

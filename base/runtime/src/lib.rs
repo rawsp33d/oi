@@ -40,6 +40,7 @@ symbols! {
 	STR_CSTR = str_cstr,
 	CSTR_STR = cstr_str,
 	PTR_STRING = ptr_string,
+	PTR_BUFFER = ptr_buffer,
 	ASSERT_FAIL = assert_fail,
 	PANIC = panic,
 	MAP_NEW = map_new,
@@ -315,6 +316,19 @@ pub unsafe extern "C" fn ptr_string(data: i64, len: i32) -> *const StrHeader {
 		return str_new(&[]);
 	}
 	str_new(unsafe { std::slice::from_raw_parts(data as *const u8, len as usize) })
+}
+
+/// Copy bytes from `data` into a fresh rc'd array buffer.
+/// # Safety
+/// `data` must be null or point to at least `bytes` readable bytes.
+#[unsafe(export_name = "oi_ptr_buffer")]
+pub unsafe extern "C" fn ptr_buffer(data: i64, bytes: i64) -> i64 {
+	let bytes = if data == 0 { 0 } else { bytes.max(0) };
+	let buf = buffer_alloc(bytes);
+	if bytes > 0 {
+		unsafe { std::ptr::copy_nonoverlapping(data as *const u8, buf, bytes as usize) };
+	}
+	buf as i64
 }
 
 // Resolve a trait object's field address.

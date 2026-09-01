@@ -296,6 +296,9 @@ impl<'a, M: Module> Translator<'a, M> {
 						}
 					}
 				};
+				if sname == "core::ptr" && method == "array" {
+					return self.ptr_array(bound.map(|(v, _)| v), type_args, args, expr.1);
+				}
 				let recv_expr = bound.is_some().then(|| recv.as_ref());
 				self.check_member(&sname, method, expr.1)?;
 				let key = format!("{sname}.{method}");
