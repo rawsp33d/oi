@@ -192,6 +192,11 @@ impl<'a, M: Module> Translator<'a, M> {
 				}
 			}
 
+			Expr::Apply { callee, args } => {
+				let (val, typ) = self.expr(callee)?;
+				self.call_value(&typ.to_string(), Callee::Object(val), &typ, args, None, expr.1)
+			}
+
 			Expr::MacroCall { name, args } => self.macro_call(name, args, expr.1),
 
 			Expr::MethodCall { recv, method, args } => {

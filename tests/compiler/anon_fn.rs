@@ -269,6 +269,17 @@ fn move_capture_escapes_via_return() {
 }
 
 #[test]
+fn apply_a_fn_value_that_isnt_a_name() {
+	let src = indoc! {"
+		make :: fn() fn() int { fn() int { 7 } }
+		fns :: [fn() int { 9 }]
+		print(make()())
+		print(fns[0]())
+	"};
+	check(src, ["7", "9"]);
+}
+
+#[test]
 fn move_capture_kills_the_name() {
 	let src = indoc! {"
 		xs :: [7]

@@ -87,6 +87,11 @@ pub enum Expr {
 		args: Vec<Spanned<Expr>>,
 	},
 
+	Apply {
+		callee: Box<Spanned<Expr>>,
+		args: Vec<Spanned<Expr>>,
+	},
+
 	Return(Option<Box<Spanned<Expr>>>),
 
 	// macros
@@ -374,7 +379,7 @@ impl Expr {
 			| Expr::Array(args)
 			| Expr::DotArray(_, args)
 			| Expr::DotTuple(args) => args.iter_mut().for_each(|a| f(One(a))),
-			Expr::MethodCall { recv, args, .. } => {
+			Expr::MethodCall { recv, args, .. } | Expr::Apply { callee: recv, args } => {
 				f(One(recv));
 				args.iter_mut().for_each(|a| f(One(a)));
 			}

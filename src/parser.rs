@@ -1179,6 +1179,11 @@ where
 					};
 					(e, ex.span())
 				}),
+				// applying a fn value
+				postfix(9, adjacent.ignore_then(args.clone()), |lhs, args, ex| {
+					let callee = Box::new(lhs);
+					(Expr::Apply { callee, args }, ex.span())
+				}),
 				// propagator
 				postfix(9, just(Token::Question), |lhs, _, ex| {
 					(Expr::Propagate(Box::new(lhs)), ex.span())
