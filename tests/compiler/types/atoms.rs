@@ -48,3 +48,19 @@ match x {
 fn atom_return() {
 	check("f :: fn() :ok { :ok }\nf()", "ok");
 }
+
+#[test]
+fn atom_return_type() {
+	check("f :: fn() atom { :ok }\nf()", ":ok");
+}
+
+#[test]
+fn atom_field_type() {
+	check(
+		indoc! {"
+			S :: struct { tag: atom = :none }
+			S.{}
+		"},
+		"S.{tag = :none}",
+	);
+}

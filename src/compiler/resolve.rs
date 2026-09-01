@@ -389,6 +389,7 @@ impl TypeCtx<'_> {
 			"string" => return Ok(Typ::Str),
 			"cstr" => return Ok(Typ::CStr),
 			"range" => return Ok(Typ::Range),
+			"atom" => return Ok(Typ::Atom),
 			"()" => return Ok(Typ::unit()),
 			"Error" => return Ok(Typ::Error),
 			"Ast" => return Ok(Typ::Ast),

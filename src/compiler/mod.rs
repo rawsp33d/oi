@@ -292,7 +292,7 @@ fn lit_matches(e: &Expr, typ: &Typ) -> bool {
 		),
 		Expr::Float(_) => matches!(typ, Typ::Float(_)),
 		Expr::String(_) => matches!(typ, Typ::Str),
-		Expr::Atom(_) => typ.is_enumish(),
+		Expr::Atom(_) => typ.is_enumish() || matches!(typ, Typ::Atom),
 		_ => false,
 	}
 }

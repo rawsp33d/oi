@@ -1084,6 +1084,11 @@ main :: fn() {
 	# atoms work in type position
 	status :: fn() :ok { :ok }
 
+	# `atom` is the open type
+	tag :: fn() atom { :ok }
+	label :: fn(a: atom) string { "got {a}" }
+	tags : Map[atom, int] : [:a = 1, :b = 2]
+
 	## types
 
 	# type aliases
