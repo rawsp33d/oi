@@ -41,6 +41,22 @@ pub(crate) fn trait_fns(methods: &[Spanned<Expr>]) -> impl Iterator<Item = Trait
 	})
 }
 
+// Whether a literal's kind matches a declared field type.
+fn literal_fits(lit: &Expr, want: &Typ) -> bool {
+	use Typ::*;
+	let lit = match lit {
+		Expr::Negative(inner) => &inner.0,
+		other => other,
+	};
+	match lit {
+		Expr::Int(_) => matches!(want, Int(_) | UInt(_) | ISize | USize | Float(_)),
+		Expr::Float(_) => matches!(want, Float(_)),
+		Expr::String(_) => matches!(want, Str),
+		Expr::Bool(_) => matches!(want, Bool),
+		_ => false,
+	}
+}
+
 // Complete a fill's signature from the trait's declaration.
 // An empty, non-tuple param list means the header was omitted entirely.
 pub(crate) fn fill_from_decl(
@@ -96,6 +112,7 @@ pub(super) fn check_impls<'p>(
 	trait_impls: &HashSet<(String, String)>,
 	types: TypeCtx,
 	others: &mut Vec<FnItem<'p>>,
+	consts: &mut HashMap<String, Spanned<Expr>>,
 ) -> Result<(), Diagnostic> {
 	let mut defaults: HashMap<(String, String), String> = HashMap::new();
 	for TraitBody {
@@ -145,13 +162,35 @@ pub(super) fn check_impls<'p>(
 		for tf in *tfields {
 			let want = types.resolve(&tf.typ, tf.span)?;
 			// let embedded structs satisfy field requirements
-			if !types
+			let stored = types
 				.structs
 				.get(typ)
-				.is_some_and(|fs| field_slot(fs, &tf.name).is_some_and(|(_, f)| f.typ == want))
-			{
+				.and_then(|fs| field_slot(fs, &tf.name))
+				.map(|(_, f)| &f.typ);
+			let missing = || {
 				let msg = format!("`{typ}` is missing field `{} {want}` required by trait `{tn}`", tf.name);
-				return Err(Diagnostic::new(msg, span.into_range()).with_label("required by the trait"));
+				Diagnostic::new(msg, span.into_range()).with_label("required by the trait")
+			};
+			if stored == Some(&want) {
+				continue;
+			}
+			if stored.is_some() {
+				return Err(missing());
+			}
+			let key = format!("{typ}::{}", tf.name);
+			let lit = match consts.get(&key) {
+				Some(c) => c.clone(),
+				None => match &tf.default {
+					Some(default) => {
+						consts.insert(key.clone(), default.clone());
+						default.clone()
+					}
+					None => return Err(missing()),
+				},
+			};
+			if !literal_fits(&lit.0, &want) {
+				let msg = format!("`{key}` must be a `{want}` literal to satisfy trait `{tn}`");
+				return Err(Diagnostic::new(msg, lit.1.into_range()).with_label("wrong kind of literal"));
 			}
 		}
 		let mut sig_aliases = types.aliases.clone();

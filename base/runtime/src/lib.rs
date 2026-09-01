@@ -308,6 +308,9 @@ pub unsafe extern "C" fn cstr_str(ptr: i64) -> *const StrHeader {
 // Resolve a trait object's field address.
 #[unsafe(export_name = "oi_trait_field")]
 pub extern "C" fn trait_field(data: i64, off: i64) -> i64 {
+	if off & 2 != 0 {
+		panic!("trait const fields aren't supported through trait objects yet");
+	}
 	match off & 1 {
 		0 => data + off,
 		_ => unsafe { *((data + (off & 0xFFFF_FFFE)) as *const i64) + (off >> 32) },

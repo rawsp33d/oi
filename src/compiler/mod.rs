@@ -937,6 +937,7 @@ impl<M: Module> Compiler<M> {
 			&self.trait_impls,
 			field_types,
 			&mut others,
+			&mut self.consts,
 		)?;
 
 		let enums: HashMap<String, Vec<VariantInfo>> = enum_items
@@ -1052,7 +1053,10 @@ impl<M: Module> Compiler<M> {
 			let f = tfields.len();
 			let mut bytes = vec![0u8; (m + f + 1) * 8];
 			for (i, tf) in tfields.iter().enumerate() {
-				let (enc, _) = field_slot(&structs[typ.as_str()], &tf.name).expect("field checked by trait impl");
+				let enc = structs
+					.get(typ.as_str())
+					.and_then(|fs| field_slot(fs, &tf.name))
+					.map_or(2, |(enc, _)| enc);
 				bytes[(m + i) * 8..(m + i + 1) * 8].copy_from_slice(&enc.to_le_bytes());
 			}
 			let mut desc = DataDescription::new();

@@ -443,6 +443,12 @@ impl<'a, M: Module> Translator<'a, M> {
 							.load(cl_type(&ftyp, self.int), MemFlags::new(), embed, (inner * 8) as i32);
 						return Ok((v, ftyp));
 					}
+					// a trait const or default settles fields that aren't stored
+					if !sfields.iter().any(|f| f.name == *field)
+						&& let Some(c) = self.consts.get(&format!("{sname}::{field}")).cloned()
+					{
+						return self.check_expr(&c, &typ);
+					}
 				}
 
 				// structs are just fully-named tuples at the codegen level

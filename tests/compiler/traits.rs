@@ -496,3 +496,38 @@ fn rejects_headerless_fill_the_trait_does_not_declare() {
 	"};
 	fail_with(src, "no trait method `nope` supplies a signature");
 }
+
+#[test]
+fn fill_and_default_satisfy_trait_fields() {
+	let src = indoc! {r#"
+		Animal :: trait {
+			name: string
+			greeting: string = "hi"
+			greet :: fn(self) string { "{self.name} says {self.greeting}" }
+		}
+		Rock :: struct {}
+		Rock : Animal < { name :: "Bob" }
+		Rock.{}.greet()
+	"#};
+	check(src, "Bob says hi");
+}
+
+#[test]
+fn rejects_wrong_type_fill() {
+	fail_with(
+		indoc! {"
+			Animal :: trait { name: string }
+			Rock :: struct {}
+			Rock : Animal < { name :: 5 }
+		"},
+		"must be a `string` literal to satisfy trait",
+	);
+	fail_with(
+		indoc! {r#"
+			Animal :: trait { greeting: string = "hi" }
+			Rock :: struct { greeting: int }
+			Rock :< Animal
+		"#},
+		"missing field",
+	);
+}
