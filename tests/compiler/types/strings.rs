@@ -73,6 +73,11 @@ fn cstr_from_literal_is_zero_cost() {
 }
 
 #[test]
+fn string_from_ptr_copies() {
+	check(r#"print("hello".ptr.string(4))"#, "hell");
+}
+
+#[test]
 fn escapes() {
 	check(r#"print("a\nb\tc")"#, ["a", "b\tc"]);
 	check(r#"print("q: \" back: \\")"#, r#"q: " back: \"#);

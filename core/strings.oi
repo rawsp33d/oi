@@ -96,6 +96,13 @@ cstr :< {
 	}
 }
 
+ptr :< {
+	## Copy `len` bytes into an owned string.
+	string :: fn(self, len: int) string {
+		rt.oi_ptr_string(self, len)
+	}
+}
+
 ## Whether the given character is a space.
 is_space :: fn(x: u8) bool {
 	x == 32 || (x >= 9 && x <= 13)

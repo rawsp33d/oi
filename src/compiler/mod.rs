@@ -907,6 +907,16 @@ impl<M: Module> Compiler<M> {
 			alias_items.iter().map(|(name, te)| (name.to_string(), (*te).clone())).collect();
 		aliases.extend(soft_aliases);
 
+		for it in &mut others {
+			if let Some((t, m)) = it.key.split_once('.')
+				&& t.starts_with("core::")
+				&& let Some(TypeExpr::Name(base)) = aliases.get(t)
+				&& TypeCtx::builtin_type(base)
+			{
+				it.key = format!("{base}.{m}");
+			}
+		}
+
 		// name-only registry
 		let enum_names: HashMap<String, Vec<VariantInfo>> =
 			enum_items.iter().map(|(name, ..)| (name.to_string(), Vec::new())).collect();

@@ -39,6 +39,7 @@ symbols! {
 	STR_FROM_BYTES = str_from_bytes,
 	STR_CSTR = str_cstr,
 	CSTR_STR = cstr_str,
+	PTR_STRING = ptr_string,
 	ASSERT_FAIL = assert_fail,
 	PANIC = panic,
 	MAP_NEW = map_new,
@@ -303,6 +304,17 @@ pub unsafe extern "C" fn cstr_str(ptr: i64) -> *const StrHeader {
 	}
 	let bytes = unsafe { std::ffi::CStr::from_ptr(ptr as *const std::ffi::c_char) }.to_bytes();
 	str_new(bytes)
+}
+
+/// Build a string handle by copying `len` bytes from `data`.
+/// # Safety
+/// `data` must be null or point to at least `len` readable bytes.
+#[unsafe(export_name = "oi_ptr_string")]
+pub unsafe extern "C" fn ptr_string(data: i64, len: i32) -> *const StrHeader {
+	if data == 0 || len <= 0 {
+		return str_new(&[]);
+	}
+	str_new(unsafe { std::slice::from_raw_parts(data as *const u8, len as usize) })
 }
 
 // Resolve a trait object's field address.
