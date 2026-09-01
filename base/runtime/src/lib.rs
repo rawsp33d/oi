@@ -309,7 +309,7 @@ pub unsafe extern "C" fn cstr_str(ptr: i64) -> *const StrHeader {
 #[unsafe(export_name = "oi_trait_field")]
 pub extern "C" fn trait_field(data: i64, off: i64) -> i64 {
 	if off & 2 != 0 {
-		panic!("trait const fields aren't supported through trait objects yet");
+		return off & !2;
 	}
 	match off & 1 {
 		0 => data + off,

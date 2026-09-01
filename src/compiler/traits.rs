@@ -1,6 +1,7 @@
 //! Trait declarations and impls checking.
 
 use super::*;
+use crate::loader::fold_const;
 
 // A trait's supertraits, fields, and methods.
 pub(crate) type TraitItem<'a> = (Vec<String>, &'a [Param], &'a [Spanned<Expr>]);
@@ -44,10 +45,6 @@ pub(crate) fn trait_fns(methods: &[Spanned<Expr>]) -> impl Iterator<Item = Trait
 // Whether a literal's kind matches a declared field type.
 fn literal_fits(lit: &Expr, want: &Typ) -> bool {
 	use Typ::*;
-	let lit = match lit {
-		Expr::Negative(inner) => &inner.0,
-		other => other,
-	};
 	match lit {
 		Expr::Int(_) => matches!(want, Int(_) | UInt(_) | ISize | USize | Float(_)),
 		Expr::Float(_) => matches!(want, Float(_)),
@@ -182,8 +179,10 @@ pub(super) fn check_impls<'p>(
 				Some(c) => c.clone(),
 				None => match &tf.default {
 					Some(default) => {
-						consts.insert(key.clone(), default.clone());
-						default.clone()
+						let folded = fold_const(&default.0, &*consts, scope).unwrap_or_else(|| default.0.clone());
+						let lit = (folded, default.1);
+						consts.insert(key.clone(), lit.clone());
+						lit
 					}
 					None => return Err(missing()),
 				},

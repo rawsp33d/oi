@@ -120,7 +120,7 @@ pub(crate) fn is_literal(e: &Expr) -> bool {
 }
 
 // Fold a const initializer down to a literal, so simple arithmetic doesn't need `comp`.
-fn fold_const(e: &Expr, consts: &HashMap<String, Spanned<Expr>>, scope: &Scope) -> Option<Expr> {
+pub(crate) fn fold_const(e: &Expr, consts: &HashMap<String, Spanned<Expr>>, scope: &Scope) -> Option<Expr> {
 	let fold = |e: &Spanned<Expr>| fold_const(&e.0, consts, scope);
 	Some(match e {
 		Expr::Negative(v) => match fold(v)? {

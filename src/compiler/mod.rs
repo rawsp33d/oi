@@ -23,6 +23,7 @@ mod typ;
 
 use expand::expand;
 use lower::Translator;
+use lower::value::{define_data, define_ptr_data};
 pub(crate) use resolve::*;
 pub(crate) use traits::*;
 pub(crate) use typ::*;
@@ -596,6 +597,24 @@ impl<M: Module> Compiler<M> {
 		}
 	}
 
+	// An 8-byte vtable cell holding a trait const's value.
+	fn const_cell(&mut self, sym: &str, lit: &Expr, want: &Typ) -> DataId {
+		let m = &mut self.module;
+		let bytes = match lit {
+			Expr::String(s) => {
+				let b = define_data(m, &format!("{sym}_bytes"), [s.as_bytes(), &[0]].concat());
+				let hdr = define_ptr_data(m, &format!("{sym}_hdr"), b, &(s.len() as i64).to_le_bytes());
+				return define_ptr_data(m, sym, hdr, &[]);
+			}
+			Expr::Float(v) if matches!(want, Typ::Float(32)) => (f32::to_bits(*v as f32) as i64).to_le_bytes(),
+			Expr::Float(v) => v.to_bits().to_le_bytes(),
+			Expr::Bool(b) => (*b as i64).to_le_bytes(),
+			Expr::Int(n) => n.to_le_bytes(),
+			_ => unreachable!("trait consts are literals"),
+		};
+		define_data(m, sym, bytes.to_vec())
+	}
+
 	fn build(&mut self, program: &Program) -> Result<FuncId, Diagnostic> {
 		let mut struct_items: Vec<(&str, &[Param])> = vec![];
 		let mut generics = Generics::default();
@@ -1043,7 +1062,7 @@ impl<M: Module> Compiler<M> {
 		}
 
 		// define vtables now that every concrete method has a FuncId
-		for (typ, tn) in &self.trait_impls {
+		for (typ, tn) in self.trait_impls.clone() {
 			if tn == "Drop" {
 				continue;
 			}
@@ -1052,15 +1071,25 @@ impl<M: Module> Compiler<M> {
 			let m = methods.len();
 			let f = tfields.len();
 			let mut bytes = vec![0u8; (m + f + 1) * 8];
+			let ftypes = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits);
+			let mut const_slots = Vec::new();
 			for (i, tf) in tfields.iter().enumerate() {
-				let enc = structs
-					.get(typ.as_str())
-					.and_then(|fs| field_slot(fs, &tf.name))
-					.map_or(2, |(enc, _)| enc);
-				bytes[(m + i) * 8..(m + i + 1) * 8].copy_from_slice(&enc.to_le_bytes());
+				match structs.get(typ.as_str()).and_then(|fs| field_slot(fs, &tf.name)) {
+					Some((enc, _)) => bytes[(m + i) * 8..(m + i + 1) * 8].copy_from_slice(&enc.to_le_bytes()),
+					None => {
+						let want = ftypes.resolve(&tf.typ, tf.span)?;
+						let lit = self.consts[&format!("{typ}::{}", tf.name)].0.clone();
+						let sym = oi_symbol(&format!("const_{typ}_{tn}_{}", tf.name));
+						const_slots.push(((m + i) * 8, self.const_cell(&sym, &lit, &want)));
+					}
+				}
 			}
 			let mut desc = DataDescription::new();
 			desc.define(bytes.into_boxed_slice());
+			for (off, cell) in const_slots {
+				let gv = self.module.declare_data_in_data(cell, &mut desc);
+				desc.write_data_addr(off as u32, gv, 2);
+			}
 			for (i, name) in methods.iter().enumerate() {
 				let id = funcs[&format!("{typ}.{name}")].id;
 				let fref = self.module.declare_func_in_data(id, &mut desc);

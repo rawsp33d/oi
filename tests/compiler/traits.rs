@@ -513,6 +513,28 @@ fn fill_and_default_satisfy_trait_fields() {
 }
 
 #[test]
+fn dyn_field_from_const() {
+	let src = indoc! {r#"
+		Animal :: trait {
+			name: string
+			legs: int = 4
+			depth: int = -7
+			speak : fn(self) string
+		}
+		Cat :: struct { name: string }
+		Cat : Animal < { speak :: fn(self) string { "meow" } }
+		Rock :: struct {}
+		Rock : Animal < {
+			name :: "Bob"
+			speak :: fn(self) string { "..." }
+		}
+		zoo : []Animal : [ Cat.{ "Tom" }, Rock.{} ]
+		loop a in zoo { print("{a.name} {a.legs} {a.depth} {a.speak()}") }
+	"#};
+	check(src, ["Tom 4 -7 meow", "Bob 4 -7 ..."]);
+}
+
+#[test]
 fn rejects_wrong_type_fill() {
 	fail_with(
 		indoc! {"

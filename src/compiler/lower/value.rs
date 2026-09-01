@@ -27,6 +27,29 @@ fn check_required(
 	Ok(())
 }
 
+// A data symbol holding raw bytes, 8-aligned.
+pub(crate) fn define_data<M: Module>(m: &mut M, sym: &str, bytes: Vec<u8>) -> DataId {
+	let id = m.declare_data(sym, Linkage::Local, false, false).unwrap();
+	let mut desc = DataDescription::new();
+	desc.set_align(8);
+	desc.define(bytes.into_boxed_slice());
+	m.define_data(id, &desc).unwrap();
+	id
+}
+
+// A data symbol holding a pointer, followed by `tail` bytes.
+// A generalized str header.
+pub(crate) fn define_ptr_data<M: Module>(m: &mut M, sym: &str, target: DataId, tail: &[u8]) -> DataId {
+	let mut desc = DataDescription::new();
+	desc.set_align(8);
+	desc.define([&0i64.to_le_bytes()[..], tail].concat().into_boxed_slice());
+	let gv = m.declare_data_in_data(target, &mut desc);
+	desc.write_data_addr(0, gv, 0);
+	let id = m.declare_data(sym, Linkage::Local, false, false).unwrap();
+	m.define_data(id, &desc).unwrap();
+	id
+}
+
 impl<'a, M: Module> Translator<'a, M> {
 	pub(super) fn str_const(&mut self, s: &str) -> Value {
 		let len = s.len() as i64;
@@ -34,9 +57,9 @@ impl<'a, M: Module> Translator<'a, M> {
 		bytes.push(0);
 		let sym = format!("__str_{}", *self.string_idx);
 		*self.string_idx += 1;
-		let bytes_id = self.define_data(&format!("{sym}_bytes"), bytes);
+		let bytes_id = define_data(&mut self.module, &format!("{sym}_bytes"), bytes);
 		let hdr_sym = format!("{sym}_hdr");
-		self.define_str_header(&hdr_sym, bytes_id, len);
+		define_ptr_data(&mut self.module, &hdr_sym, bytes_id, &len.to_le_bytes());
 		self.data_addr(&hdr_sym)
 	}
 
@@ -49,8 +72,8 @@ impl<'a, M: Module> Translator<'a, M> {
 			let len = text.len() as i64;
 			let mut bytes = text.into_bytes();
 			bytes.push(0);
-			let bytes_id = self.define_data(&sym, bytes);
-			self.define_str_header(&hdr_sym, bytes_id, len);
+			let bytes_id = define_data(&mut self.module, &sym, bytes);
+			define_ptr_data(&mut self.module, &hdr_sym, bytes_id, &len.to_le_bytes());
 		}
 		self.data_addr(&hdr_sym)
 	}
@@ -66,26 +89,6 @@ impl<'a, M: Module> Translator<'a, M> {
 		self.module.define_data(data, &desc).unwrap();
 		let gv = self.module.declare_data_in_func(data, self.b.func);
 		self.b.ins().symbol_value(self.int, gv)
-	}
-
-	// Define a data symbol holding raw bytes.
-	fn define_data(&mut self, sym: &str, bytes: Vec<u8>) -> DataId {
-		let id = self.module.declare_data(sym, Linkage::Local, false, false).unwrap();
-		let mut desc = DataDescription::new();
-		desc.define(bytes.into_boxed_slice());
-		self.module.define_data(id, &desc).unwrap();
-		id
-	}
-
-	// Define a string header pointing at a bytes symbol.
-	fn define_str_header(&mut self, sym: &str, bytes_id: DataId, len: i64) {
-		let mut desc = DataDescription::new();
-		desc.set_align(8);
-		desc.define([0i64.to_le_bytes(), len.to_le_bytes()].concat().into_boxed_slice());
-		let gv = self.module.declare_data_in_data(bytes_id, &mut desc);
-		desc.write_data_addr(0, gv, 0);
-		let id = self.module.declare_data(sym, Linkage::Local, false, false).unwrap();
-		self.module.define_data(id, &desc).unwrap();
 	}
 
 	// The address of a data symbol.
@@ -221,7 +224,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				bytes.push(0);
 				let sym = format!("__str_{}", *self.string_idx);
 				*self.string_idx += 1;
-				self.define_data(&sym, bytes);
+				define_data(&mut self.module, &sym, bytes);
 				self.data_addr(&sym)
 			}
 			(Expr::Atom(name), Typ::Sum(..)) => {

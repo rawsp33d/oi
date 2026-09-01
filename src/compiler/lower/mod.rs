@@ -32,7 +32,7 @@ mod pipe;
 mod print;
 mod rc;
 mod stmt;
-mod value;
+pub(crate) mod value;
 
 use self::anon::AnonSig;
 use self::call::Callee;
