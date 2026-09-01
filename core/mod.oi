@@ -26,6 +26,9 @@ string : Error < {
 	message :: fn(self) string { self }
 }
 
+## Get the zeroed value of a type.
+pub zero[T] :: fn() T { z: T; z }
+
 # annotations
 
 pub params :: ()

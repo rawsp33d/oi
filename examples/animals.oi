@@ -1,3 +1,4 @@
+## A friendly animal.
 Animal :: trait {
 	name: string
 	greeting: string = "hello"
@@ -7,6 +8,7 @@ Animal :: trait {
 	}
 }
 
+## Kitty cat.
 Cat :: struct {
 	name: string
 	greeting: string = "meow"
@@ -14,19 +16,28 @@ Cat :: struct {
 
 Cat :< Animal
 
+## Little pupper.
 Dog :: struct {
 	name: string
 	greeting := "woof"
 }
 
 Dog :< {
-	legs :: fn(self) int { 4 }
+	walk :: fn(self) {}
 }
 
 Dog : Animal < {
 	greet :: {
 		"{self.name} the doggo says {self.greeting}!"
 	}
+}
+
+# A... rock?
+Rock :: struct {}
+
+# Rocks are people, too.
+Rock : Animal < {
+	name :: "foo"
 }
 
 cat := Cat.{
