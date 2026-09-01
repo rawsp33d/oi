@@ -75,6 +75,8 @@ fn cstr_from_literal_is_zero_cost() {
 #[test]
 fn string_from_ptr_copies() {
 	check(r#"print("hello".ptr.string(4))"#, "hell");
+	check(r#"print("hello".ptr.offset(1).string(2))"#, "el");
+	check(r#"print(ptr(0).is_null(), ptr(0).string(4) == "")"#, "true true");
 }
 
 #[test]

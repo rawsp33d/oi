@@ -60,12 +60,17 @@ pub Foo :: struct { bar: bool }
 pub foo :: Foo.{ true }
 pub strange :: "dr strange love"
 
-## foreign
+## FFI
 
 # `foreign` binds a value that lives outside the program
 oi_str_contains : fn(s: string, sub: string) bool : foreign
 oi_panic : fn(msg: string) int : foreign
 errno : i32 : foreign
+
+# `ptr` is an untyped address
+memset : fn(p: ptr, c: int, n: usize) : foreign
+memset(buf.ptr, 0, 4)
+assert!("hello".ptr.offset(1).string(2) == "el")
 
 ## functions
 
