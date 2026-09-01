@@ -65,7 +65,7 @@ fn foreign_cstr_param_calls_strlen() {
 }
 
 #[test]
-fn foreign_rawptr_roundtrips() {
+fn foreign_ptr_roundtrips() {
 	Project::new()
 		.file(
 			"main.oi",
@@ -75,8 +75,8 @@ fn foreign_rawptr_roundtrips() {
 			"cext.oi",
 			[
 				"module cext",
-				"pub malloc : fn(size: usize) rawptr : foreign",
-				"pub free : fn(p: rawptr) : foreign",
+				"pub malloc : fn(size: usize) ptr : foreign",
+				"pub free : fn(p: ptr) : foreign",
 			],
 		)
 		.check("1");
