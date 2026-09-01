@@ -84,6 +84,14 @@ impl Typ {
 		matches!(self, Typ::Enum(_) | Typ::Option(_) | Typ::Result(..) | Typ::Sum(..))
 	}
 
+	// Single-field tuple structs are transparent.
+	pub fn newtype(&self) -> Option<&Typ> {
+		match self {
+			Typ::TupleStruct(_, fields) if fields.len() == 1 => Some(&fields[0].1),
+			_ => None,
+		}
+	}
+
 	// 1:1 spelling for identity keys.
 	pub fn key(&self) -> String {
 		let keys = |ts: &[Typ]| ts.iter().map(Typ::key).collect::<Vec<_>>().join(", ");
@@ -268,7 +276,7 @@ pub(crate) fn cl_int_for_width(w: u16) -> types::Type {
 }
 
 pub(crate) fn cl_type(typ: &Typ, int: types::Type) -> types::Type {
-	match typ {
+	match typ.newtype().unwrap_or(typ) {
 		Typ::Int(w) | Typ::UInt(w) => cl_int_for_width(*w),
 		Typ::ISize | Typ::USize => int,
 		Typ::Float(w) => match w {
@@ -283,7 +291,7 @@ pub(crate) fn cl_type(typ: &Typ, int: types::Type) -> types::Type {
 }
 
 pub(crate) fn elem_size(typ: &Typ) -> i64 {
-	match typ {
+	match typ.newtype().unwrap_or(typ) {
 		Typ::Int(w) | Typ::UInt(w) => cl_int_for_width(*w).bytes() as i64,
 		Typ::Float(w) => (*w as i64) / 8,
 		_ => 8,

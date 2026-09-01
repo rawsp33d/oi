@@ -179,6 +179,14 @@ impl<'a, M: Module> Translator<'a, M> {
 				let name = display_name(name).to_string();
 				let body = Typ::Tuple(fields.clone());
 				self.write_lit(&name, sink);
+				let val = match typ.newtype() {
+					Some(_) => {
+						let tmp = self.call_alloc(1);
+						self.b.ins().store(MemFlags::new(), val, tmp, 0);
+						tmp
+					}
+					None => val,
+				};
 				self.emit_print(val, &body, quote, sink);
 			}
 

@@ -459,6 +459,8 @@ impl<'a, M: Module> Translator<'a, M> {
 					}
 				}
 
+				// a newtype has no heap block
+				let transparent = typ.newtype().is_some();
 				// structs are just fully-named tuples at the codegen level
 				let typ = match typ {
 					Typ::Struct(_, fields) => Typ::Tuple(fields.into_iter().map(|f| (Some(f.name), f.typ)).collect()),
@@ -493,6 +495,9 @@ impl<'a, M: Module> Translator<'a, M> {
 						})?,
 				};
 				let field_typ = fields[idx].1.clone();
+				if transparent {
+					return Ok((ptr, field_typ));
+				}
 				let cl = cl_type(&field_typ, self.int);
 				let v = self.b.ins().load(cl, MemFlags::new(), ptr, (idx * 8) as i32);
 				Ok((v, field_typ))

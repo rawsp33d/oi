@@ -95,6 +95,10 @@ impl<'a, M: Module> Translator<'a, M> {
 		{
 			return Ok(self.emit_call(&sig, &[a, b]).0);
 		}
+		if let Some(inner) = t.newtype().cloned() {
+			// a newtype compares as its inner value
+			return self.emit_val_eq(a, b, &inner, owner, span);
+		}
 		match t {
 			t if eq_slots(t).is_some() => self.emit_slots_eq(a, b, t, span),
 			Typ::Array(_) | Typ::FixedArray(..) => self.emit_array_eq(a, b, t, span),

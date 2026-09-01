@@ -172,7 +172,7 @@ pub(super) fn handle_fns(typ: &Typ) -> Option<(&'static str, &'static str)> {
 		Typ::Array(_) => Some((runtime::ARRAY_SHARE, runtime::ARRAY_RELEASE)),
 		Typ::Map(..) => Some((runtime::MAP_SHARE, runtime::MAP_RELEASE)),
 		t if ref_like(t) => Some((runtime::REF_SHARE, runtime::REF_RELEASE)),
-		_ => None,
+		t => handle_fns(t.newtype()?),
 	}
 }
 

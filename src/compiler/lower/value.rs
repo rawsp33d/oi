@@ -99,6 +99,7 @@ impl<'a, M: Module> Translator<'a, M> {
 	}
 
 	pub(super) fn zero(&mut self, typ: &Typ) -> Value {
+		let typ = typ.newtype().unwrap_or(typ);
 		match typ {
 			Typ::Float(16) => self.b.ins().f16const(Ieee16::with_bits(0)),
 			Typ::Float(32) => self.b.ins().f32const(0.0),
@@ -515,12 +516,18 @@ impl<'a, M: Module> Translator<'a, M> {
 			let msg = format!("`{name}` takes {} field(s), got {}", fields.len(), args.len());
 			return Err(Diagnostic::new(msg, span.into_range()).with_label("wrong number of fields"));
 		}
-		let ptr = self.call_alloc(fields.len());
-		for (i, ((_, ft), slot)) in fields.iter().zip(&slots).enumerate() {
-			let v = match *slot {
+		let mut vals = Vec::with_capacity(fields.len());
+		for ((_, ft), slot) in fields.iter().zip(&slots) {
+			vals.push(match *slot {
 				Some(arg) => self.check_typed(arg, ft, "type mismatch")?,
 				None => self.zero(ft),
-			};
+			});
+		}
+		if let [v] = vals[..] {
+			return Ok((v, typ));
+		}
+		let ptr = self.call_alloc(fields.len());
+		for (i, v) in vals.into_iter().enumerate() {
 			self.b.ins().store(MemFlags::new(), v, ptr, (i * 8) as i32);
 		}
 		Ok((ptr, typ))

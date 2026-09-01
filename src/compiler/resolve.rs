@@ -482,11 +482,11 @@ impl TypeCtx<'_> {
 			.iter()
 			.map(|p| {
 				let typ = self.resolve(&p.typ, p.span)?;
-				if p.mutable
-					&& !matches!(
-						typ,
-						Typ::Array(_) | Typ::FixedArray(..) | Typ::Map(..) | Typ::Struct(..) | Typ::TupleStruct(..)
-					) {
+				let lendable = matches!(
+					typ,
+					Typ::Array(_) | Typ::FixedArray(..) | Typ::Map(..) | Typ::Struct(..) | Typ::TupleStruct(..)
+				) && typ.newtype().is_none();
+				if p.mutable && !lendable {
 					return Err(Diagnostic::new(
 						"`mut` parameters must be arrays, maps, or structs for now",
 						p.span.into_range(),

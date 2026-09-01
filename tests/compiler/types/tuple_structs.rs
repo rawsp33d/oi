@@ -166,7 +166,7 @@ fn str_override() {
 			print(Money(5))
 			Money(5).str()
 		"#},
-		"money!\nmoney!",
+		["money!", "money!"],
 	);
 }
 
@@ -191,6 +191,31 @@ fn wrong_arity_and_type() {
 		Money :: struct (int)
 		Money("x")
 	"#});
+}
+
+#[test]
+fn equality_compares_inner() {
+	check(
+		indoc! {"
+			Money :: struct (int)
+			print(Money(5) == Money(5))
+			Money(5) == Money(6)
+		"},
+		["true", "false"],
+	);
+}
+
+#[test]
+fn wraps_an_array() {
+	check(
+		indoc! {"
+			Handle :: struct ([]int)
+			h :: Handle([1, 2, 3])
+			g :: h
+			g.0[1]
+		"},
+		"2",
+	);
 }
 
 #[test]
