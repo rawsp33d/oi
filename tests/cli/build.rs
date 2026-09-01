@@ -45,6 +45,23 @@ fn macros_comp_foreign_and_leak_check() {
 }
 
 #[test]
+fn link_annotation_adds_lib_to_link_line() {
+	let main = indoc! {r#"
+		use cext
+		print(cext.zlibVersion().str()[0..1])
+	"#};
+	let cext = indoc! {r#"
+		module cext
+		@link.{"z"}
+		pub zlibVersion : fn() cstr : foreign
+	"#};
+	let dir = Project::new().file("main.oi", main).file("cext.oi", cext);
+	ok(oi(&["build"]).current_dir(&dir).run(None));
+	let run = Command::new(dir.as_ref().join("main")).output().unwrap();
+	assert_eq!(trim(&run.stdout), "1");
+}
+
+#[test]
 fn lib_exports_pub_fns_and_init() {
 	let src = indoc! {r#"
 		pub add :: fn(a: int, b: int) int { a + b }

@@ -38,3 +38,5 @@ pub test :: struct {
 	name: string = ""
 	skip: bool = false
 }
+
+pub link :: struct { name: string }

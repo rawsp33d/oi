@@ -381,6 +381,7 @@ pub struct Compiler<M: Module = JITModule> {
 	lib: bool,
 	pub(crate) include_tests: bool,
 	pub(crate) tests: Vec<(String, String, bool)>,
+	link_libs: Vec<String>,
 }
 
 /// Whether `name` resolves in the running process (libc/libm etc).
@@ -391,6 +392,23 @@ fn process_symbol_exists(name: &str) -> bool {
 			return false;
 		};
 		!unsafe { libc::dlsym(libc::RTLD_DEFAULT, cname.as_ptr()) }.is_null()
+	}
+	#[cfg(not(unix))]
+	{
+		let _ = name;
+		true
+	}
+}
+
+/// dlopen `lib{name}`.
+fn load_library(name: &str) -> bool {
+	#[cfg(unix)]
+	{
+		let file = format!("{}{name}{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX);
+		let Ok(cname) = std::ffi::CString::new(file) else {
+			return false;
+		};
+		!unsafe { libc::dlopen(cname.as_ptr(), libc::RTLD_NOW | libc::RTLD_GLOBAL) }.is_null()
 	}
 	#[cfg(not(unix))]
 	{
@@ -435,10 +453,10 @@ impl Compiler<ObjectModule> {
 		compiler
 	}
 
-	pub fn compile_object(mut self, program: &Program) -> Result<Vec<u8>, Diagnostic> {
+	pub fn compile_object(mut self, program: &Program) -> Result<(Vec<u8>, Vec<String>), Diagnostic> {
 		let entry = self.build(program)?;
 		self.emit_entry(entry);
-		Ok(self.module.finish().emit().expect("emit object"))
+		Ok((self.module.finish().emit().expect("emit object"), self.link_libs))
 	}
 
 	// The object's entrypoint.
@@ -498,6 +516,7 @@ impl<M: Module> Compiler<M> {
 			lib: false,
 			include_tests: false,
 			tests: Vec::new(),
+			link_libs: Vec::new(),
 		}
 	}
 
@@ -1007,6 +1026,24 @@ impl<M: Module> Compiler<M> {
 			let params: Vec<Typ> = param_types.iter().map(|t| types.resolve(t, span)).collect::<Result<_, _>>()?;
 			let ret = types.resolve(ret, span)?;
 			let bare = display_name(name);
+			// `@link`
+			for a in self.annotations.get(name).into_iter().flatten() {
+				let fields = match &a.0 {
+					Expr::StructLit { name: n, fields, .. } if n == "core::link" => fields.as_slice(),
+					Expr::Ident(n) if n == "core::link" => &[],
+					_ => continue,
+				};
+				let err = |msg: String, label: &str| Diagnostic::new(msg, a.1.into_range()).with_label(label);
+				let Some((_, (Expr::String(lib), _))) = fields.first() else {
+					return Err(err("`@link` needs a library name".into(), r#"like `@link.{"m"}`"#));
+				};
+				if !self.link_libs.contains(lib) {
+					if !load_library(lib) {
+						return Err(err(format!("unknown library `{lib}`"), "dlopen failed"));
+					}
+					self.link_libs.push(lib.clone());
+				}
+			}
 			if !runtime::symbols().iter().any(|(sym, _)| *sym == bare) && !process_symbol_exists(bare) {
 				let msg = format!("unknown foreign symbol `{bare}`");
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("no such symbol"));

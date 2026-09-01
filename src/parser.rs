@@ -1667,7 +1667,7 @@ where
 		.map_with(|((name, path), group), ex| (Expr::Use { name, path, group }, ex.span()))
 		.boxed();
 	let public = just(Token::Pub)
-		.ignore_then(def.clone().or(use_decl.clone()).or(bind).or(macro_def))
+		.ignore_then(def.clone().or(use_decl.clone()).or(bind.clone()).or(macro_def))
 		.map_with(|d, ex| (Expr::Pub(Box::new(d)), ex.span()));
 
 	// annotation macros
@@ -1692,7 +1692,7 @@ where
 		.at_least(1)
 		.collect::<Vec<_>>()
 		.then(just(Token::Pub).or_not())
-		.then(def.clone())
+		.then(def.clone().or(bind))
 		.map_with(|((anns, public), item), ex| {
 			let item = match public {
 				Some(_) => (Expr::Pub(Box::new(item)), ex.span()),

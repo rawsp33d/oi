@@ -284,7 +284,8 @@ impl Loader<'_> {
 						| Expr::EnumDef { .. }
 						| Expr::TypeAlias { .. }
 						| Expr::TraitDef { .. }
-				) {
+				) && !matches!(&item.0, Expr::Bind { value: Some(v), .. } if matches!(v.0, Expr::Foreign))
+			{
 				return Err(err(
 					"annotations only attach to definitions",
 					item.1,
@@ -399,6 +400,9 @@ impl Loader<'_> {
 						(_, _, Some(v)) if matches!(v.0, Expr::Foreign) => match typ {
 							Some((TypeExpr::Fn(..), _)) => {
 								self.define(m, name, true, public, span)?;
+								if !anns.is_empty() {
+									self.annotations.entry(name.clone()).or_default().extend(anns);
+								}
 								None
 							}
 							_ => Some(("foreign globals aren't supported yet", "only foreign fns are supported")),

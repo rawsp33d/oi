@@ -76,6 +76,17 @@ fn foreign_unknown_symbol_fails() {
 }
 
 #[test]
+fn link_dlopens_named_library() {
+	Project::new()
+		.file("main.oi", ["use cext", "print(cext.zlibVersion().str()[0..1])"])
+		.file(
+			"cext.oi",
+			["module cext", r#"@link.{"z"}"#, "pub zlibVersion : fn() cstr : foreign"],
+		)
+		.check("1");
+}
+
+#[test]
 fn const_exprs() {
 	Project::new()
 		.file(

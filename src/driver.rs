@@ -54,7 +54,7 @@ const LIBS: &[&str] = &[
 pub fn build_source(name: &str, src: &str, root: &Path, out: &Path, lib: bool) -> Result<(), Reported> {
 	let program = loader::load(name, src.to_string(), root)?;
 	let stem = Path::new(name).file_stem().and_then(|s| s.to_str()).unwrap_or("main");
-	let obj = Compiler::object(stem, lib).compile_object(&program).map_err(|e| {
+	let (obj, link_libs) = Compiler::object(stem, lib).compile_object(&program).map_err(|e| {
 		e.report_mapped(&program.map);
 		Reported
 	})?;
@@ -69,6 +69,7 @@ pub fn build_source(name: &str, src: &str, root: &Path, out: &Path, lib: bool) -
 		.args([write("o", &obj)?, write("a", RUNTIME)?])
 		.args(if lib { &["-shared"][..] } else { &[] })
 		.args(LIBS)
+		.args(link_libs.iter().map(|l| format!("-l{l}")))
 		.arg("-o")
 		.arg(out)
 		.output();
