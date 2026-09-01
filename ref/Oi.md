@@ -86,7 +86,7 @@ tags: []
 	- [x] allow omitting fn header if it's in type sig
 	- [x] revisit trailing fns
 	- [x] revisit modules to vet incorporating `::` bindings
-	- [ ] make zeroed fns runnable
+	- [x] make zeroed fns runnable
 	- [x] add `E!T` shorthand for `Result[T, E]`
 	- [ ] make `atom` a usable type
 - [ ] `comp assert`

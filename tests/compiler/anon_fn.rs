@@ -47,6 +47,26 @@ fn not_callable() {
 }
 
 #[test]
+fn zeroed_fns() {
+	let src = indoc! {"
+		f: fn()
+		f()
+		g: fn(int) bool
+		print(g(7))
+	"};
+	check(src, "false");
+	let src = indoc! {"
+		P :: struct { pee: float }
+		Q :: struct { cue: int, p: P }
+		p: fn() P
+		q: fn() Q
+		print(p())
+		print(q())
+	"};
+	check(src, ["P.{pee = 0.0}", "Q.{cue = 0, p = P.{pee = 0.0}}"]);
+}
+
+#[test]
 fn capture_read_only() {
 	let src = indoc! {"
 		factor :: 3
