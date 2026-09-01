@@ -424,7 +424,8 @@ impl<'a, M: Module> Translator<'a, M> {
 						return Ok((len, Typ::Int(32)));
 					}
 					if field == "ptr" {
-						return Ok((data, Typ::USize));
+						let typ = self.types().resolve(&TypeExpr::Name("core::ptr".into()), expr.1)?;
+						return Ok((data, typ));
 					}
 					return match field.parse::<i64>() {
 						Ok(n) => {

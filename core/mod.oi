@@ -44,4 +44,11 @@ pub link :: struct { name: string }
 # ffi
 
 ## An untyped pointer for C boundaries.
-pub ptr :: usize
+pub ptr :: struct (usize)
+
+ptr :< {
+	## Copy `len` bytes into an owned string.
+	pub string :: fn(self, len: int) string {
+		rt.oi_ptr_string(self, len)
+	}
+}
