@@ -33,6 +33,22 @@ pub fn run_source(name: &str, src: &str, root: &Path) -> Result<(), Reported> {
 /// The static runtime, embedded so the compiler is a single self-contained binary.
 static RUNTIME: &[u8] = include_bytes!(env!("CARGO_STATICLIB_FILE_OI_RUNTIME_oi_runtime"));
 
+// What the runtime staticlib needs linked in.
+// `rustc --print native-static-libs`.
+#[cfg(target_os = "linux")]
+const LIBS: &[&str] = &["-lgcc_s", "-lutil", "-lrt", "-lpthread", "-lm", "-ldl"];
+#[cfg(target_os = "macos")]
+const LIBS: &[&str] = &["-lSystem", "-lc", "-lm"];
+#[cfg(windows)]
+const LIBS: &[&str] = &[
+	"-lkernel32",
+	"-ladvapi32",
+	"-lbcrypt",
+	"-lntdll",
+	"-luserenv",
+	"-lws2_32",
+];
+
 /// Compile a program to a native executable at `out`, linked against the static runtime.
 /// With `lib`, emits a shared library exporting `oi_init` plus every `pub` free fn instead.
 pub fn build_source(name: &str, src: &str, root: &Path, out: &Path, lib: bool) -> Result<(), Reported> {
@@ -52,7 +68,8 @@ pub fn build_source(name: &str, src: &str, root: &Path, out: &Path, lib: bool) -
 	let cc = std::process::Command::new("cc")
 		.args([write("o", &obj)?, write("a", RUNTIME)?])
 		.args(if lib { &["-shared"][..] } else { &[] })
-		.args(["-lgcc_s", "-lutil", "-lrt", "-lpthread", "-lm", "-ldl", "-o"])
+		.args(LIBS)
+		.arg("-o")
 		.arg(out)
 		.output();
 	for ext in ["o", "a"] {

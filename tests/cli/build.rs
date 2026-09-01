@@ -1,3 +1,4 @@
+use std::env::consts::{DLL_PREFIX, DLL_SUFFIX};
 use std::process::Command;
 
 use indoc::indoc;
@@ -57,7 +58,7 @@ fn lib_exports_pub_fns_and_init() {
 	"#};
 	let dir = Project::new().file("main.oi", src).file("caller.c", caller);
 	ok(oi(&["build", "--lib"]).current_dir(&dir).run(None));
-	let lib = dir.as_ref().join("libmain.so");
+	let lib = dir.as_ref().join(format!("{DLL_PREFIX}main{DLL_SUFFIX}"));
 	let mut cc = Command::new("cc");
 	cc.arg("caller.c").arg(lib).args(["-o", "caller"]).current_dir(&dir);
 	assert!(cc.output().unwrap().status.success());
