@@ -83,6 +83,25 @@ fn foreign_ptr_roundtrips() {
 }
 
 #[test]
+fn foreign_writes_through_array_ptr() {
+	Project::new()
+		.file(
+			"main.oi",
+			[
+				"use cext",
+				"buf := [1, 2, 3]",
+				"cext.memset(buf.ptr, 0, 4)",
+				"print(buf)",
+			],
+		)
+		.file(
+			"cext.oi",
+			["module cext", "pub memset : fn(p: ptr, c: int, n: usize) : foreign"],
+		)
+		.check("[0, 2, 3]");
+}
+
+#[test]
 fn foreign_unknown_symbol_fails() {
 	Project::new()
 		.file("main.oi", ["use cext", "print(1)"])

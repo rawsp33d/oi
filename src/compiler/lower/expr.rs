@@ -415,7 +415,7 @@ impl<'a, M: Module> Translator<'a, M> {
 					return self.trait_field(ptr, tn, field, expr.1);
 				}
 
-				// arrays and strings expose `.len` and numeric `.n` (sugar for `x[n]`)
+				// expose array/string fields
 				if let Typ::Array(_) | Typ::FixedArray(..) | Typ::Str = &typ {
 					let elem = array_elem(&typ).clone();
 					let (data, len) = self.array_parts(ptr, &typ);
@@ -423,15 +423,18 @@ impl<'a, M: Module> Translator<'a, M> {
 						let len = self.b.ins().ireduce(types::I32, len);
 						return Ok((len, Typ::Int(32)));
 					}
+					if field == "ptr" {
+						return Ok((data, Typ::USize));
+					}
 					return match field.parse::<i64>() {
 						Ok(n) => {
 							let idx = self.b.ins().iconst(self.int, n);
 							Ok((self.load_index(data, len, &elem, idx), elem))
 						}
-						Err(_) => Err(
-							Diagnostic::new(format!("{typ} has no field `{field}`"), expr.1.into_range())
-								.with_label("only `.len` and numeric indices"),
-						),
+						Err(_) => Err(Diagnostic::new(
+							format!("{typ} has no field `{field}`"),
+							expr.1.into_range(),
+						)),
 					};
 				}
 
