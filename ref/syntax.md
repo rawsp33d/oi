@@ -823,8 +823,10 @@ main :: fn() {
 	assert!("hello".len == 5)
 
 	# `.cstr()` converts to `cstr`, a NUL-terminated pointer for C boundaries
-	# `.string()` copies back the other way
-	assert!("hello".cstr().string() == "hello")
+	# `.str()` copies back the other way
+	assert!("hello".cstr().str() == "hello")
+
+	# a string literal passes where `cstr` is expected, zero-cost (already NUL-terminated)
 
 	# indexing is by byte and bounds-checked, like arrays
 	assert!("abc"[1] == 98)

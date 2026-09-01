@@ -216,6 +216,14 @@ impl<'a, M: Module> Translator<'a, M> {
 				self.construct_variant(typ, variant, args, value.1)?.0
 			}
 			(Expr::None, Typ::Option(inner)) => self.make_option(inner, None),
+			(Expr::String(s), Typ::CStr) => {
+				let mut bytes = s.as_bytes().to_vec();
+				bytes.push(0);
+				let sym = format!("__str_{}", *self.string_idx);
+				*self.string_idx += 1;
+				self.define_data(&sym, bytes);
+				self.data_addr(&sym)
+			}
 			(Expr::Atom(name), Typ::Sum(..)) => {
 				let variants = self.variants_of(target);
 				let Some(v) = variants.iter().find(|v| &v.name == name && v.payload.is_empty()) else {

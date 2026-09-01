@@ -254,9 +254,11 @@ impl<'a, M: Module> Translator<'a, M> {
 						let raw = self.b.inst_results(call)[0];
 						return Ok((self.b.ins().ireduce(types::I32, raw), Typ::Int(32)));
 					}
-					if method == "str"
-						&& args.is_empty() && !matches!(recv_typ, Typ::Struct(..) | Typ::TupleStruct(..) | Typ::Enum(..))
-					{
+					let has_str_impl = matches!(
+						recv_typ,
+						Typ::Struct(..) | Typ::TupleStruct(..) | Typ::Enum(..) | Typ::CStr
+					);
+					if method == "str" && args.is_empty() && !has_str_impl {
 						return Ok((self.derived_str(recv_val, &recv_typ), Typ::Str));
 					}
 					if let Typ::Trait(tn) = &recv_typ {

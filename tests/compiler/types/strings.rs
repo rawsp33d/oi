@@ -62,6 +62,17 @@ fn cstr_from_slice_copies() {
 }
 
 #[test]
+fn cstr_from_literal_is_zero_cost() {
+	check(
+		indoc! {r#"
+			f :: fn(p: cstr) string { p.str() }
+			print(f("hey"))
+		"#},
+		"hey",
+	);
+}
+
+#[test]
 fn escapes() {
 	check(r#"print("a\nb\tc")"#, ["a", "b\tc"]);
 	check(r#"print("q: \" back: \\")"#, r#"q: " back: \"#);
