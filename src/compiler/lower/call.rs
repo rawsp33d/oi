@@ -177,7 +177,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		let mut lent = Vec::new();
 		for (i, want) in sig.params.iter().enumerate() {
 			if i >= self_n {
-				let (val, typ) = match (slots[i - self_n], sig.muts[i]) {
+				let (mut val, typ) = match (slots[i - self_n], sig.muts[i]) {
 					(Some(arg), true) => {
 						let (cell, typ, entry) = self.lend_mut(mut_inner(arg))?;
 						lent.push((cell, entry));
@@ -203,6 +203,14 @@ impl<'a, M: Module> Translator<'a, M> {
 						Diagnostic::new(format!("expected {want} argument, got {typ}"), at.into_range())
 							.with_label("wrong argument type"),
 					);
+				}
+				if sig.foreign && matches!(want, Typ::Fn(..)) {
+					let at = slots[i - self_n].map_or(span, |a| a.1);
+					if matches!(typ, Typ::Closure(..)) {
+						let msg = format!("`{name}` can't take a closure");
+						return Err(Diagnostic::new(msg, at.into_range()).with_label("captures can't cross the C ABI"));
+					}
+					val = self.b.ins().load(self.int, MemFlags::new(), val, 0);
 				}
 				vals.push(val);
 			}

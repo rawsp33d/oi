@@ -3,7 +3,7 @@
 use cranelift::prelude::*;
 use cranelift_module::Module;
 
-use super::{FieldDef, Translator, Typ, TypedVal, c_layout, cl_type, display_name, is_c_struct};
+use super::{FieldDef, Translator, Typ, TypedVal, c_layout, check_c_sig, cl_type, display_name, is_c_struct};
 use crate::ast::{Expr, Span, Spanned, TypeExpr};
 use crate::diagnostics::Diagnostic;
 
@@ -53,10 +53,7 @@ impl<M: Module> Translator<'_, M> {
 			let msg = format!("`{}` casts a single `ptr`", display_name(name));
 			return Err(Diagnostic::new(msg, span.into_range()).with_label("expected one argument"));
 		};
-		if let Some(t) = params.iter().chain((!ret.is_unit()).then_some(&**ret)).find(|t| !t.is_c_repr()) {
-			let msg = format!("`{}` can't cross the C ABI", display_name(name));
-			return Err(Diagnostic::new(msg, span.into_range()).with_label(format!("`{t}` has no C representation")));
-		}
+		check_c_sig(display_name(name), params, ret, span)?;
 		let want = self.types().resolve(&TypeExpr::Name("core::ptr".into()), span)?;
 		let addr = self.check_typed(arg, &want, "not a `ptr`")?;
 		let cell = self.call_alloc_bytes(8);

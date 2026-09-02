@@ -142,6 +142,51 @@ fn fn_type_alias_casts_a_ptr() {
 }
 
 #[test]
+fn foreign_takes_an_oi_fn_as_a_callback() {
+	Project::new()
+		.file(
+			"main.oi",
+			[
+				"use cext",
+				"cmp :: fn(a: ptr, b: ptr) i32 { a.array[i32](1)[0] - b.array[i32](1)[0] }",
+				"buf: []i32 = .[3, 1, 2]",
+				"cext.qsort(buf.ptr, 3, 4, cmp)",
+				"print(buf)",
+			],
+		)
+		.file(
+			"cext.oi",
+			[
+				"module cext",
+				"pub qsort : fn(base: ptr, n: usize, size: usize, cmp: fn(a: ptr, b: ptr) i32) : foreign",
+			],
+		)
+		.check("[1, 2, 3]");
+}
+
+#[test]
+fn foreign_callback_rejects_a_closure() {
+	Project::new()
+		.file(
+			"main.oi",
+			[
+				"use cext",
+				"k := 1",
+				"bad := fn(s: i32) () { print(k) }",
+				"cext.signal(2, bad)",
+			],
+		)
+		.file(
+			"cext.oi",
+			[
+				"module cext",
+				"pub signal : fn(sig: i32, handler: fn(s: i32)) ptr : foreign",
+			],
+		)
+		.fail_with("captures can't cross the C ABI");
+}
+
+#[test]
 fn fn_ptr_cast_needs_a_c_signature() {
 	fail_with(
 		["Bad :: fn(s: string) int", "f := Bad(ptr(0))"],

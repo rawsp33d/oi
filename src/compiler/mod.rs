@@ -46,6 +46,7 @@ pub(crate) struct FnSig {
 	pub muts: Vec<bool>,
 	pub ret: Typ,
 	pub args: Vec<(String, Option<Spanned<Expr>>)>,
+	pub foreign: bool,
 }
 
 impl FnSig {
@@ -71,6 +72,17 @@ fn check_param_defaults(params: &[Param]) -> Result<(), Diagnostic> {
 		return Err(Diagnostic::new(msg, p.span.into_range()).with_label("defaults must be trailing"));
 	}
 	Ok(())
+}
+
+// Check that every param and return are C friendly.
+pub(crate) fn check_c_sig(name: &str, params: &[Typ], ret: &Typ, span: Span) -> Result<(), Diagnostic> {
+	match params.iter().chain((!ret.is_unit()).then_some(ret)).find(|t| !t.is_c_repr()) {
+		Some(t) => Err(
+			Diagnostic::new(format!("`{name}` can't cross the C ABI"), span.into_range())
+				.with_label(format!("`{t}` has no C representation")),
+		),
+		None => Ok(()),
+	}
 }
 
 // A generic free function, monomorphized per callsite.
@@ -1051,13 +1063,7 @@ impl<M: Module> Compiler<M> {
 			// `@export`
 			let mut anns = self.annotations.get(&item.key).into_iter().flatten();
 			if let Some((fields, span)) = anns.find_map(|a| Some((ann(a, "core::export")?, a.1))) {
-				let bad = params.iter().chain((!ret.is_unit()).then_some(&ret)).find(|t| !t.is_c_repr());
-				if let Some(t) = bad {
-					let msg = format!("`{}` can't cross the C ABI", item.key);
-					return Err(
-						Diagnostic::new(msg, span.into_range()).with_label(format!("`{t}` has no C representation"))
-					);
-				}
+				check_c_sig(&item.key, &params, &ret, span)?;
 				let sym = match fields.first() {
 					Some((_, (Expr::String(s), _))) if !s.is_empty() => s.clone(),
 					_ => display_name(&item.key).replace('.', "_"),
@@ -1097,7 +1103,13 @@ impl<M: Module> Compiler<M> {
 				let msg = format!("unknown foreign symbol `{bare}`");
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("no such symbol"));
 			}
-			let sig = self.declare_fn(bare, Linkage::Import, params, muts.clone(), ret);
+			for t in &params {
+				if let Typ::Fn(ps, r) = t {
+					check_c_sig(bare, ps, r, span)?;
+				}
+			}
+			let mut sig = self.declare_fn(bare, Linkage::Import, params, muts.clone(), ret);
+			sig.foreign = true;
 			funcs.insert(name.clone(), sig);
 		}
 
@@ -1292,6 +1304,7 @@ impl<M: Module> Compiler<M> {
 			muts,
 			ret,
 			args: vec![],
+			foreign: false,
 		}
 	}
 
