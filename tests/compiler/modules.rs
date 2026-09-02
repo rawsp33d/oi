@@ -123,6 +123,33 @@ fn foreign_typed_read_copies_out() {
 }
 
 #[test]
+fn fn_type_alias_casts_a_ptr() {
+	Project::new()
+		.file(
+			"main.oi",
+			[
+				"use cext",
+				"Abs :: fn(n: i32) i32",
+				r#"abs := Abs(cext.dlsym(ptr(0), "abs"))"#,
+				"print(abs(-5))",
+			],
+		)
+		.file(
+			"cext.oi",
+			["module cext", "pub dlsym : fn(handle: ptr, name: cstr) ptr : foreign"],
+		)
+		.check("5");
+}
+
+#[test]
+fn fn_ptr_cast_needs_a_c_signature() {
+	fail_with(
+		["Bad :: fn(s: string) int", "f := Bad(ptr(0))"],
+		"can't cross the C ABI",
+	);
+}
+
+#[test]
 fn foreign_unknown_symbol_fails() {
 	Project::new()
 		.file("main.oi", ["use cext", "print(1)"])
