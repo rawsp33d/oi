@@ -975,7 +975,7 @@ impl<'a, M: Module> Translator<'a, M> {
 	}
 
 	// Allocate a struct on the stack, initializing each field to its default.
-	fn struct_slot(&mut self, struct_fields: &[FieldDef]) -> Result<Value, Diagnostic> {
+	pub(super) fn struct_slot(&mut self, struct_fields: &[FieldDef]) -> Result<Value, Diagnostic> {
 		let ptr = self.stack_slot((struct_fields.len() * 8) as u32);
 		for (i, f) in struct_fields.iter().enumerate() {
 			let init = if let Some(default_expr) = &f.default {

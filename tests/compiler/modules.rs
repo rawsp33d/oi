@@ -1,3 +1,5 @@
+use indoc::indoc;
+
 use crate::common::Project;
 use crate::helpers::{check, fail_with};
 
@@ -140,6 +142,47 @@ fn link_dlopens_named_library() {
 			["module cext", r#"@link.{"z"}"#, "pub zlibVersion : fn() cstr : foreign"],
 		)
 		.check("1");
+}
+
+#[test]
+fn c_struct_writes_at_c_offsets() {
+	let src = indoc! {"
+		@c
+		S :: struct { a: u8, ok: bool, b: u32 }
+		buf: []u8 = .[9, 9, 9, 9, 9, 9, 9, 9]
+		buf.ptr.write(S.{ a = 1, ok = true, b = 2 })
+		print(buf)
+	"};
+	check(src, "[1, 1, 9, 9, 2, 0, 0, 0]");
+}
+
+#[test]
+fn c_struct_roundtrips_nested() {
+	let src = indoc! {"
+		@c Inner :: struct { x: u16, y: u16 }
+		@c Outer :: struct { tag: u8, on: bool, inner: Inner }
+		buf: []u8 = .[0, 0, 0, 0, 0, 0]
+		buf.ptr.write(Outer.{ tag = 7, on = true, inner = Inner.{ x = 1, y = 2 } })
+		print(buf)
+		o := buf.ptr.read[Outer]()
+		print(o.on)
+		print(o.inner.y)
+	"};
+	check(src, ["[7, 1, 1, 0, 2, 0]", "true", "2"]);
+}
+
+#[test]
+fn c_struct_rejects_missing_c_repr() {
+	fail_with(
+		["@c Bad :: struct { s: string }", "print(1)"],
+		"`Bad.s` has no C representation",
+	);
+	let src = indoc! {"
+		P :: struct { x: int }
+		buf: []u8 = .[0]
+		buf.ptr.write(P.{ x = 1 })
+	"};
+	fail_with(src, "`P` has no C layout");
 }
 
 #[test]

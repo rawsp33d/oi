@@ -296,8 +296,13 @@ impl<'a, M: Module> Translator<'a, M> {
 						}
 					}
 				};
-				if sname == "core::ptr" && method == "array" {
-					return self.ptr_array(bound.map(|(v, _)| v), type_args, args, expr.1);
+				if sname == "core::ptr" {
+					let recv = bound.as_ref().map(|(v, _)| *v);
+					match method.as_str() {
+						"array" => return self.ptr_array(recv, type_args, args, expr.1),
+						m @ ("read" | "write") => return self.ptr_copy(m == "read", recv, type_args, args, expr.1),
+						_ => {}
+					}
 				}
 				let recv_expr = bound.is_some().then(|| recv.as_ref());
 				self.check_member(&sname, method, expr.1)?;

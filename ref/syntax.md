@@ -78,6 +78,12 @@ add :: fn(a: int, b: int) int { a + b }
 @export.{"godot_init"}
 init :: fn(p: ptr) bool { !p.is_null() }
 
+# `@c` lets structs cross C ABI
+@c
+Header :: struct { tag: u8, len: u32 }
+h := p.read[Header]()
+p.write(h)
+
 ## functions
 
 # private within module by default

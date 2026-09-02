@@ -71,6 +71,30 @@ pub(crate) fn field_slot<'f>(fields: &'f [FieldDef], name: &str) -> Option<(i64,
 	})
 }
 
+// A struct's field offsets under the C ABI.
+pub(crate) struct CLayout {
+	pub offsets: Vec<u32>,
+	pub size: u32,
+	pub align: u32,
+}
+
+// C offset/alignment layout.
+pub(crate) fn c_layout(fields: &[FieldDef], is_c: &impl Fn(&str) -> bool) -> Option<CLayout> {
+	let (mut offsets, mut size, mut align) = (Vec::with_capacity(fields.len()), 0u32, 1u32);
+	for f in fields {
+		let (fsize, falign) = f.typ.c_size_align(is_c)?;
+		size = size.next_multiple_of(falign);
+		offsets.push(size);
+		size += fsize;
+		align = align.max(falign);
+	}
+	Some(CLayout {
+		offsets,
+		size: size.next_multiple_of(align),
+		align,
+	})
+}
+
 impl Typ {
 	pub fn unit() -> Typ {
 		Typ::Tuple(vec![])
@@ -98,6 +122,19 @@ impl Typ {
 			self.newtype().unwrap_or(self),
 			Typ::Int(_) | Typ::UInt(_) | Typ::ISize | Typ::USize | Typ::Float(_) | Typ::Bool | Typ::CStr
 		)
+	}
+
+	// Size and alignment under the C ABI.
+	pub fn c_size_align(&self, is_c: &impl Fn(&str) -> bool) -> Option<(u32, u32)> {
+		let scalar = |bytes: u32| Some((bytes, bytes));
+		match self.newtype().unwrap_or(self) {
+			Typ::Int(w) | Typ::UInt(w) => scalar(cl_int_for_width(*w).bytes()),
+			Typ::Float(w) => scalar((*w as u32) / 8),
+			Typ::Bool => scalar(1),
+			Typ::ISize | Typ::USize | Typ::CStr => scalar(8),
+			Typ::Struct(name, fields) if is_c(name) => c_layout(fields, is_c).map(|l| (l.size, l.align)),
+			_ => None,
+		}
 	}
 
 	// 1:1 spelling for identity keys.

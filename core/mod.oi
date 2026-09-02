@@ -42,6 +42,9 @@ pub test :: struct {
 pub link :: struct { name: string }
 pub export :: struct { name: string = "" }
 
+## Marks a struct as also describing a C struct.
+pub c :: ()
+
 # ffi
 
 ## An untyped pointer for C boundaries.

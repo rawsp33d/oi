@@ -174,6 +174,31 @@ fn ann<'a>(a: &'a Annotation, name: &str) -> Option<&'a [(Option<String>, Spanne
 	}
 }
 
+pub(crate) fn is_c_struct(anns: &HashMap<String, Vec<Annotation>>, name: &str) -> bool {
+	let mut anns = anns.get(name).into_iter().flatten();
+	anns.any(|a| ann(a, "core::c").is_some())
+}
+
+// Check that every struct marked `@c` has a C layout.
+fn check_c_structs(
+	anns: &HashMap<String, Vec<Annotation>>,
+	structs: &HashMap<String, Vec<FieldDef>>,
+) -> Result<(), Diagnostic> {
+	let is_c = |n: &str| is_c_struct(anns, n);
+	for (name, fields) in structs.iter().filter(|(n, _)| is_c(n)) {
+		let Some(bad) = fields.iter().find(|f| f.typ.c_size_align(&is_c).is_none()) else {
+			continue;
+		};
+		let span = anns[name].iter().find(|a| ann(a, "core::c").is_some()).unwrap().1;
+		let msg = format!("`{}.{}` has no C representation", display_name(name), bad.name);
+		return Err(Diagnostic::new(msg, span.into_range()).with_label(format!(
+			"`{}` is not a scalar, `ptr`, `cstr`, or a `@c` struct",
+			bad.typ
+		)));
+	}
+	Ok(())
+}
+
 // Check that annotations name a struct value and pass literal args.
 fn check_annotations<'p>(
 	anns: &HashMap<String, Vec<Annotation>>,
@@ -977,6 +1002,7 @@ impl<M: Module> Compiler<M> {
 			structs.extend(done);
 		}
 		check_annotations(&self.annotations, &structs, &generics, &self.consts, scope_of)?;
+		check_c_structs(&self.annotations, &structs)?;
 
 		let field_types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits);
 		check_impls(
