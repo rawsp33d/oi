@@ -123,7 +123,7 @@ fn type_import() {
 fn type_import_fails() {
 	for lib in ["P :: struct { x: int }", "P :: trait {}"] {
 		let p = Project::new()
-			.file("main.oi", ["module main", "use foo.{ P }", "print(1)"])
+			.file("main.oi", ["module main", "use foo.{ P }"])
 			.file("foo/lib.oi", ["module foo", lib]);
 		p.fail_with("private to module `foo`");
 	}

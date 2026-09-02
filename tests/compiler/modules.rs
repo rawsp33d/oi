@@ -39,13 +39,13 @@ fn import_nested_path() {
 
 #[test]
 fn rt_is_internal_to_core() {
-	fail_with(["use rt", "print(1)"], "internal to core");
+	fail_with(["use rt"], "internal to core");
 }
 
 #[test]
 fn foreign_outside_module_scope_fails() {
 	fail_with(
-		["x : fn() int : foreign", "print(1)"],
+		["x : fn() int : foreign"],
 		"only allowed as a module-level binding",
 	);
 }
@@ -71,7 +71,7 @@ fn foreign_ptr_roundtrips() {
 	Project::new()
 		.file(
 			"main.oi",
-			["use cext", "p := cext.malloc(16)", "cext.free(p)", "print(1)"],
+			["use cext", "p := cext.malloc(16)", "cext.free(p)", ":done"],
 		)
 		.file(
 			"cext.oi",
@@ -81,7 +81,7 @@ fn foreign_ptr_roundtrips() {
 				"pub free : fn(p: ptr) : foreign",
 			],
 		)
-		.check("1");
+		.check(":done");
 }
 
 #[test]
@@ -219,7 +219,7 @@ fn fn_ptr_cast_needs_a_c_signature() {
 #[test]
 fn foreign_unknown_symbol_fails() {
 	Project::new()
-		.file("main.oi", ["use cext", "print(1)"])
+		.file("main.oi", ["use cext"])
 		.file(
 			"cext.oi",
 			["module cext", "zzz_definitely_not_a_symbol : fn() int : foreign"],
@@ -266,10 +266,28 @@ fn c_struct_roundtrips_nested() {
 }
 
 #[test]
+fn c_struct_roundtrips_fixed_array() {
+	let src = indoc! {"
+		@c Xform :: struct { m: [4]f32, id: i32 }
+		buf: []u8 = .[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+		buf.ptr.write(Xform.{ m = .[1.5, 2.5, 3.5, 4.5], id = 7 })
+		print(buf.ptr.offset(16).array[i32](1))
+		x := buf.ptr.read[Xform]()
+		print(x.m)
+	"};
+	check(src, ["[7]", "[1.5, 2.5, 3.5, 4.5]"]);
+}
+
+#[test]
 fn c_struct_rejects_missing_c_repr() {
 	fail_with(
-		["@c Bad :: struct { s: string }", "print(1)"],
+		["@c Bad :: struct { s: string }"],
 		"`Bad.s` has no C representation",
+	);
+	// 1 vs. 8 bytes
+	fail_with(
+		["@c Wide :: struct { flags: [4]bool }"],
+		"`Wide.flags` has no C representation",
 	);
 	let src = indoc! {"
 		P :: struct { x: int }
@@ -281,6 +299,7 @@ fn c_struct_rejects_missing_c_repr() {
 
 #[test]
 fn c_struct_roundtrips_fn_field() {
+	// TODO: revisit buf with a repeat fn or something sane
 	let src = indoc! {"
 		@c Init :: struct { level: i32, cb: fn(n: i32) i32 }
 		double :: fn(n: i32) i32 { n * 2 }
@@ -296,7 +315,7 @@ fn c_struct_roundtrips_fn_field() {
 #[test]
 fn c_struct_rejects_bad_fn_field() {
 	fail_with(
-		["@c Bad :: struct { cb: fn(s: string) }", "print(1)"],
+		["@c Bad :: struct { cb: fn(s: string) }"],
 		"has no C representation",
 	);
 }

@@ -1121,11 +1121,17 @@ impl<'a, M: Module> Translator<'a, M> {
 	pub(super) fn fixed_copy(&mut self, src: Value, elem: &Typ, n: usize) -> Value {
 		let stride = self.elem_stride(elem);
 		let dst = self.stack_slot((n as i64 * stride) as u32);
+		self.fixed_move(dst, src, elem, n);
+		dst
+	}
+
+	// Copy n elements between two packed buffers.
+	pub(super) fn fixed_move(&mut self, dst: Value, src: Value, elem: &Typ, n: usize) {
+		let stride = self.elem_stride(elem);
 		for i in 0..n {
 			let off = (i as i64 * stride) as i32;
 			let v = self.load_elem(src, off, elem);
 			self.store_elem(dst, off, elem, v);
 		}
-		dst
 	}
 }

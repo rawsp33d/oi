@@ -133,6 +133,10 @@ impl Typ {
 			Typ::Bool => scalar(1),
 			Typ::ISize | Typ::USize | Typ::CStr => scalar(8),
 			Typ::Fn(ps, r) if ps.iter().chain((!r.is_unit()).then_some(&**r)).all(Typ::is_c_repr) => scalar(8),
+			Typ::FixedArray(e, n) => e
+				.c_size_align(is_c)
+				.filter(|(es, _)| e.is_c_repr() && *es as i64 == elem_size(e))
+				.map(|(es, ea)| (es * *n as u32, ea)),
 			Typ::Struct(name, fields) if is_c(name) => c_layout(fields, is_c).map(|l| (l.size, l.align)),
 			_ => None,
 		}

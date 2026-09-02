@@ -101,6 +101,19 @@ impl<M: Module> Translator<'_, M> {
 					self.b.ins().store(mem, addr, cell, 0);
 					self.b.ins().store(mem, cell, oi, slot);
 				}
+				Typ::FixedArray(e, n) => {
+					let at = self.b.ins().iadd_imm(c, off as i64);
+					match to_c {
+						true => {
+							let buf = self.b.ins().load(self.int, mem, oi, slot);
+							self.fixed_move(at, buf, e, *n);
+						}
+						false => {
+							let buf = self.fixed_copy(at, e, *n);
+							self.b.ins().store(mem, buf, oi, slot);
+						}
+					}
+				}
 				typ => {
 					let (src, so, dst, doff) = if to_c { (oi, slot, c, off) } else { (c, off, oi, slot) };
 					let v = self.b.ins().load(cl_type(typ, self.int), mem, src, so);

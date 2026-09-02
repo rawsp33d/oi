@@ -39,7 +39,7 @@ fn method_trailing_fn() {
 		print(b.with fn() int { 5 })
 		b.m(1) fn() int { 5 }
 	"};
-	check(src, "15\n16");
+	check(src, ["15", "16"]);
 }
 
 #[test]
@@ -76,16 +76,16 @@ fn headers_stay_juxt_free() {
 		x :: 5
 		match x { 5 => print(9), else => print(0) }
 	"};
-	check(src, "1\n3\n9");
+	check(src, ["1", "3", "9"]);
 }
 
 #[test]
 fn call_then_literal_return() {
-	let src = indoc! {"
-		logret :: fn() string { print(1) \"done\" }
+	let src = indoc! {r#"
+		logret :: fn() string { print(1) "done" }
 		logret()
-	"};
-	check(src, "1\ndone");
+	"#};
+	check(src, ["1", "done"]);
 }
 
 #[test]
