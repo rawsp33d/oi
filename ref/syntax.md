@@ -179,6 +179,12 @@ assert!(wrap("hi", "|") == "|hi|")
 step :: fn(x: int, by := 1) int { x + by }
 assert! step(1) == 2
 
+# named arguments
+
+# an argument may be named, to reorder or to skip over a default
+win :: fn(title: string, x := 0, y := 0, w := 854, h := 480) string { "{title} {w}x{h}" }
+assert! win("hi", h = 360) == "hi 854x360"
+
 # this really just skips the step of explicitly initializing a zeroed var
 divmod :: fn(a: int, b: int) out: (int, int) {
 	out.0 = a / b

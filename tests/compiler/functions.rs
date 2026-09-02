@@ -181,6 +181,24 @@ fn default_param_not_trailing() {
 }
 
 #[test]
+fn named_args() {
+	let src = indoc! {r#"
+		win :: fn(title: string, x := 0, w := 854, h := 480) string { "{title} {x} {w}x{h}" }
+		first[T] :: fn(a: T, b: T) T { a }
+		Options :: struct { foo: int, bar: bool }
+		opts :: fn(o: Options) { print(o) }
+		print(win(w = 640, title = "a"))
+		print(win("b", h = 360))
+		print(first(b = 2, a = 9))
+		opts(bar = true, foo = 4)
+	"#};
+	check(
+		src,
+		["a 0 640x480", "b 0 854x360", "9", "Options.{foo = 4, bar = true}"],
+	);
+}
+
+#[test]
 fn redefinition_shadows() {
 	let src = indoc! {r#"
 		call :: fn() { f() }

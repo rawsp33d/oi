@@ -714,16 +714,16 @@ where
 			Token::None => Expr::None,
 		};
 
-		// named args collect into one trailing record arg
-		let named_arg = ident()
-			.map_with(|n, ex| (Expr::Ident(n), ex.span()))
-			.then_ignore(just(Token::Assign))
-			.then(expr.clone())
-			.map(|(key, value)| (Some(key), value));
 		// arg mods
 		let mut_arg = just(Token::Mut)
 			.ignore_then(expr.clone())
 			.map_with(|e, ex| (Expr::MutArg(Box::new(e)), ex.span()));
+		// named args collect into one trailing record arg
+		let named_arg = ident()
+			.map_with(|n, ex| (Expr::Ident(n), ex.span()))
+			.then_ignore(just(Token::Assign))
+			.then(mut_arg.clone().or(expr.clone()))
+			.map(|(key, value)| (Some(key), value));
 		// variable vs. call vs. struct literal
 		let args = paren(
 			named_arg

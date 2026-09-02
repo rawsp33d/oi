@@ -8,6 +8,39 @@ pub(super) fn mut_inner(arg: &Spanned<Expr>) -> &Spanned<Expr> {
 	}
 }
 
+// Named arguments.
+pub(super) fn arg_slots<'e>(
+	name: &str,
+	names: &[&str],
+	args: &'e [Spanned<Expr>],
+	coerces: bool,
+) -> Result<Option<Vec<Option<&'e Spanned<Expr>>>>, Diagnostic> {
+	let Some(((Expr::Record(entries), _), pos)) = args.split_last() else {
+		return Ok(None);
+	};
+	let named = |k: &Spanned<Expr>| matches!(&k.0, Expr::Ident(n) if !coerces || names.contains(&n.as_str()));
+	if entries.is_empty() || pos.len() >= names.len() || !entries.iter().all(|(k, _)| named(k)) {
+		return Ok(None);
+	}
+	let mut slots = vec![None; names.len()];
+	for (slot, arg) in slots.iter_mut().zip(pos) {
+		*slot = Some(arg);
+	}
+	for (key, value) in entries {
+		let Expr::Ident(k) = &key.0 else { unreachable!() };
+		let i = names.iter().position(|n| n == k).ok_or_else(|| {
+			Diagnostic::new(format!("`{name}` has no parameter `{k}`"), key.1.into_range())
+				.with_label("no such parameter")
+		})?;
+		if slots[i].replace(value).is_some() {
+			return Err(
+				Diagnostic::new(format!("`{k}` is already given"), key.1.into_range()).with_label("duplicate argument")
+			);
+		}
+	}
+	Ok(Some(slots))
+}
+
 // How a value call reaches its code.
 pub(super) enum Callee {
 	// a fn value
@@ -117,64 +150,73 @@ impl<'a, M: Module> Translator<'a, M> {
 		} else {
 			args
 		};
-		let n_defaults = sig.args.iter().rev().take_while(|(_, d)| d.is_some()).count();
-		let total = args.len() + self_n;
-		if total + n_defaults < sig.params.len() || total > sig.params.len() {
-			let mut want = (sig.params.len() - n_defaults - self_n).to_string();
-			if n_defaults > 0 {
-				want = format!("{want}..{}", sig.params.len() - self_n);
+		let mut names: Vec<&str> = sig.args.iter().skip(self_n).map(|(n, _)| n.as_str()).collect();
+		names.resize(sig.params.len() - self_n, "");
+		let named = arg_slots(name, &names, args, matches!(sig.params.last(), Some(Typ::Struct(..))))?;
+		if named.is_none() {
+			let n_defaults = sig.args.iter().rev().take_while(|(_, d)| d.is_some()).count();
+			let total = args.len() + self_n;
+			if total + n_defaults < sig.params.len() || total > sig.params.len() {
+				let mut want = (sig.params.len() - n_defaults - self_n).to_string();
+				if n_defaults > 0 {
+					want = format!("{want}..{}", sig.params.len() - self_n);
+				}
+				let msg = format!("`{name}` expects {want} argument(s), got {}", args.len());
+				return Err(Diagnostic::new(msg, span.into_range()).with_label("wrong number of arguments"));
 			}
-			let msg = format!("`{name}` expects {want} argument(s), got {}", args.len());
-			return Err(Diagnostic::new(msg, span.into_range()).with_label("wrong number of arguments"));
 		}
-		self.check_muts(&sig.muts, recv_expr, args)?;
-		let mut vals = Vec::with_capacity(args.len() + self_n);
+		let slots: Vec<_> = named.unwrap_or_else(|| (0..names.len()).map(|i| args.get(i)).collect());
+		self.check_muts(&sig.muts, recv_expr, &slots)?;
+		let fills = slots.iter().any(Option::is_none);
+		let saved: Vec<_> = match fills {
+			true => sig.args.iter().map(|(n, _)| (n.clone(), self.vars.remove(n))).collect(),
+			false => Vec::new(),
+		};
+		let mut vals = Vec::with_capacity(sig.params.len());
+		vals.extend(recv);
 		let mut lent = Vec::new();
-		let mut expected = sig.params.iter();
-		if let Some(recv) = recv {
-			expected.next();
-			vals.push(recv);
-		}
-		for (arg, &is_mut) in args.iter().zip(&sig.muts[self_n..]) {
-			let want = expected.next().unwrap();
-			let (val, typ) = if is_mut {
-				let (slot, typ, entry) = self.lend_mut(mut_inner(arg))?;
-				lent.push((slot, entry));
-				(slot, typ)
-			} else {
-				self.check_expr(mut_inner(arg), want)?
-			};
-			if &typ != want {
-				return Err(
-					Diagnostic::new(format!("expected {want} argument, got {typ}"), arg.1.into_range())
-						.with_label("wrong argument type"),
-				);
-			}
-			vals.push(val);
-		}
-		// fill missing trailing args from defaults, left-to-right
-		if vals.len() < sig.params.len() {
-			let saved: Vec<_> = sig.args.iter().map(|(n, _)| (n.clone(), self.vars.remove(n))).collect();
-			for (i, ((name, default), typ)) in sig.args.iter().zip(&sig.params).enumerate() {
-				let val = match vals.get(i) {
-					Some(&val) => val,
-					None => {
-						let default = default.as_ref().expect("validated trailing defaults");
-						let val = self.check_typed(default, typ, "not a valid default for this parameter")?;
-						vals.push(val);
-						val
+		for (i, want) in sig.params.iter().enumerate() {
+			if i >= self_n {
+				let (val, typ) = match (slots[i - self_n], sig.muts[i]) {
+					(Some(arg), true) => {
+						let (cell, typ, entry) = self.lend_mut(mut_inner(arg))?;
+						lent.push((cell, entry));
+						(cell, typ)
+					}
+					(Some(arg), false) => self.check_expr(mut_inner(arg), want)?,
+					(None, _) => {
+						let Some(default) = &sig.args[i].1 else {
+							let msg = format!("`{name}` is missing argument `{}`", sig.args[i].0);
+							return Err(
+								Diagnostic::new(msg, span.into_range()).with_label("no value for this parameter")
+							);
+						};
+						(
+							self.check_typed(default, want, "not a valid default for this parameter")?,
+							want.clone(),
+						)
 					}
 				};
-				let var = self.b.declare_var(cl_type(typ, self.int));
-				self.b.def_var(var, val);
-				self.vars.insert(name.clone(), Local::plain(var, typ.clone(), false));
+				if &typ != want {
+					let at = slots[i - self_n].expect("a default is checked as it is evaluated").1;
+					return Err(
+						Diagnostic::new(format!("expected {want} argument, got {typ}"), at.into_range())
+							.with_label("wrong argument type"),
+					);
+				}
+				vals.push(val);
 			}
-			for (name, old) in saved {
-				match old {
-					Some(local) => self.vars.insert(name, local),
-					None => self.vars.remove(&name),
-				};
+			if fills {
+				let var = self.b.declare_var(cl_type(want, self.int));
+				self.b.def_var(var, vals[i]);
+				self.vars.insert(sig.args[i].0.clone(), Local::plain(var, want.clone(), false));
 			}
+		}
+		for (name, old) in saved {
+			match old {
+				Some(local) => self.vars.insert(name, local),
+				None => self.vars.remove(&name),
+			};
 		}
 		let out = self.emit_call(&sig, &vals);
 		self.reload_lent(&lent);
@@ -230,14 +272,15 @@ impl<'a, M: Module> Translator<'a, M> {
 		&self,
 		muts: &[bool],
 		recv: Option<&Spanned<Expr>>,
-		args: &[Spanned<Expr>],
+		args: &[Option<&Spanned<Expr>>],
 	) -> Result<(), Diagnostic> {
 		if let Some(re) = recv
 			&& muts[0]
 		{
 			self.mut_place(re, "calling a `mut self` method needs a `mut` binding")?;
 		}
-		for (i, (arg, &m)) in args.iter().zip(&muts[recv.is_some() as usize..]).enumerate() {
+		for (i, (&arg, &m)) in args.iter().zip(&muts[recv.is_some() as usize..]).enumerate() {
+			let Some(arg) = arg else { continue };
 			let name = match (&arg.0, m) {
 				(Expr::MutArg(inner), true) => match &inner.0 {
 					Expr::Slice { collection, .. } => {
@@ -259,7 +302,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				_ => continue,
 			};
 			let mut touched = HashSet::new();
-			let others = args.iter().enumerate().filter(|&(j, _)| j != i).map(|(_, a)| a);
+			let others = args.iter().enumerate().filter(|&(j, _)| j != i).filter_map(|(_, a)| *a);
 			for e in recv.into_iter().chain(others) {
 				e.0.idents(&mut touched);
 			}
@@ -325,7 +368,8 @@ impl<'a, M: Module> Translator<'a, M> {
 			.with_label("wrong number of arguments"));
 		}
 		let muts: Vec<bool> = params.iter().map(|p| matches!(p, Typ::Mut(_))).collect();
-		self.check_muts(&muts[self_n..], None, args)?;
+		let slots: Vec<_> = args.iter().map(Some).collect();
+		self.check_muts(&muts[self_n..], None, &slots)?;
 		let mut vals = Vec::with_capacity(args.len() + self_n + 1);
 		vals.extend(recv);
 		let mut lent = Vec::new();

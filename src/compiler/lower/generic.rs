@@ -1,4 +1,4 @@
-use super::call::mut_inner;
+use super::call::{arg_slots, mut_inner};
 use super::*;
 use crate::ast::TypeParam;
 
@@ -73,19 +73,21 @@ impl<'a, M: Module> Translator<'a, M> {
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
 		let self_n = recv.is_some() as usize;
-		if args.len() + self_n != def.params.len() {
+		let names: Vec<&str> = def.params[self_n..].iter().map(|p| p.name.as_str()).collect();
+		let named = arg_slots(name, &names, args, false)?;
+		if named
+			.as_ref()
+			.map_or(args.len() != names.len(), |s| s.iter().any(Option::is_none))
+		{
 			return Err(Diagnostic::new(
-				format!(
-					"`{name}` expects {} argument(s), got {}",
-					def.params.len() - self_n,
-					args.len()
-				),
+				format!("`{name}` expects {} argument(s), got {}", names.len(), args.len()),
 				span.into_range(),
 			)
 			.with_label("wrong number of arguments"));
 		}
+		let slots: Vec<_> = named.unwrap_or_else(|| args.iter().map(Some).collect());
 		let muts: Vec<bool> = def.params.iter().map(|p| p.mutable).collect();
-		self.check_muts(&muts, recv.as_ref().map(|(_, e)| *e), args)?;
+		self.check_muts(&muts, recv.as_ref().map(|(_, e)| *e), &slots)?;
 		let mut subst = HashMap::new();
 		if !type_args.is_empty() && type_args.len() != def.type_params.len() {
 			return Err(Diagnostic::new(
@@ -110,7 +112,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			vals.push(*rval);
 		}
 		let mut lent = Vec::new();
-		for (arg, param) in args.iter().zip(declared) {
+		for (arg, param) in slots.iter().flatten().zip(declared) {
 			let (val, typ) = if param.mutable {
 				let (slot, typ, entry) = self.lend_mut(mut_inner(arg))?;
 				lent.push((slot, entry));
