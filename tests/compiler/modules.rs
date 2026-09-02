@@ -270,8 +270,10 @@ fn c_struct_roundtrips_fixed_array() {
 		print(x.m)
 		print(Xform.size)
 		print(comp Xform.size)
+		sized: [Xform.size]u8
+		print(sized.len)
 	"};
-	check(src, ["[7]", "[1.5, 2.5, 3.5, 4.5]", "20", "20"]);
+	check(src, ["[7]", "[1.5, 2.5, 3.5, 4.5]", "20", "20", "20"]);
 }
 
 #[test]

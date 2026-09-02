@@ -23,7 +23,9 @@ pub(super) fn unify(
 	}
 	match (declared, concrete) {
 		(TypeExpr::Array(e), Typ::Array(c)) => unify(e, c, params, subst, generics),
-		(TypeExpr::FixedArray(e, n), Typ::FixedArray(c, cn)) if n == cn => unify(e, c, params, subst, generics),
+		(TypeExpr::FixedArray(e, n), Typ::FixedArray(c, cn)) if matches!(n.0, Expr::Int(n) if n == *cn as i64) => {
+			unify(e, c, params, subst, generics)
+		}
 		(TypeExpr::Option(e), Typ::Option(c)) => unify(e, c, params, subst, generics),
 		(TypeExpr::Result(e, err), Typ::Result(c, ce)) => {
 			unify(e, c, params, subst, generics)?;
@@ -181,6 +183,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			self.generics,
 			self.traits,
 		)
+		.with_consts(self.const_env())
 		.with_scope(self.home_scope(&def.module));
 		let params = types.resolve_params(&def.params)?;
 		let ret = match &def.ret {

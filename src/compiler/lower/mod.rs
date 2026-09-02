@@ -8,10 +8,10 @@ use cranelift::prelude::*;
 use cranelift_module::{DataDescription, DataId, FuncId, Linkage, Module};
 
 use super::{
-	FieldDef, FnSig, GenericFnDef, GenericStructDef, Generics, Local, LoopFrame, Pending, TraitItem, Typ, TypeCtx,
-	VariantInfo, builtin_claim, c_layout, check_c_sig, cl_int_for_width, cl_type, display_name, elem_size, embeds,
-	enum_boxed, enum_slots, is_c_struct, mentions, oi_symbol, option_variants, result_variants, sum_remap, trait_fns,
-	type_expr,
+	Consts, FieldDef, FnSig, GenericFnDef, GenericStructDef, Generics, Local, LoopFrame, Pending, TraitItem, Typ,
+	TypeCtx, VariantInfo, builtin_claim, c_layout, check_c_sig, cl_int_for_width, cl_type, display_name, elem_size,
+	embeds, enum_boxed, enum_slots, is_c_struct, mentions, oi_symbol, option_variants, result_variants, sum_remap,
+	trait_fns, type_expr,
 };
 use crate::ast::{Annotation, BinOp, Expr, MatchArm, Span, Spanned, TypeExpr};
 use crate::diagnostics::{Diagnostic, SourceMap};

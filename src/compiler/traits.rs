@@ -202,6 +202,7 @@ pub(super) fn check_impls<'p>(
 			types.generics,
 			types.traits,
 		)
+		.with_consts(types.consts)
 		.with_scope(scope);
 		let sig = |ps: &[Param], ret: &Option<Spanned<TypeExpr>>| -> Result<Typ, Diagnostic> {
 			let params = ps.iter().map(|p| sig_types.resolve(&p.typ, p.span)).collect::<Result<_, _>>()?;

@@ -177,7 +177,7 @@ where
 
 	let ident = || select! { Token::Ident(name) => name };
 
-	let macro_name = ident()
+	let dotted_name = ident()
 		.then(just(Token::Dot).ignore_then(ident()).or_not())
 		.map(|(first, rest)| match rest {
 			Some(second) => format!("{first}.{second}"),
@@ -257,12 +257,13 @@ where
 			)
 			.map(TypeExpr::Tuple);
 			// arrays
+			let len = spanned(select! { Token::Int(n) => Expr::Int(n) }.or(dotted_name.clone().map(Expr::Ident)));
 			let array = just(Token::LBracket)
-				.ignore_then(select! { Token::Int(n) => n }.or_not())
+				.ignore_then(len.or_not())
 				.then_ignore(just(Token::RBracket))
 				.then(base.clone())
 				.map(|(n, elem)| match n {
-					Some(n) => TypeExpr::FixedArray(Box::new(elem), n as usize),
+					Some(n) => TypeExpr::FixedArray(Box::new(elem), Box::new(n)),
 					None => TypeExpr::Array(Box::new(elem)),
 				});
 			let fn_param = just(Token::Mut)
@@ -677,7 +678,7 @@ where
 			)
 		});
 
-	let macro_stmt = macro_name
+	let macro_stmt = dotted_name
 		.clone()
 		.then_ignore(adjacent)
 		.then_ignore(just(Token::Not))
@@ -905,7 +906,7 @@ where
 			.map_with(|e, ex| (e, ex.span()));
 
 		// inline macro calls
-		let macro_call = macro_name
+		let macro_call = dotted_name
 			.clone()
 			.then_ignore(adjacent)
 			.then_ignore(just(Token::Not))
@@ -1683,7 +1684,7 @@ where
 	// annotation macros
 	let attr_macro = just(Token::At)
 		.then_ignore(adjacent)
-		.ignore_then(macro_name)
+		.ignore_then(dotted_name)
 		.then_ignore(adjacent)
 		.then_ignore(just(Token::Not))
 		.then(spanned(adjacent.ignore_then(paren(loose_list(expr.clone())))).or_not())

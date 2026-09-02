@@ -13,7 +13,15 @@ impl<'a, M: Module> Translator<'a, M> {
 			self.generics,
 			self.traits,
 		)
+		.with_consts(self.const_env())
 		.with_scope(self.scope)
+	}
+
+	pub(super) fn const_env(&self) -> Consts<'a> {
+		Consts {
+			map: self.consts,
+			anns: self.annotations,
+		}
 	}
 
 	// The scope of the module a fn was written in.

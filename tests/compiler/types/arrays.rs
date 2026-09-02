@@ -402,8 +402,9 @@ fn fixed_zeroed() {
 }
 
 #[test]
-fn fixed_len_is_constant() {
+fn fixed_len() {
 	check(["a: [4]int", "a.len"], "4");
+	check(["N :: 3", "a: [N]int", "a.len"], "3");
 }
 
 #[test]

@@ -360,7 +360,7 @@ fn replace_self(te: &TypeExpr, self_ty: &TypeExpr) -> TypeExpr {
 	match te {
 		TypeExpr::Name(n) if n == "Self" => self_ty.clone(),
 		TypeExpr::Array(e) => TypeExpr::Array(Box::new(replace_self(e, self_ty))),
-		TypeExpr::FixedArray(e, n) => TypeExpr::FixedArray(Box::new(replace_self(e, self_ty)), *n),
+		TypeExpr::FixedArray(e, n) => TypeExpr::FixedArray(Box::new(replace_self(e, self_ty)), n.clone()),
 		TypeExpr::Option(e) => TypeExpr::Option(Box::new(replace_self(e, self_ty))),
 		TypeExpr::Result(e, err) => TypeExpr::Result(Box::new(replace_self(e, self_ty)), err.clone()),
 		TypeExpr::Tuple(fs) => TypeExpr::Tuple(fs.iter().map(|(n, t)| (n.clone(), replace_self(t, self_ty))).collect()),
@@ -957,6 +957,12 @@ impl<M: Module> Compiler<M> {
 		let enum_names: HashMap<String, Vec<VariantInfo>> =
 			enum_items.iter().map(|(name, ..)| (name.to_string(), Vec::new())).collect();
 
+		let (const_map, const_anns) = (self.consts.clone(), self.annotations.clone());
+		let consts = Consts {
+			map: &const_map,
+			anns: &const_anns,
+		};
+
 		// structs can ref each other
 		let no_type_params: HashMap<String, Typ> = HashMap::new();
 		let mut structs: HashMap<String, Vec<FieldDef>> = HashMap::new();
@@ -980,6 +986,7 @@ impl<M: Module> Compiler<M> {
 			let (mut done, mut err) = (vec![], None);
 			pending.retain(|(name, fields)| {
 				let types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits)
+					.with_consts(consts)
 					.with_scope(scope_of(name));
 				let resolve = || {
 					let fs: Vec<FieldDef> = fields.iter().map(|p| field(&types, p)).collect::<Result<_, _>>()?;
@@ -1017,7 +1024,8 @@ impl<M: Module> Compiler<M> {
 		check_annotations(&self.annotations, &structs, &generics, &self.consts, scope_of)?;
 		check_c_structs(&self.annotations, &structs)?;
 
-		let field_types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits);
+		let field_types =
+			TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits).with_consts(consts);
 		check_impls(
 			trait_bodies,
 			&traits,
@@ -1032,6 +1040,7 @@ impl<M: Module> Compiler<M> {
 			.iter()
 			.map(|(name, backing, variants)| {
 				let types = TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits)
+					.with_consts(consts)
 					.with_scope(scope_of(name));
 				let mut vs = build_variants(variants, types)?;
 				if let Some(bt) = backing {
@@ -1048,8 +1057,9 @@ impl<M: Module> Compiler<M> {
 			if let Some(t) = item.key.rsplit_once('.').map(|(t, _)| t) {
 				aliases.insert("Self".into(), TypeExpr::Name(t.into()));
 			}
-			let types =
-				TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits).with_scope(item.scope);
+			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits)
+				.with_consts(consts)
+				.with_scope(item.scope);
 			let params: Vec<Typ> = item
 				.params
 				.iter()
@@ -1082,7 +1092,9 @@ impl<M: Module> Compiler<M> {
 			let TypeExpr::Fn(param_types, muts, ret) = fn_type else {
 				unreachable!("loader validated foreign fn type")
 			};
-			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits).with_scope(scope);
+			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits)
+				.with_consts(consts)
+				.with_scope(scope);
 			let params: Vec<Typ> = param_types.iter().map(|t| types.resolve(t, span)).collect::<Result<_, _>>()?;
 			let ret = types.resolve(ret, span)?;
 			let bare = display_name(name);
@@ -1120,8 +1132,9 @@ impl<M: Module> Compiler<M> {
 			if let Some(t) = self_type {
 				aliases.insert("Self".into(), TypeExpr::Name(t.into()));
 			}
-			let types =
-				TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits).with_scope(item.scope);
+			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits)
+				.with_consts(consts)
+				.with_scope(item.scope);
 			let (params, ret) = types.resolve_params_ret(&item.params, &item.ret)?;
 			let ret = ret.or_else(|| Some((funcs[&item.key].ret.clone(), (0..0).into())));
 			self.translate(
@@ -1145,7 +1158,8 @@ impl<M: Module> Compiler<M> {
 			if render.contains_key(&name) {
 				continue;
 			}
-			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits);
+			let types =
+				TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits).with_consts(consts);
 			let styp = types.named(&name, (0..0).into())?;
 			let param = [("self".into(), styp.clone(), false)];
 			let def = FnDef {
@@ -1170,7 +1184,8 @@ impl<M: Module> Compiler<M> {
 			let m = methods.len();
 			let f = tfields.len();
 			let mut bytes = vec![0u8; (m + f + 1) * 8];
-			let ftypes = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits);
+			let ftypes =
+				TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits).with_consts(consts);
 			let mut const_slots = Vec::new();
 			for (i, tf) in tfields.iter().enumerate() {
 				match structs.get(typ.as_str()).and_then(|fs| field_slot(fs, &tf.name)) {
@@ -1224,8 +1239,9 @@ impl<M: Module> Compiler<M> {
 			}
 		};
 
-		let types =
-			TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits).with_scope(scopes["main"]);
+		let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits)
+			.with_consts(consts)
+			.with_scope(scopes["main"]);
 		let typ = self.translate(
 			FnDef {
 				params_tuple: true,
@@ -1241,7 +1257,9 @@ impl<M: Module> Compiler<M> {
 		// drain generic instances queued by calls we've seen
 		while let Some((sym, def, subst)) = self.pending.pop() {
 			let home = scopes[if def.module.is_empty() { "main" } else { &def.module }];
-			let types = TypeCtx::new(&structs, &enums, &aliases, &subst, &generics, &traits).with_scope(home);
+			let types = TypeCtx::new(&structs, &enums, &aliases, &subst, &generics, &traits)
+				.with_consts(consts)
+				.with_scope(home);
 			let (params, ret) = types.resolve_params_ret(&def.params, &def.ret)?;
 			let ret = ret.or_else(|| Some((self.mono[&sym].ret.clone(), (0..0).into())));
 			let self_sig = self.mono[&sym].clone();

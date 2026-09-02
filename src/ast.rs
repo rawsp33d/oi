@@ -523,7 +523,7 @@ pub enum TypeExpr {
 	Name(String),
 	Tuple(Vec<(Option<String>, TypeExpr)>),
 	Array(Box<TypeExpr>),
-	FixedArray(Box<TypeExpr>, usize),
+	FixedArray(Box<TypeExpr>, Box<Spanned<Expr>>),
 	Fn(Vec<TypeExpr>, Vec<bool>, Box<TypeExpr>),
 	Option(Box<TypeExpr>),
 	Result(Box<TypeExpr>, Option<Box<TypeExpr>>),

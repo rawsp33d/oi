@@ -275,7 +275,9 @@ pub(crate) fn type_expr(typ: &Typ) -> Option<TypeExpr> {
 		Typ::Range => TypeExpr::Name("range".into()),
 		Typ::Struct(n, _) | Typ::TupleStruct(n, _) | Typ::Enum(n) => named(n)?,
 		Typ::Array(e) => TypeExpr::Array(Box::new(type_expr(e)?)),
-		Typ::FixedArray(e, n) => TypeExpr::FixedArray(Box::new(type_expr(e)?), *n),
+		Typ::FixedArray(e, n) => {
+			TypeExpr::FixedArray(Box::new(type_expr(e)?), Box::new((Expr::Int(*n as i64), (0..0).into())))
+		}
 		Typ::Option(e) => TypeExpr::Option(Box::new(type_expr(e)?)),
 		Typ::Result(ok, err) => {
 			let err = if **err == Typ::Error {

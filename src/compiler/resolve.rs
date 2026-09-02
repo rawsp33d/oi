@@ -1,7 +1,7 @@
 //! Type resolution.
 
 use super::*;
-use crate::loader::Scope;
+use crate::loader::{Scope, fold_const};
 
 // resolved params with an optional return annotation
 type ParamsRet = (Vec<(String, Typ, bool)>, Option<(Typ, Span)>);
@@ -93,6 +93,15 @@ pub(super) fn apply_backing(
 }
 
 static NO_SCOPE: std::sync::LazyLock<Scope> = std::sync::LazyLock::new(Scope::default);
+type ConstMaps = (HashMap<String, Spanned<Expr>>, HashMap<String, Vec<Annotation>>);
+static NO_CONSTS: std::sync::LazyLock<ConstMaps> = std::sync::LazyLock::new(ConstMaps::default);
+
+// What a const expression in a type can name.
+#[derive(Clone, Copy)]
+pub(crate) struct Consts<'a> {
+	pub map: &'a HashMap<String, Spanned<Expr>>,
+	pub anns: &'a HashMap<String, Vec<Annotation>>,
+}
 
 // The named types in scope for resolution.
 #[derive(Clone, Copy)]
@@ -103,6 +112,7 @@ pub(crate) struct TypeCtx<'a> {
 	pub type_params: &'a HashMap<String, Typ>,
 	pub generics: &'a Generics,
 	pub traits: &'a HashMap<&'a str, TraitItem<'a>>,
+	pub consts: Consts<'a>,
 	pub scope: &'a Scope,
 	// keep track of generic instantiations to catch recursion
 	depth: usize,
@@ -124,6 +134,10 @@ impl<'a> TypeCtx<'a> {
 			type_params,
 			generics,
 			traits,
+			consts: Consts {
+				map: &NO_CONSTS.0,
+				anns: &NO_CONSTS.1,
+			},
 			scope: &NO_SCOPE,
 			depth: 0,
 		}
@@ -132,6 +146,11 @@ impl<'a> TypeCtx<'a> {
 	// Resolve names through a module's scope.
 	pub fn with_scope(self, scope: &'a Scope) -> Self {
 		TypeCtx { scope, ..self }
+	}
+
+	// Const folding.
+	pub fn with_consts(self, consts: Consts<'a>) -> Self {
+		TypeCtx { consts, ..self }
 	}
 }
 
@@ -171,7 +190,10 @@ impl TypeCtx<'_> {
 				Ok(Typ::Tuple(fields))
 			}
 			TypeExpr::Array(elem) => Ok(Typ::Array(Box::new(self.resolve(elem, span)?))),
-			TypeExpr::FixedArray(elem, n) => Ok(Typ::FixedArray(Box::new(self.resolve(elem, span)?), *n)),
+			TypeExpr::FixedArray(elem, len) => Ok(Typ::FixedArray(
+				Box::new(self.resolve(elem, span)?),
+				self.array_len(len)?,
+			)),
 			TypeExpr::Option(inner) => Ok(Typ::Option(Box::new(self.resolve(inner, span)?))),
 			TypeExpr::Ref(inner) => {
 				let it = self.resolve(inner, span)?;
@@ -256,6 +278,22 @@ impl TypeCtx<'_> {
 				};
 				Err(Diagnostic::new(msg, span.into_range()).with_label("no type arguments expected here"))
 			}
+		}
+	}
+
+	// Fold a fixed-array length.
+	fn array_len(&self, (e, span): &Spanned<Expr>) -> Result<usize, Diagnostic> {
+		if let Expr::Ident(path) = e
+			&& let Some((name, "size")) = path.split_once('.')
+			&& let Ok(t) = self.named(name, *span)
+			&& let Some((size, _)) = t.c_size_align(&|n: &str| is_c_struct(self.consts.anns, n))
+		{
+			return Ok(size as usize);
+		}
+		match fold_const(e, self.consts.map, self.scope) {
+			Some(Expr::Int(n)) if n >= 0 => Ok(n as usize),
+			_ => Err(Diagnostic::new("an array length must be a constant", span.into_range())
+				.with_label("not a constant int")),
 		}
 	}
 
