@@ -180,7 +180,8 @@ impl<'a, M: Module> Translator<'a, M> {
 			&subst,
 			self.generics,
 			self.traits,
-		);
+		)
+		.with_scope(self.home_scope(&def.module));
 		let params = types.resolve_params(&def.params)?;
 		let ret = match &def.ret {
 			Some((ret_te, ret_span)) => types.resolve(ret_te, *ret_span)?,

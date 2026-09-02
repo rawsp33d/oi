@@ -165,6 +165,28 @@ fn foreign_takes_an_oi_fn_as_a_callback() {
 }
 
 #[test]
+fn foreign_takes_an_inline_callback() {
+	Project::new()
+		.file(
+			"main.oi",
+			[
+				"use cext",
+				"buf: []i32 = .[3, 1, 2]",
+				"cext.qsort(buf.ptr, 3, 4, fn(a: ptr, b: ptr) i32 { a.array[i32](1)[0] - b.array[i32](1)[0] })",
+				"print(buf)",
+			],
+		)
+		.file(
+			"cext.oi",
+			[
+				"module cext",
+				"pub qsort : fn(base: ptr, n: usize, size: usize, cmp: fn(a: ptr, b: ptr) i32) : foreign",
+			],
+		)
+		.check("[1, 2, 3]");
+}
+
+#[test]
 fn foreign_callback_rejects_a_closure() {
 	Project::new()
 		.file(

@@ -422,6 +422,7 @@ pub struct Compiler<M: Module = JITModule> {
 	reexports: HashMap<String, String>,
 	consts: HashMap<String, Spanned<Expr>>,
 	annotations: HashMap<String, Vec<Annotation>>,
+	module_scopes: HashMap<String, Scope>,
 	map: SourceMap,
 	hoisted: HashMap<String, FnSig>,
 	lib: bool,
@@ -558,6 +559,7 @@ impl<M: Module> Compiler<M> {
 			reexports: HashMap::new(),
 			consts: HashMap::new(),
 			annotations: HashMap::new(),
+			module_scopes: HashMap::new(),
 			map: SourceMap::default(),
 			hoisted: HashMap::new(),
 			lib: false,
@@ -699,6 +701,7 @@ impl<M: Module> Compiler<M> {
 		self.consts = program.consts.clone();
 		self.map = program.map.clone();
 		let scopes: HashMap<&str, &Scope> = program.modules.iter().map(|m| (m.name.as_str(), &m.scope)).collect();
+		self.module_scopes = scopes.iter().map(|(&k, &v)| (k.to_string(), v.clone())).collect();
 		let scope_of = |key: &str| scopes[key.split_once("::").map_or("main", |(m, _)| m)];
 		self.annotations = program
 			.annotations
@@ -1355,6 +1358,7 @@ impl<M: Module> Compiler<M> {
 			trait_impls: &self.trait_impls,
 			core_traits: &self.core_traits,
 			scope: types.scope,
+			module_scopes: &self.module_scopes,
 			map: &self.map,
 			publics: &self.publics,
 			privates: &self.privates,

@@ -16,6 +16,11 @@ impl<'a, M: Module> Translator<'a, M> {
 		.with_scope(self.scope)
 	}
 
+	// The scope of the module a fn was written in.
+	pub(super) fn home_scope(&self, module: &str) -> &'a Scope {
+		&self.module_scopes[if module.is_empty() { "main" } else { module }]
+	}
+
 	// Qualify a bare top-level name against the module's own items.
 	pub(super) fn qualify<'n>(&'n self, name: &'n str) -> Cow<'n, str> {
 		match self.scope.env.get(name) {

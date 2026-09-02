@@ -59,6 +59,7 @@ pub(super) struct Translator<'a, M: Module> {
 	pub trait_impls: &'a HashSet<(String, String)>,
 	pub core_traits: &'a HashSet<String>,
 	pub scope: &'a Scope,
+	pub module_scopes: &'a HashMap<String, Scope>,
 	pub map: &'a SourceMap,
 	pub publics: &'a HashSet<String>,
 	pub privates: &'a HashMap<String, HashSet<String>>,
