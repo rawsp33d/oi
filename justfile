@@ -1,11 +1,12 @@
 mod gen
-mod oi
 
 set positional-arguments
 
+# main oi compiler
+[group("oi")]
 [default]
-@_oi:
-	just oi
+@oi *args:
+	cargo run --quiet -- "$@"
 
 # various useful checks
 [parallel]
