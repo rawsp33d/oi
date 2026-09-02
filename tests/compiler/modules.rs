@@ -44,10 +44,7 @@ fn rt_is_internal_to_core() {
 
 #[test]
 fn foreign_outside_module_scope_fails() {
-	fail_with(
-		["x : fn() int : foreign"],
-		"only allowed as a module-level binding",
-	);
+	fail_with(["x : fn() int : foreign"], "only allowed as a module-level binding");
 }
 
 #[test]
@@ -69,10 +66,7 @@ fn foreign_cstr_param_calls_strlen() {
 #[test]
 fn foreign_ptr_roundtrips() {
 	Project::new()
-		.file(
-			"main.oi",
-			["use cext", "p := cext.malloc(16)", "cext.free(p)", ":done"],
-		)
+		.file("main.oi", ["use cext", "p := cext.malloc(16)", "cext.free(p)", ":done"])
 		.file(
 			"cext.oi",
 			[
@@ -274,16 +268,15 @@ fn c_struct_roundtrips_fixed_array() {
 		print(buf.ptr.offset(16).array[i32](1))
 		x := buf.ptr.read[Xform]()
 		print(x.m)
+		print(Xform.size)
+		print(comp Xform.size)
 	"};
-	check(src, ["[7]", "[1.5, 2.5, 3.5, 4.5]"]);
+	check(src, ["[7]", "[1.5, 2.5, 3.5, 4.5]", "20", "20"]);
 }
 
 #[test]
 fn c_struct_rejects_missing_c_repr() {
-	fail_with(
-		["@c Bad :: struct { s: string }"],
-		"`Bad.s` has no C representation",
-	);
+	fail_with(["@c Bad :: struct { s: string }"], "`Bad.s` has no C representation");
 	// 1 vs. 8 bytes
 	fail_with(
 		["@c Wide :: struct { flags: [4]bool }"],
@@ -314,10 +307,7 @@ fn c_struct_roundtrips_fn_field() {
 
 #[test]
 fn c_struct_rejects_bad_fn_field() {
-	fail_with(
-		["@c Bad :: struct { cb: fn(s: string) }"],
-		"has no C representation",
-	);
+	fail_with(["@c Bad :: struct { cb: fn(s: string) }"], "has no C representation");
 }
 
 #[test]

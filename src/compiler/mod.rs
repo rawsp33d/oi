@@ -203,10 +203,8 @@ fn check_c_structs(
 		};
 		let span = anns[name].iter().find(|a| ann(a, "core::c").is_some()).unwrap().1;
 		let msg = format!("`{}.{}` has no C representation", display_name(name), bad.name);
-		return Err(Diagnostic::new(msg, span.into_range()).with_label(format!(
-			"`{}` is not a type with a known C layout",
-			bad.typ
-		)));
+		return Err(Diagnostic::new(msg, span.into_range())
+			.with_label(format!("`{}` is not a type with a known C layout", bad.typ)));
 	}
 	Ok(())
 }

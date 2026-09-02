@@ -408,6 +408,11 @@ impl<'a, M: Module> Translator<'a, M> {
 					if let Some(v) = self.numeric_bound(&t, field) {
 						return Ok((v, t));
 					}
+					if field == "size"
+						&& let Some((n, _)) = t.c_size_align(&|n: &str| is_c_struct(self.annotations, n))
+					{
+						return Ok((self.b.ins().iconst(self.int, n as i64), Typ::USize));
+					}
 				}
 
 				let (ptr, typ) = self.expr(tuple)?;

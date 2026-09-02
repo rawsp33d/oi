@@ -190,6 +190,10 @@ fn fold(
 			}
 		})
 		.collect();
+	let mut annotations = program.annotations.clone();
+	annotations
+		.values_mut()
+		.for_each(|v| v.retain(|a| !matches!(a.0, Expr::Call { .. })));
 	let synthetic = Program {
 		map: program.map.clone(),
 		modules,
@@ -200,7 +204,7 @@ fn fold(
 			.filter(|(_, v)| !matches!(v.0, Expr::Comp(_)))
 			.map(|(k, v)| (k.clone(), v.clone()))
 			.collect(),
-		annotations: HashMap::new(),
+		annotations,
 	};
 	let mut compiler = Compiler::default();
 	compiler.compile(&synthetic)?;
