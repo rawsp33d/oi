@@ -355,6 +355,16 @@ where
 	})
 	.boxed();
 
+	// defaults
+	let bind_default = just(Token::Bind)
+		.ignore_then(expr.clone())
+		.try_map(|(value, span), _| {
+			let typ = literal_typ(&value)
+				.ok_or_else(|| Rich::custom(span, "a `:=` default must be a literal, or name the type"))?;
+			Ok((TypeExpr::Name(typ.into()), Some((value, span))))
+		})
+		.boxed();
+
 	// param type is kept for the compiler to resolve
 	// NOTE: a bare `self` receiver gets the type `Self`
 	let param = just(Token::Mut)
@@ -364,6 +374,7 @@ where
 			just(Token::Colon)
 				.ignore_then(type_expr.clone())
 				.then(just(Token::Assign).ignore_then(expr.clone()).or_not())
+				.or(bind_default.clone())
 				.or_not(),
 		)
 		.map_with(|((mutable, name), typed), ex| {
@@ -396,12 +407,8 @@ where
 	let typed = just(Token::Colon)
 		.ignore_then(spanned(type_expr.clone()))
 		.then(just(Token::Assign).ignore_then(expr.clone()).or_not());
-	let inferred = just(Token::Bind).ignore_then(expr.clone()).try_map(|(value, span), _| {
-		let typ = literal_typ(&value)
-			.ok_or_else(|| Rich::custom(span, "a `:=` default must be a literal, or name the type"))?;
-		Ok(((TypeExpr::Name(typ.into()), span), Some((value, span))))
-	});
-	let fn_ret = ident().then(typed.or(inferred)).or_not().then(ret.clone()).boxed();
+	let bound_ret = bind_default.clone().map_with(|(typ, default), ex| ((typ, ex.span()), default));
+	let fn_ret = ident().then(typed.or(bound_ret)).or_not().then(ret.clone()).boxed();
 
 	// generics
 	let type_param = ident()
@@ -1377,15 +1384,10 @@ where
 	let field_typed = just(Token::Colon)
 		.ignore_then(type_expr.clone())
 		.then(just(Token::Assign).ignore_then(expr.clone().or(block_lit.clone())).or_not());
-	let field_bind = just(Token::Bind).ignore_then(expr.clone()).try_map(|(value, span), _| {
-		let typ = literal_typ(&value)
-			.ok_or_else(|| Rich::custom(span, "a `:=` default must be a literal, or name the type"))?;
-		Ok((TypeExpr::Name(typ.into()), Some((value, span))))
-	});
 	let struct_field = just(Token::Pub)
 		.or_not()
 		.then(ident())
-		.then(field_typed.or(field_bind))
+		.then(field_typed.or(bind_default))
 		.then(same_line.ignore_then(annotation.clone()).repeated().collect::<Vec<_>>())
 		.map_with(|(((public, name), (typ, default)), annotations), ex| Param {
 			name,

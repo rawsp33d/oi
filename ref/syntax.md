@@ -175,6 +175,10 @@ three :: fn() r := 2 {
 wrap :: fn(s: string, left: string, right: string = left) string { left + s + right }
 assert!(wrap("hi", "|") == "|hi|")
 
+# `:=` takes the type from the default
+step :: fn(x: int, by := 1) int { x + by }
+assert! step(1) == 2
+
 # this really just skips the step of explicitly initializing a zeroed var
 divmod :: fn(a: int, b: int) out: (int, int) {
 	out.0 = a / b
