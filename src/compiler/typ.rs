@@ -132,6 +132,7 @@ impl Typ {
 			Typ::Float(w) => scalar((*w as u32) / 8),
 			Typ::Bool => scalar(1),
 			Typ::ISize | Typ::USize | Typ::CStr => scalar(8),
+			Typ::Fn(ps, r) if ps.iter().chain((!r.is_unit()).then_some(&**r)).all(Typ::is_c_repr) => scalar(8),
 			Typ::Struct(name, fields) if is_c(name) => c_layout(fields, is_c).map(|l| (l.size, l.align)),
 			_ => None,
 		}

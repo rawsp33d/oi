@@ -258,6 +258,28 @@ fn c_struct_rejects_missing_c_repr() {
 }
 
 #[test]
+fn c_struct_roundtrips_fn_field() {
+	let src = indoc! {"
+		@c Init :: struct { level: i32, cb: fn(n: i32) i32 }
+		double :: fn(n: i32) i32 { n * 2 }
+		buf: []u8 = .[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+		buf.ptr.write(Init.{ level = 1, cb = double })
+		i := buf.ptr.read[Init]()
+		f := i.cb
+		print(f(21))
+	"};
+	check(src, "42");
+}
+
+#[test]
+fn c_struct_rejects_bad_fn_field() {
+	fail_with(
+		["@c Bad :: struct { cb: fn(s: string) }", "print(1)"],
+		"has no C representation",
+	);
+}
+
+#[test]
 fn const_exprs() {
 	Project::new()
 		.file(

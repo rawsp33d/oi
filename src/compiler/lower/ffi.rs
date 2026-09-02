@@ -76,19 +76,30 @@ impl<M: Module> Translator<'_, M> {
 		for ((i, f), off) in fields.iter().enumerate().zip(offsets) {
 			let (slot, off) = ((i * 8) as i32, at + off as i32);
 			match f.typ.newtype().unwrap_or(&f.typ) {
-				// nested structs are inline in C, behind a pointer in Oi
 				Typ::Struct(_, inner) => {
+					// nested structs are inline in C, behind a pointer in Oi
 					let child = self.b.ins().load(self.int, mem, oi, slot);
 					self.copy_fields(child, c, off, inner, to_c);
 				}
-				// bool is a byte in C but a word in Oi
 				Typ::Bool if to_c => {
+					// bool is a byte in C but a word in Oi
 					let v = self.b.ins().load(self.int, mem, oi, slot);
 					self.b.ins().istore8(mem, v, c, off);
 				}
 				Typ::Bool => {
 					let v = self.b.ins().uload8(self.int, mem, c, off);
 					self.b.ins().store(mem, v, oi, slot);
+				}
+				Typ::Fn(..) if to_c => {
+					let cell = self.b.ins().load(self.int, mem, oi, slot);
+					let addr = self.b.ins().load(self.int, mem, cell, 0);
+					self.b.ins().store(mem, addr, c, off);
+				}
+				Typ::Fn(..) => {
+					let addr = self.b.ins().load(self.int, mem, c, off);
+					let cell = self.call_alloc_bytes(8);
+					self.b.ins().store(mem, addr, cell, 0);
+					self.b.ins().store(mem, cell, oi, slot);
 				}
 				typ => {
 					let (src, so, dst, doff) = if to_c { (oi, slot, c, off) } else { (c, off, oi, slot) };
