@@ -3,6 +3,13 @@
 	assert! !"hi".is_empty()
 }
 
+@test first_and_last :: fn() {
+	assert! "hi there".first() == "h"
+	assert! "hi there".first(4) == "hi t"
+	assert! "hi there".last() == "e"
+	assert! "hi there".last(4) == "here"
+}
+
 @test searching :: fn() {
 	assert! "hello".contains("hell")
 	assert! !"hello".contains("xyz")

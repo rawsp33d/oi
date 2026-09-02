@@ -100,7 +100,7 @@ tags: []
 - [x] V-like modules that don't _need_ a `mod` file, everything adds to the module its in
 - [ ] thread version through repl and cli and docs and everything
 - [ ] consider writing some blog posts for some of the bigger decisions and changes in the language as I make them
-- [ ] ptr type (ptr, voidptr, rawptr) `nim v odin`
+- [x] ptr type (ptr, voidptr, rawptr) `nim v odin`
 - [ ] better errors. atom and int code support?
 - [ ] make an `@implicit` trait that expects `str() string`, and use that for the "str/print everything "stuff
 - [x] make another pass on generics. I don't love what I have now
@@ -130,10 +130,11 @@ tags: []
 - [ ] `loop match {...}` `revo`
 - [ ] `Contains` trait that lets any type be used with `in` operator
 - [x] Algebraic Data Types (ADT) `rust`
-- [ ] c-strings primitive (`c"foo"`?)
+- [x] c-strings primitive (`c"foo"`?)
 - [ ] incremental compilation
-- [ ] `any` type
+- [ ] more types (`any`, `b\d+`, `typeid`, `complex\d+`, `quaternion\d+`, `rune`, `char`) `odin v rust`
 ## consider
+- `nil`
 - C++20 uses `operator|`, a naked `|` for pipelines
 	- back on the table now that `|x|` lambda fences are gone
 	- that said, `|>` has grown on me
