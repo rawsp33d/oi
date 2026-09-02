@@ -42,6 +42,7 @@ socials = [
 menu = [
 	{ name = "features", url = "/features" },
 	{ name = "examples", url = "/examples" },
+	{ name = "blog", url = "/blog" },
 	{ name = "about", url = "/about" },
 	{ name = "docs", url = "/docs/oi" },
 ]
