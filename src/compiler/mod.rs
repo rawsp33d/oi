@@ -922,7 +922,7 @@ impl<M: Module> Compiler<M> {
 					typ: Some((t, _)),
 					value: Some(v),
 					..
-				} if !scope.module.is_empty() && matches!(v.0, Expr::Foreign) => {
+				} if matches!(v.0, Expr::Foreign) => {
 					foreign_items.push((name.clone(), t.clone(), item.1, scope));
 				}
 				Expr::Bind {

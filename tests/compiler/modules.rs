@@ -43,8 +43,12 @@ fn rt_is_internal_to_core() {
 }
 
 #[test]
-fn foreign_outside_module_scope_fails() {
-	fail_with(["x : fn() int : foreign"], "only allowed as a module-level binding");
+fn foreign_fn() {
+	let src = indoc! {r#"
+		abs : fn(x: i32) i32 : foreign
+		main :: fn() { print(abs(-5)) }
+	"#};
+	check(src, "5");
 }
 
 #[test]

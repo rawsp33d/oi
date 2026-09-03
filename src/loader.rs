@@ -389,7 +389,7 @@ impl Loader<'_> {
 					name,
 					typ,
 					value,
-				} if !main => {
+				} if !main || matches!(value.as_deref(), Some((Expr::Foreign, _))) => {
 					if let Some(v) = value.as_deref_mut()
 						&& let Some(f) = fold_const(&v.0, &self.consts, &m.scope)
 					{
@@ -399,7 +399,7 @@ impl Loader<'_> {
 						(true, ..) => Some(("a module-level binding must be a const", "use `::`")),
 						(_, _, Some(v)) if matches!(v.0, Expr::Foreign) => match typ {
 							Some((TypeExpr::Fn(..), _)) => {
-								self.define(m, name, true, public, span)?;
+								self.define(m, name, !main, public, span)?;
 								if !anns.is_empty() {
 									self.annotations.entry(name.clone()).or_default().extend(anns);
 								}
