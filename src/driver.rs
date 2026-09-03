@@ -37,6 +37,8 @@ static RUNTIME: &[u8] = include_bytes!(env!("CARGO_STATICLIB_FILE_OI_RUNTIME_oi_
 // `rustc --print native-static-libs`.
 #[cfg(target_os = "linux")]
 const LIBS: &[&str] = &["-lgcc_s", "-lutil", "-lrt", "-lpthread", "-lm", "-ldl"];
+#[cfg(target_os = "android")]
+const LIBS: &[&str] = &["-ldl", "-lm"];
 #[cfg(target_os = "macos")]
 const LIBS: &[&str] = &["-lSystem", "-lc", "-lm"];
 #[cfg(windows)]
