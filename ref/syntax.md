@@ -84,6 +84,16 @@ Header :: struct { tag: u8, len: u32 }
 h := p.read[Header]()
 p.write(h)
 
+# `@c` on a fn makes it callable by C
+# `@export` is `@c` plus a public name
+@c
+on_init :: fn(get: ptr) bool { !get.is_null() }
+
+# `@c` on a fn type is a C fn pointer
+# a foreign decl's fn params are implicitly `@c`
+GetProc :: @c fn(name: cstr) ptr
+atexit : fn(cb: @c fn()) i32 : foreign
+
 ## functions
 
 # private within module by default
@@ -1943,6 +1953,9 @@ main :: fn() {
 	# blessed builtins are just consts in core
 	# pub required :: ()
 	Player :: struct { name: string @required }
+
+	# annotations attach to definitions and struct fields
+	GetProc :: @c fn(name: cstr) ptr
 
 	# `@test` marks a fn as a test
 	# they get stripped from normal builds, and are run by `oi test`

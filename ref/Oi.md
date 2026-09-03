@@ -156,6 +156,7 @@ tags: []
 - maybe named tuple args aren't a good thing
 	- just making structs more lightweight to use might be better, idk
 - CLI help docs, like Nushell and Cargo
+- [directives](https://odin-lang.org/docs/overview/#directives) (would have to use diff sigil like `@` unless I changed comments) `odin`
 - treat all args as optional since they have zero values?
 - sandwich ops like `a == b == c`, `a < b <= c`, `x == y < z`, etc. `python`
 - comments being assignable or otherwise DRY-able

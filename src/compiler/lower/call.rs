@@ -226,7 +226,7 @@ impl<'a, M: Module> Translator<'a, M> {
 						&& !self.c_callable(slots[i - self_n].map(mut_inner))
 					{
 						let msg = format!("`{name}` calls this from C");
-						let label = "mark it `@export` - its own fn params arrive as bare addresses";
+						let label = "mark it `@c`";
 						return Err(Diagnostic::new(msg, at.into_range()).with_label(label));
 					}
 					val = self.b.ins().load(self.int, MemFlags::new(), val, 0);

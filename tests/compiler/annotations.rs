@@ -281,6 +281,33 @@ fn export_rejects_non_c_repr_params() {
 }
 
 #[test]
+fn plain_fn_with_fn_pointer_param_needs_c_marker() {
+	fail_with(
+		indoc! {r#"
+			@export
+			call_with_getter_cb :: fn(cb: fn(get: fn() i32) i32) i32 { 42 }
+			my_cb :: fn(get: fn() i32) i32 { get() }
+			print(call_with_getter_cb(my_cb))
+		"#},
+		"mark it `@c`",
+	);
+}
+
+#[test]
+fn c_marked_fn_crosses_the_c_abi_without_a_symbol() {
+	check(
+		indoc! {r#"
+			@export
+			call_with_getter_cb :: fn(cb: fn(get: fn() i32) i32) i32 { 42 }
+			@c
+			my_cb :: fn(get: fn() i32) i32 { get() }
+			print(call_with_getter_cb(my_cb))
+		"#},
+		"42",
+	);
+}
+
+#[test]
 fn unknown_attr_macro_errors() {
 	fail_with(
 		indoc! {"

@@ -1072,20 +1072,25 @@ impl<M: Module> Compiler<M> {
 				None => Typ::unit(),
 			};
 			check_param_defaults(&item.params)?;
-			// `@export`
-			let mut anns = self.annotations.get(&item.key).into_iter().flatten();
-			if let Some((fields, span)) = anns.find_map(|a| Some((ann(a, "core::export")?, a.1))) {
+			// `@export` / `@c`
+			let anns = self.annotations.get(&item.key);
+			let ann_span = |target| anns.into_iter().flatten().find_map(|a| Some((ann(a, target)?, a.1)));
+			let mut is_c_fn = false;
+			if let Some((fields, span)) = ann_span("core::export") {
 				check_c_sig(&item.key, &params, &ret, span)?;
 				let sym = match fields.first() {
 					Some((_, (Expr::String(s), _))) if !s.is_empty() => s.clone(),
 					_ => display_name(&item.key).replace('.', "_"),
 				};
 				self.exports.insert(item.key.clone(), sym);
+			} else if let Some((_, span)) = ann_span("core::c") {
+				check_c_sig(&item.key, &params, &ret, span)?;
+				is_c_fn = true;
 			}
 			let (sym, linkage) = self.symbol(&item.key);
 			let mut sig = self.declare_fn(&sym, linkage, params, muts, ret);
 			sig.args = item.params.iter().map(|p| (p.name.clone(), p.default.clone())).collect();
-			sig.foreign = self.exports.contains_key(&item.key);
+			sig.foreign = self.exports.contains_key(&item.key) || is_c_fn;
 			funcs.insert(item.key.clone(), sig);
 		}
 
