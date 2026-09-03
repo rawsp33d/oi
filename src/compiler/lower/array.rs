@@ -38,6 +38,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				None => self.expr(e)?,
 			};
 			closure_escape(&typ, e.1.into_range(), "stored in an array")?;
+			self.move_resource(e, &typ)?;
 			match &elem {
 				Some(t) if t != &typ => {
 					let msg = format!("array elements must share a type: expected {t}, got {typ}");
@@ -165,6 +166,9 @@ impl<'a, M: Module> Translator<'a, M> {
 			let heap = self.call_alloc(fields.len());
 			self.assign_fields(val, heap, &fields, false);
 			return heap;
+		}
+		if self.is_resource(typ) {
+			return val;
 		}
 		let Some((share, _)) = rc::handle_fns(typ) else {
 			return val;
@@ -310,6 +314,34 @@ impl<'a, M: Module> Translator<'a, M> {
 		let mem = self.elem_mem(elem);
 		let val = self.intcast(val, cl_type(&mem, self.int), matches!(mem, Typ::Int(_)));
 		self.b.ins().store(MemFlags::new(), val, addr, off);
+	}
+
+	// Call fn for each element.
+	pub(super) fn each_elem(&mut self, val: Value, typ: &Typ, mut f: impl FnMut(&mut Self, Value, Value)) {
+		let (data, len) = self.array_parts(val, typ);
+		let elem = array_elem(typ);
+		let (head, body, exit) = (self.b.create_block(), self.b.create_block(), self.b.create_block());
+		let i = self.b.declare_var(self.int);
+		let zero = self.b.ins().iconst(self.int, 0);
+		self.b.def_var(i, zero);
+		self.b.ins().jump(head, &[]);
+
+		self.b.switch_to_block(head);
+		let iv = self.b.use_var(i);
+		let more = self.b.ins().icmp(IntCC::SignedLessThan, iv, len);
+		self.b.ins().brif(more, body, &[], exit, &[]);
+		self.b.seal_block(body);
+		self.b.seal_block(exit);
+
+		self.b.switch_to_block(body);
+		let ev = self.load_nth(data, iv, elem);
+		f(self, iv, ev);
+		let next = self.b.ins().iadd_imm(iv, 1);
+		self.b.def_var(i, next);
+		self.b.ins().jump(head, &[]);
+		self.b.seal_block(head);
+
+		self.b.switch_to_block(exit);
 	}
 
 	// nth element of a raw data pointer.

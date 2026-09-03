@@ -5,13 +5,14 @@ use super::*;
 // Owned values register in the innermost scope and release when it exits.
 
 impl<'a, M: Module> Translator<'a, M> {
-	// Check whether a struct has Drop.
+	// Check whether a struct has Drop, or owns something that does.
 	pub(super) fn is_resource(&self, typ: &Typ) -> bool {
 		match typ {
 			Typ::Struct(name, fields) => {
 				self.trait_impls.contains(&(name.clone(), "Drop".into()))
 					|| fields.iter().any(|f| self.is_resource(&f.typ))
 			}
+			Typ::Array(elem) => self.is_resource(elem),
 			_ => false,
 		}
 	}
@@ -30,6 +31,11 @@ impl<'a, M: Module> Translator<'a, M> {
 	// Emit one release for an owned value.
 	pub(super) fn release_value(&mut self, val: Value, typ: &Typ) {
 		if let Some((_, release)) = handle_fns(typ) {
+			if let Typ::Array(elem) = typ
+				&& self.is_resource(elem)
+			{
+				self.each_elem(val, typ, |s, _, ev| s.release_value(ev, elem));
+			}
 			let func = self.import_fn(release, &[self.int], None);
 			self.b.ins().call(func, &[val]);
 		} else if let Typ::Struct(name, fields) = typ {
@@ -99,7 +105,7 @@ impl<'a, M: Module> Translator<'a, M> {
 
 	// Register a producer's fresh handle with the innermost scope.
 	pub(super) fn temp(&mut self, val: Value, typ: &Typ) {
-		if handle_fns(typ).is_some() {
+		if handle_fns(typ).is_some() && !self.is_resource(typ) {
 			let var = self.b.declare_var(self.int);
 			self.b.def_var(var, val);
 			self.scopes.last_mut().expect("scope").push((var, typ.clone()));

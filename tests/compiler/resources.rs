@@ -66,4 +66,25 @@ fn resource_field_makes_its_owner_one() {
 		[FILE, owner, "h :: Handle.{file = File.{fd = 1}}", "g :: h", "print(h)"],
 		"undefined variable",
 	);
+	fail_with(
+		[FILE, owner, "f :: File.{fd = 1}", "h :: Handle.{file = f}", "print(f)"],
+		"undefined variable",
+	);
+}
+
+#[test]
+fn array_elements_drop_with_their_last_owner() {
+	check(
+		[
+			FILE,
+			"a :: [File.{fd = 1}, File.{fd = 2}]",
+			"b :: a",
+			r#"print("built")"#,
+		],
+		["built", "drop 1", "drop 2"],
+	);
+	fail_with(
+		[FILE, "f :: File.{fd = 1}", "a :: [f]", "print(f)"],
+		"undefined variable",
+	);
 }

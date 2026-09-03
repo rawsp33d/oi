@@ -947,6 +947,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				},
 			};
 			let val = self.check_typed(value, &ftyp, "type mismatch")?;
+			self.move_resource(value, &ftyp)?;
 			let val = self.copy_in(val, &ftyp);
 			self.b.ins().store(MemFlags::new(), val, base, (idx * 8) as i32);
 		}

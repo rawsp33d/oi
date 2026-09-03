@@ -115,39 +115,14 @@ impl<'a, M: Module> Translator<'a, M> {
 				self.write_lit(")", sink);
 			}
 
-			// array length is only known at runtime, so emit a loop
 			Typ::Array(elem) | Typ::FixedArray(elem, _) => {
 				self.write_lit("[", sink);
-				let (data, len) = self.array_parts(val, typ);
-				let i = self.b.declare_var(self.int);
-				let zero = self.b.ins().iconst(self.int, 0);
-				self.b.def_var(i, zero);
-
-				let header = self.b.create_block();
-				let body = self.b.create_block();
-				let exit = self.b.create_block();
-				self.b.ins().jump(header, &[]);
-
-				self.b.switch_to_block(header);
-				let iv = self.b.use_var(i);
-				let more = self.b.ins().icmp(IntCC::SignedLessThan, iv, len);
-				self.b.ins().brif(more, body, &[], exit, &[]);
-				self.b.seal_block(body);
-				self.b.seal_block(exit);
-
-				self.b.switch_to_block(body);
-				let iv = self.b.use_var(i);
-				let sink_v = self.b.ins().iconst(self.int, sink as i64);
-				let sep = self.import_fn(runtime::WRITE_SEP, &[self.int, self.int], None);
-				self.b.ins().call(sep, &[iv, sink_v]);
-				let ev = self.load_nth(data, iv, elem);
-				self.emit_print(ev, elem, true, sink);
-				let next = self.b.ins().iadd_imm(iv, 1);
-				self.b.def_var(i, next);
-				self.b.ins().jump(header, &[]);
-				self.b.seal_block(header);
-
-				self.b.switch_to_block(exit);
+				self.each_elem(val, typ, |s, i, ev| {
+					let sink_v = s.b.ins().iconst(s.int, sink as i64);
+					let sep = s.import_fn(runtime::WRITE_SEP, &[s.int, s.int], None);
+					s.b.ins().call(sep, &[i, sink_v]);
+					s.emit_print(ev, elem, true, sink);
+				});
 				self.write_lit("]", sink);
 			}
 
