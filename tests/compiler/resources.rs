@@ -88,3 +88,10 @@ fn array_elements_drop_with_their_last_owner() {
 		"undefined variable",
 	);
 }
+
+#[test]
+fn a_projected_resource_is_a_borrow() {
+	let a = "a :: [File.{fd = 1}]";
+	check([FILE, a, "look :: fn(f: File) {}", "look(a[0])", "print(a[0].fd)"], ["1", "drop 1"]);
+	fail_with([FILE, a, "g :: a[0]"], "cannot move File out of its container");
+}

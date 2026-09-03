@@ -18,12 +18,23 @@ impl<'a, M: Module> Translator<'a, M> {
 	}
 
 	// Transfer ownership of a resource.
+	// Projections borrow.
 	pub fn move_resource(&mut self, e: &Spanned<Expr>, typ: &Typ) -> Result<(), Diagnostic> {
-		if self.is_resource(typ)
-			&& let Expr::Ident(n) = &e.0
-		{
-			let local = self.local(n, e.1.into_range())?;
-			self.move_local(n, &local, e.1.into_range())?;
+		if !self.is_resource(typ) {
+			return Ok(());
+		}
+		match &e.0 {
+			Expr::Ident(n) => {
+				let local = self.local(n, e.1.into_range())?;
+				self.move_local(n, &local, e.1.into_range())?;
+			}
+			Expr::Index { .. } | Expr::Slice { .. } | Expr::Field { .. } => {
+				return Err(
+					Diagnostic::new(format!("cannot move {typ} out of its container"), e.1.into_range())
+						.with_label("only an owned binding can be moved, so use it in place"),
+				);
+			}
+			_ => {}
 		}
 		Ok(())
 	}
