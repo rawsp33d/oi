@@ -112,6 +112,7 @@ struct FnDef<'a> {
 	is_main: bool,
 	captures: &'a [(String, Typ, bool)],
 	self_fn: Option<(&'a str, &'a FnSig)>,
+	foreign: bool,
 }
 
 // A generic struct definition.
@@ -1084,6 +1085,7 @@ impl<M: Module> Compiler<M> {
 			let (sym, linkage) = self.symbol(&item.key);
 			let mut sig = self.declare_fn(&sym, linkage, params, muts, ret);
 			sig.args = item.params.iter().map(|p| (p.name.clone(), p.default.clone())).collect();
+			sig.foreign = self.exports.contains_key(&item.key);
 			funcs.insert(item.key.clone(), sig);
 		}
 
@@ -1144,6 +1146,7 @@ impl<M: Module> Compiler<M> {
 					ret,
 					body: item.body,
 					self_type,
+					foreign: funcs[&item.key].foreign,
 					..FnDef::default()
 				},
 				&funcs,
@@ -1403,6 +1406,7 @@ impl<M: Module> Compiler<M> {
 
 		let param_vals: Vec<Value> = trans.b.block_params(block).to_vec();
 		for ((name, typ, mutable), &val) in def.params.iter().zip(param_vals.iter()) {
+			let val = if def.foreign && matches!(typ, Typ::Fn(..)) { trans.fn_cell(val) } else { val };
 			let cl = trans.b.func.dfg.value_type(val);
 			let var = trans.b.declare_var(cl);
 			trans.b.def_var(var, val);

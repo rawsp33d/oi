@@ -54,11 +54,20 @@ impl<M: Module> Translator<'_, M> {
 			return Err(Diagnostic::new(msg, span.into_range()).with_label("expected one argument"));
 		};
 		check_c_sig(display_name(name), params, ret, span)?;
+		if let Some(t) = params.iter().find(|t| matches!(t, Typ::Fn(..))) {
+			let msg = format!("`{}` can't take a fn pointer", display_name(name));
+			return Err(Diagnostic::new(msg, span.into_range()).with_label(format!("`{t}` would cross as a cell")));
+		}
 		let want = self.types().resolve(&TypeExpr::Name("core::ptr".into()), span)?;
 		let addr = self.check_typed(arg, &want, "not a `ptr`")?;
+		Ok((self.fn_cell(addr), typ))
+	}
+
+	// Box a bare fn pointer as an Oi fn value.
+	pub(crate) fn fn_cell(&mut self, addr: Value) -> Value {
 		let cell = self.call_alloc_bytes(8);
 		self.b.ins().store(MemFlags::new(), addr, cell, 0);
-		Ok((cell, typ))
+		cell
 	}
 
 	fn c_fields(&self, typ: &Typ, span: Span) -> Result<Vec<FieldDef>, Diagnostic> {
@@ -97,8 +106,7 @@ impl<M: Module> Translator<'_, M> {
 				}
 				Typ::Fn(..) => {
 					let addr = self.b.ins().load(self.int, mem, c, off);
-					let cell = self.call_alloc_bytes(8);
-					self.b.ins().store(mem, addr, cell, 0);
+					let cell = self.fn_cell(addr);
 					self.b.ins().store(mem, cell, oi, slot);
 				}
 				Typ::FixedArray(e, n) => {

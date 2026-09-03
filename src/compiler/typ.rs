@@ -118,10 +118,13 @@ impl Typ {
 
 	// Whether a value can cross the C ABI.
 	pub fn is_c_repr(&self) -> bool {
-		matches!(
-			self.newtype().unwrap_or(self),
-			Typ::Int(_) | Typ::UInt(_) | Typ::ISize | Typ::USize | Typ::Float(_) | Typ::Bool | Typ::CStr
-		)
+		match self.newtype().unwrap_or(self) {
+			Typ::Fn(ps, r) => ps.iter().chain((!r.is_unit()).then_some(&**r)).all(Typ::is_c_repr),
+			t => matches!(
+				t,
+				Typ::Int(_) | Typ::UInt(_) | Typ::ISize | Typ::USize | Typ::Float(_) | Typ::Bool | Typ::CStr
+			),
+		}
 	}
 
 	// Size and alignment under the C ABI.
@@ -132,7 +135,7 @@ impl Typ {
 			Typ::Float(w) => scalar((*w as u32) / 8),
 			Typ::Bool => scalar(1),
 			Typ::ISize | Typ::USize | Typ::CStr => scalar(8),
-			Typ::Fn(ps, r) if ps.iter().chain((!r.is_unit()).then_some(&**r)).all(Typ::is_c_repr) => scalar(8),
+			t @ Typ::Fn(..) if t.is_c_repr() => scalar(8),
 			Typ::FixedArray(e, n) => e
 				.c_size_align(is_c)
 				.filter(|(es, _)| e.is_c_repr() && *es as i64 == elem_size(e))
