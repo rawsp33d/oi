@@ -88,6 +88,17 @@ impl<'a, M: Module> Translator<'a, M> {
 		}
 	}
 
+	// Whether C may call this fn value.
+	fn c_callable(&self, arg: Option<&Spanned<Expr>>) -> bool {
+		match arg.map(|a| &a.0) {
+			Some(Expr::Ident(n)) if !self.vars.contains_key(n) => {
+				self.funcs.get(self.qualify(n).as_ref()).is_none_or(|s| s.foreign)
+			}
+			Some(Expr::AnonFn { .. }) => false,
+			_ => true,
+		}
+	}
+
 	// Call a `pub` function of an imported module.
 	pub(super) fn module_call(
 		&mut self,
@@ -209,6 +220,14 @@ impl<'a, M: Module> Translator<'a, M> {
 					if matches!(typ, Typ::Closure(..)) {
 						let msg = format!("`{name}` can't take a closure");
 						return Err(Diagnostic::new(msg, at.into_range()).with_label("captures can't cross the C ABI"));
+					}
+					if let Typ::Fn(ps, _) = want
+						&& ps.iter().any(|p| matches!(p, Typ::Fn(..)))
+						&& !self.c_callable(slots[i - self_n].map(mut_inner))
+					{
+						let msg = format!("`{name}` calls this from C");
+						let label = "mark it `@export` - its own fn params arrive as bare addresses";
+						return Err(Diagnostic::new(msg, at.into_range()).with_label(label));
 					}
 					val = self.b.ins().load(self.int, MemFlags::new(), val, 0);
 				}
