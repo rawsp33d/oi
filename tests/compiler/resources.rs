@@ -54,3 +54,16 @@ fn returned_resource_drops_once() {
 		["before", "drop 3"],
 	);
 }
+
+#[test]
+fn resource_field_makes_its_owner_one() {
+	let owner = "Handle :: struct { file: File }";
+	check(
+		[FILE, owner, "h :: Handle.{file = File.{fd = 1}}", r#"print("built")"#],
+		["built", "drop 1"],
+	);
+	fail_with(
+		[FILE, owner, "h :: Handle.{file = File.{fd = 1}}", "g :: h", "print(h)"],
+		"undefined variable",
+	);
+}

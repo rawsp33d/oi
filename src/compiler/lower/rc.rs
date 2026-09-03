@@ -5,9 +5,15 @@ use super::*;
 // Owned values register in the innermost scope and release when it exits.
 
 impl<'a, M: Module> Translator<'a, M> {
-	// Check whether a struct has Drop trait.
+	// Check whether a struct has Drop.
 	pub(super) fn is_resource(&self, typ: &Typ) -> bool {
-		matches!(typ, Typ::Struct(name, _) if self.trait_impls.contains(&(name.clone(), "Drop".into())))
+		match typ {
+			Typ::Struct(name, fields) => {
+				self.trait_impls.contains(&(name.clone(), "Drop".into()))
+					|| fields.iter().any(|f| self.is_resource(&f.typ))
+			}
+			_ => false,
+		}
 	}
 
 	// Transfer ownership of a resource.
@@ -33,7 +39,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				self.emit_call(&sig, &[val]);
 			}
 			for (i, f) in fields.clone().iter().enumerate() {
-				if releasable(&f.typ) {
+				if releasable(&f.typ) || self.is_resource(&f.typ) {
 					let cl = cl_type(&f.typ, self.int);
 					let fv = self.b.ins().load(cl, MemFlags::new(), val, (i * 8) as i32);
 					self.release_value(fv, &f.typ);
