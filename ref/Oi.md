@@ -115,7 +115,7 @@ tags: []
 - [ ] units and unit conversion
 - [x] enum methods `rust`
 - [ ] primitive data type for paths
-- [ ] `unsafe`
+- [x] `unsafe`
 - [ ] `@noinit` `v`
 - [ ] `@nozero`
 - [x] ownership / memory model

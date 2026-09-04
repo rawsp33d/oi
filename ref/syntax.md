@@ -68,9 +68,14 @@ oi_panic : fn(msg: string) int : foreign
 errno : i32 : foreign
 
 # `ptr` is an untyped address
+# `unsafe` is required for reaching through pointers and calling `foreign` fns
 memset : fn(p: ptr, c: int, n: usize) : foreign
-memset(buf.ptr, 0, 4)
-assert!("hello".ptr.offset(1).string(2) == "el")
+unsafe memset(buf.ptr, 0, 4)
+assert!(unsafe { "hello".ptr.offset(1).string(2) } == "el")
+
+# `@unsafe` colors a function and callers need to use it
+@unsafe
+first :: fn(p: ptr) i32 { unsafe p.array[i32](1)[0] }
 
 # `@export` makes a fn callable from C
 @export
@@ -81,8 +86,8 @@ init :: fn(p: ptr) bool { !p.is_null() }
 # `@c` lets structs cross C ABI
 @c
 Header :: struct { tag: u8, len: u32 }
-h := p.read[Header]()
-p.write(h)
+h := unsafe { p.read[Header]() }
+unsafe p.write(h)
 
 # `@c` on a fn makes it callable by C
 # `@export` is `@c` plus a public name
@@ -97,7 +102,7 @@ atexit : fn(cb: @c fn()) i32 : foreign
 # a `@c fn` can cast a `ptr`
 create : fn(init: @c fn(get: GetProc) bool) ptr : foreign
 create(fn(get: GetProc) bool { !get("iface").is_null() })
-proc := GetProc(dlsym(lib, "get_proc"))
+proc := unsafe { GetProc(dlsym(lib, "get_proc")) }
 
 ## functions
 

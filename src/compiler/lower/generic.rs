@@ -1,6 +1,7 @@
 use super::call::arg_slots;
 use super::*;
 use crate::ast::TypeParam;
+use crate::compiler::ann;
 
 // Extend `subst` by matching a declared type against a concrete arg type.
 pub(super) fn unify(
@@ -74,6 +75,13 @@ impl<'a, M: Module> Translator<'a, M> {
 		recv: Option<(TypedVal, &Spanned<Expr>)>,
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
+		if self
+			.annotations
+			.get(name)
+			.is_some_and(|a| a.iter().any(|x| ann(x, "unsafe").is_some()))
+		{
+			self.require_unsafe(name, span)?;
+		}
 		let self_n = recv.is_some() as usize;
 		let names: Vec<&str> = def.params[self_n..].iter().map(|p| p.name.as_str()).collect();
 		let named = arg_slots(name, &names, args, false)?;
