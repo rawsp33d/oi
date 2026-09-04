@@ -98,14 +98,14 @@ string :< {
 
 	## Convert to a NUL-terminated pointer for C interop.
 	cstr :: fn(self) cstr {
-		rt.oi_str_cstr(self)
+		unsafe rt.oi_str_cstr(self)
 	}
 }
 
 cstr :< {
 	## Copy a C string's bytes into an owned string.
 	str :: fn(self) string {
-		rt.oi_cstr_str(self)
+		unsafe rt.oi_cstr_str(self)
 	}
 }
 

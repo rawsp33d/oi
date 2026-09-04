@@ -33,7 +33,7 @@ fn macros_comp_foreign_and_leak_check() {
 	"#};
 	let util = indoc! {"
 		module util
-		pub cube :: fn(n: int) int { oi_pow_int(n, 3) }
+		pub cube :: fn(n: int) int { unsafe oi_pow_int(n, 3) }
 		oi_pow_int : fn(base: int, exp: int) int : foreign
 	"};
 	let dir = Project::new().file("main.oi", main).file("util.oi", util);
@@ -48,7 +48,7 @@ fn macros_comp_foreign_and_leak_check() {
 fn link_annotation_adds_lib_to_link_line() {
 	let main = indoc! {r#"
 		use cext
-		print(cext.zlibVersion().str()[0..1])
+		print(unsafe { cext.zlibVersion() }.str()[0..1])
 	"#};
 	let cext = indoc! {r#"
 		module cext
@@ -67,7 +67,10 @@ fn link_annotation_accepts_a_file_path() {
 	let link = format!(r#"@link.{{"./{file}"}}"#);
 	let dir = Project::new()
 		.file("dep.c", "long oi_dep(void) { return 42; }")
-		.file("main.oi", [&link[..], "oi_dep : fn() int : foreign", "print(oi_dep())"]);
+		.file(
+			"main.oi",
+			[&link[..], "oi_dep : fn() int : foreign", "print(unsafe oi_dep())"],
+		);
 	let cc = Command::new("cc")
 		.args(["-shared", "-fPIC", &format!("-Wl,-soname,{file}"), "dep.c", "-o", &file])
 		.current_dir(&dir)

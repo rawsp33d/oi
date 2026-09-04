@@ -49,6 +49,7 @@ pub(crate) struct FnSig {
 	pub ret: Typ,
 	pub args: Vec<(String, Option<Spanned<Expr>>)>,
 	pub foreign: bool,
+	pub imported: bool,
 }
 
 impl FnSig {
@@ -1367,6 +1368,7 @@ impl<M: Module> Compiler<M> {
 			ret,
 			args: vec![],
 			foreign: false,
+			imported: linkage == Linkage::Import,
 		}
 	}
 

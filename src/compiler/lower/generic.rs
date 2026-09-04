@@ -209,6 +209,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			ret,
 			args: vec![],
 			foreign: false,
+			imported: false,
 		};
 		self.mono.insert(sym.clone(), fn_sig.clone());
 		self.pending.push((sym, def.clone(), subst));

@@ -46,7 +46,7 @@ fn rt_is_internal_to_core() {
 fn foreign_fn() {
 	let src = indoc! {r#"
 		abs : fn(x: i32) i32 : foreign
-		main :: fn() { print(abs(-5)) }
+		main :: fn() { print(unsafe abs(-5)) }
 	"#};
 	check(src, "5");
 }
@@ -54,7 +54,7 @@ fn foreign_fn() {
 #[test]
 fn foreign_resolves_process_symbols() {
 	Project::new()
-		.file("main.oi", ["use cext", "print(cext.abs(-5))"])
+		.file("main.oi", ["use cext", "print(unsafe cext.abs(-5))"])
 		.file("cext.oi", ["module cext", "pub abs : fn(x: i32) i32 : foreign"])
 		.check("5");
 }
@@ -62,7 +62,7 @@ fn foreign_resolves_process_symbols() {
 #[test]
 fn foreign_cstr_param_calls_strlen() {
 	Project::new()
-		.file("main.oi", ["use cext", r#"print(cext.strlen("hi!".cstr()))"#])
+		.file("main.oi", ["use cext", r#"print(unsafe cext.strlen("hi!".cstr()))"#])
 		.file("cext.oi", ["module cext", "pub strlen : fn(s: cstr) usize : foreign"])
 		.check("3");
 }
@@ -70,7 +70,15 @@ fn foreign_cstr_param_calls_strlen() {
 #[test]
 fn foreign_ptr_roundtrips() {
 	Project::new()
-		.file("main.oi", ["use cext", "p := cext.malloc(16)", "cext.free(p)", ":done"])
+		.file(
+			"main.oi",
+			[
+				"use cext",
+				"p := unsafe cext.malloc(16)",
+				"unsafe cext.free(p)",
+				":done",
+			],
+		)
 		.file(
 			"cext.oi",
 			[
@@ -90,7 +98,7 @@ fn foreign_writes_through_array_ptr() {
 			[
 				"use cext",
 				"buf := [1, 2, 3]",
-				"cext.memset(buf.ptr, 0, 4)",
+				"unsafe cext.memset(buf.ptr, 0, 4)",
 				"print(buf)",
 			],
 		)
@@ -109,8 +117,8 @@ fn foreign_typed_read_copies_out() {
 			[
 				"use cext",
 				"buf: []i32 = .[7, 8, 9]",
-				"cext.memset(buf.ptr, 0, 4)",
-				"print(unsafe { buf.ptr.array[i32](3) })",
+				"unsafe cext.memset(buf.ptr, 0, 4)",
+				"print(unsafe buf.ptr.array[i32](3))",
 			],
 		)
 		.file(
@@ -148,9 +156,9 @@ fn a_c_fn_sheds_its_cell_and_takes_it_back() {
 				"use cext",
 				"Abs :: @c fn(n: i32) i32",
 				"on_init :: fn(get: Abs) i32 { get(-21) * 2 }",
-				r#"run :: fn(init: @c fn(get: Abs) i32) i32 { init(unsafe { Abs(cext.dlsym(ptr(0), "abs")) }) }"#,
+				r#"run :: fn(init: @c fn(get: Abs) i32) i32 { init(unsafe Abs(cext.dlsym(ptr(0), "abs"))) }"#,
 				"print(run(on_init))",
-				r#"boxed: fn(n: i32) i32 = unsafe { Abs(cext.dlsym(ptr(0), "abs")) }"#,
+				r#"boxed: fn(n: i32) i32 = unsafe Abs(cext.dlsym(ptr(0), "abs"))"#,
 				"print(boxed(-5))",
 			],
 		)
@@ -170,7 +178,7 @@ fn foreign_takes_an_oi_fn_as_a_callback() {
 				"use cext",
 				"cmp :: fn(a: ptr, b: ptr) i32 { unsafe { a.array[i32](1)[0] - b.array[i32](1)[0] } }",
 				"buf: []i32 = .[3, 1, 2]",
-				"cext.qsort(buf.ptr, 3, 4, cmp)",
+				"unsafe cext.qsort(buf.ptr, 3, 4, cmp)",
 				"print(buf)",
 			],
 		)
@@ -192,7 +200,9 @@ fn foreign_takes_an_inline_callback() {
 			[
 				"use cext",
 				"buf: []i32 = .[3, 1, 2]",
+				"unsafe {",
 				"cext.qsort(buf.ptr, 3, 4, fn(a: ptr, b: ptr) i32 { unsafe { a.array[i32](1)[0] - b.array[i32](1)[0] } })",
+				"}",
 				"print(buf)",
 			],
 		)
@@ -215,7 +225,7 @@ fn foreign_callback_rejects_a_closure() {
 				"use cext",
 				"k := 1",
 				"bad := fn(s: i32) () { print(k) }",
-				"cext.signal(2, bad)",
+				"unsafe cext.signal(2, bad)",
 			],
 		)
 		.file(
@@ -230,13 +240,20 @@ fn foreign_callback_rejects_a_closure() {
 
 #[test]
 fn raw_memory_needs_unsafe() {
-	fail_with(["buf: []u8 = .[1]", "buf.ptr.array[u8](1)"], "`ptr.array` needs `unsafe`");
+	fail_with(
+		["buf: []u8 = .[1]", "buf.ptr.array[u8](1)"],
+		"`ptr.array` needs `unsafe`",
+	);
+	fail_with(
+		["abs : fn(x: i32) i32 : foreign", "print(abs(-5))"],
+		"`abs` needs `unsafe`",
+	);
 }
 
 #[test]
 fn fn_ptr_cast_needs_a_c_signature() {
 	fail_with(
-		["Bad :: fn(s: string) int", "f := unsafe { Bad(ptr(0)) }"],
+		["Bad :: fn(s: string) int", "f := unsafe Bad(ptr(0))"],
 		"can't cross the C ABI",
 	);
 }
@@ -255,7 +272,10 @@ fn foreign_unknown_symbol_fails() {
 #[test]
 fn link_dlopens_named_library() {
 	Project::new()
-		.file("main.oi", ["use cext", "print(cext.zlibVersion().str()[0..1])"])
+		.file(
+			"main.oi",
+			["use cext", "print(unsafe { cext.zlibVersion() }.str()[0..1])"],
+		)
 		.file(
 			"cext.oi",
 			["module cext", r#"@link.{"z"}"#, "pub zlibVersion : fn() cstr : foreign"],
