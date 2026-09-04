@@ -1026,7 +1026,12 @@ impl<M: Module> Compiler<M> {
 					.with_consts(consts)
 					.with_scope(scope_of(name));
 				let resolve = || {
-					let fs: Vec<FieldDef> = fields.iter().map(|p| field(&types, p)).collect::<Result<_, _>>()?;
+					let mut fs: Vec<FieldDef> = fields.iter().map(|p| field(&types, p)).collect::<Result<_, _>>()?;
+					if is_c_struct(&self.annotations, name) {
+						for f in fs.iter_mut().filter(|f| matches!(f.typ, Typ::Fn(..))) {
+							f.typ = Typ::Annotated(vec!["core::c".into()], Box::new(f.typ.clone()));
+						}
+					}
 					for (p, f) in fields.iter().zip(&fs) {
 						if !ref_guarded(&f.typ, &placeholders) {
 							return Err(Diagnostic::new(

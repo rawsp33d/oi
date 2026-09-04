@@ -114,16 +114,6 @@ impl<M: Module> Translator<'_, M> {
 					let v = self.b.ins().uload8(self.int, mem, c, off);
 					self.b.ins().store(mem, v, oi, slot);
 				}
-				Typ::Fn(..) if to_c => {
-					let cell = self.b.ins().load(self.int, mem, oi, slot);
-					let addr = self.b.ins().load(self.int, mem, cell, 0);
-					self.b.ins().store(mem, addr, c, off);
-				}
-				Typ::Fn(..) => {
-					let addr = self.b.ins().load(self.int, mem, c, off);
-					let cell = self.fn_cell(addr);
-					self.b.ins().store(mem, cell, oi, slot);
-				}
 				Typ::FixedArray(e, n) => {
 					let at = self.b.ins().iadd_imm(c, off as i64);
 					match to_c {

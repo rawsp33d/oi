@@ -360,6 +360,16 @@ fn c_struct_roundtrips_fn_field() {
 }
 
 #[test]
+fn c_struct_fn_field_rejects_a_closure() {
+	let src = indoc! {"
+		@c Init :: struct { cb: fn(n: i32) i32 }
+		k := 2
+		Init.{ cb = fn [move k] (n: i32) i32 { n * k } }
+	"};
+	fail_with(src, "`@c` fns can't capture");
+}
+
+#[test]
 fn c_struct_rejects_bad_fn_field() {
 	fail_with(["@c Bad :: struct { cb: fn(s: string) }"], "has no C representation");
 }
