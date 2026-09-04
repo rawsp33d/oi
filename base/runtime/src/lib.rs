@@ -47,6 +47,7 @@ symbols! {
 	MAP_GET = map_get,
 	MAP_SET = map_set,
 	MAP_DELETE = map_delete,
+	MAP_VALUES = map_values,
 	MAP_SHARE = map_share,
 	REF_SHARE = ref_share,
 	REF_RELEASE = ref_release,
@@ -838,4 +839,12 @@ pub unsafe extern "C" fn map_delete(map: *mut OiMap, tag: i64, bits: i64) -> *mu
 	let map = unsafe { map_cow(map) };
 	unsafe { &mut *map }.entries.remove(&map_key(Tag::from_i64(tag), bits));
 	map
+}
+
+/// The values of a map, as an array the caller releases.
+/// # Safety
+/// `map` must be a valid, live `OiMap` pointer.
+#[unsafe(export_name = "oi_map_values")]
+pub unsafe extern "C" fn map_values(map: *mut OiMap) -> *const Header {
+	array_of(&unsafe { &*map }.entries.values().copied().collect::<Vec<_>>())
 }

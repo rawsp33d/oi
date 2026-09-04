@@ -13,6 +13,7 @@ impl<'a, M: Module> Translator<'a, M> {
 					|| fields.iter().any(|f| self.is_resource(&f.typ))
 			}
 			Typ::Array(elem) | Typ::FixedArray(elem, _) => self.is_resource(elem),
+			Typ::Map(_, val) => self.is_resource(val),
 			_ => false,
 		}
 	}
@@ -46,6 +47,12 @@ impl<'a, M: Module> Translator<'a, M> {
 				&& self.is_resource(elem)
 			{
 				self.each_elem(val, typ, |s, _, ev| s.release_value(ev, elem));
+			}
+			if let Typ::Map(_, v) = typ
+				&& self.is_resource(v)
+			{
+				let vals = self.call_map_values(val);
+				self.release_value(vals, &Typ::Array(v.clone()));
 			}
 			let func = self.import_fn(release, &[self.int], None);
 			self.b.ins().call(func, &[val]);

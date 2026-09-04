@@ -531,6 +531,12 @@ impl<'a, M: Module> Translator<'a, M> {
 		self.b.inst_results(call)[0]
 	}
 
+	pub(super) fn call_map_values(&mut self, map: Value) -> Value {
+		let func = self.import_fn(runtime::MAP_VALUES, &[self.int], Some(self.int));
+		let call = self.b.ins().call(func, &[map]);
+		self.b.inst_results(call)[0]
+	}
+
 	pub(super) fn call_map_delete(&mut self, map: Value, tag: runtime::Tag, bits: Value) -> Value {
 		let func = self.import_fn(runtime::MAP_DELETE, &[self.int; 3], Some(self.int));
 		let tag_v = self.b.ins().iconst(self.int, tag as i64);

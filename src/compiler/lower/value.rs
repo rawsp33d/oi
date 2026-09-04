@@ -816,6 +816,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				None => self.expr(value)?,
 			};
 			closure_escape(&vt, value.1.into_range(), "stored in a map")?;
+			self.move_resource(value, &vt)?;
 			val_typ.get_or_insert(vt);
 			let bits = self.map_bits(val);
 			self.call_map_set(map, tag, key_bits, bits);

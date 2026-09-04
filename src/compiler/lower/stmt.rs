@@ -121,6 +121,7 @@ impl<'a, M: Module> Translator<'a, M> {
 							.with_label("type mismatch"));
 						}
 						closure_escape(&v, value.1.into_range(), "stored in a map")?;
+						self.move_resource(value, &v)?;
 						let val = self.copy_in(val, &v);
 						let val_bits = self.map_bits(val);
 						let ptr = self.read_local(&local);

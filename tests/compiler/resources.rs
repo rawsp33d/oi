@@ -100,6 +100,16 @@ fn a_projected_resource_is_a_borrow() {
 }
 
 #[test]
+fn map_values_drop_with_their_last_owner() {
+	let f = "f :: File.{fd = 1}";
+	check([FILE, f, r#"m :: ["a" = f]"#, r#"print("built")"#], ["built", "drop 1"]);
+	check(
+		[FILE, "m: Map[string, File]", f, r#"m["a"] = f"#, r#"print("set")"#],
+		["set", "drop 1"],
+	);
+}
+
+#[test]
 fn fixed_array_elements_drop_with_their_last_owner() {
 	let a = "a : [2]File : .[File.{fd = 1}, File.{fd = 2}]";
 	check([FILE, a, "b :: a", r#"print("built")"#], ["built", "drop 1", "drop 2"]);
