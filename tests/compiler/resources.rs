@@ -110,6 +110,24 @@ fn map_values_drop_with_their_last_owner() {
 }
 
 #[test]
+fn overwrite_drops_the_old_value_and_moves_the_new() {
+	check(
+		[
+			FILE,
+			"f := File.{fd = 1}",
+			"g :: File.{fd = 2}",
+			"f = g",
+			r#"print("set")"#,
+		],
+		["drop 1", "set", "drop 2"],
+	);
+	fail_with(
+		[FILE, "f := File.{fd = 1}", "g :: File.{fd = 2}", "f = g", "print(g)"],
+		"undefined variable",
+	);
+}
+
+#[test]
 fn fixed_array_elements_drop_with_their_last_owner() {
 	let a = "a : [2]File : .[File.{fd = 1}, File.{fd = 2}]";
 	check([FILE, a, "b :: a", r#"print("built")"#], ["built", "drop 1", "drop 2"]);

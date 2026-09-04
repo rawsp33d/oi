@@ -95,9 +95,13 @@ impl<'a, M: Module> Translator<'a, M> {
 						)
 						.with_label("type mismatch"));
 					}
+					self.move_resource(value, &typ)?;
 					if let Typ::Struct(_, ref fields) = typ {
 						let fields = fields.clone();
 						let dst = self.read_local(&local);
+						if self.is_resource(&typ) {
+							self.release_value(dst, &typ);
+						}
 						self.assign_fields(val, dst, &fields, true);
 					} else {
 						let val = self.copy_in(val, &typ);
