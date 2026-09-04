@@ -560,6 +560,10 @@ impl<'a, M: Module> Translator<'a, M> {
 		if let Typ::Annotated(anns, inner) = target
 			&& let Typ::Fn(ps, _) = &**inner
 		{
+			let value = match &value.0 {
+				Expr::Annotated(a, v) if ann_names(self.scope, a) == *anns => v,
+				_ => value,
+			};
 			let (val, vt) = self.check_expr(value, inner)?;
 			if vt != **inner {
 				return Ok((val, vt));

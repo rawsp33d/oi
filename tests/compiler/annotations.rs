@@ -319,6 +319,14 @@ fn c_fn_types() {
 		"},
 		["16", "<fn>"],
 	);
+	check(
+		indoc! {"
+			C :: @c fn(i32) i32
+			f: C = @c fn(n) { n + 1 }
+			print(f(1))
+		"},
+		"2",
+	);
 }
 
 #[test]
