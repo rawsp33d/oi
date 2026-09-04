@@ -124,7 +124,7 @@ pub enum Expr {
 	// `comp expr`
 	Comp(Box<Spanned<Expr>>),
 
-	MutArg(Box<Spanned<Expr>>),
+	ArgMod(Access, Box<Spanned<Expr>>),
 
 	// control flow
 
@@ -339,7 +339,7 @@ impl Expr {
 			| Expr::ResultInit { arg: v, .. }
 			| Expr::Assign { value: v, .. }
 			| Expr::PatBind { value: v, .. }
-			| Expr::MutArg(v)
+			| Expr::ArgMod(_, v)
 			| Expr::Spread(v)
 			| Expr::Ref(v)
 			| Expr::Pub(v)
@@ -524,7 +524,7 @@ pub enum TypeExpr {
 	Tuple(Vec<(Option<String>, TypeExpr)>),
 	Array(Box<TypeExpr>),
 	FixedArray(Box<TypeExpr>, Box<Spanned<Expr>>),
-	Fn(Vec<TypeExpr>, Vec<bool>, Box<TypeExpr>),
+	Fn(Vec<TypeExpr>, Vec<Access>, Box<TypeExpr>),
 	Annotated(Vec<Annotation>, Box<TypeExpr>),
 	Option(Box<TypeExpr>),
 	Result(Box<TypeExpr>, Option<Box<TypeExpr>>),
@@ -603,6 +603,23 @@ pub struct TypeParam {
 	pub bound: Option<String>,
 }
 
+// Params access modifiers.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Access {
+	#[default]
+	Read,
+	Mut,
+}
+
+impl std::fmt::Display for Access {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+		f.write_str(match self {
+			Access::Read => "read",
+			Access::Mut => "mut",
+		})
+	}
+}
+
 // A function parameter or struct field declaration.
 #[derive(Debug, Clone)]
 pub struct Param {
@@ -610,7 +627,7 @@ pub struct Param {
 	pub typ: TypeExpr,
 	pub span: Span,
 	pub default: Option<Spanned<Expr>>,
-	pub mutable: bool,
+	pub access: Access,
 	pub public: bool,
 	pub annotations: Vec<Annotation>,
 }

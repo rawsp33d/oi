@@ -4,7 +4,7 @@ use std::fmt;
 
 use cranelift::prelude::*;
 
-use crate::ast::{Annotation, Expr, Param, Spanned, TypeExpr};
+use crate::ast::{Access, Annotation, Expr, Param, Spanned, TypeExpr};
 
 #[derive(Clone, Debug)]
 pub(crate) enum Typ {
@@ -33,7 +33,7 @@ pub(crate) enum Typ {
 	Annotated(Vec<String>, Box<Typ>),
 	Closure(Vec<Typ>, Box<Typ>, bool),
 	Map(Box<Typ>, Box<Typ>),
-	Mut(Box<Typ>),
+	Access(Access, Box<Typ>),
 	Ref(Box<Typ>),
 	Ast,
 }
@@ -167,7 +167,7 @@ impl Typ {
 			Typ::Result(ok, err) if **err == Typ::Error => format!("!{}", ok.key()),
 			Typ::Result(ok, err) => format!("Result[{}, {}]", ok.key(), err.key()),
 			Typ::Map(k, v) => format!("Map[{}, {}]", k.key(), v.key()),
-			Typ::Mut(inner) => format!("mut {}", inner.key()),
+			Typ::Access(a, inner) => format!("{a} {}", inner.key()),
 			Typ::Ref(inner) => format!("&{}", inner.key()),
 			Typ::Trait(name) => format!("dyn {name}"),
 			Typ::Fn(params, ret) | Typ::Closure(params, ret, _) => format!("fn({}) {}", keys(params), ret.key()),
@@ -239,7 +239,7 @@ impl fmt::Display for Typ {
 				write!(f, ") {ret}")
 			}
 			Typ::Map(k, v) => write!(f, "Map[{k}, {v}]"),
-			Typ::Mut(inner) => write!(f, "mut {inner}"),
+			Typ::Access(a, inner) => write!(f, "{a} {inner}"),
 			Typ::Ref(inner) => write!(f, "&{inner}"),
 			Typ::Ast => write!(f, "Ast"),
 		}
@@ -269,7 +269,7 @@ impl PartialEq for Typ {
 			(Typ::Fn(p, r) | Typ::Closure(p, r, _), Typ::Fn(q, s) | Typ::Closure(q, s, _)) => p == q && r == s,
 			(Typ::Annotated(a, x), Typ::Annotated(b, y)) => a == b && x == y,
 			(Typ::Map(k, v), Typ::Map(l, w)) => k == l && v == w,
-			(Typ::Mut(a), Typ::Mut(b)) => a == b,
+			(Typ::Access(a, x), Typ::Access(b, y)) => a == b && x == y,
 			(Typ::Ref(a), Typ::Ref(b)) => match (&**a, &**b) {
 				(Typ::Struct(n, _), Typ::Struct(m, _)) => n == m,
 				_ => a == b,
@@ -308,18 +308,30 @@ pub(crate) fn type_expr(typ: &Typ) -> Option<TypeExpr> {
 				.collect::<Option<_>>()?,
 		),
 		Typ::Fn(ps, r) => TypeExpr::Fn(
-			ps.iter().map(|p| type_expr(mut_peel(p))).collect::<Option<_>>()?,
-			ps.iter().map(|p| matches!(p, Typ::Mut(_))).collect(),
+			ps.iter().map(|p| type_expr(access_peel(p))).collect::<Option<_>>()?,
+			ps.iter().map(access_of).collect(),
 			Box::new(type_expr(r)?),
 		),
 		_ => return None,
 	})
 }
 
-fn mut_peel(typ: &Typ) -> &Typ {
-	match typ {
-		Typ::Mut(inner) => inner,
-		typ => typ,
+// The access mod a param carries.
+pub(crate) fn access_of(typ: &Typ) -> Access {
+	if let Typ::Access(a, _) = typ { *a } else { Access::Read }
+}
+
+// The type under an access mod.
+pub(crate) fn access_peel(typ: &Typ) -> &Typ {
+	if let Typ::Access(_, inner) = typ { inner } else { typ }
+}
+
+// Wrap an Access into a Typ.
+pub(crate) fn access_wrap(access: Access, typ: Typ) -> Typ {
+	if access == Access::Read {
+		typ
+	} else {
+		Typ::Access(access, Box::new(typ))
 	}
 }
 

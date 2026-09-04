@@ -9,7 +9,7 @@ use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{DataDescription, DataId, FuncId, Linkage, Module};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 
-use crate::ast::{Annotation, EnumVariant, Expr, Param, Span, Spanned, TypeExpr, TypeParam};
+use crate::ast::{Access, Annotation, EnumVariant, Expr, Param, Span, Spanned, TypeExpr, TypeParam};
 use crate::diagnostics::{Diagnostic, SourceMap};
 use crate::loader::{Program, Scope, is_literal};
 use crate::runtime;
@@ -43,26 +43,23 @@ type EnumItem<'a> = (&'a str, Option<&'a Spanned<TypeExpr>>, &'a [EnumVariant]);
 pub(crate) struct FnSig {
 	pub id: FuncId,
 	pub params: Vec<Typ>,
-	pub muts: Vec<bool>,
+	pub access: Vec<Access>,
 	pub ret: Typ,
 	pub args: Vec<(String, Option<Spanned<Expr>>)>,
 	pub foreign: bool,
 }
 
 impl FnSig {
-	// Params as a fn value sees them, `mut` folded back in.
+	// Params as a fn value sees them, the access mods folded back in.
 	pub(crate) fn value_params(&self) -> Vec<Typ> {
-		self.params
-			.iter()
-			.zip(&self.muts)
-			.map(|(t, &m)| if m { Typ::Mut(Box::new(t.clone())) } else { t.clone() })
-			.collect()
+		let fold = |(t, &a): (&Typ, &Access)| access_wrap(a, t.clone());
+		self.params.iter().zip(&self.access).map(fold).collect()
 	}
 }
 
 // Enforce default param rules.
 fn check_param_defaults(params: &[Param]) -> Result<(), Diagnostic> {
-	if let Some(p) = params.iter().find(|p| p.mutable && p.default.is_some()) {
+	if let Some(p) = params.iter().find(|p| p.access == Access::Mut && p.default.is_some()) {
 		let msg = format!("`{}` is `mut` so it can't have a default value", p.name);
 		return Err(Diagnostic::new(msg, p.span.into_range()).with_label("remove `mut` or the default"));
 	}
@@ -118,7 +115,7 @@ pub(crate) type Pending = (String, GenericFnDef, HashMap<String, Typ>);
 // A resolved fn.
 #[derive(Default)]
 struct FnDef<'a> {
-	params: &'a [(String, Typ, bool)],
+	params: &'a [(String, Typ, Access)],
 	params_tuple: bool,
 	ret: Option<(Typ, Span)>,
 	body: &'a [Spanned<Expr>],
@@ -390,9 +387,9 @@ fn replace_self(te: &TypeExpr, self_ty: &TypeExpr) -> TypeExpr {
 		TypeExpr::Result(e, err) => TypeExpr::Result(Box::new(replace_self(e, self_ty)), err.clone()),
 		TypeExpr::Tuple(fs) => TypeExpr::Tuple(fs.iter().map(|(n, t)| (n.clone(), replace_self(t, self_ty))).collect()),
 		TypeExpr::Annotated(a, t) => TypeExpr::Annotated(a.clone(), Box::new(replace_self(t, self_ty))),
-		TypeExpr::Fn(ps, muts, r) => TypeExpr::Fn(
+		TypeExpr::Fn(ps, access, r) => TypeExpr::Fn(
 			ps.iter().map(|p| replace_self(p, self_ty)).collect(),
-			muts.clone(),
+			access.clone(),
 			Box::new(replace_self(r, self_ty)),
 		),
 		TypeExpr::Map(k, v) => TypeExpr::Map(Box::new(replace_self(k, self_ty)), Box::new(replace_self(v, self_ty))),
@@ -1091,7 +1088,7 @@ impl<M: Module> Compiler<M> {
 				.iter()
 				.map(|p| types.resolve(&p.typ, p.span))
 				.collect::<Result<_, _>>()?;
-			let muts: Vec<bool> = item.params.iter().map(|p| p.mutable).collect();
+			let access: Vec<Access> = item.params.iter().map(|p| p.access).collect();
 			let ret = match &item.ret {
 				Some((ret_te, ret_span)) => types.resolve(ret_te, *ret_span)?,
 				None => Typ::unit(),
@@ -1113,7 +1110,7 @@ impl<M: Module> Compiler<M> {
 				is_c_fn = true;
 			}
 			let (sym, linkage) = self.symbol(&item.key);
-			let mut sig = self.declare_fn(&sym, linkage, params, muts, ret);
+			let mut sig = self.declare_fn(&sym, linkage, params, access, ret);
 			sig.args = item.params.iter().map(|p| (p.name.clone(), p.default.clone())).collect();
 			sig.foreign = self.exports.contains_key(&item.key) || is_c_fn;
 			funcs.insert(item.key.clone(), sig);
@@ -1121,7 +1118,7 @@ impl<M: Module> Compiler<M> {
 
 		for (name, fn_type, span, scope) in &foreign_items {
 			let (span, scope) = (*span, *scope);
-			let TypeExpr::Fn(param_types, muts, ret) = fn_type else {
+			let TypeExpr::Fn(param_types, access, ret) = fn_type else {
 				unreachable!("loader validated foreign fn type")
 			};
 			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits)
@@ -1153,7 +1150,7 @@ impl<M: Module> Compiler<M> {
 					check_c_sig(bare, ps, r, span)?;
 				}
 			}
-			let mut sig = self.declare_fn(bare, Linkage::Import, params, muts.clone(), ret);
+			let mut sig = self.declare_fn(bare, Linkage::Import, params, access.clone(), ret);
 			sig.foreign = true;
 			funcs.insert(name.clone(), sig);
 		}
@@ -1194,7 +1191,7 @@ impl<M: Module> Compiler<M> {
 			let types =
 				TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits).with_consts(consts);
 			let styp = types.named(&name, (0..0).into())?;
-			let param = [("self".into(), styp.clone(), false)];
+			let param = [("self".into(), styp.clone(), Access::Read)];
 			let def = FnDef {
 				params: &param,
 				..FnDef::default()
@@ -1342,7 +1339,7 @@ impl<M: Module> Compiler<M> {
 	}
 
 	// Declare a hoisted fn's signature ahead of its body.
-	fn declare_fn(&mut self, symbol: &str, linkage: Linkage, params: Vec<Typ>, muts: Vec<bool>, ret: Typ) -> FnSig {
+	fn declare_fn(&mut self, symbol: &str, linkage: Linkage, params: Vec<Typ>, access: Vec<Access>, ret: Typ) -> FnSig {
 		let int = self.module.target_config().pointer_type();
 		let mut sig = self.module.make_signature();
 		sig.params.extend(params.iter().map(|t| AbiParam::new(cl_type(t, int))));
@@ -1353,7 +1350,7 @@ impl<M: Module> Compiler<M> {
 		FnSig {
 			id,
 			params,
-			muts,
+			access,
 			ret,
 			args: vec![],
 			foreign: false,
@@ -1436,7 +1433,7 @@ impl<M: Module> Compiler<M> {
 		let (mut trans, block) = self.translator(&def, funcs, types);
 
 		let param_vals: Vec<Value> = trans.b.block_params(block).to_vec();
-		for ((name, typ, mutable), &val) in def.params.iter().zip(param_vals.iter()) {
+		for ((name, typ, access), &val) in def.params.iter().zip(param_vals.iter()) {
 			let val = if def.foreign && matches!(typ, Typ::Fn(..)) {
 				trans.fn_cell(val)
 			} else {
@@ -1445,11 +1442,12 @@ impl<M: Module> Compiler<M> {
 			let cl = trans.b.func.dfg.value_type(val);
 			let var = trans.b.declare_var(cl);
 			trans.b.def_var(var, val);
+			let mutable = *access == Access::Mut;
 			let local = Local {
 				var,
 				typ: typ.clone(),
-				mutable: *mutable,
-				boxed: *mutable && name != "self",
+				mutable,
+				boxed: mutable && name != "self",
 			};
 			trans.vars.insert(name.clone(), local.clone());
 			trans.params.push(local);

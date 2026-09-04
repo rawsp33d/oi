@@ -30,10 +30,11 @@ impl<'a, M: Module> Translator<'a, M> {
 					.with_note("qualify it (ex: `?int(none)`)"),
 			),
 
-			Expr::MutArg(_) => Err(
-				Diagnostic::new("`mut` is only allowed on call arguments", expr.1.into_range())
-					.with_label("not a call argument"),
-			),
+			Expr::ArgMod(a, _) => Err(Diagnostic::new(
+				format!("`{a}` is only allowed on call arguments"),
+				expr.1.into_range(),
+			)
+			.with_label("not a call argument")),
 
 			Expr::Foreign => Err(Diagnostic::new(
 				"foreign is only allowed as a module-level binding",
@@ -333,7 +334,10 @@ impl<'a, M: Module> Translator<'a, M> {
 					&& let Some(i) = sfields.iter().position(|f| f.name == *method)
 				{
 					let ft = sfields[i].typ.clone();
-					let v = self.b.ins().load(cl_type(&ft, self.int), MemFlags::new(), *recv, (i * 8) as i32);
+					let v = self
+						.b
+						.ins()
+						.load(cl_type(&ft, self.int), MemFlags::new(), *recv, (i * 8) as i32);
 					return self.call_value(method, Callee::Object(v), &ft, args, None, expr.1);
 				}
 

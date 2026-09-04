@@ -1,5 +1,5 @@
 use crate::ast::{
-	BinOp, Capture, Child, EnumVariant, Expr, MatchArm, Param, Span, Spanned, TypeExpr, TypeParam, UseItem,
+	Access, BinOp, Capture, Child, EnumVariant, Expr, MatchArm, Param, Span, Spanned, TypeExpr, TypeParam, UseItem,
 };
 use crate::lexer::Token;
 
@@ -16,7 +16,7 @@ enum Subscript {
 }
 
 // field/tuple/method access
-enum Access {
+enum Dot {
 	Fields(Vec<String>),
 	Method(String, Vec<Spanned<TypeExpr>>, Vec<Spanned<Expr>>),
 }
@@ -125,7 +125,7 @@ fn fn_def(
 			typ: TypeExpr::Name("$I".into()),
 			span,
 			default: None,
-			mutable: false,
+			access: Access::Read,
 			public: false,
 			annotations: vec![],
 		};
@@ -176,6 +176,9 @@ where
 	let mut item = Recursive::declare();
 
 	let ident = || select! { Token::Ident(name) => name };
+
+	// param access modifiers
+	let access = just(Token::Mut).to(Access::Mut).boxed();
 
 	let dotted_name = ident()
 		.then(just(Token::Dot).ignore_then(ident()).or_not())
@@ -298,7 +301,8 @@ where
 					Some(n) => TypeExpr::FixedArray(Box::new(elem), Box::new(n)),
 					None => TypeExpr::Array(Box::new(elem)),
 				});
-			let fn_param = just(Token::Mut)
+			let fn_param = access
+				.clone()
 				.or_not()
 				.then_ignore(ident().then_ignore(just(Token::Colon)).or_not())
 				.then(te.clone());
@@ -307,8 +311,8 @@ where
 				.ignore_then(paren(loose_list(fn_param)))
 				.then(fn_ret)
 				.map(|(params, ret)| {
-					let (muts, params) = params.into_iter().map(|(m, t)| (m.is_some(), t)).unzip();
-					TypeExpr::Fn(params, muts, Box::new(ret.unwrap_or(TypeExpr::Tuple(vec![]))))
+					let (access, params) = params.into_iter().map(|(a, t)| (a.unwrap_or_default(), t)).unzip();
+					TypeExpr::Fn(params, access, Box::new(ret.unwrap_or(TypeExpr::Tuple(vec![]))))
 				});
 			// annotations
 			let annotated = annotation
@@ -406,7 +410,8 @@ where
 
 	// param type is kept for the compiler to resolve
 	// NOTE: a bare `self` receiver gets the type `Self`
-	let param = just(Token::Mut)
+	let param = access
+		.clone()
 		.or_not()
 		.then(ident())
 		.then(
@@ -416,14 +421,14 @@ where
 				.or(bind_default.clone())
 				.or_not(),
 		)
-		.map_with(|((mutable, name), typed), ex| {
+		.map_with(|((access, name), typed), ex| {
 			let (typ, default) = typed.unzip();
 			Param {
 				typ: typ.unwrap_or_else(|| TypeExpr::Name(if name == "self" { "Self" } else { "$?" }.into())),
 				name,
 				span: ex.span(),
 				default: default.flatten(),
-				mutable: mutable.is_some(),
+				access: access.unwrap_or_default(),
 				public: false,
 				annotations: vec![],
 			}
@@ -754,19 +759,20 @@ where
 		};
 
 		// arg mods
-		let mut_arg = just(Token::Mut)
-			.ignore_then(expr.clone())
-			.map_with(|e, ex| (Expr::MutArg(Box::new(e)), ex.span()));
+		let mod_arg = access
+			.clone()
+			.then(expr.clone())
+			.map_with(|(a, e), ex| (Expr::ArgMod(a, Box::new(e)), ex.span()));
 		// named args collect into one trailing record arg
 		let named_arg = ident()
 			.map_with(|n, ex| (Expr::Ident(n), ex.span()))
 			.then_ignore(just(Token::Assign))
-			.then(mut_arg.clone().or(expr.clone()))
+			.then(mod_arg.clone().or(expr.clone()))
 			.map(|(key, value)| (Some(key), value));
 		// variable vs. call vs. struct literal
 		let args = paren(
 			named_arg
-				.or(mut_arg.or(expr.clone()).or(block_lit.clone()).map(|e| (None, e)))
+				.or(mod_arg.or(expr.clone()).or(block_lit.clone()).map(|e| (None, e)))
 				.separated_by(just(Token::Comma))
 				.allow_trailing()
 				.collect::<Vec<_>>(),
@@ -1150,15 +1156,15 @@ where
 
 		// field/tuple/method access
 		let access = choice((
-			select! { Token::Int(n) => Access::Fields(vec![n.to_string()]) },
+			select! { Token::Int(n) => Dot::Fields(vec![n.to_string()]) },
 			// NOTE: chained tuple access like `x.0.1` lexes `0.1` as a float, hence the split
-			select! { Token::Float(s) => Access::Fields(s.split('.').map(String::from).collect()) },
+			select! { Token::Float(s) => Dot::Fields(s.split('.').map(String::from).collect()) },
 			// `[T]` is type args or subscript, based on whether a call follows
 			ident()
 				.then(call_type_args.or_not().then(args.clone().or(record_arg.clone())).or_not())
 				.map(|(name, call)| match call {
-					Some((type_args, args)) => Access::Method(name, type_args.unwrap_or_default(), args),
-					None => Access::Fields(vec![name]),
+					Some((type_args, args)) => Dot::Method(name, type_args.unwrap_or_default(), args),
+					None => Dot::Fields(vec![name]),
 				}),
 		))
 		.boxed();
@@ -1191,7 +1197,7 @@ where
 			.pratt((
 				// field/tuple/method access
 				postfix(9, just(Token::Dot).ignore_then(access), |lhs, acc, ex| match acc {
-					Access::Fields(parts) => parts.into_iter().fold(lhs, |cur, field| {
+					Dot::Fields(parts) => parts.into_iter().fold(lhs, |cur, field| {
 						(
 							Expr::Field {
 								tuple: Box::new(cur),
@@ -1200,7 +1206,7 @@ where
 							ex.span(),
 						)
 					}),
-					Access::Method(method, type_args, args) => (
+					Dot::Method(method, type_args, args) => (
 						Expr::MethodCall {
 							recv: Box::new(lhs),
 							method,
@@ -1406,7 +1412,7 @@ where
 			typ,
 			span: ex.span(),
 			default,
-			mutable: false,
+			access: Access::Read,
 			public: public.is_some(),
 			annotations,
 		})
@@ -1418,7 +1424,7 @@ where
 		name,
 		span: ex.span(),
 		default: None,
-		mutable: false,
+		access: Access::Read,
 		public: public.is_some(),
 		annotations: vec![],
 	});

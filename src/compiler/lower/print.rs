@@ -240,7 +240,7 @@ impl<'a, M: Module> Translator<'a, M> {
 					| Typ::Trait(_)
 					| Typ::Error
 					| Typ::Map(..)
-					| Typ::Mut(_)
+					| Typ::Access(..)
 					| Typ::Ast
 					| Typ::Ref(_) => {
 						unreachable!("handled above")

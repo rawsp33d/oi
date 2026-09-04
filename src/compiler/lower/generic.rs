@@ -1,4 +1,4 @@
-use super::call::{arg_slots, mut_inner};
+use super::call::arg_slots;
 use super::*;
 use crate::ast::TypeParam;
 
@@ -88,8 +88,8 @@ impl<'a, M: Module> Translator<'a, M> {
 			.with_label("wrong number of arguments"));
 		}
 		let slots: Vec<_> = named.unwrap_or_else(|| args.iter().map(Some).collect());
-		let muts: Vec<bool> = def.params.iter().map(|p| p.mutable).collect();
-		self.check_muts(&muts, recv.as_ref().map(|(_, e)| *e), &slots)?;
+		let access: Vec<Access> = def.params.iter().map(|p| p.access).collect();
+		self.check_args(&access, recv.as_ref().map(|(_, e)| *e), &slots)?;
 		let mut subst = HashMap::new();
 		if !type_args.is_empty() && type_args.len() != def.type_params.len() {
 			return Err(Diagnostic::new(
@@ -107,7 +107,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		}
 		let mut vals = Vec::with_capacity(args.len() + self_n);
 		let mut declared = def.params.iter();
-		if let Some(((rval, rtyp), _)) = &recv {
+		if let Some(((rval, rtyp), rexpr)) = &recv {
 			let rparam = declared.next().unwrap();
 			unify(&rparam.typ, rtyp, &def.type_params, &mut subst, self.generics)
 				.map_err(|msg| Diagnostic::new(msg, span.into_range()).with_label("type mismatch"))?;
@@ -115,13 +115,8 @@ impl<'a, M: Module> Translator<'a, M> {
 		}
 		let mut lent = Vec::new();
 		for (arg, param) in slots.iter().flatten().zip(declared) {
-			let (val, typ) = if param.mutable {
-				let (slot, typ, entry) = self.lend_mut(mut_inner(arg))?;
-				lent.push((slot, entry));
-				(slot, typ)
-			} else {
-				self.expr(mut_inner(arg))?
-			};
+			let (val, typ, entry) = self.arg_value(param.access, arg, None)?;
+			lent.extend(entry.map(|e| (val, e)));
 			unify(&param.typ, &typ, &def.type_params, &mut subst, self.generics)
 				.map_err(|msg| Diagnostic::new(msg, arg.1.into_range()).with_label("type mismatch"))?;
 			vals.push(val);
@@ -206,7 +201,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			.expect("declare function");
 		let fn_sig = FnSig {
 			id,
-			muts: params.iter().map(|(_, _, m)| *m).collect(),
+			access: params.iter().map(|(_, _, a)| *a).collect(),
 			params: params.into_iter().map(|(_, t, _)| t).collect(),
 			ret,
 			args: vec![],

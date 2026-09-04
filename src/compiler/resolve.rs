@@ -4,7 +4,7 @@ use super::*;
 use crate::loader::{Scope, fold_const};
 
 // resolved params with an optional return annotation
-type ParamsRet = (Vec<(String, Typ, bool)>, Option<(Typ, Span)>);
+type ParamsRet = (Vec<(String, Typ, Access)>, Option<(Typ, Span)>);
 
 // Assign discriminants and resolve payload types against `types`.
 pub(super) fn build_variants(variants: &[EnumVariant], types: TypeCtx) -> Result<Vec<VariantInfo>, Diagnostic> {
@@ -247,14 +247,11 @@ impl TypeCtx<'_> {
 					.collect::<Result<_, Diagnostic>>()?;
 				Ok(Typ::TupleStruct(name.clone(), fields))
 			}
-			TypeExpr::Fn(params, muts, ret) => {
+			TypeExpr::Fn(params, access, ret) => {
 				let params = params
 					.iter()
-					.zip(muts)
-					.map(|(p, &m)| {
-						let t = self.resolve(p, span)?;
-						Ok(if m { Typ::Mut(Box::new(t)) } else { t })
-					})
+					.zip(access)
+					.map(|(p, &a)| Ok(access_wrap(a, self.resolve(p, span)?)))
 					.collect::<Result<_, Diagnostic>>()?;
 				Ok(Typ::Fn(params, Box::new(self.resolve(ret, span)?)))
 			}
@@ -519,8 +516,7 @@ impl TypeCtx<'_> {
 		Ok(Typ::Sum(variants))
 	}
 
-	// Resolve a param list to `(name, type, mutable)` triples.
-	pub fn resolve_params(&self, params: &[Param]) -> Result<Vec<(String, Typ, bool)>, Diagnostic> {
+	pub fn resolve_params(&self, params: &[Param]) -> Result<Vec<(String, Typ, Access)>, Diagnostic> {
 		params
 			.iter()
 			.map(|p| {
@@ -529,14 +525,14 @@ impl TypeCtx<'_> {
 					typ,
 					Typ::Array(_) | Typ::FixedArray(..) | Typ::Map(..) | Typ::Struct(..) | Typ::TupleStruct(..)
 				) && typ.newtype().is_none();
-				if p.mutable && !lendable {
+				if p.access == Access::Mut && !lendable {
 					return Err(Diagnostic::new(
 						"`mut` parameters must be arrays, maps, or structs for now",
 						p.span.into_range(),
 					)
 					.with_label(format!("{typ} has no address to lend")));
 				}
-				Ok((p.name.clone(), typ, p.mutable))
+				Ok((p.name.clone(), typ, p.access))
 			})
 			.collect()
 	}

@@ -139,7 +139,7 @@ pub(super) fn check_impls<'p>(
 		if tn == "Drop" {
 			let well_formed = methods.iter().any(|m| {
 				matches!(&m.0, Expr::Fn { name, params, .. }
-					if name == "drop" && params.len() == 1 && params[0].name == "self" && params[0].mutable)
+					if name == "drop" && params.len() == 1 && params[0].name == "self" && params[0].access == Access::Mut)
 			});
 			if !well_formed {
 				let msg = format!("`impl Drop for {typ}` must define `fn drop(mut self)`");

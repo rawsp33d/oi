@@ -1,9 +1,9 @@
 use super::*;
 
-// Unwrap a mutable call arg.
-pub(super) fn mut_inner(arg: &Spanned<Expr>) -> &Spanned<Expr> {
+// Unwrap a marked call arg.
+pub(super) fn arg_inner(arg: &Spanned<Expr>) -> &Spanned<Expr> {
 	match &arg.0 {
-		Expr::MutArg(inner) => inner,
+		Expr::ArgMod(_, inner) => inner,
 		_ => arg,
 	}
 }
@@ -177,7 +177,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			}
 		}
 		let slots: Vec<_> = named.unwrap_or_else(|| (0..names.len()).map(|i| args.get(i)).collect());
-		self.check_muts(&sig.muts, recv_expr, &slots)?;
+		self.check_args(&sig.access, recv_expr, &slots)?;
 		let fills = slots.iter().any(Option::is_none);
 		let saved: Vec<_> = match fills {
 			true => sig.args.iter().map(|(n, _)| (n.clone(), self.vars.remove(n))).collect(),
@@ -196,14 +196,13 @@ impl<'a, M: Module> Translator<'a, M> {
 				false => want,
 			};
 			if i >= self_n {
-				let (val, typ) = match (slots[i - self_n], sig.muts[i]) {
-					(Some(arg), true) => {
-						let (cell, typ, entry) = self.lend_mut(mut_inner(arg))?;
-						lent.push((cell, entry));
-						(cell, typ)
+				let (val, typ) = match slots[i - self_n] {
+					Some(arg) => {
+						let (val, typ, entry) = self.arg_value(sig.access[i], arg, Some(want))?;
+						lent.extend(entry.map(|e| (val, e)));
+						(val, typ)
 					}
-					(Some(arg), false) => self.check_expr(mut_inner(arg), want)?,
-					(None, _) => {
+					None => {
 						let Some(default) = &sig.args[i].1 else {
 							let msg = format!("`{name}` is missing argument `{}`", sig.args[i].0);
 							return Err(
@@ -240,6 +239,25 @@ impl<'a, M: Module> Translator<'a, M> {
 		let out = self.emit_call(&sig, &vals);
 		self.reload_lent(&lent);
 		Ok(out)
+	}
+
+	// Evaluate one argument under its access mod.
+	pub(super) fn arg_value(
+		&mut self,
+		access: Access,
+		arg: &Spanned<Expr>,
+		want: Option<&Typ>,
+	) -> Result<(Value, Typ, Option<Lent>), Diagnostic> {
+		let arg = arg_inner(arg);
+		if access == Access::Mut {
+			let (cell, typ, entry) = self.lend_mut(arg)?;
+			return Ok((cell, typ, Some(entry)));
+		}
+		let (val, typ) = match want {
+			Some(want) => self.check_expr(arg, want)?,
+			None => self.expr(arg)?,
+		};
+		Ok((val, typ, None))
 	}
 
 	// Pass the address of the caller's binding.
@@ -286,39 +304,45 @@ impl<'a, M: Module> Translator<'a, M> {
 		}
 	}
 
-	// Callsite mut checks.
-	pub(super) fn check_muts(
+	// Callsite access checks.
+	pub(super) fn check_args(
 		&self,
-		muts: &[bool],
+		access: &[Access],
 		recv: Option<&Spanned<Expr>>,
 		args: &[Option<&Spanned<Expr>>],
 	) -> Result<(), Diagnostic> {
 		if let Some(re) = recv
-			&& muts[0]
+			&& access[0] == Access::Mut
 		{
 			self.mut_place(re, "calling a `mut self` method needs a `mut` binding")?;
 		}
-		for (i, (&arg, &m)) in args.iter().zip(&muts[recv.is_some() as usize..]).enumerate() {
+		for (i, (&arg, &want)) in args.iter().zip(&access[recv.is_some() as usize..]).enumerate() {
 			let Some(arg) = arg else { continue };
-			let name = match (&arg.0, m) {
-				(Expr::MutArg(inner), true) => match &inner.0 {
-					Expr::Slice { collection, .. } => {
-						self.mut_place(collection, "only a mutable binding can be lent `mut`")?
-					}
-					_ => self.mut_place(inner, "only a mutable binding can be lent `mut`")?,
-				},
-				(Expr::MutArg(_), false) => {
-					return Err(Diagnostic::new("this parameter is not `mut`", arg.1.into_range())
-						.with_label("remove `mut` here"));
+			let given = match &arg.0 {
+				Expr::ArgMod(a, _) => *a,
+				_ => Access::Read,
+			};
+			if given != want {
+				let (msg, label) = match given {
+					Access::Read => (
+						format!("this parameter is `{want}`, missing `{want}` at the callsite"),
+						format!("wrap it, e.g. `f({want} x)`"),
+					),
+					given => (
+						format!("this parameter is not `{given}`"),
+						format!("remove `{given}` here"),
+					),
+				};
+				return Err(Diagnostic::new(msg, arg.1.into_range()).with_label(label));
+			}
+			if want != Access::Mut {
+				continue;
+			}
+			let name = match &arg_inner(arg).0 {
+				Expr::Slice { collection, .. } => {
+					self.mut_place(collection, "only a mutable binding can be lent `mut`")?
 				}
-				(_, true) => {
-					return Err(Diagnostic::new(
-						"this parameter is `mut`, missing `mut` at the callsite",
-						arg.1.into_range(),
-					)
-					.with_label("wrap it, e.g. `f(mut x)`"));
-				}
-				_ => continue,
+				_ => self.mut_place(arg_inner(arg), "only a mutable binding can be lent `mut`")?,
 			};
 			let mut touched = HashSet::new();
 			let others = args.iter().enumerate().filter(|&(j, _)| j != i).filter_map(|(_, a)| *a);
@@ -390,26 +414,16 @@ impl<'a, M: Module> Translator<'a, M> {
 			)
 			.with_label("wrong number of arguments"));
 		}
-		let muts: Vec<bool> = params.iter().map(|p| matches!(p, Typ::Mut(_))).collect();
+		let access: Vec<Access> = params.iter().map(access_of).collect();
 		let slots: Vec<_> = args.iter().map(Some).collect();
-		self.check_muts(&muts[self_n..], None, &slots)?;
+		self.check_args(&access[self_n..], None, &slots)?;
 		let mut vals = Vec::with_capacity(args.len() + self_n + 1);
 		vals.extend(recv);
 		let mut lent = Vec::new();
 		for (arg, want) in args.iter().zip(&params[self_n..]) {
-			let (val, typ) = match want {
-				Typ::Mut(_) => {
-					let (slot, typ, entry) = self.lend_mut(mut_inner(arg))?;
-					lent.push((slot, entry));
-					(slot, typ)
-				}
-				_ => self.check_expr(mut_inner(arg), want)?,
-			};
-			let want = if let Typ::Mut(inner) = want {
-				inner.as_ref()
-			} else {
-				want
-			};
+			let (val, typ, entry) = self.arg_value(access_of(want), arg, Some(access_peel(want)))?;
+			lent.extend(entry.map(|e| (val, e)));
+			let want = access_peel(want);
 			if &typ != want {
 				return Err(
 					Diagnostic::new(format!("expected {want} argument, got {typ}"), arg.1.into_range())

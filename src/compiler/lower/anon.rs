@@ -69,7 +69,7 @@ impl<'a, M: Module> Translator<'a, M> {
 								name: name(i),
 								span,
 								default: None,
-								mutable: false,
+								access: Access::Read,
 								public: false,
 								annotations: vec![],
 							})

@@ -41,7 +41,7 @@ impl<M: Module> Translator<'_, M> {
 				typ,
 				span,
 				default: None,
-				mutable: false,
+				access: Access::Read,
 				public: false,
 				annotations: vec![],
 			});
