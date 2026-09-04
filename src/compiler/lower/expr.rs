@@ -176,7 +176,11 @@ impl<'a, M: Module> Translator<'a, M> {
 							None if matches!(self.aliases.get(&qn), Some(TypeExpr::TupleStruct(..))) => {
 								self.construct_tuple_struct(&qn, args, expr.1)
 							}
-							None if matches!(self.aliases.get(&qn), Some(TypeExpr::Fn(..))) => {
+							None if matches!(
+								self.aliases.get(&qn),
+								Some(TypeExpr::Fn(..) | TypeExpr::Annotated(..))
+							) =>
+							{
 								self.cast_fn_ptr(&qn, args, expr.1)
 							}
 							None if matches!(name.as_str(), "assert" | "panic") => {

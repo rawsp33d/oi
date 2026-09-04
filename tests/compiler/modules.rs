@@ -140,6 +140,28 @@ fn fn_type_alias_casts_a_ptr() {
 }
 
 #[test]
+fn a_c_fn_sheds_its_cell_and_takes_it_back() {
+	Project::new()
+		.file(
+			"main.oi",
+			[
+				"use cext",
+				"Abs :: @c fn(n: i32) i32",
+				"on_init :: fn(get: Abs) i32 { get(-21) * 2 }",
+				r#"run :: fn(init: @c fn(get: Abs) i32) i32 { init(Abs(cext.dlsym(ptr(0), "abs"))) }"#,
+				"print(run(on_init))",
+				r#"boxed: fn(n: i32) i32 = Abs(cext.dlsym(ptr(0), "abs"))"#,
+				"print(boxed(-5))",
+			],
+		)
+		.file(
+			"cext.oi",
+			["module cext", "pub dlsym : fn(handle: ptr, name: cstr) ptr : foreign"],
+		)
+		.check(["42", "5"]);
+}
+
+#[test]
 fn foreign_takes_an_oi_fn_as_a_callback() {
 	Project::new()
 		.file(
@@ -203,7 +225,7 @@ fn foreign_callback_rejects_a_closure() {
 				"pub signal : fn(sig: i32, handler: fn(s: i32)) ptr : foreign",
 			],
 		)
-		.fail_with("captures can't cross the C ABI");
+		.fail_with("`@c` fns can't capture");
 }
 
 #[test]

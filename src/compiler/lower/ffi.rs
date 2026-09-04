@@ -49,18 +49,23 @@ impl<M: Module> Translator<'_, M> {
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
 		let typ = self.types().resolve(&TypeExpr::Name(name.to_string()), span)?;
-		let (Typ::Fn(params, ret), [arg]) = (&typ, args) else {
+		let (sig, bare) = match &typ {
+			Typ::Annotated(_, inner) => (&**inner, true),
+			t => (t, false),
+		};
+		let (Typ::Fn(params, ret), [arg]) = (sig, args) else {
 			let msg = format!("`{}` casts a single `ptr`", display_name(name));
 			return Err(Diagnostic::new(msg, span.into_range()).with_label("expected one argument"));
 		};
 		check_c_sig(display_name(name), params, ret, span)?;
-		if let Some(t) = params.iter().find(|t| matches!(t, Typ::Fn(..))) {
+		if !bare && let Some(t) = params.iter().find(|t| matches!(t, Typ::Fn(..))) {
 			let msg = format!("`{}` can't take a fn pointer", display_name(name));
 			return Err(Diagnostic::new(msg, span.into_range()).with_label(format!("`{t}` would cross as a cell")));
 		}
 		let want = self.types().resolve(&TypeExpr::Name("core::ptr".into()), span)?;
 		let addr = self.check_typed(arg, &want, "not a `ptr`")?;
-		Ok((self.fn_cell(addr), typ))
+		let val = if bare { addr } else { self.fn_cell(addr) };
+		Ok((val, typ))
 	}
 
 	// Box a bare fn pointer as an Oi fn value.

@@ -557,6 +557,20 @@ impl<'a, M: Module> Translator<'a, M> {
 			}
 			return Ok((val, vt));
 		}
+		if let Typ::Annotated(anns, inner) = target
+			&& let Typ::Fn(ps, _) = &**inner
+		{
+			let (val, vt) = self.check_expr(value, inner)?;
+			if vt != **inner {
+				return Ok((val, vt));
+			}
+			check_ann_typ(anns, &vt, value.1)?;
+			if ps.iter().any(|p| matches!(p, Typ::Fn(..))) && !self.c_callable(Some(value)) {
+				let msg = "this fn is called from C";
+				return Err(Diagnostic::new(msg, value.1.into_range()).with_label("mark it with `@c`"));
+			}
+			return Ok((self.b.ins().load(self.int, MemFlags::new(), val, 0), target.clone()));
+		}
 		if let Some(v) = self.coerce_lit(value, target)? {
 			return Ok((v, target.clone()));
 		}
@@ -650,6 +664,11 @@ impl<'a, M: Module> Translator<'a, M> {
 			),
 			_ => {
 				let (val, vt) = self.expr(value)?;
+				if let Typ::Annotated(_, inner) = &vt
+					&& **inner == *target
+				{
+					return Ok((self.fn_cell(val), target.clone()));
+				}
 				// a fixed array widens to a dynamic one at the boundary
 				if let (Typ::FixedArray(e, n), Typ::Array(t)) = (&vt, target)
 					&& e == t

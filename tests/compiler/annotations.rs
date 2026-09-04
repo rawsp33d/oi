@@ -289,7 +289,7 @@ fn plain_fn_with_fn_pointer_param_needs_c_marker() {
 			my_cb :: fn(get: fn() i32) i32 { get() }
 			print(call_with_getter_cb(my_cb))
 		"#},
-		"mark it `@c`",
+		"mark it with `@c`",
 	);
 }
 
@@ -326,7 +326,7 @@ fn annotated_types_are_checked() {
 	fail_with(["f :: fn(cb: @c fn(s: string)) {}"], "`@c fn` can't cross the C ABI");
 	fail_with(
 		["n := 3", "h := @c fn (x: i32) i32 { x + n }"],
-		"an `@c` fn can't capture",
+		"`@c` fns can't capture",
 	);
 	fail_with(
 		["f :: fn(cb: @stdcall fn(x: i32)) {}"],

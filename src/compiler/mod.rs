@@ -90,7 +90,7 @@ pub(crate) fn check_ann_typ(names: &[String], typ: &Typ, span: Span) -> Result<(
 	let c = |n: &String| n == "core::c";
 	match (names, typ) {
 		([n], Typ::Fn(params, ret)) if c(n) => check_c_sig("@c fn", params, ret, span),
-		([n], Typ::Closure(..)) if c(n) => Err(Diagnostic::new("an `@c` fn can't capture", span.into_range())
+		([n], Typ::Closure(..)) if c(n) => Err(Diagnostic::new("`@c` fns can't capture", span.into_range())
 			.with_label("C has nowhere to keep an environment")),
 		_ => Err(
 			Diagnostic::new(format!("`{}{typ}` isn't a type", marks(names)), span.into_range())

@@ -89,7 +89,7 @@ impl<'a, M: Module> Translator<'a, M> {
 	}
 
 	// Whether C may call this fn value.
-	fn c_callable(&self, arg: Option<&Spanned<Expr>>) -> bool {
+	pub(super) fn c_callable(&self, arg: Option<&Spanned<Expr>>) -> bool {
 		match arg.map(|a| &a.0) {
 			Some(Expr::Ident(n)) if !self.vars.contains_key(n) => {
 				self.funcs.get(self.qualify(n).as_ref()).is_none_or(|s| s.foreign)
@@ -187,8 +187,16 @@ impl<'a, M: Module> Translator<'a, M> {
 		vals.extend(recv);
 		let mut lent = Vec::new();
 		for (i, want) in sig.params.iter().enumerate() {
+			let c_fn;
+			let want = match sig.foreign && matches!(want, Typ::Fn(..)) {
+				true => {
+					c_fn = Typ::Annotated(vec!["core::c".into()], Box::new(want.clone()));
+					&c_fn
+				}
+				false => want,
+			};
 			if i >= self_n {
-				let (mut val, typ) = match (slots[i - self_n], sig.muts[i]) {
+				let (val, typ) = match (slots[i - self_n], sig.muts[i]) {
 					(Some(arg), true) => {
 						let (cell, typ, entry) = self.lend_mut(mut_inner(arg))?;
 						lent.push((cell, entry));
@@ -214,22 +222,6 @@ impl<'a, M: Module> Translator<'a, M> {
 						Diagnostic::new(format!("expected {want} argument, got {typ}"), at.into_range())
 							.with_label("wrong argument type"),
 					);
-				}
-				if sig.foreign && matches!(want, Typ::Fn(..)) {
-					let at = slots[i - self_n].map_or(span, |a| a.1);
-					if matches!(typ, Typ::Closure(..)) {
-						let msg = format!("`{name}` can't take a closure");
-						return Err(Diagnostic::new(msg, at.into_range()).with_label("captures can't cross the C ABI"));
-					}
-					if let Typ::Fn(ps, _) = want
-						&& ps.iter().any(|p| matches!(p, Typ::Fn(..)))
-						&& !self.c_callable(slots[i - self_n].map(mut_inner))
-					{
-						let msg = format!("`{name}` calls this from C");
-						let label = "mark it `@c`";
-						return Err(Diagnostic::new(msg, at.into_range()).with_label(label));
-					}
-					val = self.b.ins().load(self.int, MemFlags::new(), val, 0);
 				}
 				vals.push(val);
 			}
@@ -375,6 +367,10 @@ impl<'a, M: Module> Translator<'a, M> {
 		recv: Option<Value>,
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
+		if let Typ::Annotated(_, inner) = typ {
+			let (Callee::Object(addr) | Callee::Addr(addr)) = callee;
+			return self.call_value(name, Callee::Addr(addr), inner, args, recv, span);
+		}
 		let (params, ret) = match typ {
 			Typ::Fn(params, ret) | Typ::Closure(params, ret, _) => (params, &**ret),
 			typ => {
