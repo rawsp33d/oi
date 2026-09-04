@@ -1442,6 +1442,9 @@ impl<M: Module> Compiler<M> {
 			let cl = trans.b.func.dfg.value_type(val);
 			let var = trans.b.declare_var(cl);
 			trans.b.def_var(var, val);
+			if *access == Access::Move {
+				trans.own_local(var, typ);
+			}
 			let mutable = *access == Access::Mut;
 			let local = Local {
 				var,

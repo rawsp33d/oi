@@ -19,11 +19,16 @@ impl<'a, M: Module> Translator<'a, M> {
 	}
 
 	// Transfer ownership of a resource.
-	// Projections borrow.
 	pub fn move_resource(&mut self, e: &Spanned<Expr>, typ: &Typ) -> Result<(), Diagnostic> {
-		if !self.is_resource(typ) {
-			return Ok(());
+		match self.is_resource(typ) {
+			true => self.move_out(e, typ),
+			false => Ok(()),
 		}
+	}
+
+	// Transfer ownership out of an expression.
+	// Projections borrow.
+	pub fn move_out(&mut self, e: &Spanned<Expr>, typ: &Typ) -> Result<(), Diagnostic> {
 		match &e.0 {
 			Expr::Ident(n) => {
 				let local = self.local(n, e.1.into_range())?;
@@ -145,10 +150,15 @@ impl<'a, M: Module> Translator<'a, M> {
 	pub fn bind_local(&mut self, name: &str, val: Value, typ: Typ, mutable: bool) {
 		let var = self.b.declare_var(self.b.func.dfg.value_type(val));
 		self.b.def_var(var, val);
-		if releasable(&typ) || self.is_resource(&typ) {
+		self.own_local(var, &typ);
+		self.vars.insert(name.to_string(), Local::plain(var, typ, mutable));
+	}
+
+	// Make the innermost scope responsible for releasing a variable.
+	pub fn own_local(&mut self, var: Variable, typ: &Typ) {
+		if releasable(typ) || self.is_resource(typ) {
 			self.scopes.last_mut().expect("scope").push((var, typ.clone()));
 		}
-		self.vars.insert(name.to_string(), Local::plain(var, typ, mutable));
 	}
 
 	// Emit releases for every scope deeper than `depth`.

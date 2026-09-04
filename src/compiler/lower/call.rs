@@ -178,6 +178,11 @@ impl<'a, M: Module> Translator<'a, M> {
 		}
 		let slots: Vec<_> = named.unwrap_or_else(|| (0..names.len()).map(|i| args.get(i)).collect());
 		self.check_args(&sig.access, recv_expr, &slots)?;
+		if let Some(re) = recv_expr
+			&& sig.access[0] == Access::Move
+		{
+			self.move_out(re, &sig.params[0])?;
+		}
 		let fills = slots.iter().any(Option::is_none);
 		let saved: Vec<_> = match fills {
 			true => sig.args.iter().map(|(n, _)| (n.clone(), self.vars.remove(n))).collect(),
@@ -257,6 +262,10 @@ impl<'a, M: Module> Translator<'a, M> {
 			Some(want) => self.check_expr(arg, want)?,
 			None => self.expr(arg)?,
 		};
+		if access == Access::Move {
+			self.move_out(arg, &typ)?;
+			self.untemp(val);
+		}
 		Ok((val, typ, None))
 	}
 

@@ -178,7 +178,7 @@ where
 	let ident = || select! { Token::Ident(name) => name };
 
 	// param access modifiers
-	let access = just(Token::Mut).to(Access::Mut).boxed();
+	let access = choice((just(Token::Mut).to(Access::Mut), just(Token::Move).to(Access::Move))).boxed();
 
 	let dotted_name = ident()
 		.then(just(Token::Dot).ignore_then(ident()).or_not())

@@ -111,6 +111,9 @@ impl<'a, M: Module> Translator<'a, M> {
 			let rparam = declared.next().unwrap();
 			unify(&rparam.typ, rtyp, &def.type_params, &mut subst, self.generics)
 				.map_err(|msg| Diagnostic::new(msg, span.into_range()).with_label("type mismatch"))?;
+			if rparam.access == Access::Move {
+				self.move_out(rexpr, rtyp)?;
+			}
 			vals.push(*rval);
 		}
 		let mut lent = Vec::new();

@@ -609,6 +609,7 @@ pub enum Access {
 	#[default]
 	Read,
 	Mut,
+	Move,
 }
 
 impl std::fmt::Display for Access {
@@ -616,6 +617,7 @@ impl std::fmt::Display for Access {
 		f.write_str(match self {
 			Access::Read => "read",
 			Access::Mut => "mut",
+			Access::Move => "move",
 		})
 	}
 }

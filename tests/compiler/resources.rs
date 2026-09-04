@@ -133,6 +133,32 @@ fn overwrite_drops_the_old_value_and_moves_the_new() {
 }
 
 #[test]
+fn a_move_arg_transfers_ownership() {
+	let eat = r#"eat :: fn(move f: File) { print("ate", f.fd) }"#;
+	let f = "f :: File.{fd = 1}";
+	check(
+		[FILE, eat, f, "eat(move f)", r#"print("after")"#],
+		["ate 1", "drop 1", "after"],
+	);
+	fail_with([FILE, eat, f, "eat(move f)", "print(f.fd)"], "undefined variable");
+	fail_with([FILE, eat, f, "eat(f)"], "missing `move` at the callsite");
+	fail_with(["look :: fn(n: int) {}", "look(move 1)"], "not `move`");
+}
+
+#[test]
+fn move_self_consumes_the_receiver() {
+	let close = r#"File :< { close :: fn(move self) { print("closing", self.fd) } }"#;
+	check(
+		[FILE, close, "f :: File.{fd = 1}", "f.close()", r#"print("after")"#],
+		["closing 1", "drop 1", "after"],
+	);
+	fail_with(
+		[FILE, close, "f :: File.{fd = 1}", "f.close()", "print(f)"],
+		"undefined variable",
+	);
+}
+
+#[test]
 fn fixed_array_elements_drop_with_their_last_owner() {
 	let a = "a : [2]File : .[File.{fd = 1}, File.{fd = 2}]";
 	check([FILE, a, "b :: a", r#"print("built")"#], ["built", "drop 1", "drop 2"]);
