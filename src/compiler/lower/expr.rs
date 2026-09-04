@@ -156,7 +156,6 @@ impl<'a, M: Module> Translator<'a, M> {
 							.with_label("`!` needs a Bool operand"),
 					);
 				}
-				// a bool is always 0 or 1, so flipping the low bit negates it
 				Ok((self.b.ins().bxor_imm(v, 1), Typ::Bool))
 			}
 
@@ -209,7 +208,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				type_args,
 				args,
 			} => {
-				// qualified access to an imported module's function
+				// access to an imported module's function
 				if let Expr::Ident(m) = &recv.0
 					&& !self.vars.contains_key(m)
 					&& let Some(vis) = self.scope.visible.get(m)
@@ -328,6 +327,16 @@ impl<'a, M: Module> Translator<'a, M> {
 				{
 					return Ok((self.derived_str(*v, t), Typ::Str));
 				}
+
+				// make fn fields callable
+				if let Some((recv, Typ::Struct(_, sfields))) = &bound
+					&& let Some(i) = sfields.iter().position(|f| f.name == *method)
+				{
+					let ft = sfields[i].typ.clone();
+					let v = self.b.ins().load(cl_type(&ft, self.int), MemFlags::new(), *recv, (i * 8) as i32);
+					return self.call_value(method, Callee::Object(v), &ft, args, None, expr.1);
+				}
+
 				// instance calls pierce embedded structs
 				if let Some((recv_val, Typ::Struct(_, sfields))) = &bound {
 					let mut hits =
@@ -349,7 +358,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				)
 			}
 
-			// a tuple is a heap block of pointer-sized slots, one per field
+			// tuples
 			Expr::Tuple(elems) => {
 				if elems.is_empty() {
 					return Ok(self.unit_value());

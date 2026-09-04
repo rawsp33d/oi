@@ -444,6 +444,17 @@ fn field_default_block_literal() {
 }
 
 #[test]
+fn fn_field_calls_without_parens() {
+	let src = indoc! {"
+		Iface :: struct { call: @c fn(int) int }
+		add1 :: @c fn(n: int) int { n + 1 }
+		i := Iface.{call = add1}
+		print(i.call(41))
+	"};
+	check(src, "42");
+}
+
+#[test]
 fn map_value_block_literal() {
 	let src = indoc! {r#"
 		Handler :: fn(string) string
