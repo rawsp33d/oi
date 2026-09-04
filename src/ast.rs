@@ -127,25 +127,20 @@ pub enum Expr {
 	ArgMod(Access, Box<Spanned<Expr>>),
 
 	// control flow
-
 	If {
 		cond: Box<Spanned<Expr>>,
 		then: Vec<Spanned<Expr>>,
 		els: Option<Vec<Spanned<Expr>>>,
 	},
-
 	Loop {
 		cond: Option<Box<Spanned<Expr>>>,
 		body: Vec<Spanned<Expr>>,
 	},
-
-	// `loop <pat> in <iter> {}`
 	For {
 		pat: Box<Spanned<Expr>>,
 		iter: Box<Spanned<Expr>>,
 		body: Vec<Spanned<Expr>>,
 	},
-
 	Break,
 	Continue,
 

@@ -104,6 +104,7 @@ string :< {
 
 cstr :< {
 	## Copy a C string's bytes into an owned string.
+	@unsafe
 	str :: fn(self) string {
 		unsafe rt.oi_cstr_str(self)
 	}

@@ -68,7 +68,10 @@ pub fn build_source(name: &str, src: &str, root: &Path, out: &Path, lib: bool) -
 			.map_err(|e| fail(format!("cannot write {}: {e}", tmp.display())))
 	};
 	let libs = link_libs.iter().flat_map(|l| match Path::new(l).is_absolute() {
-		true => vec![l.clone(), format!("-Wl,-rpath,{}", Path::new(l).parent().unwrap().display())],
+		true => vec![
+			l.clone(),
+			format!("-Wl,-rpath,{}", Path::new(l).parent().unwrap().display()),
+		],
 		false => vec![format!("-l{l}")],
 	});
 	let cc = std::process::Command::new("cc")

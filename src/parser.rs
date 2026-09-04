@@ -274,7 +274,12 @@ where
 				None => Expr::Ident(name),
 			}),
 	);
-	let annotation = just(Token::At).then_ignore(adjacent).ignore_then(ann_tag.or(ann_value)).boxed();
+	// `@unsafe`
+	let ann_unsafe = spanned(just(Token::Unsafe).to(Expr::Ident("unsafe".into())));
+	let annotation = just(Token::At)
+		.then_ignore(adjacent)
+		.ignore_then(ann_tag.or(ann_unsafe).or(ann_value))
+		.boxed();
 	let annotations = annotation.clone().repeated().at_least(1).collect::<Vec<_>>().boxed();
 
 	// type annotations
@@ -1637,6 +1642,10 @@ where
 			Some(_) => (Expr::Pub(Box::new(f)), ex.span()),
 			None => f,
 		});
+	let fill = annotations.clone().or_not().then(fill).map_with(|(anns, f), ex| match anns {
+		Some(anns) => (Expr::Annotated(anns, Box::new(f)), ex.span()),
+		None => f,
+	});
 	let fill_block = brace(
 		fill_docs
 			.clone()

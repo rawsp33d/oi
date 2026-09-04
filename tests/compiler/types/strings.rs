@@ -58,14 +58,14 @@ fn string_from_bytes() {
 #[test]
 fn cstr_from_slice_copies() {
 	// data[5] is a space, not a NUL, which forces the copy branch
-	check(r#"print("hello world"[0..5].cstr().str())"#, "hello");
+	check(r#"print(unsafe "hello world"[0..5].cstr().str())"#, "hello");
 }
 
 #[test]
 fn cstr_from_literal_is_zero_cost() {
 	check(
 		indoc! {r#"
-			f :: fn(p: cstr) string { p.str() }
+			f :: fn(p: cstr) string { unsafe p.str() }
 			print(f("hey"))
 		"#},
 		"hey",
@@ -74,9 +74,12 @@ fn cstr_from_literal_is_zero_cost() {
 
 #[test]
 fn string_from_ptr_copies() {
-	check(r#"print("hello".ptr.string(4))"#, "hell");
-	check(r#"print("hello".ptr.offset(1).string(2))"#, "el");
-	check(r#"print(ptr(0).is_null(), ptr(0).string(4) == "")"#, "true true");
+	check(r#"print(unsafe "hello".ptr.string(4))"#, "hell");
+	check(r#"print(unsafe "hello".ptr.offset(1).string(2))"#, "el");
+	check(
+		r#"print(ptr(0).is_null(), unsafe { ptr(0).string(4) } == "")"#,
+		"true true",
+	);
 }
 
 #[test]

@@ -248,6 +248,7 @@ fn raw_memory_needs_unsafe() {
 		["abs : fn(x: i32) i32 : foreign", "print(abs(-5))"],
 		"`abs` needs `unsafe`",
 	);
+	fail_with(["@unsafe peek :: fn() {}", "peek()"], "`peek` needs `unsafe`");
 }
 
 #[test]
@@ -274,7 +275,7 @@ fn link_dlopens_named_library() {
 	Project::new()
 		.file(
 			"main.oi",
-			["use cext", "print(unsafe { cext.zlibVersion() }.str()[0..1])"],
+			["use cext", "print(unsafe { cext.zlibVersion().str() }[0..1])"],
 		)
 		.file(
 			"cext.oi",

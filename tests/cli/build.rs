@@ -48,7 +48,7 @@ fn macros_comp_foreign_and_leak_check() {
 fn link_annotation_adds_lib_to_link_line() {
 	let main = indoc! {r#"
 		use cext
-		print(unsafe { cext.zlibVersion() }.str()[0..1])
+		print(unsafe { cext.zlibVersion().str() }[0..1])
 	"#};
 	let cext = indoc! {r#"
 		module cext
@@ -65,12 +65,10 @@ fn link_annotation_adds_lib_to_link_line() {
 fn link_annotation_accepts_a_file_path() {
 	let file = format!("{DLL_PREFIX}dep.x86_64{DLL_SUFFIX}");
 	let link = format!(r#"@link.{{"./{file}"}}"#);
-	let dir = Project::new()
-		.file("dep.c", "long oi_dep(void) { return 42; }")
-		.file(
-			"main.oi",
-			[&link[..], "oi_dep : fn() int : foreign", "print(unsafe oi_dep())"],
-		);
+	let dir = Project::new().file("dep.c", "long oi_dep(void) { return 42; }").file(
+		"main.oi",
+		[&link[..], "oi_dep : fn() int : foreign", "print(unsafe oi_dep())"],
+	);
 	let cc = Command::new("cc")
 		.args(["-shared", "-fPIC", &format!("-Wl,-soname,{file}"), "dep.c", "-o", &file])
 		.current_dir(&dir)

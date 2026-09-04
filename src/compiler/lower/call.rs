@@ -146,7 +146,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		args: &[Spanned<Expr>],
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
-		if sig.imported {
+		if sig.unsafe_call {
 			self.require_unsafe(name, span)?;
 		}
 		let self_n = recv.is_some() as usize;

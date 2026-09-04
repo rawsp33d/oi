@@ -49,7 +49,7 @@ pub(crate) struct FnSig {
 	pub ret: Typ,
 	pub args: Vec<(String, Option<Spanned<Expr>>)>,
 	pub foreign: bool,
-	pub imported: bool,
+	pub unsafe_call: bool,
 }
 
 impl FnSig {
@@ -184,7 +184,7 @@ fn qualify_anns(scope: &Scope, anns: &[Annotation]) -> Vec<Annotation> {
 	let mut anns = anns.to_vec();
 	for a in &mut anns {
 		match &mut a.0 {
-			Expr::StructLit { name, .. } | Expr::Ident(name) | Expr::Call { name, .. } => {
+			Expr::StructLit { name, .. } | Expr::Ident(name) | Expr::Call { name, .. } if name != "unsafe" => {
 				*name = scope.qualify_name(name)
 			}
 			_ => {}
@@ -263,6 +263,7 @@ fn check_annotation(
 	let err = |msg: String, label: String| Err(Diagnostic::new(msg, a.1.into_range()).with_label(label));
 	match &a.0 {
 		Expr::StructLit { name, fields, .. } => check_struct_lit(name, fields, a.1, structs, generics),
+		Expr::Ident(name) if name == "unsafe" => Ok(()),
 		Expr::Ident(name) => match consts.get(name) {
 			Some((Expr::StructLit { name, fields, .. }, _)) => check_struct_lit(name, fields, a.1, structs, generics),
 			Some((Expr::Tuple(fields), _)) if fields.is_empty() => Ok(()),
@@ -609,6 +610,10 @@ impl<M: Module> Compiler<M> {
 		decls: &[TraitFn],
 	) -> Result<(), Diagnostic> {
 		for m in fills {
+			let (anns, m) = match &m.0 {
+				Expr::Annotated(anns, inner) => (&anns[..], &**inner),
+				_ => (&[][..], m),
+			};
 			let (public, m) = match &m.0 {
 				Expr::Pub(inner) => (true, &**inner),
 				_ => (false, m),
@@ -626,6 +631,8 @@ impl<M: Module> Compiler<M> {
 			};
 			// one fill per name
 			let key = format!("{typ}.{name}");
+			anns.iter()
+				.for_each(|a| self.annotations.entry(key.clone()).or_default().push(a.clone()));
 			// visibility
 			if !public && decls.is_empty() && typ.contains("::") {
 				self.privates.entry(typ.to_string()).or_default().insert(name.clone());
@@ -1105,6 +1112,7 @@ impl<M: Module> Compiler<M> {
 			let anns = self.annotations.get(&item.key);
 			let ann_span = |target| anns.into_iter().flatten().find_map(|a| Some((ann(a, target)?, a.1)));
 			let mut is_c_fn = false;
+			let is_unsafe = ann_span("unsafe").is_some();
 			if let Some((fields, span)) = ann_span("core::export") {
 				check_c_sig(&item.key, &params, &ret, span)?;
 				let sym = match fields.first() {
@@ -1120,6 +1128,7 @@ impl<M: Module> Compiler<M> {
 			let mut sig = self.declare_fn(&sym, linkage, params, access, ret);
 			sig.args = item.params.iter().map(|p| (p.name.clone(), p.default.clone())).collect();
 			sig.foreign = self.exports.contains_key(&item.key) || is_c_fn;
+			sig.unsafe_call = is_unsafe;
 			funcs.insert(item.key.clone(), sig);
 		}
 
@@ -1368,7 +1377,7 @@ impl<M: Module> Compiler<M> {
 			ret,
 			args: vec![],
 			foreign: false,
-			imported: linkage == Linkage::Import,
+			unsafe_call: linkage == Linkage::Import,
 		}
 	}
 
