@@ -79,6 +79,8 @@ pub enum Token {
 	Foreign,
 	#[token("comp")]
 	Comp,
+	#[token("unsafe")]
+	Unsafe,
 
 	// control flow
 	#[token("if")]
@@ -246,6 +248,7 @@ impl fmt::Display for Token {
 			Token::Pub => write!(f, "pub"),
 			Token::Foreign => write!(f, "foreign"),
 			Token::Comp => write!(f, "comp"),
+			Token::Unsafe => write!(f, "unsafe"),
 			Token::If => write!(f, "if"),
 			Token::Else => write!(f, "else"),
 			Token::Loop => write!(f, "loop"),

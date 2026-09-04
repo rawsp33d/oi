@@ -1431,6 +1431,7 @@ impl<M: Module> Compiler<M> {
 			atoms: &mut self.atoms,
 			ret: def.ret.clone(),
 			loops: vec![],
+			unsafely: 0,
 			scopes: vec![vec![]],
 			temps: HashMap::new(),
 			self_type: def.self_type.map(str::to_owned),

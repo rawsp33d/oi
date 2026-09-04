@@ -1092,11 +1092,15 @@ where
 			})
 			.boxed();
 
-		// comptime eval
-		let comp_block = block.clone().map_with(|stmts, ex| (Expr::Block(stmts), ex.span()));
+		// `comp`/`unsafe` take a braced block or a bare expression
+		let kw_block = block.clone().map_with(|stmts, ex| (Expr::Block(stmts), ex.span()));
 		let comp_expr = just(Token::Comp)
-			.ignore_then(comp_block.or(expr.clone()))
+			.ignore_then(kw_block.clone().or(expr.clone()))
 			.map_with(|inner, ex| (Expr::Comp(Box::new(inner)), ex.span()))
+			.boxed();
+		let unsafe_expr = just(Token::Unsafe)
+			.ignore_then(kw_block.or(expr.clone()))
+			.map_with(|inner, ex| (Expr::Unsafe(Box::new(inner)), ex.span()))
 			.boxed();
 
 		// anonymous functions
@@ -1145,6 +1149,7 @@ where
 			if_expr,
 			match_expr,
 			comp_expr,
+			unsafe_expr,
 			for_expr,
 			loop_expr,
 			break_expr,

@@ -73,6 +73,7 @@ pub(super) struct Translator<'a, M: Module> {
 	pub atoms: &'a mut HashSet<String>,
 	pub ret: Option<(Typ, Span)>,
 	pub loops: Vec<LoopFrame>,
+	pub unsafely: usize,
 	pub scopes: Vec<Vec<(Variable, Typ)>>,
 	pub temps: HashMap<Value, Variable>,
 	pub self_type: Option<String>,

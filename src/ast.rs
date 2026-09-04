@@ -121,14 +121,13 @@ pub enum Expr {
 	// a macro expansion scoped block
 	Block(Vec<Spanned<Expr>>),
 
-	// `comp expr`
 	Comp(Box<Spanned<Expr>>),
+	Unsafe(Box<Spanned<Expr>>),
 
 	ArgMod(Access, Box<Spanned<Expr>>),
 
 	// control flow
 
-	// conditionals
 	If {
 		cond: Box<Spanned<Expr>>,
 		then: Vec<Spanned<Expr>>,
@@ -354,7 +353,8 @@ impl Expr {
 			| Expr::Is { subject: v, .. }
 			| Expr::UnquoteExpr(v)
 			| Expr::UnquoteSplat(v)
-			| Expr::Comp(v) => f(One(v)),
+			| Expr::Comp(v)
+			| Expr::Unsafe(v) => f(One(v)),
 			Expr::Index {
 				collection: a,
 				index: b,

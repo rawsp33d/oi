@@ -110,7 +110,7 @@ fn foreign_typed_read_copies_out() {
 				"use cext",
 				"buf: []i32 = .[7, 8, 9]",
 				"cext.memset(buf.ptr, 0, 4)",
-				"print(buf.ptr.array[i32](3))",
+				"print(unsafe { buf.ptr.array[i32](3) })",
 			],
 		)
 		.file(
@@ -128,7 +128,7 @@ fn fn_type_alias_casts_a_ptr() {
 			[
 				"use cext",
 				"Abs :: fn(n: i32) i32",
-				r#"abs := Abs(cext.dlsym(ptr(0), "abs"))"#,
+				r#"abs := unsafe { Abs(cext.dlsym(ptr(0), "abs")) }"#,
 				"print(abs(-5))",
 			],
 		)
@@ -148,9 +148,9 @@ fn a_c_fn_sheds_its_cell_and_takes_it_back() {
 				"use cext",
 				"Abs :: @c fn(n: i32) i32",
 				"on_init :: fn(get: Abs) i32 { get(-21) * 2 }",
-				r#"run :: fn(init: @c fn(get: Abs) i32) i32 { init(Abs(cext.dlsym(ptr(0), "abs"))) }"#,
+				r#"run :: fn(init: @c fn(get: Abs) i32) i32 { init(unsafe { Abs(cext.dlsym(ptr(0), "abs")) }) }"#,
 				"print(run(on_init))",
-				r#"boxed: fn(n: i32) i32 = Abs(cext.dlsym(ptr(0), "abs"))"#,
+				r#"boxed: fn(n: i32) i32 = unsafe { Abs(cext.dlsym(ptr(0), "abs")) }"#,
 				"print(boxed(-5))",
 			],
 		)
@@ -168,7 +168,7 @@ fn foreign_takes_an_oi_fn_as_a_callback() {
 			"main.oi",
 			[
 				"use cext",
-				"cmp :: fn(a: ptr, b: ptr) i32 { a.array[i32](1)[0] - b.array[i32](1)[0] }",
+				"cmp :: fn(a: ptr, b: ptr) i32 { unsafe { a.array[i32](1)[0] - b.array[i32](1)[0] } }",
 				"buf: []i32 = .[3, 1, 2]",
 				"cext.qsort(buf.ptr, 3, 4, cmp)",
 				"print(buf)",
@@ -192,7 +192,7 @@ fn foreign_takes_an_inline_callback() {
 			[
 				"use cext",
 				"buf: []i32 = .[3, 1, 2]",
-				"cext.qsort(buf.ptr, 3, 4, fn(a: ptr, b: ptr) i32 { a.array[i32](1)[0] - b.array[i32](1)[0] })",
+				"cext.qsort(buf.ptr, 3, 4, fn(a: ptr, b: ptr) i32 { unsafe { a.array[i32](1)[0] - b.array[i32](1)[0] } })",
 				"print(buf)",
 			],
 		)
@@ -229,9 +229,14 @@ fn foreign_callback_rejects_a_closure() {
 }
 
 #[test]
+fn raw_memory_needs_unsafe() {
+	fail_with(["buf: []u8 = .[1]", "buf.ptr.array[u8](1)"], "`ptr.array` needs `unsafe`");
+}
+
+#[test]
 fn fn_ptr_cast_needs_a_c_signature() {
 	fail_with(
-		["Bad :: fn(s: string) int", "f := Bad(ptr(0))"],
+		["Bad :: fn(s: string) int", "f := unsafe { Bad(ptr(0)) }"],
 		"can't cross the C ABI",
 	);
 }
@@ -264,7 +269,7 @@ fn c_struct_writes_at_c_offsets() {
 		@c
 		S :: struct { a: u8, ok: bool, b: u32 }
 		buf: []u8 = .[9, 9, 9, 9, 9, 9, 9, 9]
-		buf.ptr.write(S.{ a = 1, ok = true, b = 2 })
+		unsafe { buf.ptr.write(S.{ a = 1, ok = true, b = 2 }) }
 		print(buf)
 	"};
 	check(src, "[1, 1, 9, 9, 2, 0, 0, 0]");
@@ -276,9 +281,9 @@ fn c_struct_roundtrips_nested() {
 		@c Inner :: struct { x: u16, y: u16 }
 		@c Outer :: struct { tag: u8, on: bool, inner: Inner }
 		buf: []u8 = .[0, 0, 0, 0, 0, 0]
-		buf.ptr.write(Outer.{ tag = 7, on = true, inner = Inner.{ x = 1, y = 2 } })
+		unsafe { buf.ptr.write(Outer.{ tag = 7, on = true, inner = Inner.{ x = 1, y = 2 } }) }
 		print(buf)
-		o := buf.ptr.read[Outer]()
+		o := unsafe { buf.ptr.read[Outer]() }
 		print(o.on)
 		print(o.inner.y)
 	"};
@@ -290,9 +295,9 @@ fn c_struct_roundtrips_fixed_array() {
 	let src = indoc! {"
 		@c Xform :: struct { m: [4]f32, id: i32 }
 		buf: []u8 = .[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-		buf.ptr.write(Xform.{ m = .[1.5, 2.5, 3.5, 4.5], id = 7 })
-		print(buf.ptr.offset(16).array[i32](1))
-		x := buf.ptr.read[Xform]()
+		unsafe { buf.ptr.write(Xform.{ m = .[1.5, 2.5, 3.5, 4.5], id = 7 }) }
+		print(unsafe { buf.ptr.offset(16).array[i32](1) })
+		x := unsafe { buf.ptr.read[Xform]() }
 		print(x.m)
 		print(Xform.size)
 		print(comp Xform.size)
@@ -313,7 +318,7 @@ fn c_struct_rejects_missing_c_repr() {
 	let src = indoc! {"
 		P :: struct { x: int }
 		buf: []u8 = .[0]
-		buf.ptr.write(P.{ x = 1 })
+		unsafe { buf.ptr.write(P.{ x = 1 }) }
 	"};
 	fail_with(src, "`P` has no C layout");
 }
@@ -325,8 +330,8 @@ fn c_struct_roundtrips_fn_field() {
 		@c Init :: struct { level: i32, cb: fn(n: i32) i32 }
 		double :: fn(n: i32) i32 { n * 2 }
 		buf: []u8 = .[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-		buf.ptr.write(Init.{ level = 1, cb = double })
-		i := buf.ptr.read[Init]()
+		unsafe { buf.ptr.write(Init.{ level = 1, cb = double }) }
+		i := unsafe { buf.ptr.read[Init]() }
 		f := i.cb
 		print(f(21))
 	"};

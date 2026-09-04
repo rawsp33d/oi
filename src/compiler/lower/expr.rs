@@ -750,6 +750,13 @@ impl<'a, M: Module> Translator<'a, M> {
 
 			Expr::Comp(_) => Err(Diagnostic::new("`comp` isn't supported here", expr.1.into_range())
 				.with_label("can't run at compile time")),
+
+			Expr::Unsafe(inner) => {
+				self.unsafely += 1;
+				let v = self.expr(inner);
+				self.unsafely -= 1;
+				v
+			}
 		}
 	}
 

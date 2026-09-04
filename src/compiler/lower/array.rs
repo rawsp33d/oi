@@ -79,6 +79,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		args: &[Spanned<Expr>],
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
+		self.require_unsafe("ptr.array", span)?;
 		let (Some(ptr), [(te, te_span)], [count]) = (recv, type_args, args) else {
 			return Err(
 				Diagnostic::new("`array` takes one type argument and a length", span.into_range())

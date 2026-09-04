@@ -51,6 +51,36 @@ pub sign :: fn(x: float) int {
 	}
 }
 
+# ref: https://github.com/golang/go/blob/master/src/math/exp.go
+ln2_hi :: 0.693147180369123816490
+ln2_lo :: 1.90821492927058770002e-10
+
+## Euler's number `e` raised to the power `x`.
+pub exp :: fn(x: float) float {
+	if x != x { return x }
+	if x > 709.782712893384 { return inf }
+	if x < -745.133219101941 { return 0.0 }
+
+	k :: floor(x / ln2 + 0.5)
+	r :: (x - k * ln2_hi) - k * ln2_lo
+
+	sum := 1.0
+	term := 1.0
+	loop i in 1..15 {
+		term *= r / float(i)
+		sum += term
+	}
+
+	# scale into the sum directly so 2^k alone can't overflow first
+	step :: if k < 0.0 { 0.5 } else { 2.0 }
+	n := abs(k)
+	loop n > 0.0 {
+		sum *= step
+		n -= 1.0
+	}
+	sum
+}
+
 ## Natural logarithm.
 ## ref: https://dlmf.nist.gov/4.6
 pub log :: fn(x: float) float {
@@ -123,4 +153,24 @@ pub cos :: fn(x: float) float {
 ## Tangent of `x`, in radians.
 pub tan :: fn(x: float) float {
 	sin(x) / cos(x)
+}
+
+## `x` raised to the power `y`.
+## ref: https://en.wikipedia.org/wiki/Exponentiation_by_squaring
+pub pow :: fn(x: float, y: float) float {
+	if y == 0.0 { return 1.0 }
+	if y == floor(y) && abs(y) < 4294967296.0 {
+		n := abs(y)
+		r := 1.0
+		base := x
+		loop n > 0.0 {
+			half :: floor(n / 2.0)
+			if n - half * 2.0 >= 1.0 { r *= base }
+			base *= base
+			n = half
+		}
+		return if y < 0.0 { 1.0 / r } else { r }
+	}
+	if x < 0.0 { return nan }
+	exp(y * log(x))
 }

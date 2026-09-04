@@ -8,6 +8,14 @@ use crate::ast::{Expr, Span, Spanned, TypeExpr};
 use crate::diagnostics::Diagnostic;
 
 impl<M: Module> Translator<'_, M> {
+	pub(super) fn require_unsafe(&self, what: &str, span: Span) -> Result<(), Diagnostic> {
+		match self.unsafely {
+			0 => Err(Diagnostic::new(format!("`{what}` needs `unsafe`"), span.into_range())
+				.with_label("no `unsafe` in scope")),
+			_ => Ok(()),
+		}
+	}
+
 	// Copy C struct in/out of foreign memory, based on `read`.
 	pub(super) fn ptr_copy(
 		&mut self,
@@ -17,6 +25,7 @@ impl<M: Module> Translator<'_, M> {
 		args: &[Spanned<Expr>],
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
+		self.require_unsafe(if read { "ptr.read" } else { "ptr.write" }, span)?;
 		match (read, recv, type_args, args) {
 			(true, Some(c), [(te, ts)], []) => {
 				let typ = self.types().resolve(te, *ts)?;
@@ -48,6 +57,7 @@ impl<M: Module> Translator<'_, M> {
 		args: &[Spanned<Expr>],
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
+		self.require_unsafe(&format!("{} cast", display_name(name)), span)?;
 		let typ = self.types().resolve(&TypeExpr::Name(name.to_string()), span)?;
 		let (sig, bare) = match &typ {
 			Typ::Annotated(_, inner) => (&**inner, true),
