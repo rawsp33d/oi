@@ -12,7 +12,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				self.trait_impls.contains(&(name.clone(), "Drop".into()))
 					|| fields.iter().any(|f| self.is_resource(&f.typ))
 			}
-			Typ::Array(elem) => self.is_resource(elem),
+			Typ::Array(elem) | Typ::FixedArray(elem, _) => self.is_resource(elem),
 			_ => false,
 		}
 	}
@@ -49,6 +49,9 @@ impl<'a, M: Module> Translator<'a, M> {
 			}
 			let func = self.import_fn(release, &[self.int], None);
 			self.b.ins().call(func, &[val]);
+		} else if let Typ::FixedArray(elem, _) = typ {
+			let elem = (**elem).clone();
+			self.each_elem(val, typ, |s, _, ev| s.release_value(ev, &elem));
 		} else if let Typ::Struct(name, fields) = typ {
 			if self.is_resource(typ)
 				&& let Some(sig) = self.funcs.get(&format!("{name}.drop")).cloned()
