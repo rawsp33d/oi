@@ -62,6 +62,24 @@ fn link_annotation_adds_lib_to_link_line() {
 }
 
 #[test]
+fn link_annotation_accepts_a_file_path() {
+	let file = format!("{DLL_PREFIX}dep.x86_64{DLL_SUFFIX}");
+	let link = format!(r#"@link.{{"./{file}"}}"#);
+	let dir = Project::new()
+		.file("dep.c", "long oi_dep(void) { return 42; }")
+		.file("main.oi", [&link[..], "oi_dep : fn() int : foreign", "print(oi_dep())"]);
+	let cc = Command::new("cc")
+		.args(["-shared", "-fPIC", &format!("-Wl,-soname,{file}"), "dep.c", "-o", &file])
+		.current_dir(&dir)
+		.output()
+		.unwrap();
+	assert!(cc.status.success());
+	ok(oi(&["build"]).current_dir(&dir).run(None));
+	let run = Command::new(dir.as_ref().join("main")).output().unwrap();
+	assert_eq!(trim(&run.stdout), "42");
+}
+
+#[test]
 fn export_annotation_marks_c_abi_fns() {
 	let src = indoc! {r#"
 		use cext

@@ -1,5 +1,7 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::env::consts::{DLL_PREFIX, DLL_SUFFIX};
+use std::path::{MAIN_SEPARATOR, Path};
 use std::sync::Arc;
 
 use cranelift::codegen;
@@ -469,11 +471,15 @@ fn process_symbol_exists(name: &str) -> bool {
 	}
 }
 
-/// dlopen `lib{name}`.
+/// dlopen library
+/// `name` can be shared lib name or a file path.
 fn load_library(name: &str) -> bool {
 	#[cfg(unix)]
 	{
-		let file = format!("{}{name}{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX);
+		let file = match Path::new(name).is_absolute() {
+			true => name.to_string(),
+			false => format!("{}{name}{}", DLL_PREFIX, DLL_SUFFIX),
+		};
 		let Ok(cname) = std::ffi::CString::new(file) else {
 			return false;
 		};
@@ -1134,11 +1140,18 @@ impl<M: Module> Compiler<M> {
 				let Some((_, (Expr::String(lib), _))) = fields.first() else {
 					return Err(err("`@link` needs a library name".into(), r#"like `@link.{"m"}`"#));
 				};
-				if !self.link_libs.contains(lib) {
-					if !load_library(lib) {
+				let lib = match lib.contains(MAIN_SEPARATOR) || lib.contains(DLL_SUFFIX) {
+					false => lib.clone(),
+					true => std::fs::canonicalize(lib)
+						.map_err(|e| err(format!("cannot open library `{lib}`: {e}"), "no such file"))?
+						.to_string_lossy()
+						.into_owned(),
+				};
+				if !self.link_libs.contains(&lib) {
+					if !load_library(&lib) {
 						return Err(err(format!("unknown library `{lib}`"), "dlopen failed"));
 					}
-					self.link_libs.push(lib.clone());
+					self.link_libs.push(lib);
 				}
 			}
 			if !runtime::symbols().iter().any(|(sym, _)| *sym == bare) && !process_symbol_exists(bare) {
