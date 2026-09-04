@@ -110,6 +110,11 @@ fn map_values_drop_with_their_last_owner() {
 }
 
 #[test]
+fn an_unbound_resource_drops_at_scope_exit() {
+	check([FILE, "File.{fd = 1}", r#"print("end")"#], ["end", "drop 1"]);
+}
+
+#[test]
 fn overwrite_drops_the_old_value_and_moves_the_new() {
 	check(
 		[

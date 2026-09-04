@@ -101,6 +101,7 @@ impl<'a, M: Module> Translator<'a, M> {
 						let dst = self.read_local(&local);
 						if self.is_resource(&typ) {
 							self.release_value(dst, &typ);
+							self.untemp(val);
 						}
 						self.assign_fields(val, dst, &fields, true);
 					} else {

@@ -74,6 +74,7 @@ pub(super) struct Translator<'a, M: Module> {
 	pub ret: Option<(Typ, Span)>,
 	pub loops: Vec<LoopFrame>,
 	pub scopes: Vec<Vec<(Variable, Typ)>>,
+	pub temps: HashMap<Value, Variable>,
 	pub self_type: Option<String>,
 	pub is_main: bool,
 	pub self_name: Option<String>,

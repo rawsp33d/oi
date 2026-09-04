@@ -817,6 +817,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			};
 			closure_escape(&vt, value.1.into_range(), "stored in a map")?;
 			self.move_resource(value, &vt)?;
+			self.untemp(val);
 			val_typ.get_or_insert(vt);
 			let bits = self.map_bits(val);
 			self.call_map_set(map, tag, key_bits, bits);
@@ -976,7 +977,9 @@ impl<'a, M: Module> Translator<'a, M> {
 			self.b.ins().store(MemFlags::new(), val, base, (idx * 8) as i32);
 		}
 		check_required(&name, &struct_fields, fields, span)?;
-		Ok((ptr, Typ::Struct(name.clone(), struct_fields)))
+		let typ = Typ::Struct(name.clone(), struct_fields);
+		self.temp(ptr, &typ);
+		Ok((ptr, typ))
 	}
 
 	// A self-typed anonymous struct, named by its shape.

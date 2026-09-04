@@ -1422,6 +1422,7 @@ impl<M: Module> Compiler<M> {
 			ret: def.ret.clone(),
 			loops: vec![],
 			scopes: vec![vec![]],
+			temps: HashMap::new(),
 			self_type: def.self_type.map(str::to_owned),
 			is_main: def.is_main,
 			self_name: None,

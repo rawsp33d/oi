@@ -40,6 +40,13 @@ impl<'a, M: Module> Translator<'a, M> {
 		Ok(())
 	}
 
+	// Hand a temp to a new owner.
+	pub(super) fn untemp(&mut self, val: Value) {
+		if let Some(var) = self.temps.remove(&val) {
+			self.scopes.iter_mut().for_each(|s| s.retain(|(v, _)| *v != var));
+		}
+	}
+
 	// Emit one release for an owned value.
 	pub(super) fn release_value(&mut self, val: Value, typ: &Typ) {
 		if let Some((_, release)) = handle_fns(typ) {
@@ -126,9 +133,10 @@ impl<'a, M: Module> Translator<'a, M> {
 
 	// Register a producer's fresh handle with the innermost scope.
 	pub(super) fn temp(&mut self, val: Value, typ: &Typ) {
-		if handle_fns(typ).is_some() && !self.is_resource(typ) {
+		if handle_fns(typ).is_some() || self.is_resource(typ) {
 			let var = self.b.declare_var(self.int);
 			self.b.def_var(var, val);
+			self.temps.insert(val, var);
 			self.scopes.last_mut().expect("scope").push((var, typ.clone()));
 		}
 	}
@@ -180,8 +188,12 @@ impl<'a, M: Module> Translator<'a, M> {
 	}
 
 	// A bind takes its own copy.
-	// Structs deep-copy and handles bump.
+	// Structs deep-copy and handles bump rc, while resources move.
 	pub(super) fn copy_bind(&mut self, val: Value, typ: &Typ) -> Value {
+		if self.is_resource(typ) {
+			self.untemp(val);
+			return val;
+		}
 		match typ {
 			Typ::Struct(_, fields) => {
 				let fields = fields.clone();

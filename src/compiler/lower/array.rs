@@ -161,6 +161,10 @@ impl<'a, M: Module> Translator<'a, M> {
 	// RC bump.
 	// The underlying buffer clone waits for a write.
 	pub(super) fn copy_in(&mut self, val: Value, typ: &Typ) -> Value {
+		// whatever copies a resource in becomes its owner
+		if self.is_resource(typ) {
+			self.untemp(val);
+		}
 		if let Typ::Struct(_, fields) = typ {
 			let fields = fields.clone();
 			let heap = self.call_alloc(fields.len());
