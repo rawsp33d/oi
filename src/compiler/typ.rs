@@ -30,11 +30,17 @@ pub(crate) enum Typ {
 	Error,
 	Range,
 	Fn(Vec<Typ>, Box<Typ>),
+	Annotated(Vec<String>, Box<Typ>),
 	Closure(Vec<Typ>, Box<Typ>, bool),
 	Map(Box<Typ>, Box<Typ>),
 	Mut(Box<Typ>),
 	Ref(Box<Typ>),
 	Ast,
+}
+
+// Annotation names.
+pub(crate) fn marks(anns: &[String]) -> String {
+	anns.iter().map(|a| format!("@{} ", display_name(a))).collect()
 }
 
 // A struct field definition.
@@ -120,6 +126,7 @@ impl Typ {
 	pub fn is_c_repr(&self) -> bool {
 		match self.newtype().unwrap_or(self) {
 			Typ::Fn(ps, r) => ps.iter().chain((!r.is_unit()).then_some(&**r)).all(Typ::is_c_repr),
+			Typ::Annotated(_, t) => t.is_c_repr(),
 			t => matches!(
 				t,
 				Typ::Int(_) | Typ::UInt(_) | Typ::ISize | Typ::USize | Typ::Float(_) | Typ::Bool | Typ::CStr
@@ -136,6 +143,7 @@ impl Typ {
 			Typ::Bool => scalar(1),
 			Typ::ISize | Typ::USize | Typ::CStr => scalar(8),
 			t @ Typ::Fn(..) if t.is_c_repr() => scalar(8),
+			Typ::Annotated(_, t) => t.c_size_align(is_c),
 			Typ::FixedArray(e, n) => e
 				.c_size_align(is_c)
 				.filter(|(es, _)| e.is_c_repr() && *es as i64 == elem_size(e))
@@ -163,6 +171,7 @@ impl Typ {
 			Typ::Ref(inner) => format!("&{}", inner.key()),
 			Typ::Trait(name) => format!("dyn {name}"),
 			Typ::Fn(params, ret) | Typ::Closure(params, ret, _) => format!("fn({}) {}", keys(params), ret.key()),
+			Typ::Annotated(anns, t) => format!("{}{}", marks(anns), t.key()),
 			Typ::Sum(variants) => variants
 				.iter()
 				.map(|v| match v.payload.is_empty() {
@@ -218,6 +227,7 @@ impl fmt::Display for Typ {
 			}
 			Typ::Error => write!(f, "Error"),
 			Typ::Range => write!(f, "range"),
+			Typ::Annotated(anns, t) => write!(f, "{}{t}", marks(anns)),
 			Typ::Fn(params, ret) | Typ::Closure(params, ret, _) => {
 				write!(f, "fn(")?;
 				for (i, p) in params.iter().enumerate() {
@@ -257,6 +267,7 @@ impl PartialEq for Typ {
 			(Typ::FixedArray(a, n), Typ::FixedArray(b, m)) => a == b && n == m,
 			(Typ::Sum(a), Typ::Sum(b)) => a == b,
 			(Typ::Fn(p, r) | Typ::Closure(p, r, _), Typ::Fn(q, s) | Typ::Closure(q, s, _)) => p == q && r == s,
+			(Typ::Annotated(a, x), Typ::Annotated(b, y)) => a == b && x == y,
 			(Typ::Map(k, v), Typ::Map(l, w)) => k == l && v == w,
 			(Typ::Mut(a), Typ::Mut(b)) => a == b,
 			(Typ::Ref(a), Typ::Ref(b)) => match (&**a, &**b) {

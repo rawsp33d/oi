@@ -242,6 +242,38 @@ where
 		p.map_with(|o, ex| (o, ex.span()))
 	}
 
+	// annotations
+	let ann_entry = ident().then_ignore(just(Token::Assign)).or_not().then(expr.clone());
+	let ann_tag = spanned(select! { Token::Atom(name) => Expr::Atom(name) });
+	enum AnnTail {
+		Fields(Vec<(Option<String>, Spanned<Expr>)>),
+		Args(Vec<Spanned<Expr>>),
+	}
+	let ann_tail = just(Token::Dot)
+		.ignore_then(brace(loose_list(ann_entry)))
+		.map(AnnTail::Fields)
+		.or(paren(loose_list(expr.clone())).map(AnnTail::Args));
+	let ann_value = spanned(
+		ident()
+			.then_ignore(adjacent.then(just(Token::Not)).not())
+			.then(adjacent.ignore_then(ann_tail).or_not())
+			.map(|(name, tail)| match tail {
+				Some(AnnTail::Fields(fields)) => Expr::StructLit {
+					name,
+					type_args: vec![],
+					fields,
+				},
+				Some(AnnTail::Args(args)) => Expr::Call {
+					name,
+					type_args: vec![],
+					args,
+				},
+				None => Expr::Ident(name),
+			}),
+	);
+	let annotation = just(Token::At).then_ignore(adjacent).ignore_then(ann_tag.or(ann_value)).boxed();
+	let annotations = annotation.clone().repeated().at_least(1).collect::<Vec<_>>().boxed();
+
 	// type annotations
 	let type_expr = recursive(|te| {
 		let base = recursive(|base| {
@@ -278,6 +310,11 @@ where
 					let (muts, params) = params.into_iter().map(|(m, t)| (m.is_some(), t)).unzip();
 					TypeExpr::Fn(params, muts, Box::new(ret.unwrap_or(TypeExpr::Tuple(vec![]))))
 				});
+			// annotations
+			let annotated = annotation
+				.clone()
+				.then(base.clone())
+				.map(|(a, t)| TypeExpr::Annotated(vec![a], Box::new(t)));
 			// options
 			let option = just(Token::Question)
 				.ignore_then(base.clone())
@@ -315,6 +352,7 @@ where
 
 			choice((
 				unit,
+				annotated,
 				fn_type,
 				option,
 				result,
@@ -1197,6 +1235,10 @@ where
 				postfix(9, just(Token::Question), |lhs, _, ex| {
 					(Expr::Propagate(Box::new(lhs)), ex.span())
 				}),
+				// expression annotations
+				prefix(8, annotation.clone(), |a, rhs, ex| {
+					(Expr::Annotated(vec![a], Box::new(rhs)), ex.span())
+				}),
 				// unary
 				prefix(8, just(Token::Minus), |_, rhs, ex| {
 					(Expr::Negative(Box::new(rhs)), ex.span())
@@ -1332,37 +1374,6 @@ where
 			.boxed()
 	};
 	expr.define(definition);
-
-	// annotations
-	let ann_entry = ident().then_ignore(just(Token::Assign)).or_not().then(expr.clone());
-	let ann_tag = spanned(select! { Token::Atom(name) => Expr::Atom(name) });
-	enum AnnTail {
-		Fields(Vec<(Option<String>, Spanned<Expr>)>),
-		Args(Vec<Spanned<Expr>>),
-	}
-	let ann_tail = just(Token::Dot)
-		.ignore_then(brace(loose_list(ann_entry)))
-		.map(AnnTail::Fields)
-		.or(paren(loose_list(expr.clone())).map(AnnTail::Args));
-	let ann_value = spanned(
-		ident()
-			.then_ignore(adjacent.then(just(Token::Not)).not())
-			.then(adjacent.ignore_then(ann_tail).or_not())
-			.map(|(name, tail)| match tail {
-				Some(AnnTail::Fields(fields)) => Expr::StructLit {
-					name,
-					type_args: vec![],
-					fields,
-				},
-				Some(AnnTail::Args(args)) => Expr::Call {
-					name,
-					type_args: vec![],
-					args,
-				},
-				None => Expr::Ident(name),
-			}),
-	);
-	let annotation = just(Token::At).then_ignore(adjacent).ignore_then(ann_tag.or(ann_value)).boxed();
 
 	// item bindings
 	let item_head = ident().then(type_params.clone()).then_ignore(just(Token::DoubleColon));
@@ -1698,19 +1709,15 @@ where
 		});
 
 	// annotations
-	let annotated = annotation
-		.repeated()
-		.at_least(1)
-		.collect::<Vec<_>>()
-		.then(just(Token::Pub).or_not())
-		.then(def.clone().or(bind))
-		.map_with(|((anns, public), item), ex| {
+	let annotated = annotations.then(just(Token::Pub).or_not()).then(def.clone().or(bind)).map_with(
+		|((anns, public), item), ex| {
 			let item = match public {
 				Some(_) => (Expr::Pub(Box::new(item)), ex.span()),
 				None => item,
 			};
 			(Expr::Annotated(anns, Box::new(item)), ex.span())
-		});
+		},
+	);
 
 	attr_macro
 		.or(annotated)

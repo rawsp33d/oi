@@ -308,6 +308,34 @@ fn c_marked_fn_crosses_the_c_abi_without_a_symbol() {
 }
 
 #[test]
+fn c_fn_types() {
+	check(
+		indoc! {"
+			GetProc :: @c fn(name: cstr) ptr
+			@c
+			Iface :: struct { init: @c fn() bool, tick: @c fn(dt: f32) }
+			print(Iface.size)
+			print(@c fn (n: i32) bool { n > 0 })
+		"},
+		["16", "<fn>"],
+	);
+}
+
+#[test]
+fn annotated_types_are_checked() {
+	fail_with(["f :: fn(cb: @c fn(s: string)) {}"], "`@c fn` can't cross the C ABI");
+	fail_with(
+		["n := 3", "h := @c fn (x: i32) i32 { x + n }"],
+		"an `@c` fn can't capture",
+	);
+	fail_with(
+		["f :: fn(cb: @stdcall fn(x: i32)) {}"],
+		"`@stdcall fn(int) ()` isn't a type",
+	);
+	fail_with(["x := @c 5"], "`@c int` isn't a type");
+}
+
+#[test]
 fn unknown_attr_macro_errors() {
 	fail_with(
 		indoc! {"

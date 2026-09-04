@@ -190,6 +190,8 @@ impl<'a, M: Module> Translator<'a, M> {
 			Typ::Map(..) => self.write_lit("<map>", sink),
 			Typ::Ast => self.write_lit("<ast>", sink),
 
+			Typ::Annotated(_, t) => self.emit_print(val, &t.clone(), quote, sink),
+
 			Typ::Ref(_) => {
 				let inner = self.peeled(typ);
 				self.emit_print(val, &inner, quote, sink)
@@ -233,6 +235,7 @@ impl<'a, M: Module> Translator<'a, M> {
 					| Typ::Sum(..)
 					| Typ::Range
 					| Typ::Fn(..)
+					| Typ::Annotated(..)
 					| Typ::Closure(..)
 					| Typ::Trait(_)
 					| Typ::Error

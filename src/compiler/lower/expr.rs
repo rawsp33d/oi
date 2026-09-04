@@ -698,6 +698,13 @@ impl<'a, M: Module> Translator<'a, M> {
 				self.declare_anon_fn(captures, params, *params_tuple, AnonSig::Explicit(ret), body, expr.1)
 			}
 
+			Expr::Annotated(anns, inner) => {
+				let (names, (val, typ)) = (ann_names(self.scope, anns), self.expr(inner)?);
+				check_ann_typ(&names, &typ, expr.1)?;
+				let addr = self.b.ins().load(self.int, MemFlags::new(), val, 0);
+				Ok((addr, Typ::Annotated(names, Box::new(typ))))
+			}
+
 			Expr::Bind { .. } => unreachable!("bind in expression position"),
 			Expr::Assign { .. } => unreachable!("assign in expression position"),
 			Expr::PatBind { .. } => unreachable!("destructuring in expression position"),
@@ -713,7 +720,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			Expr::Break | Expr::Continue => unreachable!("break/continue in expression position"),
 			Expr::Append { .. } => unreachable!("append in expression position"),
 			Expr::MapDelete { .. } => unreachable!("map delete in expression position"),
-			Expr::Doc(_) | Expr::Module(_) | Expr::Use { .. } | Expr::Pub(_) | Expr::Annotated(..) => {
+			Expr::Doc(_) | Expr::Module(_) | Expr::Use { .. } | Expr::Pub(_) => {
 				unreachable!("not an expression")
 			}
 			Expr::MacroDef { .. } => unreachable!("removed by macro expansion"),

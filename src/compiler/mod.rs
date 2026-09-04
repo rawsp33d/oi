@@ -85,6 +85,20 @@ pub(crate) fn check_c_sig(name: &str, params: &[Typ], ret: &Typ, span: Span) -> 
 	}
 }
 
+// Handle annotated types.
+pub(crate) fn check_ann_typ(names: &[String], typ: &Typ, span: Span) -> Result<(), Diagnostic> {
+	let c = |n: &String| n == "core::c";
+	match (names, typ) {
+		([n], Typ::Fn(params, ret)) if c(n) => check_c_sig("@c fn", params, ret, span),
+		([n], Typ::Closure(..)) if c(n) => Err(Diagnostic::new("an `@c` fn can't capture", span.into_range())
+			.with_label("C has nowhere to keep an environment")),
+		_ => Err(
+			Diagnostic::new(format!("`{}{typ}` isn't a type", marks(names)), span.into_range())
+				.with_label("only `@c` on a fn, so far"),
+		),
+	}
+}
+
 // A generic free function, monomorphized per callsite.
 #[derive(Clone)]
 pub(crate) struct GenericFnDef {
@@ -149,6 +163,7 @@ fn mentions(te: &TypeExpr, name: &str) -> bool {
 		TypeExpr::Sum(es) | TypeExpr::Generic(_, es) => es.iter().any(|e| mentions(e, name)),
 		TypeExpr::Tuple(fs) => fs.iter().any(|(_, t)| mentions(t, name)),
 		TypeExpr::Fn(ps, _, r) => ps.iter().any(|p| mentions(p, name)) || mentions(r, name),
+		TypeExpr::Annotated(_, t) => mentions(t, name),
 		TypeExpr::TupleStruct(_, fs) => fs.iter().any(|(_, t)| mentions(t, name)),
 		TypeExpr::AnonStruct(fs) => fs.iter().any(|f| mentions(&f.typ, name)),
 		TypeExpr::Map(k, v) => mentions(k, name) || mentions(v, name),
@@ -185,6 +200,15 @@ fn ann<'a>(a: &'a Annotation, name: &str) -> Option<&'a [(Option<String>, Spanne
 		Expr::Ident(n) if n == name => Some(&[]),
 		_ => None,
 	}
+}
+
+// Annotation names, qualified through the scope that wrote them.
+pub(crate) fn ann_names(scope: &Scope, anns: &[Annotation]) -> Vec<String> {
+	let name = |a: &Annotation| match &a.0 {
+		Expr::StructLit { name, .. } | Expr::Ident(name) | Expr::Call { name, .. } => Some(name.clone()),
+		_ => None,
+	};
+	qualify_anns(scope, anns).iter().filter_map(name).collect()
 }
 
 pub(crate) fn is_c_struct(anns: &HashMap<String, Vec<Annotation>>, name: &str) -> bool {
@@ -365,6 +389,7 @@ fn replace_self(te: &TypeExpr, self_ty: &TypeExpr) -> TypeExpr {
 		TypeExpr::Option(e) => TypeExpr::Option(Box::new(replace_self(e, self_ty))),
 		TypeExpr::Result(e, err) => TypeExpr::Result(Box::new(replace_self(e, self_ty)), err.clone()),
 		TypeExpr::Tuple(fs) => TypeExpr::Tuple(fs.iter().map(|(n, t)| (n.clone(), replace_self(t, self_ty))).collect()),
+		TypeExpr::Annotated(a, t) => TypeExpr::Annotated(a.clone(), Box::new(replace_self(t, self_ty))),
 		TypeExpr::Fn(ps, muts, r) => TypeExpr::Fn(
 			ps.iter().map(|p| replace_self(p, self_ty)).collect(),
 			muts.clone(),
@@ -1411,7 +1436,11 @@ impl<M: Module> Compiler<M> {
 
 		let param_vals: Vec<Value> = trans.b.block_params(block).to_vec();
 		for ((name, typ, mutable), &val) in def.params.iter().zip(param_vals.iter()) {
-			let val = if def.foreign && matches!(typ, Typ::Fn(..)) { trans.fn_cell(val) } else { val };
+			let val = if def.foreign && matches!(typ, Typ::Fn(..)) {
+				trans.fn_cell(val)
+			} else {
+				val
+			};
 			let cl = trans.b.func.dfg.value_type(val);
 			let var = trans.b.declare_var(cl);
 			trans.b.def_var(var, val);

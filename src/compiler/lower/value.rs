@@ -127,7 +127,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				};
 				self.fn_object(sig.id)
 			}
-			Typ::Closure(..) | Typ::Trait(_) | Typ::Ref(_) => self.b.ins().iconst(self.int, 0),
+			Typ::Annotated(..) | Typ::Closure(..) | Typ::Trait(_) | Typ::Ref(_) => self.b.ins().iconst(self.int, 0),
 			Typ::Mut(_) => unreachable!("mut only marks params inside a fn/closure type"),
 			Typ::Option(inner) => self.make_option(inner, None),
 			// default to first variant, with zero'd payload fields

@@ -525,6 +525,7 @@ pub enum TypeExpr {
 	Array(Box<TypeExpr>),
 	FixedArray(Box<TypeExpr>, Box<Spanned<Expr>>),
 	Fn(Vec<TypeExpr>, Vec<bool>, Box<TypeExpr>),
+	Annotated(Vec<Annotation>, Box<TypeExpr>),
 	Option(Box<TypeExpr>),
 	Result(Box<TypeExpr>, Option<Box<TypeExpr>>),
 	AtomSum(Vec<String>),

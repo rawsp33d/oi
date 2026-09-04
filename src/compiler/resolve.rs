@@ -258,6 +258,11 @@ impl TypeCtx<'_> {
 					.collect::<Result<_, Diagnostic>>()?;
 				Ok(Typ::Fn(params, Box::new(self.resolve(ret, span)?)))
 			}
+			TypeExpr::Annotated(anns, inner) => {
+				let (names, inner) = (ann_names(self.scope, anns), self.resolve(inner, span)?);
+				check_ann_typ(&names, &inner, span)?;
+				Ok(Typ::Annotated(names, Box::new(inner)))
+			}
 			TypeExpr::Map(k, v) => Ok(Typ::Map(
 				Box::new(self.resolve(k, span)?),
 				Box::new(self.resolve(v, span)?),
