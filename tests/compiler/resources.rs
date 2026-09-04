@@ -159,6 +159,15 @@ fn move_self_consumes_the_receiver() {
 }
 
 #[test]
+fn an_object_cannot_hand_over_what_it_borrows() {
+	let sink = "Sink :: trait { swallow : fn(move self) }";
+	let claim = "File : Sink < { swallow :: fn(move self) {} }";
+	let d = "d : Sink : File.{fd = 1}";
+	fail_with([FILE, sink, claim, d, "d.swallow()"], "only borrows its data");
+	fail_with([FILE, "Sink :: trait { swallow : fn(self) }", claim], "wrong signature");
+}
+
+#[test]
 fn fixed_array_elements_drop_with_their_last_owner() {
 	let a = "a : [2]File : .[File.{fd = 1}, File.{fd = 2}]";
 	check([FILE, a, "b :: a", r#"print("built")"#], ["built", "drop 1", "drop 2"]);

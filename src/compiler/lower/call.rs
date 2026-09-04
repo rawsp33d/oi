@@ -581,10 +581,14 @@ impl<'a, M: Module> Translator<'a, M> {
 			let msg = format!("trait `{tn}` has no method `{method}`");
 			return Err(Diagnostic::new(msg, span.into_range()).with_label("no such method"));
 		};
+		if params.first().is_some_and(|p| p.access == Access::Move) {
+			let msg = format!("cannot call `{method}` through a `{tn}` object");
+			return Err(Diagnostic::new(msg, span.into_range()).with_label("an object only borrows its data"));
+		}
 		// the receiver slot is the erased data pointer, the rest resolve like any signature
 		let mut typs = vec![Typ::Trait(tn.into())];
 		for p in params.iter().skip(1) {
-			typs.push(self.types().resolve(&p.typ, p.span)?);
+			typs.push(access_wrap(p.access, self.types().resolve(&p.typ, p.span)?));
 		}
 		let ret = match ret {
 			Some((te, s)) => self.types().resolve(te, *s)?,
