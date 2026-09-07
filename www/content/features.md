@@ -5,7 +5,7 @@ title = "features"
 # [almost] everything is an expression
 
 It is a goal for absolutely everything to be an expression.
-Right now most things are, like in Rust.
+Right now most things are.
 ```odin
 # if expressions
 status := if score > 100 {
@@ -24,14 +24,14 @@ value := match token {
 # bindings
 
 ```odin
-# immutable ::
+# immutable
 never_change :: "hi there"
 
-# mutable :=
+# mutable
 sound := :loud
 sound = :quiet
 
-# fills :>
+# fills
 Point :: struct { x: float, y: float }
 Point :< {
 	locate :: fn(self) {
@@ -129,13 +129,14 @@ divmod :: fn(a: int, b: int) out (int, int) {
 }
 ```
 
-# first-class testing
+# first-class tests
 
-Tests are built into the language.
+Functions marked as tests are treated specially.
+The are not compiled unless ran with `oi test`.
 
 ```odin
-test "division" {
-	assert(div(8, 2) == 4, "should be the same")
+@test division :: fn() {
+	assert! div(8, 2) == 4
 }
 ```
 
@@ -144,17 +145,16 @@ test "division" {
 CLI commands you're used to.
 
 ```bash
-oi
-oi repl
 oi run .
 oi exec "2 + 5"
 oi test
+oi build
+oi repl
 
 # not yet implemented:
 oi fmt
 oi init
 oi doc
-oi build
 oi watch
 oi lsp
 ```

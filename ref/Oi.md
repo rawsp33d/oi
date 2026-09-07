@@ -135,6 +135,8 @@ tags: []
 - [ ] more types (`any`, `b\d+`, `typeid`, `complex\d+`, `quaternion\d+`, `rune`, `char`) `odin v rust`
 ## consider
 - `nil`
+- revisit test syntax
+	`test! "leading literal" { #{ trailing fn, elided header #} }`
 - C++20 uses `operator|`, a naked `|` for pipelines
 	- back on the table now that `|x|` lambda fences are gone
 	- that said, `|>` has grown on me
