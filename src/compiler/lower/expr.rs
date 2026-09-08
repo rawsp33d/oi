@@ -440,7 +440,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				let (ptr, typ) = self.expr(tuple)?;
 				let typ = self.peeled(&typ);
 
-				// ast exposes `.name` and `.items`
+				// expose fields
 				if typ == Typ::Ast {
 					let ret = match field.as_str() {
 						"name" => Some(Typ::Ast),
@@ -482,6 +482,21 @@ impl<'a, M: Module> Translator<'a, M> {
 							expr.1.into_range(),
 						)),
 					};
+				}
+
+				// expose map fields
+				if let Typ::Map(k, v) = &typ {
+					if field == "len" {
+						let len = self.rt_call("map_len", &[ptr]).unwrap();
+						return Ok((self.b.ins().ireduce(types::I32, len), Typ::Int(32)));
+					}
+					if field == "keys" || field == "values" {
+						let elem = if field == "keys" { k } else { v };
+						let typ = Typ::Array(elem.clone());
+						let header = self.map_entries(ptr, field == "keys", elem);
+						self.temp(header, &typ);
+						return Ok((header, typ));
+					}
 				}
 
 				if let Typ::Struct(sname, sfields) = &typ {

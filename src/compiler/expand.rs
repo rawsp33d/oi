@@ -600,7 +600,7 @@ pub(crate) extern "C" fn rt_ast_lit(tag: i64, bits: i64) -> *mut Spanned<Expr> {
 // Ast dispatch for the lowerer.
 pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const runtime::StrHeader, arg: i64) -> i64 {
 	let ast = |e: Expr| Box::into_raw(Box::new((e, Span::from(0..0)))) as i64;
-	let list = |ptrs: Vec<i64>| runtime::array_of(&ptrs) as i64;
+	let list = |ptrs: Vec<i64>| runtime::array_of(&ptrs, 8) as i64;
 	let m = unsafe { runtime::str_bytes(m) };
 	match (m, unsafe { &(*a).0 }) {
 		(b"int", Expr::Int(n)) => *n,

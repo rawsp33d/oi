@@ -560,8 +560,12 @@ impl<'a, M: Module> Translator<'a, M> {
 		self.rt_call("map_set", &[map, tag_v, bits, value]).unwrap()
 	}
 
-	pub(super) fn call_map_values(&mut self, map: Value) -> Value {
-		self.rt_call("map_values", &[map]).unwrap()
+	// A map's keys or values as an array.
+	pub(super) fn map_entries(&mut self, map: Value, keys: bool, elem: &Typ) -> Value {
+		let width = self.elem_stride(elem);
+		let keys = self.b.ins().iconst(self.int, keys as i64);
+		let width = self.b.ins().iconst(self.int, width);
+		self.rt_call("map_entries", &[map, keys, width]).unwrap()
 	}
 
 	pub(super) fn call_map_delete(&mut self, map: Value, tag: runtime::Tag, bits: Value) -> Value {

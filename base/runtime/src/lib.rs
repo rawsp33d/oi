@@ -410,11 +410,15 @@ pub unsafe extern "C" fn array_cow(header: *mut Header, elem_size: i64) {
 	}
 }
 
-/// Build a fresh array header owning a copy of `elems`.
-pub fn array_of(elems: &[i64]) -> *const Header {
+/// A fresh array owning `elems`, each packed into `width` bytes.
+pub fn array_of(elems: &[i64], width: i64) -> *const Header {
 	let len = elems.len() as i64;
-	let data = buffer_alloc(len * 8);
-	unsafe { std::ptr::copy_nonoverlapping(elems.as_ptr(), data as *mut i64, elems.len()) };
+	let data = buffer_alloc(len * width);
+	for (i, v) in elems.iter().enumerate() {
+		unsafe {
+			std::ptr::copy_nonoverlapping(v.to_le_bytes().as_ptr(), data.add(i * width as usize), width as usize)
+		};
+	}
 	let out = alloc(size_of::<Header>() as i64) as *mut Header;
 	unsafe {
 		*out = Header {
@@ -791,10 +795,27 @@ pub unsafe extern "C" fn map_delete(map: *mut OiMap, tag: i64, bits: i64) -> *mu
 	map
 }
 
-/// The values of a map, as an array the caller releases.
+/// The number of entries in a map.
 /// # Safety
 /// `map` must be a valid, live `OiMap` pointer.
-#[unsafe(export_name = "oi_map_values")]
-pub unsafe extern "C" fn map_values(map: *mut OiMap) -> *const Header {
-	array_of(&unsafe { &*map }.entries.values().copied().collect::<Vec<_>>())
+#[unsafe(export_name = "oi_map_len")]
+pub unsafe extern "C" fn map_len(map: *mut OiMap) -> i64 {
+	unsafe { &*map }.entries.len() as i64
+}
+
+/// The keys or values of a map as an array the caller releases.
+/// # Safety
+/// `map` must be a valid, live `OiMap` pointer.
+#[unsafe(export_name = "oi_map_entries")]
+pub unsafe extern "C" fn map_entries(map: *mut OiMap, keys: i64, width: i64) -> *const Header {
+	let map = unsafe { &*map };
+	let key_bits = |k: &MapKey| match k {
+		MapKey::Raw(bits) => *bits,
+		MapKey::Str(bytes) => str_new(bytes) as i64,
+	};
+	let bits: Vec<i64> = match keys {
+		0 => map.entries.values().copied().collect(),
+		_ => map.entries.keys().map(key_bits).collect(),
+	};
+	array_of(&bits, width)
 }

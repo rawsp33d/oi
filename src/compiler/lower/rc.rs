@@ -63,7 +63,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			if let Typ::Map(_, v) = typ
 				&& self.is_resource(v)
 			{
-				let vals = self.call_map_values(val);
+				let vals = self.map_entries(val, false, v);
 				self.release_value(vals, &Typ::Array(v.clone()));
 			}
 			self.rt_call(release, &[val]);

@@ -84,6 +84,20 @@ fn int_keys() {
 }
 
 #[test]
+fn len_keys_values() {
+	check(
+		indoc! {r#"
+			m: [string]int
+			m["a"] = 1
+			m["b"] = 2
+			m["c"] = 3
+			(m.len, m.keys.len, m.values.len, m.keys.contains("b"), m.values.contains(2))
+		"#},
+		"(3, 3, 3, true, true)",
+	);
+}
+
+#[test]
 fn tuple_keys_fail_for_now() {
 	// TODO: actually implement complex keys and fix test
 	assert!(
