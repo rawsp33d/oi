@@ -252,6 +252,12 @@ fn raw_memory_needs_unsafe() {
 }
 
 #[test]
+fn unsafe_fn_value_needs_unsafe() {
+	fail_with(["@unsafe peek :: fn() {}", "f := peek", "f()"], "`peek` needs `unsafe`");
+	check(["@unsafe peek :: fn() int { 1 }", "f := unsafe peek", "print(f())"], "1");
+}
+
+#[test]
 fn fn_ptr_cast_needs_a_c_signature() {
 	fail_with(
 		["Bad :: fn(s: string) int", "f := unsafe Bad(ptr(0))"],

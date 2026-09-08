@@ -85,6 +85,9 @@ impl<'a, M: Module> Translator<'a, M> {
 				}
 				Err(e) => match self.funcs.get(self.qualify(name).as_ref()).cloned() {
 					Some(sig) => {
+						if sig.unsafe_call {
+							self.require_unsafe(name, expr.1)?;
+						}
 						let obj = self.fn_object(sig.id);
 						Ok((obj, Typ::Fn(sig.value_params(), Box::new(sig.ret))))
 					}
