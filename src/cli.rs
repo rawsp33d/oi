@@ -12,18 +12,22 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
+	/// Scaffold a new project.
+	Init {
+		/// Name of the project.
+		name: Option<String>,
+	},
+
 	/// Compile and run an Oi file.
 	Run {
 		/// Path to the .oi source file.
-		#[arg(default_value = "main.oi")]
-		file: PathBuf,
+		file: Option<PathBuf>,
 	},
 
 	/// Compile an Oi file to a native executable.
 	Build {
 		/// Path to the source file.
-		#[arg(default_value = "main.oi")]
-		file: PathBuf,
+		file: Option<PathBuf>,
 
 		/// Output path.
 		/// Defaults to the file stem in the current directory.
@@ -45,8 +49,7 @@ pub enum Command {
 	/// Compile and run a file's `@test` fns.
 	Test {
 		/// Path to the .oi source file.
-		#[arg(default_value = "main.oi")]
-		file: PathBuf,
+		file: Option<PathBuf>,
 
 		/// Only run tests whose name matches pattern.
 		pattern: Option<String>,

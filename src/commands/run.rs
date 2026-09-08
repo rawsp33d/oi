@@ -3,6 +3,19 @@ use std::path::{Path, PathBuf};
 use oi::Reported;
 use oi::driver::{build_source, run_source, test_source};
 
+/// Resolve the entry file.
+pub fn entry(file: Option<PathBuf>) -> PathBuf {
+	if let Some(file) = file {
+		return file;
+	}
+	let cwd_path = PathBuf::from("main.oi");
+	if cwd_path.exists() {
+		cwd_path
+	} else {
+		PathBuf::from("src/main.oi")
+	}
+}
+
 /// Run a source file.
 pub fn run(file: &Path) -> Result<(), Reported> {
 	run_source(&file.display().to_string(), &read(file)?, root(file))

@@ -133,6 +133,7 @@ tags: []
 - [x] c-strings primitive (`c"foo"`?)
 - [ ] incremental compilation
 - [ ] more types (`any`, `b\d+`, `typeid`, `complex\d+`, `quaternion\d+`, `rune`, `char`) `odin v rust`
+- [ ] load the `oi init` scaffolding from fs, to make them easier to maintain
 ## consider
 - `nil`
 - revisit test syntax
