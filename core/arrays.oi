@@ -1,0 +1,7 @@
+module core
+
+[]T :< {
+	is_empty :: fn(self) bool {
+		self.len == 0
+	}
+}

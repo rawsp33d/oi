@@ -658,11 +658,15 @@ impl<M: Module> Compiler<M> {
 				});
 				continue;
 			}
-			let self_ty = if type_params.is_empty() {
-				TypeExpr::Name(typ.to_string())
-			} else {
-				let args = type_params.iter().map(|p| TypeExpr::Name(p.name.clone())).collect();
-				TypeExpr::Generic(typ.to_string(), args)
+			let name = |p: &TypeParam| Box::new(TypeExpr::Name(p.name.clone()));
+			let self_ty = match (typ, type_params) {
+				("array", [t]) => TypeExpr::Array(name(t)),
+				("map", [k, v]) => TypeExpr::Map(name(k), name(v)),
+				_ if type_params.is_empty() => TypeExpr::Name(typ.to_string()),
+				_ => {
+					let args = type_params.iter().map(|p| TypeExpr::Name(p.name.clone())).collect();
+					TypeExpr::Generic(typ.to_string(), args)
+				}
 			};
 			let params = params
 				.iter()

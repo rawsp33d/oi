@@ -1,0 +1,5 @@
+@test is_empty :: fn() {
+	xs : []int : []
+	assert! xs.is_empty()
+	assert! ![1, 2, 3].is_empty()
+}

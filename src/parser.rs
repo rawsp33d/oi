@@ -1651,15 +1651,20 @@ where
 			.then_ignore(fill_docs),
 	);
 	let via = just(Token::Via).ignore_then(ident()).or_not();
-	let claim = ident()
-		.then(type_params.clone())
+	// arrays and maps
+	let bracket_head = bracket(ident().or_not()).then(ident()).map(|(k, v)| {
+		let names: Vec<_> = k.into_iter().chain([v]).map(|name| TypeParam { name, bound: None }).collect();
+		(if names.len() == 1 { "array" } else { "map" }.into(), names)
+	});
+	let head = ident().then(type_params.clone()).or(bracket_head).boxed();
+	let claim = head
+		.clone()
 		.then_ignore(just(Token::Colon))
 		.then(list(ident()))
 		.then(via.clone())
 		.then_ignore(just(Token::Lt))
 		.then(fill_block)
-		.or(ident()
-			.then(type_params.clone())
+		.or(head
 			.then_ignore(just(Token::Colon))
 			.then_ignore(just(Token::Lt))
 			.then(ident().separated_by(just(Token::Comma)).at_least(1).collect::<Vec<_>>())

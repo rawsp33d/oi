@@ -298,6 +298,8 @@ impl<'a, M: Module> Translator<'a, M> {
 						Typ::Int(_) | Typ::UInt(_) | Typ::Float(_) | Typ::Bool | Typ::ISize | Typ::USize => {
 							(recv_typ.to_string(), Some((recv_val, recv_typ)))
 						}
+						Typ::Array(_) => ("array".into(), Some((recv_val, recv_typ))),
+						Typ::Map(..) => ("map".into(), Some((recv_val, recv_typ))),
 						_ => {
 							return Err(
 								Diagnostic::new(format!("`{recv_typ}` has no methods"), recv.1.into_range())

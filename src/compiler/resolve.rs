@@ -410,9 +410,9 @@ impl TypeCtx<'_> {
 				| "float" | "bool"
 				| "string" | "cstr"
 				| "range" | "atom"
-				| "Map" | "Option"
-				| "Result" | "Error"
-				| "Ast"
+				| "array" | "map"
+				| "Option" | "Result"
+				| "Error" | "Ast"
 		) || name.strip_prefix(['i', 'u', 'f']).is_some_and(|w| w.parse::<u16>().is_ok())
 	}
 
