@@ -3,3 +3,36 @@
 	assert! xs.is_empty()
 	assert! ![1, 2, 3].is_empty()
 }
+
+@test first_and_last :: fn() {
+	xs : []int : []
+	assert! xs.first() == none
+	assert! xs.last() == none
+
+	ys := [1, 2, 3]
+	assert! ys.first() == ?int(1)
+	assert! ys.last() == ?int(3)
+}
+
+@test searching :: fn() {
+	xs := [1, 2, 3]
+	assert! xs.contains(2)
+	assert! !xs.contains(9)
+	assert! xs.index(2) == ?int(1)
+	assert! xs.index(9) == none
+}
+
+@test reverse :: fn() {
+	assert! [1, 2, 3].reverse() == [3, 2, 1]
+
+	xs : []int : []
+	assert! xs.reverse() == []
+}
+
+@test join :: fn() {
+	assert! [1 2 3].join(", ") == "1, 2, 3"
+	assert! ["a" "b" "c"].join("-") == "a-b-c"
+
+	xs : []int : []
+	assert! xs.join(",") == ""
+}

@@ -629,8 +629,7 @@ impl<M: Module> Compiler<M> {
 			};
 			// one fill per name
 			let key = format!("{typ}.{name}");
-			anns.iter()
-				.for_each(|a| self.annotations.entry(key.clone()).or_default().push(a.clone()));
+			self.annotations.entry(key.clone()).or_default().extend(qualify_anns(scope, anns));
 			// visibility
 			if !public && decls.is_empty() && typ.contains("::") {
 				self.privates.entry(typ.to_string()).or_default().insert(name.clone());

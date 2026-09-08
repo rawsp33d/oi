@@ -4,4 +4,47 @@ module core
 	is_empty :: fn(self) bool {
 		self.len == 0
 	}
+
+	first :: fn(self) ?T {
+		if self.len == 0 { return none }
+		self[0]
+	}
+
+	last :: fn(self) ?T {
+		if self.len == 0 { return none }
+		self[self.len - 1]
+	}
+
+	contains :: fn(self, x: T) bool {
+		loop i in self {
+			if i == x { return true }
+		}
+		false
+	}
+
+	index :: fn(self, x: T) ?int {
+		loop i in 0..self.len {
+			if self[i] == x { return i }
+		}
+		none
+	}
+
+	## New array with elements in reverse order.
+	reverse :: fn(self) []T {
+		out: []T = []
+		loop i in 0..self.len {
+			out << self[self.len - 1 - i]
+		}
+		out
+	}
+
+	## Join elements with `separator`.
+	join :: fn(self, separator: string) string {
+		out := ""
+		loop i in 0..self.len {
+			if i > 0 { out += separator }
+			out += self[i].str()
+		}
+		out
+	}
 }
