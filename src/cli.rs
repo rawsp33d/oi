@@ -12,10 +12,13 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
-	/// Scaffold a new project.
-	Init {
-		/// Name of the project.
-		name: Option<String>,
+	/// Scaffold a project in the current directory.
+	Init,
+
+	/// Scaffold a project in a new directory.
+	New {
+		/// Directory to create.
+		name: String,
 	},
 
 	/// Compile and run an Oi file.

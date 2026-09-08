@@ -1,21 +1,48 @@
 use std::path::Path;
 use std::process::Command;
 
+use indoc::indoc;
+
 use oi::Reported;
 
-/// Scaffold a project in cwd, or `name` if provided.
-pub fn run(name: Option<&str>) -> Result<(), Reported> {
-	let dir = Path::new(name.unwrap_or("."));
+const MAIN: &str = indoc! {r#"
+	main :: fn() {
+		who :: "Mom"
+		print("Hi {who}!")
+	}
+"#};
+
+/// Scaffold a project in the current directory.
+pub fn init() -> Result<(), Reported> {
+	scaffold(Path::new("."))
+}
+
+/// Scaffold a project in a new `name` directory.
+pub fn new(name: &str) -> Result<(), Reported> {
+	let dir = Path::new(name);
+	if dir.exists() {
+		eprintln!("oi: {name} already exists");
+		return Err(Reported);
+	}
+	scaffold(dir)
+}
+
+fn scaffold(dir: &Path) -> Result<(), Reported> {
 	let entry = dir.join("src/main.oi");
 	if entry.exists() {
 		eprintln!("oi: {} already exists", entry.display());
 		return Err(Reported);
 	}
 
-	write(&entry, r#"main :: fn() {\n\twho :: "Mom"\n\tprint("hi {who}!")\n}\n"#)?;
+	write(&entry, MAIN)?;
 	let ignore = dir.join(".gitignore");
 	if !ignore.exists() {
-		write(&ignore, "# oi build output\n/main\n/lib*\n")?;
+		write(
+			&ignore,
+			indoc! {"
+				# TODO: I'll populate this when I get a feel for what needs ignored
+		"},
+		)?;
 	}
 	if !dir.canonicalize().is_ok_and(|p| p.ancestors().any(|a| a.join(".git").exists())) {
 		Command::new("git").args(["init", "--quiet"]).arg(dir).status().ok();

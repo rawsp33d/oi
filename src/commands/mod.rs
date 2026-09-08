@@ -10,7 +10,8 @@ use crate::cli::Command;
 /// Route a parsed command to its handler.
 pub fn dispatch(cmd: Command) -> Result<(), Reported> {
 	match cmd {
-		Command::Init { name } => init::run(name.as_deref()),
+		Command::Init => init::init(),
+		Command::New { name } => init::new(&name),
 		Command::Run { file } => run::run(&run::entry(file)),
 		Command::Build { file, out, lib } => run::build(&run::entry(file), out.as_deref(), lib),
 		Command::Exec { source } => exec::run(source),
