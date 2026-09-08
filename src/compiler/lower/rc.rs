@@ -66,8 +66,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				let vals = self.call_map_values(val);
 				self.release_value(vals, &Typ::Array(v.clone()));
 			}
-			let func = self.import_fn(release, &[self.int], None);
-			self.b.ins().call(func, &[val]);
+			self.rt_call(release, &[val]);
 		} else if let Typ::FixedArray(elem, _) = typ {
 			let elem = (**elem).clone();
 			self.each_elem(val, typ, |s, _, ev| s.release_value(ev, &elem));
@@ -224,9 +223,9 @@ pub(super) fn releasable(typ: &Typ) -> bool {
 // The runtime share/release fns for rc'd types.
 pub(super) fn handle_fns(typ: &Typ) -> Option<(&'static str, &'static str)> {
 	match typ {
-		Typ::Array(_) => Some((runtime::ARRAY_SHARE, runtime::ARRAY_RELEASE)),
-		Typ::Map(..) => Some((runtime::MAP_SHARE, runtime::MAP_RELEASE)),
-		t if ref_like(t) => Some((runtime::REF_SHARE, runtime::REF_RELEASE)),
+		Typ::Array(_) => Some(("array_share", "array_release")),
+		Typ::Map(..) => Some(("map_share", "map_release")),
+		t if ref_like(t) => Some(("ref_share", "ref_release")),
 		t => handle_fns(t.newtype()?),
 	}
 }

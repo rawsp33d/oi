@@ -205,9 +205,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			if let Typ::Array(ref e) = typ
 				&& **e == Typ::UInt(8)
 			{
-				let func = self.import_fn(runtime::STR_FROM_BYTES, &[self.int], Some(self.int));
-				let call = self.b.ins().call(func, &[val]);
-				return Ok(Some((self.b.inst_results(call)[0], Typ::Str)));
+				return Ok(Some((self.rt_call("str_from_bytes", &[val]).unwrap(), Typ::Str)));
 			}
 			return Err(
 				Diagnostic::new(format!("cannot cast {typ} to string"), args[0].1.into_range())

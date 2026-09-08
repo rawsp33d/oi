@@ -73,6 +73,19 @@ impl<'a, M: Module> Translator<'a, M> {
 		self.module.declare_func_in_func(id, self.b.func)
 	}
 
+	// Call a `core/rt` runtime fn.
+	pub(super) fn rt_call(&mut self, name: &str, args: &[Value]) -> Option<Value> {
+		let key = format!("rt::oi_{name}");
+		let sig = self
+			.funcs
+			.get(&key)
+			.unwrap_or_else(|| panic!("`{key}` is not declared in `core/rt`"));
+		let (id, unit) = (sig.id, sig.ret.is_unit());
+		let func = self.module.declare_func_in_func(id, self.b.func);
+		let call = self.b.ins().call(func, args);
+		(!unit).then(|| self.b.inst_results(call)[0])
+	}
+
 	// Type arguments only mean something on a generic fn.
 	pub(super) fn check_type_args(
 		&self,
@@ -308,8 +321,7 @@ impl<'a, M: Module> Translator<'a, M> {
 					self.cow_array(base, &elem);
 					let stride = self.elem_stride(&elem);
 					let size = self.b.ins().iconst(self.int, stride);
-					let func = self.import_fn(runtime::ARRAY_WRITE_BACK, &[self.int; 5], None);
-					self.b.ins().call(func, &[base, *lo, *len, val, size]);
+					self.rt_call("array_write_back", &[base, *lo, *len, val, size]);
 					self.release_value(val, &parent.typ);
 				}
 			}
@@ -471,9 +483,7 @@ impl<'a, M: Module> Translator<'a, M> {
 	}
 
 	pub(super) fn call_concat(&mut self, a: Value, b: Value) -> Value {
-		let func = self.import_fn(runtime::STR_CONCAT, &[self.int, self.int], Some(self.int));
-		let call = self.b.ins().call(func, &[a, b]);
-		self.b.inst_results(call)[0]
+		self.rt_call("str_concat", &[a, b]).unwrap()
 	}
 
 	pub(super) fn call_alloc(&mut self, n: usize) -> Value {
@@ -481,10 +491,8 @@ impl<'a, M: Module> Translator<'a, M> {
 	}
 
 	pub(super) fn call_alloc_bytes(&mut self, bytes: i64) -> Value {
-		let func = self.import_fn(runtime::ALLOC, &[self.int], Some(self.int));
 		let size = self.b.ins().iconst(self.int, bytes);
-		let call = self.b.ins().call(func, &[size]);
-		self.b.inst_results(call)[0]
+		self.rt_call("alloc", &[size]).unwrap()
 	}
 
 	// Pack a value into an i64 slot for the map's fixed width.
@@ -538,36 +546,26 @@ impl<'a, M: Module> Translator<'a, M> {
 	}
 
 	pub(super) fn call_map_new(&mut self) -> Value {
-		let func = self.import_fn(runtime::MAP_NEW, &[], Some(self.int));
-		let call = self.b.ins().call(func, &[]);
-		self.b.inst_results(call)[0]
+		self.rt_call("map_new", &[]).unwrap()
 	}
 
 	pub(super) fn call_map_get(&mut self, map: Value, tag: runtime::Tag, bits: Value) -> Value {
-		let func = self.import_fn(runtime::MAP_GET, &[self.int, self.int, self.int], Some(self.int));
 		let tag_v = self.b.ins().iconst(self.int, tag as i64);
-		let call = self.b.ins().call(func, &[map, tag_v, bits]);
-		self.b.inst_results(call)[0]
+		self.rt_call("map_get", &[map, tag_v, bits]).unwrap()
 	}
 
 	pub(super) fn call_map_set(&mut self, map: Value, tag: runtime::Tag, bits: Value, value: Value) -> Value {
-		let func = self.import_fn(runtime::MAP_SET, &[self.int; 4], Some(self.int));
 		let tag_v = self.b.ins().iconst(self.int, tag as i64);
-		let call = self.b.ins().call(func, &[map, tag_v, bits, value]);
-		self.b.inst_results(call)[0]
+		self.rt_call("map_set", &[map, tag_v, bits, value]).unwrap()
 	}
 
 	pub(super) fn call_map_values(&mut self, map: Value) -> Value {
-		let func = self.import_fn(runtime::MAP_VALUES, &[self.int], Some(self.int));
-		let call = self.b.ins().call(func, &[map]);
-		self.b.inst_results(call)[0]
+		self.rt_call("map_values", &[map]).unwrap()
 	}
 
 	pub(super) fn call_map_delete(&mut self, map: Value, tag: runtime::Tag, bits: Value) -> Value {
-		let func = self.import_fn(runtime::MAP_DELETE, &[self.int; 3], Some(self.int));
 		let tag_v = self.b.ins().iconst(self.int, tag as i64);
-		let call = self.b.ins().call(func, &[map, tag_v, bits]);
-		self.b.inst_results(call)[0]
+		self.rt_call("map_delete", &[map, tag_v, bits]).unwrap()
 	}
 
 	// Dispatch a trait-object method through its vtable.
@@ -631,9 +629,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		let m = trait_fns(tmethods).count();
 		// slot offset lives after the method pointers in the vtable
 		let off = self.b.ins().load(self.int, MemFlags::new(), vtable, ((m + idx) * 8) as i32);
-		let func = self.import_fn(runtime::TRAIT_FIELD, &[self.int, self.int], Some(self.int));
-		let call = self.b.ins().call(func, &[data, off]);
-		let addr = self.b.inst_results(call)[0];
+		let addr = self.rt_call("trait_field", &[data, off]).unwrap();
 		let v = self.b.ins().load(cl_type(&ftyp, self.int), MemFlags::new(), addr, 0);
 		Ok((v, ftyp))
 	}

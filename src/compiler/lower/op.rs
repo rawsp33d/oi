@@ -35,11 +35,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				let (a, b) = (self.error_message(a), self.error_message(b));
 				self.emit_eq(a, b, &Typ::Str)
 			}
-			Typ::Str => {
-				let func = self.import_fn(runtime::STR_EQ, &[self.int, self.int], Some(self.int));
-				let call = self.b.ins().call(func, &[a, b]);
-				self.b.inst_results(call)[0]
-			}
+			Typ::Str => self.rt_call("str_eq", &[a, b]).unwrap(),
 			_ => self.b.ins().icmp(IntCC::Equal, a, b),
 		}
 	}
@@ -347,13 +343,11 @@ impl<'a, M: Module> Translator<'a, M> {
 		// cranelift apparently has no pow instruction, so `**` widens to 64 bits and calls into the runtime
 		let pow = matches!(op, BinOp::Pow).then(|| {
 			let (name, wide, t) = match kind {
-				NumKind::Float => (runtime::POW_FLOAT, Typ::Float(64), types::F64),
-				_ => (runtime::POW_INT, Typ::ISize, types::I64),
+				NumKind::Float => ("pow_float", Typ::Float(64), types::F64),
+				_ => ("pow_int", Typ::ISize, types::I64),
 			};
 			let (l, r) = (self.numcast(lv, &lt, &wide), self.numcast(rv, &rt, &wide));
-			let func = self.import_fn(name, &[t, t], Some(t));
-			let call = self.b.ins().call(func, &[l, r]);
-			let out = self.b.inst_results(call)[0];
+			let out = self.rt_call(name, &[l, r]).unwrap();
 			match cl_type(&lt, self.int) {
 				cl if cl == t => out,
 				cl if cl.is_float() => self.b.ins().fdemote(cl, out),

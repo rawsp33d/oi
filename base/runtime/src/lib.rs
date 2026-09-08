@@ -6,56 +6,6 @@ use std::collections::{HashMap, HashSet};
 use std::mem::size_of;
 use std::sync::atomic::{AtomicI64, Ordering};
 
-// Symbol manifest.
-// Each entry defines the const and registers the fn with the JIT.
-macro_rules! symbols {
-	($($name:ident = $fn:ident),* $(,)?) => {
-		$(pub const $name: &str = concat!("oi_", stringify!($fn));)*
-		pub fn symbols() -> Vec<(&'static str, *const u8)> {
-			vec![$(($name, $fn as *const u8)),*]
-		}
-	};
-}
-
-symbols! {
-	STR_CONCAT = str_concat,
-	STR_MARK = str_mark,
-	STR_TAKE = str_take,
-	TRAIT_FIELD = trait_field,
-	ALLOC = alloc,
-	ARRAY_SHARE = array_share,
-	ARRAY_COW = array_cow,
-	ARRAY_RELEASE = array_release,
-	MAP_RELEASE = map_release,
-	WRITE = write,
-	WRITE_SEP = write_sep,
-	SLICE = slice,
-	STR_SLICE = str_slice,
-	ARRAY_WRITE_BACK = array_write_back,
-	PANIC_OOB = panic_oob,
-	ARRAY_RESERVE = array_reserve,
-	ARRAY_EXTEND = array_extend,
-	STR_EQ = str_eq,
-	STR_FROM_BYTES = str_from_bytes,
-	STR_CSTR = str_cstr,
-	CSTR_STR = cstr_str,
-	PTR_STRING = ptr_string,
-	PTR_BUFFER = ptr_buffer,
-	ASSERT_FAIL = assert_fail,
-	PANIC = panic,
-	MAP_NEW = map_new,
-	MAP_GET = map_get,
-	MAP_SET = map_set,
-	MAP_DELETE = map_delete,
-	MAP_VALUES = map_values,
-	MAP_SHARE = map_share,
-	REF_SHARE = ref_share,
-	REF_RELEASE = ref_release,
-	POW_INT = pow_int,
-	POW_FLOAT = pow_float,
-	EPILOGUE = epilogue,
-}
-
 // Type tag shared with the compiler.
 #[repr(i64)]
 #[derive(Clone, Copy)]

@@ -91,9 +91,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		let n = self.b.ins().sextend(self.int, n);
 		let stride = self.elem_stride(&elem);
 		let bytes = self.b.ins().imul_imm(n, stride);
-		let func = self.import_fn(runtime::PTR_BUFFER, &[self.int; 2], Some(self.int));
-		let call = self.b.ins().call(func, &[ptr, bytes]);
-		let data = self.b.inst_results(call)[0];
+		let data = self.rt_call("ptr_buffer", &[ptr, bytes]).unwrap();
 		let typ = Typ::Array(Box::new(elem));
 		Ok((self.make_array(data, n, &typ), typ))
 	}
@@ -178,17 +176,14 @@ impl<'a, M: Module> Translator<'a, M> {
 		let Some((share, _)) = rc::handle_fns(typ) else {
 			return val;
 		};
-		let func = self.import_fn(share, &[self.int], Some(self.int));
-		let call = self.b.ins().call(func, &[val]);
-		self.b.inst_results(call)[0]
+		self.rt_call(share, &[val]).unwrap()
 	}
 
 	// Clone the buffer before a write if it's shared.
 	pub(super) fn cow_array(&mut self, header: Value, elem: &Typ) {
 		let stride = self.elem_stride(elem);
 		let size = self.b.ins().iconst(self.int, stride);
-		let func = self.import_fn(runtime::ARRAY_COW, &[self.int, self.int], None);
-		self.b.ins().call(func, &[header, size]);
+		self.rt_call("array_cow", &[header, size]);
 	}
 
 	// Lower slice bounds, defaulting to `0..len`.
@@ -242,9 +237,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		let (lo, hi) = self.slice_bounds(start, end, len)?;
 		let stride = self.elem_stride(&elem);
 		let size = self.b.ins().iconst(self.int, stride);
-		let func = self.import_fn(runtime::SLICE, &[self.int; 4], Some(self.int));
-		let call = self.b.ins().call(func, &[ptr, lo, hi, size]);
-		Ok((self.b.inst_results(call)[0], lo, elem))
+		Ok((self.rt_call("slice", &[ptr, lo, hi, size]).unwrap(), lo, elem))
 	}
 
 	// (data pointer, length) for an array.
@@ -276,8 +269,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		self.b.seal_block(ok_block);
 
 		self.b.switch_to_block(panic_block);
-		let func = self.import_fn(runtime::PANIC_OOB, &[self.int, self.int], None);
-		self.b.ins().call(func, &[idx, len]);
+		self.rt_call("panic_oob", &[idx, len]);
 		self.b.ins().trap(TrapCode::HEAP_OUT_OF_BOUNDS);
 
 		self.b.switch_to_block(ok_block);

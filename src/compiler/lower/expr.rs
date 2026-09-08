@@ -595,9 +595,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				if typ == Typ::Str {
 					let len = self.array_len(ptr);
 					let (lo, hi) = self.slice_bounds(start, end, len)?;
-					let func = self.import_fn(runtime::STR_SLICE, &[self.int; 3], Some(self.int));
-					let call = self.b.ins().call(func, &[ptr, lo, hi]);
-					return Ok((self.b.inst_results(call)[0], Typ::Str));
+					return Ok((self.rt_call("str_slice", &[ptr, lo, hi]).unwrap(), Typ::Str));
 				}
 				let (out, _, elem) = self.slice_copy((ptr, typ), collection.1, start, end)?;
 				let typ = Typ::Array(Box::new(elem));

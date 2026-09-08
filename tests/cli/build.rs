@@ -33,8 +33,8 @@ fn macros_comp_foreign_and_leak_check() {
 	"#};
 	let util = indoc! {"
 		module util
-		pub cube :: fn(n: int) int { unsafe oi_pow_int(n, 3) }
-		oi_pow_int : fn(base: int, exp: int) int : foreign
+		pub cube :: fn(n: isize) isize { unsafe oi_pow_int(n, 3) }
+		oi_pow_int : fn(base: isize, exp: isize) isize : foreign
 	"};
 	let dir = Project::new().file("main.oi", main).file("util.oi", util);
 	ok(oi(&["build"]).current_dir(&dir).run(None));

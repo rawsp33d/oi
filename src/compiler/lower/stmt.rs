@@ -215,8 +215,7 @@ impl<'a, M: Module> Translator<'a, M> {
 
 						self.b.switch_to_block(grow_block);
 						let min_cap = self.b.ins().iadd_imm(len, 1);
-						let func = self.import_fn(runtime::ARRAY_RESERVE, &[self.int, self.int, self.int], None);
-						self.b.ins().call(func, &[ptr, min_cap, size]);
+						self.rt_call("array_reserve", &[ptr, min_cap, size]);
 						self.b.ins().jump(ok_block, &[]);
 						self.b.seal_block(ok_block);
 
@@ -229,8 +228,7 @@ impl<'a, M: Module> Translator<'a, M> {
 						let new_len = self.b.ins().iadd_imm(len, 1);
 						self.b.ins().store(MemFlags::new(), new_len, ptr, 8);
 					} else if vtyp == Typ::Array(Box::new(elem.clone())) {
-						let func = self.import_fn(runtime::ARRAY_EXTEND, &[self.int, self.int, self.int], None);
-						self.b.ins().call(func, &[ptr, val, size]);
+						self.rt_call("array_extend", &[ptr, val, size]);
 					} else {
 						return Err(Diagnostic::new(
 							format!("cannot append {vtyp} to {elem} array"),

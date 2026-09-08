@@ -508,9 +508,6 @@ fn isa(pic: bool) -> Arc<dyn TargetIsa> {
 impl Default for Compiler<JITModule> {
 	fn default() -> Self {
 		let mut builder = JITBuilder::with_isa(isa(false), cranelift_module::default_libcall_names());
-		for (name, ptr) in runtime::symbols() {
-			builder.symbol(name, ptr);
-		}
 		builder.symbol(expand::RT_QUOTE, expand::rt_quote as *const u8);
 		builder.symbol(expand::RT_AST_LIT, expand::rt_ast_lit as *const u8);
 		builder.symbol(expand::RT_AST_METHOD, expand::rt_ast_method as *const u8);
@@ -1176,7 +1173,7 @@ impl<M: Module> Compiler<M> {
 				}
 			}
 			let bare = bare.as_str();
-			if !runtime::symbols().iter().any(|(sym, _)| *sym == bare) && !process_symbol_exists(bare) {
+			if !process_symbol_exists(bare) {
 				let msg = format!("unknown foreign symbol `{bare}`");
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("no such symbol"));
 			}

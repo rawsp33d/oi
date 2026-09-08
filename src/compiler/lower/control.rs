@@ -420,8 +420,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			} else {
 				self.str_const("unwrapped `none`")
 			};
-			let func = self.import_fn(runtime::PANIC, &[self.int], None);
-			self.b.ins().call(func, &[msg]);
+			self.rt_call("panic", &[msg]);
 			self.b.ins().trap(TrapCode::HEAP_OUT_OF_BOUNDS);
 		} else {
 			let sad_val = if is_result {

@@ -11,12 +11,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		let width = self.b.ins().iconst(self.int, width as i64);
 		let quote = self.b.ins().iconst(self.int, quote as i64);
 		let sink_v = self.b.ins().iconst(self.int, sink as i64);
-		let func = self.import_fn(
-			runtime::WRITE,
-			&[self.int, self.int, self.int, self.int, self.int],
-			None,
-		);
-		self.b.ins().call(func, &[tag, bits, width, quote, sink_v]);
+		self.rt_call("write", &[tag, bits, width, quote, sink_v]);
 	}
 
 	// A named type's `str` impl.
@@ -29,13 +24,9 @@ impl<'a, M: Module> Translator<'a, M> {
 
 	// Universal `str` method.
 	pub(crate) fn derived_str(&mut self, val: Value, typ: &Typ) -> Value {
-		let mark = self.import_fn(runtime::STR_MARK, &[], Some(self.int));
-		let call = self.b.ins().call(mark, &[]);
-		let mark = self.b.inst_results(call)[0];
+		let mark = self.rt_call("str_mark", &[]).unwrap();
 		self.emit_print(val, typ, false, runtime::Sink::Buf);
-		let take = self.import_fn(runtime::STR_TAKE, &[self.int], Some(self.int));
-		let call = self.b.ins().call(take, &[mark]);
-		self.b.inst_results(call)[0]
+		self.rt_call("str_take", &[mark]).unwrap()
 	}
 
 	// Enum `Display`.
@@ -119,8 +110,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				self.write_lit("[", sink);
 				self.each_elem(val, typ, |s, i, ev| {
 					let sink_v = s.b.ins().iconst(s.int, sink as i64);
-					let sep = s.import_fn(runtime::WRITE_SEP, &[s.int, s.int], None);
-					s.b.ins().call(sep, &[i, sink_v]);
+					s.rt_call("write_sep", &[i, sink_v]);
 					s.emit_print(ev, elem, true, sink);
 				});
 				self.write_lit("]", sink);

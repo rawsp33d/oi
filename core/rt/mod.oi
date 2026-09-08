@@ -1,5 +1,47 @@
 module rt
 
+# strings
+pub oi_str_concat : fn(a: string, b: string) string : foreign
+pub oi_str_eq : fn(a: string, b: string) isize : foreign
+pub oi_str_slice : fn(s: string, start: isize, end: isize) string : foreign
+pub oi_str_from_bytes : fn(bytes: ptr) string : foreign
+pub oi_str_mark : fn() isize : foreign
+pub oi_str_take : fn(mark: isize) string : foreign
 pub oi_str_cstr : fn(s: string) cstr : foreign
 pub oi_cstr_str : fn(p: cstr) string : foreign
 pub oi_ptr_string : fn(p: ptr, len: int) string : foreign
+
+# arrays
+pub oi_alloc : fn(size: isize) ptr : foreign
+pub oi_ptr_buffer : fn(data: ptr, bytes: isize) ptr : foreign
+pub oi_slice : fn(h: ptr, start: isize, end: isize, elem_size: isize) ptr : foreign
+pub oi_array_cow : fn(h: ptr, elem_size: isize) : foreign
+pub oi_array_reserve : fn(h: ptr, min_cap: isize, elem_size: isize) : foreign
+pub oi_array_extend : fn(dst: ptr, src: ptr, elem_size: isize) : foreign
+pub oi_array_write_back : fn(parent: ptr, lo: isize, len: isize, src: ptr, elem_size: isize) : foreign
+
+# maps
+pub oi_map_new : fn() ptr : foreign
+pub oi_map_get : fn(m: ptr, tag: isize, bits: isize) isize : foreign
+pub oi_map_set : fn(m: ptr, tag: isize, bits: isize, value: isize) ptr : foreign
+pub oi_map_delete : fn(m: ptr, tag: isize, bits: isize) ptr : foreign
+pub oi_map_values : fn(m: ptr) ptr : foreign
+
+# rc
+pub oi_array_share : fn(h: ptr) ptr : foreign
+pub oi_array_release : fn(h: ptr) : foreign
+pub oi_map_share : fn(m: ptr) ptr : foreign
+pub oi_map_release : fn(m: ptr) : foreign
+pub oi_ref_share : fn(p: ptr) ptr : foreign
+pub oi_ref_release : fn(p: ptr) : foreign
+pub oi_epilogue : fn() : foreign
+
+# misc
+pub oi_write : fn(tag: isize, bits: isize, width: isize, quote: isize, sink: isize) : foreign
+pub oi_write_sep : fn(i: isize, sink: isize) : foreign
+pub oi_trait_field : fn(data: ptr, off: isize) isize : foreign
+pub oi_pow_int : fn(base: isize, exp: isize) isize : foreign
+pub oi_pow_float : fn(base: float, exp: float) float : foreign
+pub oi_panic : fn(msg: string) : foreign
+pub oi_panic_oob : fn(index: isize, len: isize) : foreign
+pub oi_assert_fail : fn(msg: string) : foreign

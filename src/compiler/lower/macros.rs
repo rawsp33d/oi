@@ -83,8 +83,7 @@ impl<'a, M: Module> Translator<'a, M> {
 
 	// Call the runtime panic path with `msg` and mark the current block unreachable.
 	fn abort(&mut self, msg: Value) -> TypedVal {
-		let func = self.import_fn(runtime::PANIC, &[self.int], None);
-		self.b.ins().call(func, &[msg]);
+		self.rt_call("panic", &[msg]);
 		self.b.ins().trap(TrapCode::HEAP_OUT_OF_BOUNDS);
 
 		// unreachable paths
@@ -167,8 +166,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				self.b.seal_block(ok_block);
 
 				self.b.switch_to_block(fail_block);
-				let func = self.import_fn(runtime::ASSERT_FAIL, &[self.int], None);
-				self.b.ins().call(func, &[msg]);
+				self.rt_call("assert_fail", &[msg]);
 				self.b.ins().trap(TrapCode::HEAP_OUT_OF_BOUNDS);
 
 				self.b.switch_to_block(ok_block);
