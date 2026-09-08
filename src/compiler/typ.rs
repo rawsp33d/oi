@@ -166,7 +166,7 @@ impl Typ {
 			Typ::Option(inner) => format!("?{}", inner.key()),
 			Typ::Result(ok, err) if **err == Typ::Error => format!("!{}", ok.key()),
 			Typ::Result(ok, err) => format!("Result[{}, {}]", ok.key(), err.key()),
-			Typ::Map(k, v) => format!("Map[{}, {}]", k.key(), v.key()),
+			Typ::Map(k, v) => format!("[{}]{}", k.key(), v.key()),
 			Typ::Access(a, inner) => format!("{a} {}", inner.key()),
 			Typ::Ref(inner) => format!("&{}", inner.key()),
 			Typ::Trait(name) => format!("dyn {name}"),
@@ -238,7 +238,7 @@ impl fmt::Display for Typ {
 				}
 				write!(f, ") {ret}")
 			}
-			Typ::Map(k, v) => write!(f, "Map[{k}, {v}]"),
+			Typ::Map(k, v) => write!(f, "[{k}]{v}"),
 			Typ::Access(a, inner) => write!(f, "{a} {inner}"),
 			Typ::Ref(inner) => write!(f, "&{inner}"),
 			Typ::Ast => write!(f, "Ast"),

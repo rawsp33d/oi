@@ -104,7 +104,7 @@ fn map_values_drop_with_their_last_owner() {
 	let f = "f :: File.{fd = 1}";
 	check([FILE, f, r#"m :: ["a" = f]"#, r#"print("built")"#], ["built", "drop 1"]);
 	check(
-		[FILE, "m: Map[string, File]", f, r#"m["a"] = f"#, r#"print("set")"#],
+		[FILE, "m: [string]File", f, r#"m["a"] = f"#, r#"print("set")"#],
 		["set", "drop 1"],
 	);
 }

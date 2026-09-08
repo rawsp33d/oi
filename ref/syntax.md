@@ -717,7 +717,7 @@ Car : Animal via Horn < { speak :: fn(self) string { "HONK HONK" } }
 	| --- | --- | --- |
 	| `[]T` | Dynamic array | `Vec<T>` |
 	| `[N]T` | Fixed array | `[T; N]` |
-	| `Map[K, V]` | Map | `HashMap<K, V>` |
+	| `[K]V` | Map | `HashMap<K, V>` |
 	| `(A, B)` | Tuple | `(A, B)` |
 	| `?T` | Optional | `Option<T>` |
 	| `!T` | Result | `Result<T, _>` (error is any `Error`) |
@@ -727,7 +727,7 @@ Car : Animal via Horn < { speak :: fn(self) string { "HONK HONK" } }
 	| `Foo[T]` | Generic instance | `Foo<T>` |
 	| `Trait` | Trait object | `&dyn Trait` |
 
-	the prefix shorthands (`[]` `[N]` `?` `!` `&`) read left-to-right
+	the prefix shorthands (`[]` `[N]` `[K]` `?` `!` `&`) read left-to-right
 	everything else nests in brackets
 }#
 
@@ -740,8 +740,8 @@ Parsed :: Result[[]?Token, ParseError]
 
 World :: struct {
 	entities: []Entity
-	sessions: Map[UserId, []Session]
-	cache: Map[string, ?[]u8]
+	sessions: [UserId][]Session
+	cache: [string]?[]u8
 	handlers: []fn (Request) !Response
 	grid: [16][16]Tile
 }
@@ -757,7 +757,7 @@ parse :: fn(src: string) ParseError!Ast { ... } # shorthand pin
 
 # generics may nest
 Grid[T] :: [][]T
-Lookup[V] :: Map[string, ?V]
+Lookup[V] :: [string]?V
 
 # in expression position a bracket is an index, unless a literal or call follows
 grid[x][y] = 0
@@ -784,7 +784,7 @@ main :: fn() {
 	a: int = 2
 	b: string = "hi"
 	c: Car = Car.{}
-	m: Map[int, string] = []
+	m: [int]string = []
 
 	# inferred
 	no_mute :: "immutable"
@@ -964,17 +964,17 @@ main :: fn() {
 
 	# `key = value` entries make a bracket literal a map
 	# keys are literals or variables
-	by_id := [1 = "one", 2 = "two"] # Map[int, string]
+	by_id := [1 = "one", 2 = "two"] # [int]string
 	by_status := [:ok = 200, :not_found = 404]
 	k :: "one"
 	num_map := [k = 1, "two" = 2]
 	print(num_map["one"])
-	typed_map: Map[string, int]
+	typed_map: [string]int
 	typed_map["three"] = 4
 	typed_map.delete["three"]
 
 	# empty `[]` resolves against the expected collection type
-	empty Map[string, int] := []
+	empty [string]int := []
 
 	# array slices are subsets of another array
 	# used in place a slice is a free view. stored, it is an independent COW value
@@ -1140,7 +1140,7 @@ main :: fn() {
 	# `atom` is the open type
 	tag :: fn() atom { :ok }
 	label :: fn(a: atom) string { "got {a}" }
-	tags : Map[atom, int] : [:a = 1, :b = 2]
+	tags : [atom]int : [:a = 1, :b = 2]
 
 	## types
 
@@ -1550,7 +1550,7 @@ main :: fn() {
 	## sum types
 
 	Id :: int | string
-	Json :: :null | bool | f64 | string | []Json | Map[string, Json]
+	Json :: :null | bool | f64 | string | []Json | [string]Json
 
 	# member values coerce when the type is known from context
 	id: Id = 7

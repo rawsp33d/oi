@@ -30,7 +30,7 @@ fn array_reassign_inout() {
 fn map_inout() {
 	check(
 		indoc! {r#"
-			setk :: fn(mut m: Map[string, int]) { m["k"] = 1 }
+			setk :: fn(mut m: [string]int) { m["k"] = 1 }
 			m := ["a" = 0]
 			setk(mut m)
 			m["k"]

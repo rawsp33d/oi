@@ -37,7 +37,7 @@ Rather than introducing a one-off syntax for every feature, Oi tries to make sma
 
 ```odin
 # type composability
-Absurd :: (Map[int, ?[]string], []?string, i69)
+Absurd :: ([int]?[]string, []?string, i69)
 
 # ranges + loops
 range :: 2..4

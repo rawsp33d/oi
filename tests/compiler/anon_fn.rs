@@ -458,7 +458,7 @@ fn fn_field_calls_without_parens() {
 fn map_value_block_literal() {
 	let src = indoc! {r#"
 		Handler :: fn(string) string
-		routes : Map[string, Handler] : ["/" = { "home:{$}" }]
+		routes : [string]Handler : ["/" = { "home:{$}" }]
 		h := routes["/"]
 		print(h("x"))
 	"#};

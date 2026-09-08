@@ -338,9 +338,6 @@ where
 			let atom = select! { Token::Atom(a) => TypeExpr::AtomSum(vec![a]) };
 
 			// built-in generic types
-			let map_type = just(Token::Ident("Map".to_string()))
-				.ignore_then(bracket(te.clone().then_ignore(just(Token::Comma)).then(te.clone())))
-				.map(|(k, v)| TypeExpr::Map(Box::new(k), Box::new(v)));
 			let result_long = just(Token::Ident("Result".to_string()))
 				.ignore_then(bracket(te.clone().then_ignore(just(Token::Comma)).then(te.clone())))
 				.map(|(t, e)| TypeExpr::Result(Box::new(t), Some(Box::new(e))));
@@ -367,7 +364,6 @@ where
 				result,
 				atom,
 				anon_struct,
-				map_type,
 				result_long,
 				option_long,
 				generic_instance,

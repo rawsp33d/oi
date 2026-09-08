@@ -5,7 +5,7 @@ use indoc::indoc;
 fn declare_and_set_get() {
 	check(
 		indoc! {r#"
-			m: Map[string, int]
+			m: [string]int
 			m["one"] = 1
 			m["one"]
 		"#},
@@ -17,11 +17,24 @@ fn declare_and_set_get() {
 fn init_expr_declare_and_set_get() {
 	check(
 		indoc! {r#"
-			m: Map[string, int] = []
+			m: [string]int = []
 			m["one"] = 1
 			m["one"]
 		"#},
 		"1",
+	);
+}
+
+#[test]
+fn generic_fn_type_param_as_map_key() {
+	check(
+		indoc! {r#"
+			get[K] :: fn(m: [K]int, k: K) int { m[k] }
+			m: [string]int
+			m["a"] = 5
+			get(m, "a")
+		"#},
+		"5",
 	);
 }
 
@@ -35,7 +48,7 @@ fn dot_brace_map_syntax_is_gone() {
 fn overwrite_key() {
 	check(
 		indoc! {r#"
-			m: Map[string, int]
+			m: [string]int
 			m["a"] = 1
 			m["a"] = 2
 			m["a"]
@@ -48,7 +61,7 @@ fn overwrite_key() {
 fn multiple_keys() {
 	check(
 		indoc! {r#"
-			m: Map[string, int]
+			m: [string]int
 			m["one"] = 1
 			m["two"] = 2
 			m["one"] + m["two"]
@@ -61,7 +74,7 @@ fn multiple_keys() {
 fn int_keys() {
 	check(
 		indoc! {r#"
-			m: Map[int, string]
+			m: [int]string
 			m[1] = "a"
 			m[2] = "b"
 			m[1]
@@ -76,7 +89,7 @@ fn tuple_keys_fail_for_now() {
 	assert!(
 		fail(indoc! {"
 			Point :: (int, int)
-			m: Map[Point, int]
+			m: [Point]int
 			m[(1, 2)] = 6
 			m[(2, 1)] = 9
 			m[(2, 1)]
@@ -89,7 +102,7 @@ fn tuple_keys_fail_for_now() {
 fn missing_key_panics() {
 	assert!(
 		fail(indoc! {r#"
-			m: Map[string, int]
+			m: [string]int
 			m["missing"]
 		"#})
 		.contains("key not found")
@@ -100,7 +113,7 @@ fn missing_key_panics() {
 fn wrong_key_type() {
 	assert!(
 		fail(indoc! {r#"
-			m: Map[string, int]
+			m: [string]int
 			m[1]
 		"#})
 		.contains("expected string key")
@@ -111,7 +124,7 @@ fn wrong_key_type() {
 fn wrong_value_type() {
 	assert!(
 		fail(indoc! {r#"
-			m: Map[string, int]
+			m: [string]int
 			m["a"] = "b"
 		"#})
 		.contains("type mismatch")
@@ -147,7 +160,7 @@ fn bracket_lit_multiline() {
 fn bracket_lit_typed_target() {
 	check(
 		indoc! {r#"
-			m: Map[string, f64] : ["a" = 1.5]
+			m: [string]f64 : ["a" = 1.5]
 			m["a"]
 		"#},
 		"1.5",
@@ -198,7 +211,7 @@ fn bracket_lit_undefined_ident_key_fails() {
 fn bracket_lit_as_call_arg() {
 	check(
 		indoc! {r#"
-			f :: fn(m: Map[string, int]) int { m["one"] }
+			f :: fn(m: [string]int) int { m["one"] }
 			f(["one" = 1])
 		"#},
 		"1",
@@ -214,7 +227,7 @@ fn bracket_lit_mixed_value_types_fail() {
 fn delete_key() {
 	check(
 		indoc! {r#"
-			m: Map[string, int]
+			m: [string]int
 			m["one"] = 1
 			m["two"] = 2
 			m.delete["one"]
@@ -228,7 +241,7 @@ fn delete_key() {
 fn delete_missing_key_is_noop() {
 	check(
 		indoc! {r#"
-			m: Map[string, int]
+			m: [string]int
 			m.delete["missing"]
 			1
 		"#},
@@ -240,7 +253,7 @@ fn delete_missing_key_is_noop() {
 fn deleted_key_then_lookup_panics() {
 	fail_with(
 		indoc! {r#"
-			m: Map[string, int]
+			m: [string]int
 			m["one"] = 1
 			m.delete["one"]
 			m["one"]
@@ -253,11 +266,11 @@ fn deleted_key_then_lookup_panics() {
 fn delete_on_immutable_map_fails() {
 	fail_with(
 		indoc! {r#"
-			f :: fn(m: Map[string, int]) int {
+			f :: fn(m: [string]int) int {
 				m.delete["one"]
 				m["one"]
 			}
-			n: Map[string, int]
+			n: [string]int
 			n["one"] = 1
 			f(n)
 		"#},
@@ -271,7 +284,7 @@ fn delete_on_immutable_map_fails() {
 fn index_assign_copy() {
 	check(
 		indoc! {r#"
-			m: Map[string, int]
+			m: [string]int
 			m["a"] = 1
 			b :: m
 			m["a"] = 99
@@ -281,7 +294,7 @@ fn index_assign_copy() {
 	);
 	check(
 		indoc! {r#"
-			m: Map[string, int]
+			m: [string]int
 			m["a"] = 1
 			b := m
 			b["a"] = 99
@@ -296,7 +309,7 @@ fn independent_copies() {
 	// delete copy
 	check(
 		indoc! {r#"
-			m: Map[string, int]
+			m: [string]int
 			m["a"] = 1
 			m["b"] = 2
 			n := m
@@ -308,7 +321,7 @@ fn independent_copies() {
 	// chain of copies
 	check(
 		indoc! {r#"
-			m: Map[string, int]
+			m: [string]int
 			m["a"] = 1
 			n :: m
 			o := n
@@ -320,8 +333,8 @@ fn independent_copies() {
 	// returned param vs arg
 	check(
 		indoc! {r#"
-			id :: fn(m: Map[string, int]) Map[string, int] { m }
-			a: Map[string, int]
+			id :: fn(m: [string]int) [string]int { m }
+			a: [string]int
 			a["a"] = 1
 			r := id(a)
 			r["a"] = 99
@@ -332,7 +345,7 @@ fn independent_copies() {
 	// stored array value
 	check(
 		indoc! {r#"
-			m: Map[string, []int]
+			m: [string][]int
 			arr := [1]
 			m["a"] = arr
 			arr << 2

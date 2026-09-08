@@ -190,10 +190,17 @@ impl TypeCtx<'_> {
 				Ok(Typ::Tuple(fields))
 			}
 			TypeExpr::Array(elem) => Ok(Typ::Array(Box::new(self.resolve(elem, span)?))),
-			TypeExpr::FixedArray(elem, len) => Ok(Typ::FixedArray(
-				Box::new(self.resolve(elem, span)?),
-				self.array_len(len)?,
-			)),
+			TypeExpr::FixedArray(elem, len) => {
+				if let Expr::Ident(name) = &len.0
+					&& let Ok(k) = self.named(name, span)
+				{
+					return Ok(Typ::Map(Box::new(k), Box::new(self.resolve(elem, span)?)));
+				}
+				Ok(Typ::FixedArray(
+					Box::new(self.resolve(elem, span)?),
+					self.array_len(len)?,
+				))
+			}
 			TypeExpr::Option(inner) => Ok(Typ::Option(Box::new(self.resolve(inner, span)?))),
 			TypeExpr::Ref(inner) => {
 				let it = self.resolve(inner, span)?;
