@@ -1,4 +1,4 @@
-use crate::compiler::expand;
+use crate::compiler::{expand, role};
 
 use super::*;
 
@@ -125,7 +125,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				let out = match typ {
 					Typ::Int(_) => self.b.ins().ineg(v),
 					Typ::Float(_) => self.b.ins().fneg(v),
-					Typ::Struct(ref name, _) | Typ::Enum(ref name) => match self.fill(name, "core::Neg", "neg", 1) {
+					Typ::Struct(ref name, _) | Typ::Enum(ref name) => match self.fill(name, role::NEG, "neg", 1) {
 						Some(sig) => return Ok(self.emit_call(&sig, &[v])),
 						None => {
 							return Err(Diagnostic::new(format!("cannot negate {typ}"), expr.1.into_range())
@@ -288,7 +288,7 @@ impl<'a, M: Module> Translator<'a, M> {
 
 					// `Error` trait
 					if recv_typ == Typ::Error {
-						return self.dyn_call(recv_val, "core::Error", method, args, expr.1);
+						return self.dyn_call(recv_val, role::ERROR, method, args, expr.1);
 					}
 					match &recv_typ {
 						Typ::Struct(name, _) | Typ::TupleStruct(name, _) | Typ::Enum(name) => {
@@ -306,7 +306,7 @@ impl<'a, M: Module> Translator<'a, M> {
 						}
 					}
 				};
-				if sname == "core::ptr" {
+				if sname == role::PTR {
 					let recv = bound.as_ref().map(|(v, _)| *v);
 					match method.as_str() {
 						"array" => return self.ptr_array(recv, type_args, args, expr.1),
@@ -467,7 +467,7 @@ impl<'a, M: Module> Translator<'a, M> {
 						return Ok((len, Typ::Int(32)));
 					}
 					if field == "ptr" {
-						let typ = self.types().resolve(&TypeExpr::Name("core::ptr".into()), expr.1)?;
+						let typ = self.types().resolve(&TypeExpr::Name(role::PTR.into()), expr.1)?;
 						return Ok((data, typ));
 					}
 					return match field.parse::<i64>() {

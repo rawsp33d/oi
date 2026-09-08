@@ -1,4 +1,5 @@
 use super::*;
+use crate::compiler::role;
 
 // Unwrap a marked call arg.
 pub(super) fn arg_inner(arg: &Spanned<Expr>) -> &Spanned<Expr> {
@@ -170,7 +171,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			&& self
 				.annotations
 				.get(n)
-				.is_some_and(|anns| anns.iter().any(|(e, _)| matches!(e, Expr::Ident(q) if q == "core::params")))
+				.is_some_and(|anns| anns.iter().any(|(e, _)| matches!(e, Expr::Ident(q) if q == role::PARAMS)))
 		{
 			synth = [args, &[(Expr::Record(vec![]), span)]].concat();
 			&synth[..]
@@ -211,7 +212,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			let c_fn;
 			let want = match sig.foreign && matches!(want, Typ::Fn(..)) {
 				true => {
-					c_fn = Typ::Annotated(vec!["core::c".into()], Box::new(want.clone()));
+					c_fn = Typ::Annotated(vec![role::C.into()], Box::new(want.clone()));
 					&c_fn
 				}
 				false => want,
@@ -604,7 +605,7 @@ impl<'a, M: Module> Translator<'a, M> {
 
 	// Dyn-dispatch `message()` on a boxed `Error`.
 	pub(super) fn error_message(&mut self, boxv: Value) -> Value {
-		let Ok((s, _)) = self.dyn_call(boxv, "core::Error", "message", &[], (0..0).into()) else {
+		let Ok((s, _)) = self.dyn_call(boxv, role::ERROR, "message", &[], (0..0).into()) else {
 			unreachable!("core::Error always has `message`")
 		};
 		s

@@ -5,6 +5,7 @@ use cranelift_module::Module;
 
 use super::{FieldDef, Translator, Typ, TypedVal, c_layout, check_c_sig, cl_type, display_name, is_c_struct};
 use crate::ast::{Expr, Span, Spanned, TypeExpr};
+use crate::compiler::role;
 use crate::diagnostics::Diagnostic;
 
 impl<M: Module> Translator<'_, M> {
@@ -72,7 +73,7 @@ impl<M: Module> Translator<'_, M> {
 			let msg = format!("`{}` can't take a fn pointer", display_name(name));
 			return Err(Diagnostic::new(msg, span.into_range()).with_label(format!("`{t}` would cross as a cell")));
 		}
-		let want = self.types().resolve(&TypeExpr::Name("core::ptr".into()), span)?;
+		let want = self.types().resolve(&TypeExpr::Name(role::PTR.into()), span)?;
 		let addr = self.check_typed(arg, &want, "not a `ptr`")?;
 		let val = if bare { addr } else { self.fn_cell(addr) };
 		Ok((val, typ))

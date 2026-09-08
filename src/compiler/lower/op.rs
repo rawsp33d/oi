@@ -1,4 +1,4 @@
-use crate::compiler::expand;
+use crate::compiler::{expand, role};
 
 use super::*;
 
@@ -87,7 +87,7 @@ impl<'a, M: Module> Translator<'a, M> {
 	// `Eq` fill, or structural diff by default.
 	fn emit_val_eq(&mut self, a: Value, b: Value, t: &Typ, owner: &str, span: Span) -> Result<Value, Diagnostic> {
 		if let Typ::Struct(n, _) | Typ::TupleStruct(n, _) | Typ::Enum(n) = t
-			&& let Some(sig) = self.fill(n, "core::Eq", "eq", 2)
+			&& let Some(sig) = self.fill(n, role::EQ, "eq", 2)
 		{
 			return Ok(self.emit_call(&sig, &[a, b]).0);
 		}
@@ -269,12 +269,12 @@ impl<'a, M: Module> Translator<'a, M> {
 	) -> Result<TypedVal, Diagnostic> {
 		let (lv, lt) = self.expr(l)?;
 		let (tn, method) = match op {
-			BinOp::Add => ("core::Add", "add"),
-			BinOp::Sub => ("core::Sub", "sub"),
-			BinOp::Mul => ("core::Mul", "mul"),
-			BinOp::Div => ("core::Div", "div"),
-			BinOp::Mod => ("core::Mod", "mod"),
-			BinOp::Pow => ("core::Pow", "pow"),
+			BinOp::Add => (role::ADD, "add"),
+			BinOp::Sub => (role::SUB, "sub"),
+			BinOp::Mul => (role::MUL, "mul"),
+			BinOp::Div => (role::DIV, "div"),
+			BinOp::Mod => (role::MOD, "mod"),
+			BinOp::Pow => (role::POW, "pow"),
 			_ => unreachable!("non-arithmetic op in binop"),
 		};
 
@@ -443,7 +443,7 @@ impl<'a, M: Module> Translator<'a, M> {
 					let eq = self.emit_val_eq(lv, rv, l, &lt.to_string(), span)?;
 					self.b.ins().icmp_imm(cc, eq, 0)
 				} else if let Typ::Struct(n, _) | Typ::TupleStruct(n, _) | Typ::Enum(n) = l
-					&& let Some(sig) = self.fill(n, "core::Ord", "lt", 2)
+					&& let Some(sig) = self.fill(n, role::ORD, "lt", 2)
 				{
 					let (a, b) = if reversed { (rv, lv) } else { (lv, rv) };
 					let less = self.emit_call(&sig, &[a, b]).0;
@@ -508,7 +508,10 @@ impl<'a, M: Module> Translator<'a, M> {
 						.with_label("type mismatch: value must be Str"),
 				);
 			}
-			let sig = self.funcs["string.contains"].clone();
+			let sig = self.funcs.get(role::STR_CONTAINS).cloned().ok_or_else(|| {
+				Diagnostic::new(format!("core is missing `{}`", role::STR_CONTAINS), rhs.1.into_range())
+					.with_label("required for `in` on Str")
+			})?;
 			return Ok(self.emit_call(&sig, &[rhs_val, lhs_val]));
 		}
 

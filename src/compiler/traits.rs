@@ -27,10 +27,10 @@ pub(crate) fn builtin_claim(typ: &Typ, tn: &str) -> bool {
 	use Typ::*;
 	match typ {
 		Int(_) => true,
-		UInt(_) | ISize | USize => tn != "core::Neg",
-		Float(_) => tn != "core::Mod",
-		Bool | Atom => matches!(tn, "core::Eq" | "core::Ord"),
-		Str => matches!(tn, "core::Eq" | "core::Add"),
+		UInt(_) | ISize | USize => tn != role::NEG,
+		Float(_) => tn != role::MOD,
+		Bool | Atom => matches!(tn, role::EQ | role::ORD),
+		Str => matches!(tn, role::EQ | role::ADD),
 		_ => false,
 	}
 }
@@ -229,10 +229,8 @@ pub(super) fn check_impls<'p>(
 			};
 			let (params, _, ret) = fill_from_decl(params, *params_tuple, ret, decl, m.1)?;
 			let (mut got, want) = (sig(&params, &ret)?, sig(tp, tr)?);
-			if matches!(
-				tn.as_str(),
-				"core::Add" | "core::Sub" | "core::Mul" | "core::Div" | "core::Mod"
-			) && core_traits.contains(tn.as_str())
+			if matches!(tn.as_str(), role::ADD | role::SUB | role::MUL | role::DIV | role::MOD)
+				&& core_traits.contains(tn.as_str())
 				&& let (Typ::Fn(gp, _), Typ::Fn(wp, _)) = (&mut got, &want)
 				&& let ([_, gother], [_, wother]) = (gp.as_mut_slice(), wp.as_slice())
 			{

@@ -20,6 +20,7 @@ mod comp;
 mod expand;
 mod lower;
 mod resolve;
+mod role;
 mod traits;
 mod typ;
 
@@ -87,7 +88,7 @@ pub(crate) fn check_c_sig(name: &str, params: &[Typ], ret: &Typ, span: Span) -> 
 
 // Handle annotated types.
 pub(crate) fn check_ann_typ(names: &[String], typ: &Typ, span: Span) -> Result<(), Diagnostic> {
-	let c = |n: &String| n == "core::c";
+	let c = |n: &String| n == role::C;
 	match (names, typ) {
 		([n], Typ::Fn(params, ret)) if c(n) => check_c_sig("@c fn", params, ret, span),
 		([n], Typ::Closure(..)) if c(n) => Err(Diagnostic::new("`@c` fns can't capture", span.into_range())
@@ -213,7 +214,7 @@ pub(crate) fn ann_names(scope: &Scope, anns: &[Annotation]) -> Vec<String> {
 
 pub(crate) fn is_c_struct(anns: &HashMap<String, Vec<Annotation>>, name: &str) -> bool {
 	let mut anns = anns.get(name).into_iter().flatten();
-	anns.any(|a| ann(a, "core::c").is_some())
+	anns.any(|a| ann(a, role::C).is_some())
 }
 
 // Check that every struct marked `@c` has a C layout.
@@ -226,7 +227,7 @@ fn check_c_structs(
 		let Some(bad) = fields.iter().find(|f| f.typ.c_size_align(&is_c).is_none()) else {
 			continue;
 		};
-		let span = anns[name].iter().find(|a| ann(a, "core::c").is_some()).unwrap().1;
+		let span = anns[name].iter().find(|a| ann(a, role::C).is_some()).unwrap().1;
 		let msg = format!("`{}.{}` has no C representation", display_name(name), bad.name);
 		return Err(Diagnostic::new(msg, span.into_range())
 			.with_label(format!("`{}` is not a type with a known C layout", bad.typ)));
@@ -919,7 +920,7 @@ impl<M: Module> Compiler<M> {
 					let test_ann = (!name.contains("::"))
 						.then(|| self.annotations.get(name))
 						.flatten()
-						.and_then(|anns| anns.iter().find_map(|a| ann(a, "core::test")));
+						.and_then(|anns| anns.iter().find_map(|a| ann(a, role::TEST)));
 					if let Some(fields) = test_ann {
 						if !self.include_tests {
 							continue;
@@ -1026,7 +1027,7 @@ impl<M: Module> Compiler<M> {
 					let mut fs: Vec<FieldDef> = fields.iter().map(|p| field(&types, p)).collect::<Result<_, _>>()?;
 					if is_c_struct(&self.annotations, name) {
 						for f in fs.iter_mut().filter(|f| matches!(f.typ, Typ::Fn(..))) {
-							f.typ = Typ::Annotated(vec!["core::c".into()], Box::new(f.typ.clone()));
+							f.typ = Typ::Annotated(vec![role::C.into()], Box::new(f.typ.clone()));
 						}
 					}
 					for (p, f) in fields.iter().zip(&fs) {
@@ -1115,14 +1116,14 @@ impl<M: Module> Compiler<M> {
 			let ann_span = |target| anns.into_iter().flatten().find_map(|a| Some((ann(a, target)?, a.1)));
 			let mut is_c_fn = false;
 			let is_unsafe = ann_span("unsafe").is_some();
-			if let Some((fields, span)) = ann_span("core::export") {
+			if let Some((fields, span)) = ann_span(role::EXPORT) {
 				check_c_sig(&item.key, &params, &ret, span)?;
 				let sym = match fields.first() {
 					Some((_, (Expr::String(s), _))) if !s.is_empty() => s.clone(),
 					_ => display_name(&item.key).replace('.', "_"),
 				};
 				self.exports.insert(item.key.clone(), sym);
-			} else if let Some((_, span)) = ann_span("core::c") {
+			} else if let Some((_, span)) = ann_span(role::C) {
 				check_c_sig(&item.key, &params, &ret, span)?;
 				is_c_fn = true;
 			}
@@ -1147,7 +1148,7 @@ impl<M: Module> Compiler<M> {
 			let mut bare = display_name(name).to_string();
 			// `@link`
 			for a in self.annotations.get(name).into_iter().flatten() {
-				let Some(fields) = ann(a, "core::link") else { continue };
+				let Some(fields) = ann(a, role::LINK) else { continue };
 				let err = |msg: String, label: &str| Diagnostic::new(msg, a.1.into_range()).with_label(label);
 				let mut lib = None;
 				for (label, (v, _)) in fields {

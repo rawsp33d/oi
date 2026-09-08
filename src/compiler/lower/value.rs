@@ -1,5 +1,6 @@
 use super::generic::unify;
 use super::*;
+use crate::compiler::role;
 
 // Error when a `@required` field isn't fulfilled.
 fn check_required(
@@ -11,7 +12,7 @@ fn check_required(
 	let required = |f: &&FieldDef| {
 		f.annotations
 			.iter()
-			.any(|a| matches!(&a.0, Expr::Ident(n) if n == "core::required"))
+			.any(|a| matches!(&a.0, Expr::Ident(n) if n == role::REQUIRED))
 	};
 	for (i, f) in struct_fields.iter().enumerate().filter(|(_, f)| required(f)) {
 		let set = entries.iter().enumerate().any(|(j, (n, v))| {
@@ -120,9 +121,9 @@ impl<'a, M: Module> Translator<'a, M> {
 			Typ::Bool | Typ::ISize | Typ::USize | Typ::CStr => self.b.ins().iconst(self.int, 0),
 			Typ::Fn(_, ret) => {
 				// call `core::zero[ret]`
-				let def = self.generic_fns["core::zero"].clone();
+				let def = self.generic_fns[role::ZERO].clone();
 				let subst = HashMap::from([(def.type_params[0].name.clone(), (**ret).clone())]);
-				let Ok(sig) = self.declare_instance("core::zero", &def, subst) else {
+				let Ok(sig) = self.declare_instance(role::ZERO, &def, subst) else {
 					unreachable!("core::zero instance")
 				};
 				self.fn_object(sig.id)
@@ -735,12 +736,12 @@ impl<'a, M: Module> Translator<'a, M> {
 
 	// Whether `typ` claims std `Error`, boxing into the open `Error` type.
 	pub(super) fn open_error(&self, typ: &Typ) -> bool {
-		self.trait_impls.contains(&(typ.key(), "core::Error".to_string()))
+		self.trait_impls.contains(&(typ.key(), role::ERROR.to_string()))
 	}
 
 	// Box a claimer of `Error` behind its vtable.
 	pub(super) fn box_error(&mut self, val: Value, typ: &Typ) -> Value {
-		self.box_trait_object(val, &typ.key(), "core::Error")
+		self.box_trait_object(val, &typ.key(), role::ERROR)
 	}
 
 	// Box `val` (an instance of `name`) behind its `name`/`tn` vtable.
