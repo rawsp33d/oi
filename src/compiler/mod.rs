@@ -1147,14 +1147,20 @@ impl<M: Module> Compiler<M> {
 				.with_scope(scope);
 			let params: Vec<Typ> = param_types.iter().map(|t| types.resolve(t, span)).collect::<Result<_, _>>()?;
 			let ret = types.resolve(ret, span)?;
-			let bare = display_name(name);
+			let mut bare = display_name(name).to_string();
 			// `@link`
 			for a in self.annotations.get(name).into_iter().flatten() {
 				let Some(fields) = ann(a, "core::link") else { continue };
 				let err = |msg: String, label: &str| Diagnostic::new(msg, a.1.into_range()).with_label(label);
-				let Some((_, (Expr::String(lib), _))) = fields.first() else {
-					return Err(err("`@link` needs a library name".into(), r#"like `@link.{"m"}`"#));
-				};
+				let mut lib = None;
+				for (label, (v, _)) in fields {
+					match (label.as_deref(), v) {
+						(Some("name"), Expr::String(s)) => bare = s.clone(),
+						(None, Expr::String(s)) => lib = Some(s),
+						_ => {}
+					}
+				}
+				let Some(lib) = lib else { continue };
 				let lib = match lib.contains(MAIN_SEPARATOR) || lib.contains(DLL_SUFFIX) {
 					false => lib.clone(),
 					true => std::fs::canonicalize(lib)
@@ -1169,6 +1175,7 @@ impl<M: Module> Compiler<M> {
 					self.link_libs.push(lib);
 				}
 			}
+			let bare = bare.as_str();
 			if !runtime::symbols().iter().any(|(sym, _)| *sym == bare) && !process_symbol_exists(bare) {
 				let msg = format!("unknown foreign symbol `{bare}`");
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("no such symbol"));

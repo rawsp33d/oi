@@ -254,7 +254,10 @@ fn raw_memory_needs_unsafe() {
 #[test]
 fn unsafe_fn_value_needs_unsafe() {
 	fail_with(["@unsafe peek :: fn() {}", "f := peek", "f()"], "`peek` needs `unsafe`");
-	check(["@unsafe peek :: fn() int { 1 }", "f := unsafe peek", "print(f())"], "1");
+	check(
+		["@unsafe peek :: fn() int { 1 }", "f := unsafe peek", "print(f())"],
+		"1",
+	);
 }
 
 #[test]
@@ -288,6 +291,21 @@ fn link_dlopens_named_library() {
 			["module cext", r#"@link.{"z"}"#, "pub zlibVersion : fn() cstr : foreign"],
 		)
 		.check("1");
+}
+
+#[test]
+fn link_renames_the_symbol() {
+	Project::new()
+		.file("main.oi", ["use cext", "print(unsafe cext.magnitude(-5))"])
+		.file(
+			"cext.oi",
+			[
+				"module cext",
+				r#"@link.{name = "abs"}"#,
+				"pub magnitude : fn(x: i32) i32 : foreign",
+			],
+		)
+		.check("5");
 }
 
 #[test]

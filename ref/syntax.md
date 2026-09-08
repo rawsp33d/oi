@@ -67,6 +67,12 @@ oi_str_contains : fn(s: string, sub: string) bool : foreign
 oi_panic : fn(msg: string) int : foreign
 errno : i32 : foreign
 
+# `@link` names the library to load and/or the symbol to bind
+@link.{"z"}
+zlibVersion : fn() cstr : foreign
+@link.{"z", name = "zlibVersion"}
+version : fn() cstr : foreign
+
 # `ptr` is an untyped address
 # `unsafe` is required for reaching through pointers and calling `foreign` fns
 memset : fn(p: ptr, c: int, n: usize) : foreign
