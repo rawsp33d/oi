@@ -150,6 +150,7 @@ oi exec "2 + 5"
 oi test
 oi build
 oi repl
+oi install
 
 # not yet implemented:
 oi fmt

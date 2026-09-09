@@ -60,4 +60,18 @@ pub enum Command {
 
 	/// Start an interactive Oi REPL.
 	Repl,
+
+	/// Install a binary or module into OI_HOME.
+	Install {
+		/// Path to install. Defaults to the current directory.
+		path: Option<PathBuf>,
+
+		/// Override OI_HOME.
+		#[arg(long)]
+		prefix: Option<PathBuf>,
+
+		/// Symlink a module instead of copying it.
+		#[arg(long)]
+		link: bool,
+	},
 }

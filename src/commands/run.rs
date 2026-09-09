@@ -43,13 +43,13 @@ pub fn test(file: &Path, pattern: Option<&str>) -> Result<(), Reported> {
 }
 
 /// Read a source file.
-fn read(file: &Path) -> Result<String, Reported> {
+pub fn read(file: &Path) -> Result<String, Reported> {
 	std::fs::read_to_string(file).map_err(|e| {
 		eprintln!("oi: cannot read {}: {e}", file.display());
 		Reported
 	})
 }
 
-fn root(file: &Path) -> &Path {
+pub fn root(file: &Path) -> &Path {
 	file.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."))
 }

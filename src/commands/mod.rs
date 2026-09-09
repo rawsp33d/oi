@@ -1,5 +1,6 @@
 pub mod exec;
 pub mod init;
+pub mod install;
 pub mod repl;
 pub mod run;
 
@@ -17,5 +18,6 @@ pub fn dispatch(cmd: Command) -> Result<(), Reported> {
 		Command::Exec { source } => exec::run(source),
 		Command::Test { file, pattern } => run::test(&run::entry(file), pattern.as_deref()),
 		Command::Repl => repl::run(),
+		Command::Install { path, prefix, link } => install::install(path.as_deref(), prefix.as_deref(), link),
 	}
 }
