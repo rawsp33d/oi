@@ -623,10 +623,7 @@ fn from_int_no_match() {
 
 #[test]
 fn from_int_or_shorthand() {
-	check(
-		["Color :: enum { red green blue }", "Color.from(9) or .red"],
-		"red",
-	);
+	check(["Color :: enum { red green blue }", "Color.from(9) or .red"], "red");
 }
 
 #[test]
