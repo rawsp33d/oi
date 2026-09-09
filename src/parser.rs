@@ -976,8 +976,12 @@ where
 		)
 		.map_with(|entries, ex| (Expr::Map(entries), ex.span()));
 
-		// array literals
-		let array = bracket(loose_list(expr.clone())).map_with(|elems, ex| (Expr::Array(elems), ex.span()));
+		// array literals and spreads
+		let array_entry = just(Token::DotDotDot)
+			.ignore_then(expr.clone())
+			.map_with(|e, ex| (Expr::Spread(Box::new(e)), ex.span()))
+			.or(expr.clone());
+		let array = bracket(loose_list(array_entry)).map_with(|elems, ex| (Expr::Array(elems), ex.span()));
 
 		let if_expr = recursive(|if_expr| {
 			just(Token::If)

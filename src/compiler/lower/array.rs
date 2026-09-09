@@ -39,16 +39,52 @@ impl<'a, M: Module> Translator<'a, M> {
 			};
 			closure_escape(&typ, e.1.into_range(), "stored in an array")?;
 			self.move_resource(e, &typ)?;
-			match &elem {
-				Some(t) if t != &typ => {
-					let msg = format!("array elements must share a type: expected {t}, got {typ}");
-					return Err(Diagnostic::new(msg, e.1.into_range()).with_label("mismatched element type"));
-				}
-				_ => elem = Some(typ),
-			}
+			unify_elem(&mut elem, &typ, e.1)?;
 			vals.push(val);
 		}
 		Ok((vals, elem))
+	}
+
+	fn spread_lit(&mut self, elems: &[Spanned<Expr>], want: Option<&Typ>, span: Span) -> Result<TypedVal, Diagnostic> {
+		let (mut elem, mut parts, mut start) = (want.cloned(), Vec::new(), 0);
+		for i in 0..=elems.len() {
+			let inner = match elems.get(i) {
+				Some((Expr::Spread(inner), _)) => Some(inner),
+				Some(_) => continue,
+				None => None,
+			};
+			if start < i {
+				let (val, typ) = self.array_lit(&elems[start..i], elem.as_ref(), span)?;
+				elem = Some(array_elem(&typ).clone());
+				parts.push(val);
+			}
+			start = i + 1;
+			let Some(inner) = inner else { break };
+			let (val, typ) = self.expr(inner)?;
+			let (Typ::Array(t) | Typ::FixedArray(t, _)) = &typ else {
+				return Err(
+					Diagnostic::new(format!("cannot spread {typ}"), inner.1.into_range()).with_label("not an array")
+				);
+			};
+			unify_elem(&mut elem, t, inner.1)?;
+			parts.push(match &typ {
+				Typ::FixedArray(_, n) => self.fixed_to_array(val, t, *n),
+				_ => val,
+			});
+		}
+		let elem = elem.expect("a spread sets the element type");
+		let typ = Typ::Array(Box::new(elem.clone()));
+		if let ([part], [(Expr::Spread(_), _)]) = (&parts[..], elems) {
+			return Ok((*part, typ));
+		}
+		let (data, len) = self.heap_alloc(Vec::new(), &elem);
+		let out = self.make_array(data, len, &typ);
+		let size = self.elem_stride(&elem);
+		let size = self.b.ins().iconst(self.int, size);
+		for part in parts {
+			self.rt_call("array_extend", &[out, part, size]);
+		}
+		Ok((out, typ))
 	}
 
 	// Copy each value into `base` at its stride-sized slot.
@@ -103,6 +139,9 @@ impl<'a, M: Module> Translator<'a, M> {
 		want: Option<&Typ>,
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
+		if elems.iter().any(|e| matches!(e.0, Expr::Spread(_))) {
+			return self.spread_lit(elems, want, span);
+		}
 		let (vals, elem) = self.collect_elems(elems, want)?;
 		let Some(elem) = elem else {
 			return Err(
@@ -347,5 +386,19 @@ impl<'a, M: Module> Translator<'a, M> {
 		let off = self.b.ins().imul_imm(idx, stride);
 		let addr = self.b.ins().iadd(data, off);
 		self.load_elem(addr, 0, elem)
+	}
+}
+
+// Try to fold one more element type into the running one.
+fn unify_elem(elem: &mut Option<Typ>, found: &Typ, span: Span) -> Result<(), Diagnostic> {
+	match elem {
+		Some(t) if t != found => {
+			let msg = format!("array elements must share a type: expected {t}, got {found}");
+			Err(Diagnostic::new(msg, span.into_range()).with_label("mismatched element type"))
+		}
+		_ => {
+			*elem = Some(found.clone());
+			Ok(())
+		}
 	}
 }

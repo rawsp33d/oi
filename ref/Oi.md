@@ -105,11 +105,7 @@ tags: []
 - [ ] make an `@implicit` trait that expects `str() string`, and use that for the "str/print everything "stuff
 - [x] make another pass on generics. I don't love what I have now
 - [x] make another pass on metaprogramming. I don't love what I have now
-- [ ] varargs
-	- v vs nim vs ?
-	- to mesh with "tuples everywhere", a vararg should take up one element in the params tuple
-		- this only matters behind the scenes
-		- `fn print(foo int, args ...string) { ... }` -> `(int, []string,)`
+- [x] varargs
 - [ ] bit flags syntax
 - [ ] channels
 - [ ] units and unit conversion
@@ -167,7 +163,7 @@ tags: []
 	- `Foo :: struct { x: int, y: int }; foo :: Foo{ 2, 3 }; foo.{....` actually idk what I was going for
 	- maybe that's `:>`, making a view
 - callable structs, which has a lot more precedent than struct projection above and would do the same thing for me `lua`
-- reconsider multiple returns now that Oi has solidified
+- ~~reconsider multiple returns now that Oi has solidified~~
 - lua's `tbl.method(self)` vs `tbl:method()` or things in that kind of space
 # stdlib
 - `os`
@@ -192,4 +188,5 @@ tags: []
 - Janet
 - Lua
 - Julia
+- Swift
 # [[archive]]

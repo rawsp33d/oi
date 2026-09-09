@@ -224,6 +224,20 @@ divmod :: fn(a: int, b: int) out: (int, int) {
 	return
 }
 
+# varargs
+
+sum :: fn(xs: ...int) int { xs.fold(0, +) }
+print :: fn(args: ...any)
+
+between :: fn(open: string, items: ...string, close: string) string
+between("[", "a", "b", "c", "]") # ["a", "b", "c"]
+between("[", "]") # []
+join :: fn(parts: ...string, sep := ",") # defaults after varargs are named-only
+join("a", "b", sep = "/")
+
+log(:info, ...parts) # a slice spreads into the vararg slot, no copy
+log(:info, "pre", ...parts, "post")
+
 ## pure functions
 
 # `@pure` is a compiler-verified contract for deterministic functions with no side effects.
@@ -724,6 +738,7 @@ Car : Animal via Horn < { speak :: fn(self) string { "HONK HONK" } }
 	| `E!T` | Result | `Result<T, E>` (error pinned to `E`) |
 	| `&T` | Shared reference | `Rc<T>` |
 	| `fn (A) R` | Function | `fn(A) -> R` |
+	| `...T` | Vararg, param position only, body sees `[]T` | - |
 	| `Foo[T]` | Generic instance | `Foo<T>` |
 	| `Trait` | Trait object | `&dyn Trait` |
 
@@ -938,6 +953,9 @@ main :: fn() {
 	# arrays support dropping the commas when only literals are present
 	even := [2 4 6]
 
+	# `...` spreads an array into a literal
+	all := [...odd, ...even]
+
 	# `in` operator returns whether array contains element
 	assert!(6 in even)
 
@@ -1049,6 +1067,10 @@ main :: fn() {
 	assert!(result.1 == 1)
 	assert!(result.q == 3)
 	assert!(result.r == 1)
+
+	# a tuple spreads into fixed slots, arity statically checked
+	show(...divmod(10, 3))
+	forward :: fn(a: int, b: int) string { show(...$) }
 
 	# this can be used alongside the named return feature, as they are different systems
 	divmod :: fn(a: int, b: int) out (q: int, r: int) {

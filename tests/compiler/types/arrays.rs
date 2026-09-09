@@ -78,6 +78,22 @@ fn mixed_types() {
 }
 
 #[test]
+fn spread() {
+	let src = indoc! {"
+		a :: [2, 3]
+		b :: [5, 6]
+		print([...a])
+		[1, ...a, ...b, 7]
+	"};
+	check(src, "[2, 3]\n[1, 2, 3, 5, 6, 7]");
+}
+
+#[test]
+fn spread_type_mismatch() {
+	fail_with([r#"a :: ["x", "y"]"#, "[1, ...a]"], "must share a type");
+}
+
+#[test]
 fn empty_unsupported() {
 	fail_with("[]", "empty array");
 }
