@@ -91,6 +91,21 @@ impl<M: Module> Translator<'_, M> {
 		cell
 	}
 
+	// A fn value's bare address.
+	pub(super) fn ptr_arg(&mut self, arg: &Spanned<Expr>) -> Result<Value, Diagnostic> {
+		let (val, typ) = self.check_expr(arg, &Typ::USize)?;
+		match typ {
+			Typ::USize | Typ::Annotated(..) => Ok(val),
+			Typ::Fn(params, ret) => {
+				check_c_sig("@c fn", &params, &ret, arg.1)?;
+				Ok(self.b.ins().load(self.int, MemFlags::new(), val, 0))
+			}
+			t => {
+				Err(Diagnostic::new(format!("expected usize, got {t}"), arg.1.into_range()).with_label("type mismatch"))
+			}
+		}
+	}
+
 	fn c_fields(&self, typ: &Typ, span: Span) -> Result<Option<Vec<FieldDef>>, Diagnostic> {
 		match typ {
 			Typ::Struct(name, fields) if is_c_struct(self.annotations, name) => Ok(Some(fields.clone())),
