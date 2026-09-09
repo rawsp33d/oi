@@ -341,7 +341,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		self.b.switch_to_block(happy_block);
 		let payload = self.opt_payload(val, &typ, &inner, 8);
 		let payload = self.copy_bind(payload, &inner);
-		self.contribute("or", (payload, inner), &mut result, merge, span)?;
+		self.contribute("or", (payload, inner.clone()), &mut result, merge, span)?;
 
 		self.b.switch_to_block(fallback_block);
 		let saved_dollar = self.dollar.take();
@@ -349,7 +349,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			Some(err) => (self.b.ins().load(cl_type(&err, self.int), MemFlags::new(), val, 8), err),
 			None => self.unit_value(),
 		});
-		let flow = self.scoped(|s| s.block(body))?;
+		let flow = self.scoped(|s| s.block_tail(body, Some(&inner)))?;
 		self.dollar = saved_dollar;
 		if let Some(vt) = flow {
 			self.contribute("or", vt, &mut result, merge, span)?;
