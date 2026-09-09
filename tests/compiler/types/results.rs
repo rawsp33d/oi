@@ -376,3 +376,13 @@ fn pinned_variant_shorthand() {
 	"};
 	check(src, ["true", "true", "0"]);
 }
+
+#[test]
+fn bang_on_value_call_is_not() {
+	let src = indoc! {r#"
+		f :: fn(get: fn(s: string) bool) bool { !get("x") }
+		xs := [1, 2]
+		print(f(fn(s: string) bool { s == "x" }), !xs.contains(9))
+	"#};
+	check(src, "false true");
+}

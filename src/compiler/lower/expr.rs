@@ -60,22 +60,7 @@ impl<'a, M: Module> Translator<'a, M> {
 
 			Expr::ResultInit { inner: (te, span), arg } => {
 				let ok_typ = self.types().resolve(te, *span)?;
-				let err_typ = Typ::Error;
-				let variants = result_variants(&ok_typ, &err_typ);
-				let (fv, at) = self.check_expr(arg, &ok_typ)?;
-				let disc = if at == ok_typ {
-					0
-				} else if at == err_typ {
-					1
-				} else {
-					return Err(Diagnostic::new(
-						format!("expected {ok_typ} or {err_typ}, got {at}"),
-						arg.1.into_range(),
-					)
-					.with_label("type mismatch"));
-				};
-				let val = self.make_enum(&variants, disc, &[fv]);
-				Ok((val, Typ::Result(Box::new(ok_typ), Box::new(err_typ))))
+				self.result_init(ok_typ, arg)
 			}
 
 			Expr::Ident(name) => match self.local(name, expr.1.into_range()) {
@@ -154,6 +139,13 @@ impl<'a, M: Module> Translator<'a, M> {
 				BinOp::In => self.in_op(l, r),
 			},
 			Expr::Not(e) => {
+				if let Expr::Call { name, args, .. } = &e.0
+					&& let [arg] = &args[..]
+					&& !self.vars.contains_key(name)
+					&& let Ok(ok_typ) = self.types().resolve(&TypeExpr::Name(name.clone()), e.1)
+				{
+					return self.result_init(ok_typ, arg);
+				}
 				let (v, typ) = self.expr(e)?;
 				if typ != Typ::Bool {
 					return Err(
@@ -796,5 +788,23 @@ impl<'a, M: Module> Translator<'a, M> {
 			Typ::Float(32) => ins.f32const(if hi { f32::MAX } else { f32::MIN }),
 			_ => return None,
 		})
+	}
+
+	fn result_init(&mut self, ok_typ: Typ, arg: &Spanned<Expr>) -> Result<TypedVal, Diagnostic> {
+		let err_typ = Typ::Error;
+		let variants = result_variants(&ok_typ, &err_typ);
+		let (fv, at) = self.check_expr(arg, &ok_typ)?;
+		let disc = if at == ok_typ {
+			0
+		} else if at == err_typ {
+			1
+		} else {
+			return Err(
+				Diagnostic::new(format!("expected {ok_typ} or {err_typ}, got {at}"), arg.1.into_range())
+					.with_label("type mismatch"),
+			);
+		};
+		let val = self.make_enum(&variants, disc, &[fv]);
+		Ok((val, Typ::Result(Box::new(ok_typ), Box::new(err_typ))))
 	}
 }

@@ -285,7 +285,7 @@ where
 	// type annotations
 	let type_expr = recursive(|te| {
 		let base = recursive(|base| {
-			let name = ident().map(TypeExpr::Name);
+			let name = dotted_name.clone().map(TypeExpr::Name);
 			let unit = just(Token::LParen).then(just(Token::RParen)).to(TypeExpr::Tuple(vec![]));
 			let tuple_field = ident().then_ignore(just(Token::Colon)).or_not().then(te.clone());
 			let tuple = paren(
@@ -918,7 +918,10 @@ where
 			});
 
 		// result literals
-		let result_shape = type_expr.clone().then(paren(expr.clone()));
+		let result_shape = type_expr
+			.clone()
+			.filter(|t| !matches!(t, TypeExpr::Name(_)))
+			.then(paren(expr.clone()));
 		let result_init = just(Token::Not).ignore_then(result_shape.clone()).map_with(|(elem, arg), ex| {
 			(
 				Expr::ResultInit {

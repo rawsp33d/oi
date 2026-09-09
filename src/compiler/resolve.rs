@@ -427,6 +427,17 @@ impl TypeCtx<'_> {
 				Diagnostic::new("parameter needs a type", span.into_range()).with_label("nothing here supplies one")
 			);
 		}
+		if let Some((m, t)) = name.split_once('.') {
+			let err = |msg: String, label| Diagnostic::new(msg, span.into_range()).with_label(label);
+			let vis = self
+				.scope
+				.visible
+				.get(m)
+				.ok_or_else(|| err(format!("unknown module `{m}`"), "not imported"))?;
+			let t = vis.only.as_ref().map_or(Some(t), |only| only.get(t).map(String::as_str));
+			let t = t.ok_or_else(|| err(format!("`{name}` is not part of `{m}`"), "not in this import"))?;
+			return self.named(&format!("{}::{t}", vis.module), span);
+		}
 		match name {
 			"int" => return Ok(Typ::Int(32)),
 			"isize" => return Ok(Typ::ISize),

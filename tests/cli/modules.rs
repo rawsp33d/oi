@@ -450,3 +450,14 @@ fn exec_resolves_imports_against_cwd() {
 	let out = ok(oi(&["exec", "use foo\nprint(foo.hi())"]).current_dir(&p).run(None));
 	assert_eq!(out, "99");
 }
+
+#[test]
+fn oi_path_searches_extra_dirs() {
+	let deps = Project::new().file("greet/lib.oi", ["module greet", "pub hi :: fn() int { 42 }"]);
+	let entry = Project::new().file("main.oi", ["module main", "use greet", "print(greet.hi())"]);
+	let out = ok(oi(&["run", "main.oi"])
+		.current_dir(&entry)
+		.env("OI_PATH", deps.as_ref())
+		.run(None));
+	assert_eq!(out, "42");
+}
