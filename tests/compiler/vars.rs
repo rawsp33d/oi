@@ -108,3 +108,15 @@ fn annotation_coerces_float() {
 fn annotation_out_of_range() {
 	fail_with(["x : i8 : 9999", "x"], "out of range for i8");
 }
+
+#[test]
+fn main_file_const_visible_in_fn_body() {
+	check(
+		indoc! {"
+			scene :: 2
+			f :: fn() int { scene }
+			print(f())
+		"},
+		"2",
+	);
+}

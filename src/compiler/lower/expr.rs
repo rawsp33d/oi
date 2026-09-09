@@ -93,7 +93,8 @@ impl<'a, M: Module> Translator<'a, M> {
 					}
 					None => {
 						let key = self.qualify(name);
-						match key.contains("::").then(|| self.consts.get(key.as_ref()).cloned()).flatten() {
+						let visible = key.contains("::") || !self.is_main;
+						match visible.then(|| self.consts.get(key.as_ref()).cloned()).flatten() {
 							Some(c) => self.expr(&c),
 							None => Err(e),
 						}
