@@ -30,23 +30,28 @@ impl<M: Module> Translator<'_, M> {
 		match (read, recv, type_args, args) {
 			(true, Some(c), [(te, ts)], []) => {
 				let typ = self.types().resolve(te, *ts)?;
-				let fields = self.c_fields(&typ, *ts)?;
+				let Some(fields) = self.c_fields(&typ, *ts)? else {
+					return Ok((self.c_load(&typ, c, 0), typ));
+				};
 				let oi = self.struct_slot(&fields)?;
 				self.copy_fields(oi, c, 0, &fields, false);
 				Ok((oi, typ))
 			}
 			(false, Some(c), [], [value]) => {
 				let (oi, typ) = self.expr(value)?;
-				let fields = self.c_fields(&typ, value.1)?;
-				self.copy_fields(oi, c, 0, &fields, true);
+				match self.c_fields(&typ, value.1)? {
+					Some(fields) => self.copy_fields(oi, c, 0, &fields, true),
+					None => self.c_store(&typ, oi, c, 0),
+				}
 				Ok(self.unit_value())
 			}
 			_ => {
 				let usage = if read { "p.read[T]()" } else { "p.write(v)" };
-				Err(
-					Diagnostic::new("this copies a `@c` struct through a `ptr`", span.into_range())
-						.with_label(format!("write `{usage}`")),
+				Err(Diagnostic::new(
+					"this copies a `@c` struct or C scalar through a `ptr`",
+					span.into_range(),
 				)
+				.with_label(format!("write `{usage}`")))
 			}
 		}
 	}
@@ -86,12 +91,30 @@ impl<M: Module> Translator<'_, M> {
 		cell
 	}
 
-	fn c_fields(&self, typ: &Typ, span: Span) -> Result<Vec<FieldDef>, Diagnostic> {
+	fn c_fields(&self, typ: &Typ, span: Span) -> Result<Option<Vec<FieldDef>>, Diagnostic> {
 		match typ {
-			Typ::Struct(name, fields) if is_c_struct(self.annotations, name) => Ok(fields.clone()),
+			Typ::Struct(name, fields) if is_c_struct(self.annotations, name) => Ok(Some(fields.clone())),
+			t if t.is_c_repr() && !matches!(t, Typ::Fn(..)) => Ok(None),
 			_ => Err(Diagnostic::new(format!("`{typ}` has no C layout"), span.into_range())
-				.with_label("only a `@c` struct crosses as a struct")),
+				.with_label("only a `@c` struct or C scalar crosses a `ptr`")),
 		}
+	}
+
+	// bool is a byte in C but a word in Oi
+	fn c_load(&mut self, typ: &Typ, c: Value, off: i32) -> Value {
+		let mem = MemFlags::new();
+		match typ.newtype().unwrap_or(typ) {
+			Typ::Bool => self.b.ins().uload8(self.int, mem, c, off),
+			_ => self.b.ins().load(cl_type(typ, self.int), mem, c, off),
+		}
+	}
+
+	fn c_store(&mut self, typ: &Typ, v: Value, c: Value, off: i32) {
+		let mem = MemFlags::new();
+		match typ.newtype().unwrap_or(typ) {
+			Typ::Bool => self.b.ins().istore8(mem, v, c, off),
+			_ => self.b.ins().store(mem, v, c, off),
+		};
 	}
 
 	// Copy each field between its Oi slot and its C offset.
@@ -106,15 +129,6 @@ impl<M: Module> Translator<'_, M> {
 					let child = self.b.ins().load(self.int, mem, oi, slot);
 					self.copy_fields(child, c, off, inner, to_c);
 				}
-				Typ::Bool if to_c => {
-					// bool is a byte in C but a word in Oi
-					let v = self.b.ins().load(self.int, mem, oi, slot);
-					self.b.ins().istore8(mem, v, c, off);
-				}
-				Typ::Bool => {
-					let v = self.b.ins().uload8(self.int, mem, c, off);
-					self.b.ins().store(mem, v, oi, slot);
-				}
 				Typ::FixedArray(e, n) => {
 					let at = self.b.ins().iadd_imm(c, off as i64);
 					match to_c {
@@ -128,10 +142,13 @@ impl<M: Module> Translator<'_, M> {
 						}
 					}
 				}
+				typ if to_c => {
+					let v = self.b.ins().load(cl_type(typ, self.int), mem, oi, slot);
+					self.c_store(typ, v, c, off);
+				}
 				typ => {
-					let (src, so, dst, doff) = if to_c { (oi, slot, c, off) } else { (c, off, oi, slot) };
-					let v = self.b.ins().load(cl_type(typ, self.int), mem, src, so);
-					self.b.ins().store(mem, v, dst, doff);
+					let v = self.c_load(typ, c, off);
+					self.b.ins().store(mem, v, oi, slot);
 				}
 			}
 		}

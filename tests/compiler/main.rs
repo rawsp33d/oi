@@ -16,6 +16,7 @@ mod destructuring;
 mod diagnostics;
 mod dollar;
 mod examples;
+mod ffi;
 mod functions;
 mod interpolation;
 mod io;
