@@ -5,7 +5,7 @@ use super::*;
 // What `emit_eq` compares directly.
 fn comparable(t: &Typ) -> bool {
 	use Typ::*;
-	t.is_enumish()
+	t.is_enumish() && *t != Any
 		|| matches!(
 			t,
 			Int(_) | UInt(_) | ISize | USize | Bool | Atom | Float(_) | Str | Error

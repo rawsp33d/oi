@@ -179,6 +179,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			Typ::Fn(..) | Typ::Closure(..) => self.write_lit("<fn>", sink),
 			Typ::Map(..) => self.write_lit("<map>", sink),
 			Typ::Ast => self.write_lit("<ast>", sink),
+			Typ::Any => self.write_lit("<any>", sink),
 
 			Typ::Annotated(_, t) => self.emit_print(val, &t.clone(), quote, sink),
 
@@ -232,6 +233,7 @@ impl<'a, M: Module> Translator<'a, M> {
 					| Typ::Map(..)
 					| Typ::Access(..)
 					| Typ::Ast
+					| Typ::Any
 					| Typ::Ref(_) => {
 						unreachable!("handled above")
 					}

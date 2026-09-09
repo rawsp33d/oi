@@ -1,6 +1,7 @@
 //! The Oi type layer.
 
 use std::fmt;
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 use cranelift::prelude::*;
 
@@ -36,6 +37,7 @@ pub(crate) enum Typ {
 	Access(Access, Box<Typ>),
 	Ref(Box<Typ>),
 	Ast,
+	Any,
 }
 
 // Annotation names.
@@ -111,7 +113,10 @@ impl Typ {
 	}
 
 	pub fn is_enumish(&self) -> bool {
-		matches!(self, Typ::Enum(_) | Typ::Option(_) | Typ::Result(..) | Typ::Sum(..))
+		matches!(
+			self,
+			Typ::Enum(_) | Typ::Option(_) | Typ::Result(..) | Typ::Sum(..) | Typ::Any
+		)
 	}
 
 	// Single-field tuple structs are transparent.
@@ -242,6 +247,7 @@ impl fmt::Display for Typ {
 			Typ::Access(a, inner) => write!(f, "{a} {inner}"),
 			Typ::Ref(inner) => write!(f, "&{inner}"),
 			Typ::Ast => write!(f, "Ast"),
+			Typ::Any => write!(f, "any"),
 		}
 	}
 }
@@ -436,6 +442,13 @@ pub(crate) fn result_variants(ok: &Typ, err: &Typ) -> Vec<VariantInfo> {
 		VariantInfo::new("ok", 0, vec![ok.clone()]),
 		VariantInfo::new("err", 1, vec![err.clone()]),
 	]
+}
+
+// The tag an `any` box carries for a type.
+pub(crate) fn typeid(t: &Typ) -> i64 {
+	let mut h = DefaultHasher::new();
+	t.key().hash(&mut h);
+	h.finish() as i64
 }
 
 // An atom sum type desugars to a bare enum.

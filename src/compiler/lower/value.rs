@@ -174,7 +174,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				}
 				ptr
 			}
-			Typ::Range => {
+			Typ::Range | Typ::Any => {
 				let ptr = self.call_alloc(2);
 				let z = self.b.ins().iconst(self.int, 0);
 				self.b.ins().store(MemFlags::new(), z, ptr, 0);
@@ -296,7 +296,9 @@ impl<'a, M: Module> Translator<'a, M> {
 
 	// The tag of an enum value.
 	pub(super) fn enum_tag(&mut self, typ: &Typ, val: Value) -> Value {
-		if rc::opt_ref(typ) {
+		if *typ == Typ::Any {
+			self.b.ins().load(self.int, MemFlags::new(), val, 0)
+		} else if rc::opt_ref(typ) {
 			let nz = self.b.ins().icmp_imm(IntCC::NotEqual, val, 0);
 			self.b.ins().uextend(self.int, nz)
 		} else if enum_boxed(&self.variants_of(typ)) {
@@ -362,6 +364,10 @@ impl<'a, M: Module> Translator<'a, M> {
 				None => bad(format!("`{typ}` has no variant `{v}`")),
 			};
 		}
+		if let (Typ::Any, Expr::Ident(v)) = (typ, &pat.0) {
+			let t = self.types().resolve(&TypeExpr::Name(v.clone()), pat.1)?;
+			return Ok((typeid(&t), vec![]));
+		}
 		let (variant, args): (&str, &[Spanned<Expr>]) = match &pat.0 {
 			Expr::EnumShorthand { variant, args } => (variant, args),
 			Expr::Atom(v) => (v, &[]),
@@ -402,9 +408,13 @@ impl<'a, M: Module> Translator<'a, M> {
 	// An `n @ int` arm on a sum captures the unwrapped payload at offset 8.
 	pub(super) fn sum_capture(&self, arm: &MatchArm, st: &Typ) -> Option<Bind> {
 		let name = arm.binding.as_ref()?;
-		let Typ::Sum(variants) = st else { return None };
 		let [pat] = arm.patterns.as_slice() else { return None };
 		let Expr::Ident(v) = &pat.0 else { return None };
+		if *st == Typ::Any {
+			let t = self.types().resolve(&TypeExpr::Name(v.clone()), pat.1).ok()?;
+			return Some((name.clone(), t, 8));
+		}
+		let Typ::Sum(variants) = st else { return None };
 		let disp = self.sum_display(v, pat.1);
 		let vi = variants.iter().find(|x| x.name == disp && x.payload.len() == 1)?;
 		Some((name.clone(), vi.payload[0].clone(), 8))
@@ -558,6 +568,15 @@ impl<'a, M: Module> Translator<'a, M> {
 				return Ok((self.box_error(val, &vt), Typ::Error));
 			}
 			return Ok((val, vt));
+		}
+		if *target == Typ::Any {
+			let (val, vt) = self.expr(value)?;
+			if vt == Typ::Any {
+				return Ok((val, vt));
+			}
+			let id = typeid(&vt);
+			let v = VariantInfo::new(vt.key(), id, vec![vt]);
+			return Ok((self.make_enum(&[v], id, &[val]), Typ::Any));
 		}
 		if let Typ::Annotated(anns, inner) = target
 			&& let Typ::Fn(ps, _) = &**inner

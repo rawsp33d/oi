@@ -113,6 +113,9 @@ impl<'a, M: Module> Translator<'a, M> {
 		if st.is_enumish() {
 			let pats = || arms.iter().flat_map(|a| &a.patterns);
 			let catch_all = else_body.is_some() || pats().any(|p| matches!(&p.0, Expr::Ident(w) if w == "_"));
+			if !catch_all && st == Typ::Any {
+				return Err(Diagnostic::new("a match on `any` needs `else`", span.into_range()));
+			}
 			if !catch_all {
 				let variants = self.variants_of(&st);
 				let covered = pats()

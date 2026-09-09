@@ -1595,6 +1595,19 @@ main :: fn() {
 	# to make distinct types, wrap sum type in tuple structs
 	UserId :: struct (int | string)
 
+	# `any` is the open type
+	x: any = 5
+	x = "five"
+	describe :: fn(v: any) string {
+		match v {
+			n @ int => "int {n}",
+			s @ string => "string {s}",
+			else => "something else", # required, `any` is open
+		}
+	}
+	# the zero value holds nothing and only matches `else`
+	nothing: any
+
 	## errors
 
 	# built-in Error trait
