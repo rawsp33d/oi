@@ -97,6 +97,7 @@ pub struct Program {
 	pub reexports: HashMap<String, String>,
 	pub consts: HashMap<String, Spanned<Expr>>,
 	pub annotations: HashMap<String, Vec<Annotation>>,
+	pub roots: Vec<PathBuf>,
 }
 
 impl Program {
@@ -677,6 +678,7 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 	loader.seed_prelude();
 	loader.check_selected()?;
 	Ok(Program {
+		roots: loader.roots.clone(),
 		map: loader.map,
 		modules: loader.modules,
 		publics: loader.publics,

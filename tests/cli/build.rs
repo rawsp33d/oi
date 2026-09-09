@@ -134,3 +134,39 @@ fn structs_traits_and_generics_reach_the_linker() {
 	"#};
 	assert_eq!(build_and_run(src, &[], "main"), "Rex woofs");
 }
+
+#[test]
+fn link_searches_module_dir_then_roots() {
+	let so = format!("{DLL_PREFIX}dep{DLL_SUFFIX}");
+	let main = ["use cext", "print(unsafe cext.oi_dep())"];
+	let dir = Project::new()
+		.file(
+			"cext/cext.oi",
+			["module cext", r#"@link.{"dep"}"#, "pub oi_dep : fn() int : foreign"],
+		)
+		.file("cext/dep.c", "long oi_dep(void) { return 42; }")
+		.file("main.oi", main);
+	let cc = Command::new("cc")
+		.args(["-shared", "-fPIC", &format!("-Wl,-soname,{so}"), "dep.c", "-o", &so])
+		.current_dir(dir.as_ref().join("cext"))
+		.output()
+		.unwrap();
+	assert!(cc.status.success());
+	ok(oi(&["build"]).current_dir(&dir).run(None));
+	assert_eq!(
+		trim(&Command::new(dir.as_ref().join("main")).output().unwrap().stdout),
+		"42"
+	);
+
+	let home = Project::new();
+	ok(oi(&["install", "cext"])
+		.current_dir(&dir)
+		.env("OI_HOME", home.as_ref())
+		.run(None));
+	let other = Project::new().file("main.oi", main);
+	let run = oi(&["run", "main.oi"])
+		.current_dir(&other)
+		.env("OI_HOME", home.as_ref())
+		.run(None);
+	assert_eq!(ok(run), "42");
+}

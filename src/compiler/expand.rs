@@ -190,6 +190,7 @@ impl Expander {
 			reexports: program.reexports.clone(),
 			consts: program.consts.clone(),
 			annotations: HashMap::new(),
+			roots: program.roots.clone(),
 		};
 		let mut compiler = Compiler::default();
 		compiler.compile(&synthetic)?;

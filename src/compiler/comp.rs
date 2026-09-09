@@ -205,6 +205,7 @@ fn fold(
 			.map(|(k, v)| (k.clone(), v.clone()))
 			.collect(),
 		annotations,
+		roots: program.roots.clone(),
 	};
 	let mut compiler = Compiler::default();
 	compiler.compile(&synthetic)?;
