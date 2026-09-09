@@ -183,8 +183,9 @@ fn parse_file(map: &SourceMap, base: usize) -> Result<Vec<Spanned<Expr>>, Report
 		})
 }
 
-struct Loader<'a> {
-	root: &'a Path,
+struct Loader {
+	// entry dir first, then `OI_PATH`
+	roots: Vec<PathBuf>,
 	entry_path: PathBuf,
 	map: SourceMap,
 	modules: Vec<Module>,
@@ -199,7 +200,7 @@ struct Loader<'a> {
 	core_origin: HashSet<String>,
 }
 
-impl Loader<'_> {
+impl Loader {
 	fn report(&self, diag: Diagnostic) -> Reported {
 		diag.report_mapped(&self.map);
 		Reported
@@ -517,10 +518,13 @@ impl Loader<'_> {
 		}
 		// resolve core's imports from internal files
 		let from_core = self.loading.last().is_some_and(|m| self.core_origin.contains(m));
+		let file = format!("{name}.oi");
+		let has = |r: &&PathBuf| r.join(name).is_dir() || (r.join(&file).is_file() && r.join(&file) != self.entry_path);
+		let root = self.roots.iter().find(has).unwrap_or(&self.roots[0]);
 		let mut disk: Vec<_> = if from_core {
 			vec![]
 		} else {
-			fs::read_dir(self.root.join(name))
+			fs::read_dir(root.join(name))
 				.into_iter()
 				.flatten()
 				.flatten()
@@ -529,7 +533,7 @@ impl Loader<'_> {
 				.collect()
 		};
 		disk.sort();
-		let candidate = self.root.join(format!("{name}.oi"));
+		let candidate = root.join(file);
 		let mut files: Vec<(String, String)> = if !disk.is_empty() {
 			disk.into_iter()
 				.map(|path| {
@@ -641,8 +645,10 @@ impl Loader<'_> {
 // Load the whole program starting from the entry source.
 // `root` anchors module lookups.
 pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program, Reported> {
+	let deps = std::env::var_os("OI_PATH").unwrap_or_default();
+	let deps = std::env::split_paths(&deps).filter(|p| !p.as_os_str().is_empty());
 	let mut loader = Loader {
-		root,
+		roots: std::iter::once(root.to_path_buf()).chain(deps).collect(),
 		entry_path: root.join(Path::new(entry_name).file_name().unwrap_or_default()),
 		map: SourceMap::default(),
 		modules: vec![],

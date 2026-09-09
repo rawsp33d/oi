@@ -399,6 +399,28 @@ fn c_struct_rejects_bad_fn_field() {
 }
 
 #[test]
+fn qualified_type_in_signature() {
+	Project::new()
+		.file(
+			"main.oi",
+			[
+				"use shapes",
+				"f :: fn(p: shapes.Point) int { p.x + p.y }",
+				"print(f(shapes.make(1, 2)))",
+			],
+		)
+		.file(
+			"shapes.oi",
+			[
+				"module shapes",
+				"pub Point :: struct { pub x: int, pub y: int }",
+				"pub make :: fn(x: int, y: int) Point { Point.{ x = x, y = y } }",
+			],
+		)
+		.check("3");
+}
+
+#[test]
 fn const_exprs() {
 	Project::new()
 		.file(
