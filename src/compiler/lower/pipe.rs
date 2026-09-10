@@ -105,10 +105,10 @@ impl<M: Module> Translator<'_, M> {
 			let (Typ::Fn(ps, ret) | Typ::Closure(ps, ret, _)) = &local.typ else {
 				return None;
 			};
-			return Some((ps.clone(), (**ret).clone()));
+			return Some((ps.iter().map(|p| p.typ.clone()).collect(), (**ret).clone()));
 		}
 		let sig = self.funcs.get(self.qualify(name).as_ref())?;
-		Some((sig.params.clone(), sig.ret.clone()))
+		Some((sig.params.iter().map(|p| p.typ.clone()).collect(), sig.ret.clone()))
 	}
 
 	// The parameter types of a pipeline head that is a fn value, or `None` to apply instead.

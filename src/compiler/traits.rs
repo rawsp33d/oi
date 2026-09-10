@@ -205,7 +205,12 @@ pub(super) fn check_impls<'p>(
 		.with_consts(types.consts)
 		.with_scope(scope);
 		let sig = |ps: &[Param], ret: &Option<Spanned<TypeExpr>>| -> Result<Typ, Diagnostic> {
-			let param = |p: &Param| Ok(access_wrap(p.access, sig_types.resolve(&p.typ, p.span)?));
+			let param = |p: &Param| {
+				Ok(FnParam::of(
+					p,
+					access_wrap(p.access, sig_types.resolve(&p.typ, p.span)?),
+				))
+			};
 			let params = ps.iter().map(param).collect::<Result<_, _>>()?;
 			let ret = match ret {
 				Some((te, sp)) => sig_types.resolve(te, *sp)?,
@@ -234,7 +239,7 @@ pub(super) fn check_impls<'p>(
 				&& let (Typ::Fn(gp, _), Typ::Fn(wp, _)) = (&mut got, &want)
 				&& let ([_, gother], [_, wother]) = (gp.as_mut_slice(), wp.as_slice())
 			{
-				*gother = wother.clone();
+				gother.typ = wother.typ.clone();
 			}
 			if got != want {
 				let msg = format!("`{typ}.{name}` is `{got}`, trait `{tn}` declares `{want}`");

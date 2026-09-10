@@ -89,7 +89,7 @@ impl<'a, M: Module> Translator<'a, M> {
 						params_tuple,
 					),
 				};
-				let subst = (ptyps.into_iter().enumerate().map(|(i, t)| (name(i), t)))
+				let subst = (ptyps.into_iter().enumerate().map(|(i, p)| (name(i), p.typ)))
 					.chain([("$ret".into(), *ret)])
 					.collect();
 				(params, tuple, (TypeExpr::Name("$ret".into()), span), subst)

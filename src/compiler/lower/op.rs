@@ -286,10 +286,10 @@ impl<'a, M: Module> Translator<'a, M> {
 						.with_label(format!("implement `{tn}` for `{name}` to overload `{op}`")),
 				);
 			};
-			let (rv, rt) = self.check_expr(r, &sig.params[1])?;
-			if rt != sig.params[1] {
+			let (rv, rt) = self.check_expr(r, &sig.params[1].typ)?;
+			if rt != sig.params[1].typ {
 				return Err(Diagnostic::new(
-					format!("expected {} argument, got {rt}", sig.params[1]),
+					format!("expected {} argument, got {rt}", sig.params[1].typ),
 					r.1.into_range(),
 				)
 				.with_label("wrong argument type"));
@@ -303,7 +303,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			&& matches!(lt, Typ::Int(_) | Typ::UInt(_) | Typ::ISize | Typ::USize | Typ::Float(_))
 			&& let Typ::Struct(name, _) | Typ::Enum(name) = &rt
 			&& let Some(sig) = self.fill(name, tn, method, 2)
-			&& sig.params[1] == lt
+			&& sig.params[1].typ == lt
 		{
 			return Ok(self.emit_call(&sig, &[rv, lv]));
 		}

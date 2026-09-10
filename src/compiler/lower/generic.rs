@@ -217,9 +217,10 @@ impl<'a, M: Module> Translator<'a, M> {
 		let fn_sig = FnSig {
 			id,
 			access: params.iter().map(|(_, _, a)| *a).collect(),
-			params: params.into_iter().map(|(_, t, _)| t).collect(),
+			params: (params.into_iter().zip(&def.params))
+				.map(|((_, t, _), p)| FnParam::of(p, t))
+				.collect(),
 			ret,
-			args: vec![],
 			foreign: false,
 			unsafe_call: false,
 		};

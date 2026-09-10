@@ -45,18 +45,20 @@ type EnumItem<'a> = (&'a str, Option<&'a Spanned<TypeExpr>>, &'a [EnumVariant]);
 #[derive(Clone)]
 pub(crate) struct FnSig {
 	pub id: FuncId,
-	pub params: Vec<Typ>,
+	pub params: Vec<FnParam>,
 	pub access: Vec<Access>,
 	pub ret: Typ,
-	pub args: Vec<(String, Option<Spanned<Expr>>)>,
 	pub foreign: bool,
 	pub unsafe_call: bool,
 }
 
 impl FnSig {
 	// Params as a fn value sees them, the access mods folded back in.
-	pub(crate) fn value_params(&self) -> Vec<Typ> {
-		let fold = |(t, &a): (&Typ, &Access)| access_wrap(a, t.clone());
+	pub(crate) fn value_params(&self) -> Vec<FnParam> {
+		let fold = |(p, &a): (&FnParam, &Access)| FnParam {
+			typ: access_wrap(a, p.typ.clone()),
+			..p.clone()
+		};
 		self.params.iter().zip(&self.access).map(fold).collect()
 	}
 }
@@ -76,8 +78,11 @@ fn check_param_defaults(params: &[Param]) -> Result<(), Diagnostic> {
 }
 
 // Check that every param and return are C friendly.
-pub(crate) fn check_c_sig(name: &str, params: &[Typ], ret: &Typ, span: Span) -> Result<(), Diagnostic> {
-	match params.iter().chain((!ret.is_unit()).then_some(ret)).find(|t| !t.is_c_repr()) {
+pub(crate) fn check_c_sig(name: &str, params: &[FnParam], ret: &Typ, span: Span) -> Result<(), Diagnostic> {
+	match (params.iter().map(|p| &p.typ))
+		.chain((!ret.is_unit()).then_some(ret))
+		.find(|t| !t.is_c_repr())
+	{
 		Some(t) => Err(
 			Diagnostic::new(format!("`{name}` can't cross the C ABI"), span.into_range())
 				.with_label(format!("`{t}` has no C representation")),
@@ -163,7 +168,7 @@ fn mentions(te: &TypeExpr, name: &str) -> bool {
 		TypeExpr::Result(e, err) => mentions(e, name) || err.as_deref().is_some_and(|e| mentions(e, name)),
 		TypeExpr::Sum(es) | TypeExpr::Generic(_, es) => es.iter().any(|e| mentions(e, name)),
 		TypeExpr::Tuple(fs) => fs.iter().any(|(_, t)| mentions(t, name)),
-		TypeExpr::Fn(ps, _, r) => ps.iter().any(|p| mentions(p, name)) || mentions(r, name),
+		TypeExpr::Fn(ps, r) => ps.iter().any(|(_, _, p)| mentions(p, name)) || mentions(r, name),
 		TypeExpr::Annotated(_, t) => mentions(t, name),
 		TypeExpr::TupleStruct(_, fs) => fs.iter().any(|(_, t)| mentions(t, name)),
 		TypeExpr::AnonStruct(fs) => fs.iter().any(|f| mentions(&f.typ, name)),
@@ -392,9 +397,8 @@ fn replace_self(te: &TypeExpr, self_ty: &TypeExpr) -> TypeExpr {
 		TypeExpr::Result(e, err) => TypeExpr::Result(Box::new(replace_self(e, self_ty)), err.clone()),
 		TypeExpr::Tuple(fs) => TypeExpr::Tuple(fs.iter().map(|(n, t)| (n.clone(), replace_self(t, self_ty))).collect()),
 		TypeExpr::Annotated(a, t) => TypeExpr::Annotated(a.clone(), Box::new(replace_self(t, self_ty))),
-		TypeExpr::Fn(ps, access, r) => TypeExpr::Fn(
-			ps.iter().map(|p| replace_self(p, self_ty)).collect(),
-			access.clone(),
+		TypeExpr::Fn(ps, r) => TypeExpr::Fn(
+			ps.iter().map(|(n, a, p)| (n.clone(), *a, replace_self(p, self_ty))).collect(),
 			Box::new(replace_self(r, self_ty)),
 		),
 		TypeExpr::Map(k, v) => TypeExpr::Map(Box::new(replace_self(k, self_ty)), Box::new(replace_self(v, self_ty))),
@@ -1106,11 +1110,11 @@ impl<M: Module> Compiler<M> {
 			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits)
 				.with_consts(consts)
 				.with_scope(item.scope);
-			let params: Vec<Typ> = item
+			let params: Vec<FnParam> = item
 				.params
 				.iter()
-				.map(|p| types.resolve(&p.typ, p.span))
-				.collect::<Result<_, _>>()?;
+				.map(|p| Ok(FnParam::of(p, types.resolve(&p.typ, p.span)?)))
+				.collect::<Result<_, Diagnostic>>()?;
 			let access: Vec<Access> = item.params.iter().map(|p| p.access).collect();
 			let ret = match &item.ret {
 				Some((ret_te, ret_span)) => types.resolve(ret_te, *ret_span)?,
@@ -1135,7 +1139,6 @@ impl<M: Module> Compiler<M> {
 			}
 			let (sym, linkage) = self.symbol(&item.key);
 			let mut sig = self.declare_fn(&sym, linkage, params, access, ret);
-			sig.args = item.params.iter().map(|p| (p.name.clone(), p.default.clone())).collect();
 			sig.foreign = self.exports.contains_key(&item.key) || is_c_fn;
 			sig.unsafe_call = is_unsafe;
 			funcs.insert(item.key.clone(), sig);
@@ -1143,13 +1146,22 @@ impl<M: Module> Compiler<M> {
 
 		for (name, fn_type, span, scope) in &foreign_items {
 			let (span, scope) = (*span, *scope);
-			let TypeExpr::Fn(param_types, access, ret) = fn_type else {
+			let TypeExpr::Fn(param_types, ret) = fn_type else {
 				unreachable!("loader validated foreign fn type")
 			};
 			let types = TypeCtx::new(&structs, &enums, &aliases, &no_type_params, &generics, &traits)
 				.with_consts(consts)
 				.with_scope(scope);
-			let params: Vec<Typ> = param_types.iter().map(|t| types.resolve(t, span)).collect::<Result<_, _>>()?;
+			let params: Vec<FnParam> = param_types
+				.iter()
+				.map(|(n, _, t)| {
+					Ok(FnParam {
+						name: n.clone(),
+						..FnParam::new(types.resolve(t, span)?)
+					})
+				})
+				.collect::<Result<_, Diagnostic>>()?;
+			let access: Vec<Access> = param_types.iter().map(|(_, a, _)| *a).collect();
 			let ret = types.resolve(ret, span)?;
 			let mut bare = display_name(name).to_string();
 			// `@link`
@@ -1193,12 +1205,12 @@ impl<M: Module> Compiler<M> {
 				let msg = format!("unknown foreign symbol `{bare}`");
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("no such symbol"));
 			}
-			for t in &params {
-				if let Typ::Fn(ps, r) = t {
+			for p in &params {
+				if let Typ::Fn(ps, r) = &p.typ {
 					check_c_sig(bare, ps, r, span)?;
 				}
 			}
-			let mut sig = self.declare_fn(bare, Linkage::Import, params, access.clone(), ret);
+			let mut sig = self.declare_fn(bare, Linkage::Import, params, access, ret);
 			sig.foreign = true;
 			funcs.insert(name.clone(), sig);
 		}
@@ -1387,10 +1399,17 @@ impl<M: Module> Compiler<M> {
 	}
 
 	// Declare a hoisted fn's signature ahead of its body.
-	fn declare_fn(&mut self, symbol: &str, linkage: Linkage, params: Vec<Typ>, access: Vec<Access>, ret: Typ) -> FnSig {
+	fn declare_fn(
+		&mut self,
+		symbol: &str,
+		linkage: Linkage,
+		params: Vec<FnParam>,
+		access: Vec<Access>,
+		ret: Typ,
+	) -> FnSig {
 		let int = self.module.target_config().pointer_type();
 		let mut sig = self.module.make_signature();
-		sig.params.extend(params.iter().map(|t| AbiParam::new(cl_type(t, int))));
+		sig.params.extend(params.iter().map(|p| AbiParam::new(cl_type(&p.typ, int))));
 		if !ret.is_unit() {
 			sig.returns.push(AbiParam::new(cl_type(&ret, int)));
 		}
@@ -1400,7 +1419,6 @@ impl<M: Module> Compiler<M> {
 			params,
 			access,
 			ret,
-			args: vec![],
 			foreign: false,
 			unsafe_call: linkage == Linkage::Import,
 		}

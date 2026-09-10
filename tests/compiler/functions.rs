@@ -199,6 +199,19 @@ fn named_args() {
 }
 
 #[test]
+fn named_args_on_fn_value() {
+	let src = indoc! {r#"
+		win :: fn(title: string, x := 0, w := 854) string { "{title} {x} {w}" }
+		apply :: fn(f: fn(n: int) int, x: int) int { f(n = x) }
+		f := win
+		print(f(w = 640, title = "a"))
+		print(f("b"))
+		print(apply(fn(n: int) int { n * 3 }, 4))
+	"#};
+	check(src, ["a 0 640", "b 0 854", "12"]);
+}
+
+#[test]
 fn redefinition_shadows() {
 	let src = indoc! {r#"
 		call :: fn() { f() }

@@ -30,9 +30,9 @@ pub(crate) enum Typ {
 	Sum(Vec<VariantInfo>),
 	Error,
 	Range,
-	Fn(Vec<Typ>, Box<Typ>),
+	Fn(Vec<FnParam>, Box<Typ>),
 	Annotated(Vec<String>, Box<Typ>),
-	Closure(Vec<Typ>, Box<Typ>, bool),
+	Closure(Vec<FnParam>, Box<Typ>, bool),
 	Map(Box<Typ>, Box<Typ>),
 	Access(Access, Box<Typ>),
 	Ref(Box<Typ>),
@@ -43,6 +43,39 @@ pub(crate) enum Typ {
 // Annotation names.
 pub(crate) fn marks(anns: &[String]) -> String {
 	anns.iter().map(|a| format!("@{} ", display_name(a))).collect()
+}
+
+// One fn parameter slot.
+#[derive(Clone, Debug)]
+pub(crate) struct FnParam {
+	pub name: Option<String>,
+	pub typ: Typ,
+	pub default: Option<Spanned<Expr>>,
+}
+
+impl FnParam {
+	pub fn new(typ: Typ) -> Self {
+		FnParam {
+			name: None,
+			typ,
+			default: None,
+		}
+	}
+
+	pub fn of(p: &Param, typ: Typ) -> Self {
+		FnParam {
+			name: Some(p.name.clone()),
+			typ,
+			default: p.default.clone(),
+		}
+	}
+}
+
+// Labels and defaults are not identity.
+impl PartialEq for FnParam {
+	fn eq(&self, other: &Self) -> bool {
+		self.typ == other.typ
+	}
 }
 
 // A struct field definition.
@@ -130,7 +163,9 @@ impl Typ {
 	// Whether a value can cross the C ABI.
 	pub fn is_c_repr(&self) -> bool {
 		match self.newtype().unwrap_or(self) {
-			Typ::Fn(ps, r) => ps.iter().chain((!r.is_unit()).then_some(&**r)).all(Typ::is_c_repr),
+			Typ::Fn(ps, r) => (ps.iter().map(|p| &p.typ))
+				.chain((!r.is_unit()).then_some(&**r))
+				.all(Typ::is_c_repr),
 			Typ::Annotated(_, t) => t.is_c_repr(),
 			t => matches!(
 				t,
@@ -175,7 +210,10 @@ impl Typ {
 			Typ::Access(a, inner) => format!("{a} {}", inner.key()),
 			Typ::Ref(inner) => format!("&{}", inner.key()),
 			Typ::Trait(name) => format!("dyn {name}"),
-			Typ::Fn(params, ret) | Typ::Closure(params, ret, _) => format!("fn({}) {}", keys(params), ret.key()),
+			Typ::Fn(params, ret) | Typ::Closure(params, ret, _) => {
+				let ps: Vec<_> = params.iter().map(|p| p.typ.key()).collect();
+				format!("fn({}) {}", ps.join(", "), ret.key())
+			}
 			Typ::Annotated(anns, t) => format!("{}{}", marks(anns), t.key()),
 			Typ::Sum(variants) => variants
 				.iter()
@@ -239,7 +277,7 @@ impl fmt::Display for Typ {
 					if i > 0 {
 						write!(f, ", ")?;
 					}
-					write!(f, "{p}")?;
+					write!(f, "{}", p.typ)?;
 				}
 				write!(f, ") {ret}")
 			}
@@ -314,8 +352,9 @@ pub(crate) fn type_expr(typ: &Typ) -> Option<TypeExpr> {
 				.collect::<Option<_>>()?,
 		),
 		Typ::Fn(ps, r) => TypeExpr::Fn(
-			ps.iter().map(|p| type_expr(access_peel(p))).collect::<Option<_>>()?,
-			ps.iter().map(access_of).collect(),
+			ps.iter()
+				.map(|p| Some((p.name.clone(), access_of(&p.typ), type_expr(access_peel(&p.typ))?)))
+				.collect::<Option<_>>()?,
 			Box::new(type_expr(r)?),
 		),
 		_ => return None,

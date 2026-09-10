@@ -74,9 +74,10 @@ impl<M: Module> Translator<'_, M> {
 			return Err(Diagnostic::new(msg, span.into_range()).with_label("expected one argument"));
 		};
 		check_c_sig(display_name(name), params, ret, span)?;
-		if !bare && let Some(t) = params.iter().find(|t| matches!(t, Typ::Fn(..))) {
+		if !bare && let Some(p) = params.iter().find(|p| matches!(p.typ, Typ::Fn(..))) {
 			let msg = format!("`{}` can't take a fn pointer", display_name(name));
-			return Err(Diagnostic::new(msg, span.into_range()).with_label(format!("`{t}` would cross as a cell")));
+			let label = format!("`{}` would cross as a cell", p.typ);
+			return Err(Diagnostic::new(msg, span.into_range()).with_label(label));
 		}
 		let want = self.types().resolve(&TypeExpr::Name(role::PTR.into()), span)?;
 		let addr = self.check_typed(arg, &want, "not a `ptr`")?;

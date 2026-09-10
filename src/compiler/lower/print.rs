@@ -194,7 +194,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				let vtable = self.b.ins().load(self.int, MemFlags::new(), val, 0);
 				let data = self.b.ins().load(self.int, MemFlags::new(), val, 8);
 				let fnptr = self.b.ins().load(self.int, MemFlags::new(), vtable, slot as i32);
-				let sig = Typ::Fn(vec![typ.clone()], Box::new(Typ::Str));
+				let sig = Typ::Fn(vec![FnParam::new(typ.clone())], Box::new(Typ::Str));
 				let Ok((s, _)) = self.call_value("str", Callee::Addr(fnptr), &sig, &[], Some(data), (0..0).into())
 				else {
 					unreachable!("no args to check")

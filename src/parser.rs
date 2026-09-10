@@ -309,16 +309,14 @@ where
 			let fn_param = access
 				.clone()
 				.or_not()
-				.then_ignore(ident().then_ignore(just(Token::Colon)).or_not())
-				.then(te.clone());
+				.then(ident().then_ignore(just(Token::Colon)).or_not())
+				.then(te.clone())
+				.map(|((a, n), t)| (n, a.unwrap_or_default(), t));
 			let fn_ret = same_line.ignore_then(base.clone()).or_not();
 			let fn_type = just(Token::Fn)
 				.ignore_then(paren(loose_list(fn_param)))
 				.then(fn_ret)
-				.map(|(params, ret)| {
-					let (access, params) = params.into_iter().map(|(a, t)| (a.unwrap_or_default(), t)).unzip();
-					TypeExpr::Fn(params, access, Box::new(ret.unwrap_or(TypeExpr::Tuple(vec![]))))
-				});
+				.map(|(params, ret)| TypeExpr::Fn(params, Box::new(ret.unwrap_or(TypeExpr::Tuple(vec![])))));
 			// annotations
 			let annotated = annotation
 				.clone()

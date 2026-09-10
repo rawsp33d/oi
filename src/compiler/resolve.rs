@@ -254,11 +254,15 @@ impl TypeCtx<'_> {
 					.collect::<Result<_, Diagnostic>>()?;
 				Ok(Typ::TupleStruct(name.clone(), fields))
 			}
-			TypeExpr::Fn(params, access, ret) => {
+			TypeExpr::Fn(params, ret) => {
 				let params = params
 					.iter()
-					.zip(access)
-					.map(|(p, &a)| Ok(access_wrap(a, self.resolve(p, span)?)))
+					.map(|(n, a, p)| {
+						Ok(FnParam {
+							name: n.clone(),
+							..FnParam::new(access_wrap(*a, self.resolve(p, span)?))
+						})
+					})
 					.collect::<Result<_, Diagnostic>>()?;
 				Ok(Typ::Fn(params, Box::new(self.resolve(ret, span)?)))
 			}
