@@ -624,6 +624,19 @@ pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const runtime:
 			flag("`.int()` needs an Ast holding an Int literal");
 			0
 		}
+		(b"str", e) => {
+			let s = match e {
+				Expr::Ident(s) | Expr::String(s) => s.clone(),
+				Expr::Int(n) => n.to_string(),
+				Expr::Float(n) => n.to_string(),
+				Expr::Bool(b) => b.to_string(),
+				_ => {
+					flag("`.str()` needs an Ast holding a name or literal");
+					String::new()
+				}
+			};
+			runtime::str_new(s.as_bytes()) as i64
+		}
 		(
 			b"name",
 			Expr::StructDef { name, .. }

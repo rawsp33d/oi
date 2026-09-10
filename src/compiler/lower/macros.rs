@@ -55,6 +55,15 @@ impl<'a, M: Module> Translator<'a, M> {
 		Ok((self.b.inst_results(call)[0], Typ::Ast))
 	}
 
+	// Call rt_ast_method on an Ast.
+	pub(super) fn ast_method(&mut self, ast: Value, m: &str, arg: Option<Value>) -> Value {
+		let m = self.str_const(m);
+		let arg = arg.unwrap_or_else(|| self.b.ins().iconst(self.int, 0));
+		let func = self.import_fn(expand::RT_AST_METHOD, &[self.int; 3], Some(self.int));
+		let call = self.b.ins().call(func, &[ast, m, arg]);
+		self.b.inst_results(call)[0]
+	}
+
 	// Lift an unquoted value into a Ast literal pointer, ready to splice into a template.
 	fn lift_unquote(&mut self, val: Value, typ: &Typ, span: Span) -> Result<Value, Diagnostic> {
 		let (tag, bits) = match typ {

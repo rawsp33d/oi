@@ -297,6 +297,18 @@ fn unquote_expr_names_a_binder() {
 }
 
 #[test]
+fn ast_str_reads_names_and_literals() {
+	check(
+		indoc! {r#"
+			def! :: fn(x: Ast, s: Ast, n: Ast) Ast { `%{ident("get_" + x.str())} :: fn() string { %{s.str() + n.str()} }` }
+			def!(foo, "hi", 42)
+			print(get_foo())
+		"#},
+		"hi42",
+	);
+}
+
+#[test]
 fn name_reads_a_def() {
 	check(
 		indoc! {r#"

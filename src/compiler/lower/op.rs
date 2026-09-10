@@ -1,4 +1,4 @@
-use crate::compiler::{expand, role};
+use crate::compiler::role;
 
 use super::*;
 
@@ -482,10 +482,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			}
 			(Typ::Ast, Typ::Str) | (Typ::Str, Typ::Ast) if icc == IntCC::Equal || icc == IntCC::NotEqual => {
 				let (ast_val, str_val) = if lt == Typ::Ast { (lv, rv) } else { (rv, lv) };
-				let m = self.str_const("==");
-				let func = self.import_fn(expand::RT_AST_METHOD, &[self.int; 3], Some(self.int));
-				let call = self.b.ins().call(func, &[ast_val, m, str_val]);
-				let eq = self.b.inst_results(call)[0];
+				let eq = self.ast_method(ast_val, "==", Some(str_val));
 				if icc == IntCC::NotEqual {
 					self.b.ins().icmp_imm(IntCC::Equal, eq, 0)
 				} else {

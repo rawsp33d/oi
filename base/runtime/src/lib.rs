@@ -103,8 +103,8 @@ unsafe fn str_lossy<'a>(header: *const StrHeader) -> std::borrow::Cow<'a, str> {
 	String::from_utf8_lossy(unsafe { str_bytes(header) })
 }
 
-// Allocate a fresh string handle owning a copy of `bytes`, plus a trailing NUL for C interop.
-fn str_new(bytes: &[u8]) -> *const StrHeader {
+/// Allocate a fresh string handle owning a copy of `bytes`, plus a trailing NUL for C interop.
+pub fn str_new(bytes: &[u8]) -> *const StrHeader {
 	let mut buf = bytes.to_vec();
 	buf.push(0);
 	let data = Box::leak(buf.into_boxed_slice()).as_ptr() as i64;

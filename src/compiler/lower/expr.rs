@@ -1,4 +1,4 @@
-use crate::compiler::{expand, role};
+use crate::compiler::role;
 
 use super::*;
 
@@ -280,11 +280,7 @@ impl<'a, M: Module> Translator<'a, M> {
 					let (recv_val, recv_typ) = self.expr(recv)?;
 					let recv_typ = self.peeled(&recv_typ);
 					if recv_typ == Typ::Ast && method == "int" && args.is_empty() {
-						let m = self.str_const(method);
-						let zero = self.b.ins().iconst(self.int, 0);
-						let func = self.import_fn(expand::RT_AST_METHOD, &[self.int; 3], Some(self.int));
-						let call = self.b.ins().call(func, &[recv_val, m, zero]);
-						let raw = self.b.inst_results(call)[0];
+						let raw = self.ast_method(recv_val, method, None);
 						return Ok((self.b.ins().ireduce(types::I32, raw), Typ::Int(32)));
 					}
 					let has_str_impl = matches!(
@@ -467,11 +463,7 @@ impl<'a, M: Module> Translator<'a, M> {
 						_ => None,
 					};
 					if let Some(ret) = ret {
-						let m = self.str_const(field);
-						let zero = self.b.ins().iconst(self.int, 0);
-						let func = self.import_fn(expand::RT_AST_METHOD, &[self.int; 3], Some(self.int));
-						let call = self.b.ins().call(func, &[ptr, m, zero]);
-						return Ok((self.b.inst_results(call)[0], ret));
+						return Ok((self.ast_method(ptr, field, None), ret));
 					}
 				}
 

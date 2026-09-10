@@ -178,7 +178,10 @@ impl<'a, M: Module> Translator<'a, M> {
 
 			Typ::Fn(..) | Typ::Closure(..) => self.write_lit("<fn>", sink),
 			Typ::Map(..) => self.write_lit("<map>", sink),
-			Typ::Ast => self.write_lit("<ast>", sink),
+			Typ::Ast => {
+				let s = self.ast_method(val, "str", None);
+				self.emit_print(s, &Typ::Str, quote, sink)
+			}
 			Typ::Any => self.write_lit("<any>", sink),
 
 			Typ::Annotated(_, t) => self.emit_print(val, &t.clone(), quote, sink),
