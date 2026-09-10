@@ -326,6 +326,10 @@ where
 			let option = just(Token::Question)
 				.ignore_then(base.clone())
 				.map(|t| TypeExpr::Option(Box::new(t)));
+			// varargs
+			let variadic = just(Token::DotDotDot)
+				.ignore_then(base.clone())
+				.map(|t| TypeExpr::Variadic(Box::new(t)));
 			// results
 			let result = just(Token::Not)
 				.ignore_then(base.clone())
@@ -359,6 +363,7 @@ where
 				annotated,
 				fn_type,
 				option,
+				variadic,
 				result,
 				atom,
 				anon_struct,

@@ -189,6 +189,11 @@ impl TypeCtx<'_> {
 					.collect::<Result<Vec<_>, _>>()?;
 				Ok(Typ::Tuple(fields))
 			}
+			TypeExpr::Variadic(_) => Err(Diagnostic::new(
+				"`...T` is only allowed as a parameter type",
+				span.into_range(),
+			)
+			.with_label("not a parameter")),
 			TypeExpr::Array(elem) => Ok(Typ::Array(Box::new(self.resolve(elem, span)?))),
 			TypeExpr::FixedArray(elem, len) => {
 				if let Expr::Ident(name) = &len.0
@@ -260,7 +265,8 @@ impl TypeCtx<'_> {
 					.map(|(n, a, p)| {
 						Ok(FnParam {
 							name: n.clone(),
-							..FnParam::new(access_wrap(*a, self.resolve(p, span)?))
+							variadic: matches!(p, TypeExpr::Variadic(_)),
+							..FnParam::new(access_wrap(*a, self.param(p, span)?))
 						})
 					})
 					.collect::<Result<_, Diagnostic>>()?;
@@ -540,11 +546,19 @@ impl TypeCtx<'_> {
 		Ok(Typ::Sum(variants))
 	}
 
+	// A param type, mapping varargs to its array type.
+	pub fn param(&self, te: &TypeExpr, span: Span) -> Result<Typ, Diagnostic> {
+		match te {
+			TypeExpr::Variadic(elem) => Ok(Typ::Array(Box::new(self.resolve(elem, span)?))),
+			_ => self.resolve(te, span),
+		}
+	}
+
 	pub fn resolve_params(&self, params: &[Param]) -> Result<Vec<(String, Typ, Access)>, Diagnostic> {
 		params
 			.iter()
 			.map(|p| {
-				let typ = self.resolve(&p.typ, p.span)?;
+				let typ = self.param(&p.typ, p.span)?;
 				let lendable = matches!(
 					typ,
 					Typ::Array(_) | Typ::FixedArray(..) | Typ::Map(..) | Typ::Struct(..) | Typ::TupleStruct(..)

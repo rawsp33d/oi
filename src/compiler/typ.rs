@@ -51,6 +51,7 @@ pub(crate) struct FnParam {
 	pub name: Option<String>,
 	pub typ: Typ,
 	pub default: Option<Spanned<Expr>>,
+	pub variadic: bool,
 }
 
 impl FnParam {
@@ -59,6 +60,7 @@ impl FnParam {
 			name: None,
 			typ,
 			default: None,
+			variadic: false,
 		}
 	}
 
@@ -67,11 +69,11 @@ impl FnParam {
 			name: Some(p.name.clone()),
 			typ,
 			default: p.default.clone(),
+			variadic: matches!(p.typ, TypeExpr::Variadic(_)),
 		}
 	}
 }
 
-// Labels and defaults are not identity.
 impl PartialEq for FnParam {
 	fn eq(&self, other: &Self) -> bool {
 		self.typ == other.typ
@@ -277,7 +279,10 @@ impl fmt::Display for Typ {
 					if i > 0 {
 						write!(f, ", ")?;
 					}
-					write!(f, "{}", p.typ)?;
+					match (p.variadic, &p.typ) {
+						(true, Typ::Array(e)) => write!(f, "...{e}")?,
+						_ => write!(f, "{}", p.typ)?,
+					}
 				}
 				write!(f, ") {ret}")
 			}

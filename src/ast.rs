@@ -530,6 +530,7 @@ pub enum TypeExpr {
 	Generic(String, Vec<TypeExpr>),
 	Ref(Box<TypeExpr>),
 	AnonStruct(Vec<Param>),
+	Variadic(Box<TypeExpr>),
 }
 
 impl TypeExpr {

@@ -77,6 +77,15 @@ fn check_param_defaults(params: &[Param]) -> Result<(), Diagnostic> {
 	Ok(())
 }
 
+// Check that varargs don't violate our rules.
+// TODO: I hope to lax these in the future but don't want to spin my wheels on greedy type checking and stuff right now
+fn check_varargs(name: &str, params: &[Param]) -> Result<(), Diagnostic> {
+	let mut varargs = params.iter().filter(|p| matches!(p.typ, TypeExpr::Variadic(_)));
+	let Some(p) = varargs.nth(1) else { return Ok(()) };
+	let msg = format!("`{}` has more than one vararg", display_name(name));
+	Err(Diagnostic::new(msg, p.span.into_range()).with_label("second vararg"))
+}
+
 // Check that every param and return are C friendly.
 pub(crate) fn check_c_sig(name: &str, params: &[FnParam], ret: &Typ, span: Span) -> Result<(), Diagnostic> {
 	match (params.iter().map(|p| &p.typ))
@@ -164,7 +173,9 @@ pub(crate) struct Generics {
 fn mentions(te: &TypeExpr, name: &str) -> bool {
 	match te {
 		TypeExpr::Name(n) => n == name,
-		TypeExpr::Array(e) | TypeExpr::FixedArray(e, _) | TypeExpr::Option(e) => mentions(e, name),
+		TypeExpr::Array(e) | TypeExpr::FixedArray(e, _) | TypeExpr::Option(e) | TypeExpr::Variadic(e) => {
+			mentions(e, name)
+		}
 		TypeExpr::Result(e, err) => mentions(e, name) || err.as_deref().is_some_and(|e| mentions(e, name)),
 		TypeExpr::Sum(es) | TypeExpr::Generic(_, es) => es.iter().any(|e| mentions(e, name)),
 		TypeExpr::Tuple(fs) => fs.iter().any(|(_, t)| mentions(t, name)),
@@ -394,6 +405,7 @@ fn replace_self(te: &TypeExpr, self_ty: &TypeExpr) -> TypeExpr {
 		TypeExpr::Array(e) => TypeExpr::Array(Box::new(replace_self(e, self_ty))),
 		TypeExpr::FixedArray(e, n) => TypeExpr::FixedArray(Box::new(replace_self(e, self_ty)), n.clone()),
 		TypeExpr::Option(e) => TypeExpr::Option(Box::new(replace_self(e, self_ty))),
+		TypeExpr::Variadic(e) => TypeExpr::Variadic(Box::new(replace_self(e, self_ty))),
 		TypeExpr::Result(e, err) => TypeExpr::Result(Box::new(replace_self(e, self_ty)), err.clone()),
 		TypeExpr::Tuple(fs) => TypeExpr::Tuple(fs.iter().map(|(n, t)| (n.clone(), replace_self(t, self_ty))).collect()),
 		TypeExpr::Annotated(a, t) => TypeExpr::Annotated(a.clone(), Box::new(replace_self(t, self_ty))),
@@ -1113,7 +1125,7 @@ impl<M: Module> Compiler<M> {
 			let params: Vec<FnParam> = item
 				.params
 				.iter()
-				.map(|p| Ok(FnParam::of(p, types.resolve(&p.typ, p.span)?)))
+				.map(|p| Ok(FnParam::of(p, types.param(&p.typ, p.span)?)))
 				.collect::<Result<_, Diagnostic>>()?;
 			let access: Vec<Access> = item.params.iter().map(|p| p.access).collect();
 			let ret = match &item.ret {
@@ -1121,6 +1133,7 @@ impl<M: Module> Compiler<M> {
 				None => Typ::unit(),
 			};
 			check_param_defaults(&item.params)?;
+			check_varargs(&item.key, &item.params)?;
 			// `@export` / `@c`
 			let anns = self.annotations.get(&item.key);
 			let ann_span = |target| anns.into_iter().flatten().find_map(|a| Some((ann(a, target)?, a.1)));
@@ -1157,7 +1170,8 @@ impl<M: Module> Compiler<M> {
 				.map(|(n, _, t)| {
 					Ok(FnParam {
 						name: n.clone(),
-						..FnParam::new(types.resolve(t, span)?)
+						variadic: matches!(t, TypeExpr::Variadic(_)),
+						..FnParam::new(types.param(t, span)?)
 					})
 				})
 				.collect::<Result<_, Diagnostic>>()?;

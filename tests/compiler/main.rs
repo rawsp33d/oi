@@ -35,4 +35,5 @@ mod str_method;
 mod traits;
 mod types;
 mod unit;
+mod varargs;
 mod vars;
