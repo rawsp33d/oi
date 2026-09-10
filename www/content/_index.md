@@ -4,7 +4,7 @@ description = "Your friendly neighborhood programming language."
 template = "homepage.html"
 +++
 
-A language written by human([s?](https://github.com/rawsp33d/oi/fork)), for humans.
+A language written by human([s?](https://github.com/oilang/oi/fork)), for humans.
 More specifically, for humans who love programming.
 
 Oi is a general purpose system language with a high emphasis on ergonomics.

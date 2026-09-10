@@ -1,6 +1,6 @@
 title = "Oi"
 description = "Your friendly neighborhood programming language."
-base_url = "https://rawsp33d.github.io/oi"
+base_url = "https://oilang.github.io/oi"
 
 compile_sass = true
 build_search_index = true
@@ -37,7 +37,7 @@ theme = "toggle-auto"
 
 stylesheets = ["style.css"]
 socials = [
-	{ name = "github", url = "https://github.com/rawsp33d/oi", icon = "github" },
+	{ name = "github", url = "https://github.com/oilang/oi", icon = "github" },
 ]
 menu = [
 	{ name = "features", url = "/features" },

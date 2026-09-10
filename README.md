@@ -1,6 +1,6 @@
 # Oi
 
-A language written by human([s?](https://github.com/rawsp33d/oi/fork)), for humans.
+A language written by human([s?](https://github.com/oilang/oi/fork)), for humans.
 More specifically, for humans who love programming.
 
 Oi is a general purpose system language with a high emphasis on ergonomics.
@@ -56,6 +56,6 @@ oi repl
 
 ## Docs
 
-- [rawsp33d.github.io/oi/](https://rawsp33d.github.io/oi/): simple website
+- [oilang.github.io/oi/](https://oilang.github.io/oi/): simple website
 - [`ref/syntax.md`](ref/syntax.md): canonical language design spec
 - [`ref/Oi.md`](ref/Oi.md): loose plan and direction, open questions
