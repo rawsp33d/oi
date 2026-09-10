@@ -773,10 +773,13 @@ where
 			.then_ignore(just(Token::Assign))
 			.then(mod_arg.clone().or(expr.clone()))
 			.map(|(key, value)| (Some(key), value));
+		let spread_arg = just(Token::DotDotDot)
+			.ignore_then(expr.clone())
+			.map_with(|e, ex| (Expr::Spread(Box::new(e)), ex.span()));
 		// variable vs. call vs. struct literal
 		let args = paren(
 			named_arg
-				.or(mod_arg.or(expr.clone()).or(block_lit.clone()).map(|e| (None, e)))
+				.or((spread_arg.or(mod_arg).or(expr.clone()).or(block_lit.clone())).map(|e| (None, e)))
 				.separated_by(just(Token::Comma))
 				.allow_trailing()
 				.collect::<Vec<_>>(),

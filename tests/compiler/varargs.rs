@@ -1,4 +1,4 @@
-use crate::helpers::fail_with;
+use crate::helpers::*;
 
 #[test]
 fn vararg_rejections() {
@@ -11,4 +11,29 @@ fn vararg_rejections() {
 		fail_with(src, "`...T` is only allowed as a parameter type");
 	}
 	fail_with("f :: fn(a: ...int, b: ...int) {}", "`f` has more than one vararg");
+	fail_with(
+		"f :: fn(a: ...int, b: int) {}\nf()",
+		"`f` expects 1.. argument(s), got 0",
+	);
+	fail_with("f :: fn(xs: ...int) {}\na :: [1]\nf(a)", "expected int, got []int");
+}
+
+#[test]
+fn varargs() {
+	let src = indoc! {r#"
+		sum :: fn(xs: ...int) int {
+			t := 0
+			loop x in xs { t = t + x }
+			t
+		}
+		between :: fn(open: string, items: ...string, close: string) string { "{open}{items.len}{close}" }
+		join :: fn(parts: ...string, sep := ",") string { "{parts.len}{sep}" }
+		count :: fn(args: ...any) int { args.len }
+		s :: sum
+		ps :: ["a", "b"]
+		print(sum(1, 2, 3), sum(), s(4, 5), count(1, "a", true))
+		print(between("[", "a", "b", "]"), between("[", "]"), join("a", "b", sep = "/"))
+		print(join(...ps), join("pre", ...ps, "post"), sum(...[1, 2]))
+	"#};
+	check(src, ["6 0 9 3", "[2] [0] 2/", "2, 4, 3"]);
 }
