@@ -27,7 +27,7 @@ pub(crate) enum Typ {
 	Trait(String),
 	Option(Box<Typ>),
 	Result(Box<Typ>, Box<Typ>),
-	Sum(Vec<VariantInfo>),
+	Sum(String, Vec<VariantInfo>),
 	Error,
 	Range,
 	Fn(Vec<FnParam>, Box<Typ>),
@@ -217,7 +217,8 @@ impl Typ {
 				format!("fn({}) {}", ps.join(", "), ret.key())
 			}
 			Typ::Annotated(anns, t) => format!("{}{}", marks(anns), t.key()),
-			Typ::Sum(variants) => variants
+			Typ::Sum(name, _) if !name.is_empty() => name.clone(),
+			Typ::Sum(_, variants) => variants
 				.iter()
 				.map(|v| match v.payload.is_empty() {
 					true => format!(":{}", v.name),
@@ -255,7 +256,8 @@ impl fmt::Display for Typ {
 			Typ::Option(inner) => write!(f, "?{inner}"),
 			Typ::Result(ok, err) if **err == Typ::Error => write!(f, "!{ok}"),
 			Typ::Result(ok, err) => write!(f, "Result[{ok}, {err}]"),
-			Typ::Sum(variants) => {
+			Typ::Sum(name, _) if !name.is_empty() => write!(f, "{name}"),
+			Typ::Sum(_, variants) => {
 				write!(
 					f,
 					"{}",
@@ -314,7 +316,7 @@ impl PartialEq for Typ {
 			(Typ::Option(a), Typ::Option(b)) | (Typ::Array(a), Typ::Array(b)) => a == b,
 			(Typ::Result(a, e), Typ::Result(b, f)) => a == b && e == f,
 			(Typ::FixedArray(a, n), Typ::FixedArray(b, m)) => a == b && n == m,
-			(Typ::Sum(a), Typ::Sum(b)) => a == b,
+			(Typ::Sum(n, a), Typ::Sum(m, b)) => n == m && a == b,
 			(Typ::Fn(p, r) | Typ::Closure(p, r, _), Typ::Fn(q, s) | Typ::Closure(q, s, _)) => p == q && r == s,
 			(Typ::Annotated(a, x), Typ::Annotated(b, y)) => a == b && x == y,
 			(Typ::Map(k, v), Typ::Map(l, w)) => k == l && v == w,

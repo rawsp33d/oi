@@ -396,7 +396,7 @@ fn ref_guarded(typ: &Typ, placeholders: &HashSet<String>) -> bool {
 		Typ::Result(ok, err) => ref_guarded(ok, placeholders) && ref_guarded(err, placeholders),
 		Typ::Map(k, v) => ref_guarded(k, placeholders) && ref_guarded(v, placeholders),
 		Typ::Tuple(fs) | Typ::TupleStruct(_, fs) => fs.iter().all(|(_, t)| ref_guarded(t, placeholders)),
-		Typ::Sum(vs) => vs.iter().all(|v| v.payload.iter().all(|t| ref_guarded(t, placeholders))),
+		Typ::Sum(_, vs) => vs.iter().all(|v| v.payload.iter().all(|t| ref_guarded(t, placeholders))),
 		_ => true,
 	}
 }

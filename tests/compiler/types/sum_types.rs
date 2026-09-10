@@ -507,3 +507,27 @@ fn atom_sum_alias_splices_as_member() {
 		"2",
 	);
 }
+
+#[test]
+fn recursive_members() {
+	check(
+		indoc! {"
+			Arr :: []Json
+			Json :: :null | bool | float | string | Arr | [string]Json
+			size :: fn(j: Json) int {
+				match j {
+					a @ Arr => a.len,
+					_ => 0,
+				}
+			}
+			b : Json : true
+			inner : Json : [b, b, b]
+			top : Json : [inner]
+			match top {
+				a @ Arr => size(a[0]),
+				_ => -1,
+			}
+		"},
+		"3",
+	);
+}

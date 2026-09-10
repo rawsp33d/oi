@@ -293,7 +293,8 @@ impl<'a, M: Module> Translator<'a, M> {
 			Typ::Enum(name) => self.enum_variants(name),
 			Typ::Option(inner) => option_variants(inner),
 			Typ::Result(ok, err) => result_variants(ok, err),
-			Typ::Sum(variants) => variants.clone(),
+			Typ::Sum(name, _) if !name.is_empty() => self.types().named_sum(name, Span::default()).unwrap_or_default(),
+			Typ::Sum(_, variants) => variants.clone(),
 			_ => Vec::new(),
 		}
 	}
@@ -361,8 +362,8 @@ impl<'a, M: Module> Translator<'a, M> {
 	// A match pattern's discriminant and payload binds.
 	pub(super) fn enum_pattern(&self, pat: &Spanned<Expr>, typ: &Typ) -> Result<(i64, Vec<Bind>), Diagnostic> {
 		let bad = |msg| Err(Diagnostic::new(msg, pat.1.into_range()).with_label("bad pattern"));
-		if let (Typ::Sum(variants), Expr::Ident(v)) = (typ, &pat.0) {
-			let disp = self.sum_display(v, pat.1);
+		if let (Typ::Sum(..), Expr::Ident(v)) = (typ, &pat.0) {
+			let (variants, disp) = (self.variants_of(typ), self.sum_display(v, pat.1));
 			return match variants.iter().find(|x| x.name == disp) {
 				Some(x) => Ok((x.disc, vec![])),
 				None => bad(format!("`{typ}` has no variant `{v}`")),
@@ -418,8 +419,8 @@ impl<'a, M: Module> Translator<'a, M> {
 			let t = self.types().resolve(&TypeExpr::Name(v.clone()), pat.1).ok()?;
 			return Some((name.clone(), t, 8));
 		}
-		let Typ::Sum(variants) = st else { return None };
-		let disp = self.sum_display(v, pat.1);
+		let Typ::Sum(..) = st else { return None };
+		let (variants, disp) = (self.variants_of(st), self.sum_display(v, pat.1));
 		let vi = variants.iter().find(|x| x.name == disp && x.payload.len() == 1)?;
 		Some((name.clone(), vi.payload[0].clone(), 8))
 	}
@@ -612,9 +613,11 @@ impl<'a, M: Module> Translator<'a, M> {
 			return Ok((self.fixed_to_array(val, e, *n), to.clone()));
 		}
 		// same member sets with different order
-		if let (Typ::Sum(src), Typ::Sum(dst)) = (from, to)
-			&& let Some(map) = sum_remap(src, dst)
-		{
+		if let (Typ::Sum(..), Typ::Sum(..)) = (from, to) {
+			let (src, dst) = (self.variants_of(from), self.variants_of(to));
+			let Some(map) = sum_remap(&src, &dst) else {
+				return Ok((val, from.clone()));
+			};
 			let old = self.enum_tag(from, val);
 			let mut tag = self.b.ins().iconst(self.int, map[0].1);
 			for &(s, d) in &map[1..] {
@@ -622,10 +625,10 @@ impl<'a, M: Module> Translator<'a, M> {
 				let dv = self.b.ins().iconst(self.int, d);
 				tag = self.b.ins().select(hit, dv, tag);
 			}
-			if !enum_boxed(dst) {
+			if !enum_boxed(&dst) {
 				return Ok((tag, to.clone()));
 			}
-			let slots = enum_slots(dst);
+			let slots = enum_slots(&dst);
 			let ptr = self.call_alloc(slots);
 			self.b.ins().store(MemFlags::new(), tag, ptr, 0);
 			for i in 1..slots {
@@ -640,10 +643,11 @@ impl<'a, M: Module> Translator<'a, M> {
 		{
 			return Ok((self.make_option(inner, Some(val)), to.clone()));
 		}
-		if let Typ::Sum(variants) = to
-			&& let Some(v) = variants.iter().find(|v| v.payload == [from.clone()])
-		{
-			return Ok((self.make_enum(variants, v.disc, &[val]), to.clone()));
+		if let Typ::Sum(..) = to {
+			let variants = self.variants_of(to);
+			if let Some(v) = variants.iter().find(|v| v.payload == [from.clone()]) {
+				return Ok((self.make_enum(&variants, v.disc, &[val]), to.clone()));
+			}
 		}
 		Ok((val, from.clone()))
 	}

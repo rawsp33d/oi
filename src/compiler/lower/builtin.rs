@@ -399,7 +399,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		if !typ.is_enumish() {
 			return Ok((val, typ));
 		}
-		if matches!(typ, Typ::Sum(_)) {
+		if matches!(typ, Typ::Sum(..)) {
 			return Err(
 				Diagnostic::new("cannot extract a sum member by casting", span.into_range())
 					.with_label("no member extraction yet"),

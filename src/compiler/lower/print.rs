@@ -163,7 +163,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				self.emit_variant(&typ.clone(), val, quote, true, sink);
 			}
 
-			Typ::Sum(_) => {
+			Typ::Sum(..) => {
 				self.emit_variant(&typ.clone(), val, quote, false, sink);
 			}
 

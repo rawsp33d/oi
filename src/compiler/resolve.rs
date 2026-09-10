@@ -233,7 +233,7 @@ impl TypeCtx<'_> {
 							.with_label("repeated atom"),
 					);
 				}
-				Ok(Typ::Sum(atom_sum_variants(names)))
+				Ok(Typ::Sum(String::new(), atom_sum_variants(names)))
 			}
 			TypeExpr::Sum(ms) => self.resolve_sum(ms, span),
 			TypeExpr::AnonStruct(params) => {
@@ -495,6 +495,12 @@ impl TypeCtx<'_> {
 			_ => name,
 		};
 		if let Some(te) = self.aliases.get(name) {
+			if matches!(te, TypeExpr::Sum(_) | TypeExpr::AtomSum(_)) {
+				if self.depth == 0 {
+					self.named_sum(name, span)?;
+				}
+				return Ok(Typ::Sum(name.to_string(), vec![]));
+			}
 			return self.resolve(te, span);
 		}
 		if let Some(fields) = self.structs.get(name) {
@@ -523,6 +529,22 @@ impl TypeCtx<'_> {
 		Err(Diagnostic::new(format!("unknown type `{name}`"), span.into_range()).with_label("not a known type"))
 	}
 
+	// A named sum's members.
+	pub fn named_sum(&self, name: &str, span: Span) -> Result<Vec<VariantInfo>, Diagnostic> {
+		if self.depth > MAX_GENERIC_DEPTH {
+			let msg = format!("`{name}` recurses without end");
+			return Err(Diagnostic::new(msg, span.into_range()).with_label("splices itself"));
+		}
+		let inner = TypeCtx {
+			depth: self.depth + 1,
+			..*self
+		};
+		Ok(match inner.resolve(&self.aliases[name], span)? {
+			Typ::Sum(_, vs) => vs,
+			_ => vec![],
+		})
+	}
+
 	// Resolve a sum type.
 	fn resolve_sum(&self, members: &[TypeExpr], span: Span) -> Result<Typ, Diagnostic> {
 		let mut variants: Vec<VariantInfo> = Vec::with_capacity(members.len());
@@ -530,7 +552,8 @@ impl TypeCtx<'_> {
 			match m {
 				TypeExpr::AtomSum(a) if a.len() == 1 => variants.push(VariantInfo::new(a[0].clone(), 0, vec![])),
 				_ => match self.resolve(m, span)? {
-					Typ::Sum(inner) => variants.extend(inner),
+					Typ::Sum(n, inner) if inner.is_empty() => variants.extend(self.named_sum(&n, span)?),
+					Typ::Sum(_, inner) => variants.extend(inner),
 					t => variants.push(VariantInfo::new(t.to_string(), 0, vec![t])),
 				},
 			}
@@ -543,7 +566,7 @@ impl TypeCtx<'_> {
 				return Err(Diagnostic::new(msg, span.into_range()).with_label("repeated member"));
 			}
 		}
-		Ok(Typ::Sum(variants))
+		Ok(Typ::Sum(String::new(), variants))
 	}
 
 	// A param type, mapping varargs to its array type.
