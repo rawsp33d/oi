@@ -260,6 +260,22 @@ impl<'a, M: Module> Translator<'a, M> {
 		}
 	}
 
+	// Lower the hinted side first so an anon literal on the other side borrows its type.
+	fn operands(
+		&mut self,
+		l: &Spanned<Expr>,
+		r: &Spanned<Expr>,
+		rhint: impl FnOnce(&Self, &Typ) -> Typ,
+	) -> Result<(TypedVal, TypedVal), Diagnostic> {
+		if l.0.anon() && !r.0.anon() {
+			let rhs = self.expr(r)?;
+			return Ok((self.check_expr(l, &rhs.1)?, rhs));
+		}
+		let lhs = self.expr(l)?;
+		let rhs = self.check_expr(r, &rhint(self, &lhs.1))?;
+		Ok((lhs, rhs))
+	}
+
 	pub(super) fn binop(
 		&mut self,
 		op: BinOp,
@@ -267,7 +283,6 @@ impl<'a, M: Module> Translator<'a, M> {
 		r: &Spanned<Expr>,
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
-		let (lv, lt) = self.expr(l)?;
 		let (tn, method) = match op {
 			BinOp::Add => (role::ADD, "add"),
 			BinOp::Sub => (role::SUB, "sub"),
@@ -277,6 +292,12 @@ impl<'a, M: Module> Translator<'a, M> {
 			BinOp::Pow => (role::POW, "pow"),
 			_ => unreachable!("non-arithmetic op in binop"),
 		};
+		let ((lv, lt), (rv, rt)) = self.operands(l, r, |s, lt| match lt {
+			Typ::Struct(n, _) | Typ::Enum(n) => {
+				s.fill(n, tn, method, 2).map_or(lt.clone(), |sig| sig.params[1].typ.clone())
+			}
+			_ => lt.clone(),
+		})?;
 
 		if let Typ::Struct(name, _) | Typ::Enum(name) = &lt {
 			// overloads
@@ -286,7 +307,6 @@ impl<'a, M: Module> Translator<'a, M> {
 						.with_label(format!("implement `{tn}` for `{name}` to overload `{op}`")),
 				);
 			};
-			let (rv, rt) = self.check_expr(r, &sig.params[1].typ)?;
 			if rt != sig.params[1].typ {
 				return Err(Diagnostic::new(
 					format!("expected {} argument, got {rt}", sig.params[1].typ),
@@ -296,7 +316,6 @@ impl<'a, M: Module> Translator<'a, M> {
 			}
 			return Ok(self.emit_call(&sig, &[lv, rv]));
 		}
-		let (rv, rt) = self.check_expr(r, &lt)?;
 
 		// commutative operators
 		if matches!(op, BinOp::Add | BinOp::Mul)
@@ -388,18 +407,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		r: &Spanned<Expr>,
 		span: Span,
 	) -> Result<TypedVal, Diagnostic> {
-		// evaluate the typed/pinned side first so a literal or `.variant` shorthand can borrow its type
-		let ((lv, lt), (rv, rt)) = if matches!(
-			l.0,
-			Expr::EnumShorthand { .. } | Expr::Int(_) | Expr::Float(_) | Expr::Negative(_)
-		) {
-			let (rv, rt) = self.expr(r)?;
-			(self.check_expr(l, &rt)?, (rv, rt))
-		} else {
-			let (lv, lt) = self.expr(l)?;
-			let rhs = self.check_expr(r, &lt)?;
-			((lv, lt), rhs)
-		};
+		let ((lv, lt), (rv, rt)) = self.operands(l, r, |_, t| t.clone())?;
 		let (lv, lt, rv, rt) = self.promote(lv, lt, rv, rt);
 
 		// () == ()

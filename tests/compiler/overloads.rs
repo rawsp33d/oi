@@ -33,6 +33,19 @@ fn eq_dispatches_to_the_fill() {
 }
 
 #[test]
+fn anon_literal_on_the_lhs_borrows_the_other_side() {
+	let src = indoc! {"
+		Point :: struct { x: int, y: int }
+		Point : Add < { add :: fn(self, other: Self) Self { Self.{ self.x + other.x, self.y + other.y } } }
+		Point : Eq < { eq :: fn(self, other: Self) bool { self.x == other.x && self.y == other.y } }
+		Point : Mul < { mul :: fn(self, k: i8) Self { self } }
+		p :: Point.{1, 2}
+		print(.{2, 3} + p, .{1, 2} == p, p * 3)
+	"};
+	check(src, "Point.{x = 3, y = 5} true Point.{x = 1, y = 2}");
+}
+
+#[test]
 fn eq_is_structural_by_default() {
 	let src = indoc! {r#"
 		Inner :: struct { n: int }

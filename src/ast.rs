@@ -469,6 +469,24 @@ impl Expr {
 			_ => {}
 		});
 	}
+
+	// Type-directed literals take their type from where they sit.
+	pub fn anon(&self) -> bool {
+		match self {
+			Expr::Int(_)
+			| Expr::Float(_)
+			| Expr::Atom(_)
+			| Expr::None
+			| Expr::EnumShorthand { .. }
+			| Expr::DotArray(None, _)
+			| Expr::DotTuple(_)
+			| Expr::Record(_)
+			| Expr::AnonFn { ret: None, .. } => true,
+			Expr::StructLit { name, .. } => name.is_empty(),
+			Expr::Negative(e) => e.0.anon(),
+			_ => false,
+		}
+	}
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
