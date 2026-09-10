@@ -390,7 +390,7 @@ fn general_ord_gives_tag() {
 #[test]
 fn int_cast_on_sum_errors() {
 	fail_with(
-		"Id :: int | string\nx : Id : 4\nint(x)",
+		["Id :: int | string", "x : Id : 4", "int.(x)"],
 		"cannot extract a sum member by casting",
 	);
 }

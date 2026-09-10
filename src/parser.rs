@@ -19,6 +19,7 @@ enum Subscript {
 enum Dot {
 	Fields(Vec<String>),
 	Method(String, Vec<Spanned<TypeExpr>>, Vec<Spanned<Expr>>),
+	Cast(Spanned<Expr>),
 }
 
 // One entry of a struct/enum/trait body.
@@ -1185,6 +1186,7 @@ where
 					Some((type_args, args)) => Dot::Method(name, type_args.unwrap_or_default(), args),
 					None => Dot::Fields(vec![name]),
 				}),
+			paren(expr.clone()).map(Dot::Cast),
 		))
 		.boxed();
 
@@ -1231,6 +1233,13 @@ where
 							method,
 							type_args,
 							args,
+						},
+						ex.span(),
+					),
+					Dot::Cast(value) => (
+						Expr::Cast {
+							target: Box::new(lhs),
+							value: Box::new(value),
 						},
 						ex.span(),
 					),

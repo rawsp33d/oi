@@ -18,6 +18,8 @@ pub(crate) const PTR: &str = "core::ptr";
 // fns
 pub(crate) const ZERO: &str = "core::zero";
 pub(crate) const STR_CONTAINS: &str = "string.contains";
+pub(crate) const PARSE_INT: &str = "core::parse_int";
+pub(crate) const PARSE_FLOAT: &str = "core::parse_float";
 
 // annotations
 pub(crate) const PARAMS: &str = "core::params";

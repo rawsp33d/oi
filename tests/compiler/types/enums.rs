@@ -244,7 +244,7 @@ fn payload_empty_literal_is_default() {
 #[test]
 fn payload_int_cast_errors() {
 	fail_with(
-		["Opt :: enum { nope some(int) }", "int(Opt.some(1))"],
+		["Opt :: enum { nope some(int) }", "int.(Opt.some(1))"],
 		"no backing value",
 	);
 }
@@ -554,17 +554,17 @@ fn atom_unknown_variant() {
 
 #[test]
 fn cast_to_int() {
-	check(["Color :: enum { red green blue }", "int(Color.blue)"], "2");
+	check(["Color :: enum { red green blue }", "int.(Color.blue)"], "2");
 }
 
 #[test]
 fn cast_to_int_explicit_disc() {
-	check(["Status :: enum { ok = 200, err = 500 }", "int(Status.err)"], "500");
+	check(["Status :: enum { ok = 200, err = 500 }", "int.(Status.err)"], "500");
 }
 
 #[test]
 fn backed_cast_to_backing() {
-	check(["Status : u8 : enum { ok = 200, err = 250 }", "u8(Status.ok)"], "200");
+	check(["Status : u8 : enum { ok = 200, err = 250 }", "u8.(Status.ok)"], "200");
 }
 
 #[test]
@@ -826,23 +826,23 @@ fn string_backed_raws() {
 	check(
 		indoc! {r#"
 			Suit : string : enum { hearts = "♥" spades = "♠" }
-			print(string(Suit.spades))
-			print(string(Suit.hearts))
+			print(string.(Suit.spades))
+			print(string.(Suit.hearts))
 			print(Suit.spades.str())
 			print(ord(Suit.spades))
 			print(Suit.hearts == Suit.hearts)
 			a :: [Suit.spades, Suit.hearts]
-			print(string(a[1]))
+			print(string.(a[1]))
 			match Suit.spades { .spades => "s", else => "?" }
 		"#},
 		["♠", "♥", "spades", "1", "true", "♥", "s"],
 	);
-	check(["S : string : enum { a b }", "string(S.b)"], "b");
+	check(["S : string : enum { a b }", "string.(S.b)"], "b");
 }
 
 #[test]
 fn string_backed_errors() {
-	fail_with(["S : string : enum { a b }", "int(S.a)"], "cannot cast string");
+	fail_with(["S : string : enum { a b }", "int.(S.a)"], "cannot cast string");
 	fail_with(r#"S :: enum { a = "x" }"#, "needs a string backing");
 	fail_with(r#"S : string : enum { a = 2 }"#, "uses raw values");
 	fail_with(r#"S : string : enum { a = "x" b = "x" }"#, "assigned more than once");
@@ -856,7 +856,7 @@ fn backed_array_signed_sextends() {
 			Delta : i8 : enum { down = -3, up = 4 }
 			a :: [Delta.up, Delta.down]
 			d :: a[1]
-			print(int(d))
+			print(int.(d))
 			print(match d { Delta.down => "yes", else => "no" })
 			d == Delta.down
 		"#},

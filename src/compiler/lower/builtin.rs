@@ -1,4 +1,4 @@
-use crate::compiler::comp;
+use crate::compiler::{comp, role};
 
 use super::*;
 
@@ -139,7 +139,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				Ok(Some(self.unit_value()))
 			}
 
-			_ => self.cast_call(name, args, span),
+			_ => Ok(None),
 		}
 	}
 
@@ -286,6 +286,10 @@ impl<'a, M: Module> Translator<'a, M> {
 
 		if let Some(target) = int_cast_width('i', name) {
 			let (val, typ) = self.cast_operand(name, args, span)?;
+			if typ == Typ::Str && target == 32 {
+				let sig = self.funcs[role::PARSE_INT].clone();
+				return Ok(Some(self.emit_call(&sig, &[val])));
+			}
 			let (val, typ) = self.enum_as_backing(val, typ, args[0].1)?;
 			let target_cl = cl_type(&Typ::Int(target), self.int);
 			let out = match &typ {
@@ -298,6 +302,9 @@ impl<'a, M: Module> Translator<'a, M> {
 					Sign::Signed,
 					target_cl,
 				),
+				Typ::UInt(_) => {
+					self.clamp_to_width(val, Sign::Unsigned, None, int_max(target), Sign::Unsigned, target_cl)
+				}
 				_ => {
 					return Err(
 						Diagnostic::new(format!("cannot cast {typ} to i{target}"), args[0].1.into_range())
@@ -356,6 +363,10 @@ impl<'a, M: Module> Translator<'a, M> {
 				.with_label("not yet implemented"));
 			}
 			let (val, typ) = self.expr(&args[0])?;
+			if typ == Typ::Str && target == 64 {
+				let sig = self.funcs[role::PARSE_FLOAT].clone();
+				return Ok(Some(self.emit_call(&sig, &[val])));
+			}
 			let target_cl = cl_type(&Typ::Float(target), self.int);
 			let out = match &typ {
 				Typ::Float(w) if *w == target => val,

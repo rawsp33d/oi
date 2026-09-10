@@ -49,7 +49,7 @@ fn string_from_bytes() {
 			out: []u8 = []
 			out << 104
 			out << 105
-			print(string(out))
+			print(string.(out))
 		"},
 		"hi",
 	);

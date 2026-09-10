@@ -67,7 +67,7 @@ pub exp :: fn(x: float) float {
 	sum := 1.0
 	term := 1.0
 	loop i in 1..15 {
-		term *= r / float(i)
+		term *= r / float.(i)
 		sum += term
 	}
 
@@ -110,10 +110,10 @@ pub log :: fn(x: float) float {
 	term := t
 	loop i in 1..10 {
 		term *= t2
-		sum += term / float(2 * i + 1)
+		sum += term / float.(2 * i + 1)
 	}
 
-	2.0 * sum + float(k) * ln2
+	2.0 * sum + float.(k) * ln2
 }
 
 ## Base 2 logarithm.
@@ -139,7 +139,7 @@ pub sin :: fn(x: float) float {
 	term := y
 	sum := y
 	loop i in 1..11 {
-		term = -term * y * y / float(2 * i * (2 * i + 1))
+		term = -term * y * y / float.(2 * i * (2 * i + 1))
 		sum += term
 	}
 	sum

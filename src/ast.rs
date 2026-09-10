@@ -95,6 +95,12 @@ pub enum Expr {
 
 	Return(Option<Box<Spanned<Expr>>>),
 
+	// `Target.(value)`
+	Cast {
+		target: Box<Spanned<Expr>>,
+		value: Box<Spanned<Expr>>,
+	},
+
 	// macros
 
 	// `name! :: fn(params) Ast { body }`
@@ -356,6 +362,7 @@ impl Expr {
 			}
 			| Expr::IndexAssign { index: a, value: b, .. }
 			| Expr::Pipe { value: a, step: b }
+			| Expr::Cast { target: a, value: b }
 			| Expr::Binary(_, a, b) => {
 				f(One(a));
 				f(One(b));

@@ -201,6 +201,16 @@ impl<'a, M: Module> Translator<'a, M> {
 				}
 			}
 
+			Expr::Cast { target, value } => {
+				let cast = match &target.0 {
+					Expr::Ident(name) => self.cast_call(name, std::slice::from_ref(&**value), expr.1)?,
+					_ => None,
+				};
+				cast.ok_or_else(|| {
+					Diagnostic::new("not a cast target", target.1.into_range()).with_label("expected a type")
+				})
+			}
+
 			Expr::Apply { callee, args } => {
 				let (val, typ) = self.expr(callee)?;
 				self.call_value(&typ.to_string(), Callee::Object(val), &typ, args, None, expr.1)

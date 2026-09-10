@@ -108,7 +108,7 @@ atexit : fn(cb: @c fn()) i32 : foreign
 # a `@c fn` can cast a `ptr`
 create : fn(init: @c fn(get: GetProc) bool) ptr : foreign
 create(fn(get: GetProc) bool { !get("iface").is_null() })
-proc := unsafe { GetProc(dlsym(lib, "get_proc")) }
+proc := unsafe { GetProc.(dlsym(lib, "get_proc")) }
 
 ## functions
 
@@ -862,17 +862,22 @@ main :: fn() {
 	permissions := 0o7_5_5
 	big_addr := 0xFF80_0000_0000_0000
 
-	# can cast between types
-	big_int := i64(50_000)
-	small_unsigned_int := u8(16)
+	# cast with `T.(value)`, which works for any type
+	big_int := i64.(50_000)
+	small_unsigned_int := u8.(16)
+
+	# a string operand parses instead, so the cast is an option
+	# TODO: might revisit this
+	assert!(int.("42") == 42)
+	assert!(float.("nope") == none)
 
 	# ints can be automatically promoted to f64 or larger-width ints
 	assert!(2 + 1.0 == 3.0)
 
 	# supports arbitrary bit-width integers, like Zig
 	# use `i<width>` and `u<width>`, where width in [1, 65535]
-	weird_one := i2(1)
-	wat := u7(1000)
+	weird_one := i2.(1)
+	wat := u7.(1000)
 
 	# supported floating types are: f16 f32 f64 f80 f128
 
@@ -1179,7 +1184,7 @@ main :: fn() {
 		return 2 * n
 	}
 	# explicit cast
-	print(op(4, Operation(double))) # 8
+	print(op(4, Operation.(double))) # 8
 	# duck typing
 	print(op(4, double)) # 8
 	# anonymous function
@@ -1470,13 +1475,13 @@ main :: fn() {
 	assert!(ord(Status.not_found) == 404)
 
 	# enums are int-backed by default
-	assert!(int(Status.ok) == 200)
+	assert!(int.(Status.ok) == 200)
 
 	# backed enums
 
 	Code : u8 : enum { ok = 200, err = 250 }
 	codes: [2]Code # 2 bytes
-	assert!(u8(Code.err) == 250)
+	assert!(u8.(Code.err) == 250)
 
 	# a string backing swaps discriminants for raw values
 	# raws default to the variant name and must be unique
@@ -1486,8 +1491,8 @@ main :: fn() {
 		clubs
 	}
 	# the cast gives the raw, `.str()` gives the variant name
-	assert!(string(Suit.spades) == "♠")
-	assert!(string(Suit.clubs) == "clubs")
+	assert!(string.(Suit.spades) == "♠")
+	assert!(string.(Suit.clubs) == "clubs")
 	assert!(Suit.spades.str() == "spades")
 	# discriminants stay positional
 	assert!(ord(Suit.spades) == 1)

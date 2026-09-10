@@ -29,7 +29,7 @@ fn ord_gives_tag() {
 
 #[test]
 fn int_cast_errors() {
-	fail_with("int(?int(42))", "no backing value");
+	fail_with("int.(?int(42))", "no backing value");
 }
 
 #[test]

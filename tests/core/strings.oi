@@ -34,3 +34,10 @@
 	assert! "aaa".replace("aa", "b") == "ba"
 	assert! "abc".replace("", "x") == "abc"
 }
+
+@test parsing :: fn() {
+	assert! parse_int("-42") == -42
+	assert! parse_int("4x") == none
+	assert! parse_float("-2.05") == -2.05
+	assert! parse_float("2.") == none
+}

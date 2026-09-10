@@ -137,7 +137,7 @@ fn builtin_amendment_primitives() {
 		print(int.min)
 		print((0.0).is_nan())
 		print(float.epsilon)
-		print(i8.max == i8(127))
+		print(i8.max == i8.(127))
 		print(isize.min)
 		print(u64.max)
 		print(usize.max)
