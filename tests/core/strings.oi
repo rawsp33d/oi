@@ -35,6 +35,11 @@
 	assert! "abc".replace("", "x") == "abc"
 }
 
+@test split :: fn() {
+	assert! "a,b,,c".split(",") == ["a", "b", "", "c"]
+	assert! "abc".split("") == ["abc"]
+}
+
 @test parsing :: fn() {
 	assert! parse_int("-42") == -42
 	assert! parse_int("4x") == none

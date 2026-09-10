@@ -91,6 +91,27 @@ string :< {
 		string.(out)
 	}
 
+	## Split on `sep`.
+	split :: fn(self, sep := "") []string {
+		if sep == "" { return [self] }
+
+		out: []string = []
+		a := 0
+		i := 0
+		loop i < self.len {
+			if self[i..].starts_with(sep) {
+				out << self[a..i]
+				i += sep.len
+				a = i
+			} else {
+				i += 1
+			}
+		}
+		out << self[a..]
+
+		out
+	}
+
 	## Wrap with given characters.
 	wrap :: fn(self, left: string, right: string = left) string {
 		left + self + right
