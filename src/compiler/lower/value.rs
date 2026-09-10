@@ -558,25 +558,9 @@ impl<'a, M: Module> Translator<'a, M> {
 	// Evaluate `value` against an expected type.
 	// Coerces variant shorthands, atoms, and `none`.
 	pub(super) fn check_expr(&mut self, value: &Spanned<Expr>, target: &Typ) -> Result<TypedVal, Diagnostic> {
-		if let Typ::Trait(tn) = target {
+		if matches!(target, Typ::Trait(_) | Typ::Error | Typ::Any) {
 			let (val, vt) = self.expr(value)?;
-			return self.make_trait_object(val, &vt, tn, value.1);
-		}
-		if *target == Typ::Error {
-			let (val, vt) = self.expr(value)?;
-			if vt != Typ::Error && self.open_error(&vt) {
-				return Ok((self.box_error(val, &vt), Typ::Error));
-			}
-			return Ok((val, vt));
-		}
-		if *target == Typ::Any {
-			let (val, vt) = self.expr(value)?;
-			if vt == Typ::Any {
-				return Ok((val, vt));
-			}
-			let id = typeid(&vt);
-			let v = VariantInfo::new(vt.key(), id, vec![vt]);
-			return Ok((self.make_enum(&[v], id, &[val]), Typ::Any));
+			return self.coerce(val, &vt, target, value.1);
 		}
 		if let Typ::Annotated(anns, inner) = target
 			&& let Typ::Fn(ps, _) = &**inner
@@ -689,48 +673,67 @@ impl<'a, M: Module> Translator<'a, M> {
 			),
 			_ => {
 				let (val, vt) = self.expr(value)?;
-				if let Typ::Annotated(_, inner) = &vt
-					&& **inner == *target
-				{
-					return Ok((self.fn_cell(val), target.clone()));
-				}
-				// a fixed array widens to a dynamic one at the boundary
-				if let (Typ::FixedArray(e, n), Typ::Array(t)) = (&vt, target)
-					&& e == t
-				{
-					return Ok((self.fixed_to_array(val, e, *n), target.clone()));
-				}
-				// same member sets with different order. remap the tag into a fresh box
-				if let (Typ::Sum(src), Typ::Sum(dst)) = (&vt, target)
-					&& src != dst && let Some(map) = sum_remap(src, dst)
-				{
-					let old = self.enum_tag(&vt, val);
-					let mut tag = self.b.ins().iconst(self.int, map[0].1);
-					for &(s, d) in &map[1..] {
-						let hit = self.b.ins().icmp_imm(IntCC::Equal, old, s);
-						let dv = self.b.ins().iconst(self.int, d);
-						tag = self.b.ins().select(hit, dv, tag);
-					}
-					if !enum_boxed(dst) {
-						return Ok((tag, target.clone()));
-					}
-					let slots = enum_slots(dst);
-					let ptr = self.call_alloc(slots);
-					self.b.ins().store(MemFlags::new(), tag, ptr, 0);
-					for i in 1..slots {
-						let w = self.b.ins().load(self.int, MemFlags::new(), val, (i * 8) as i32);
-						self.b.ins().store(MemFlags::new(), w, ptr, (i * 8) as i32);
-					}
-					return Ok((ptr, target.clone()));
-				}
-				if let Typ::Sum(variants) = target
-					&& let Some(v) = variants.iter().find(|v| v.payload == [vt.clone()])
-				{
-					return Ok((self.make_enum(variants, v.disc, &[val]), target.clone()));
-				}
-				Ok((val, vt))
+				self.coerce(val, &vt, target, value.1)
 			}
 		}
+	}
+
+	// Convert an already-lowered value to the type expected, or hand it back unchanged.
+	pub(super) fn coerce(&mut self, val: Value, from: &Typ, to: &Typ, span: Span) -> Result<TypedVal, Diagnostic> {
+		if from == to {
+			return Ok((val, from.clone()));
+		}
+		if let Typ::Trait(tn) = to {
+			return self.make_trait_object(val, from, tn, span);
+		}
+		if *to == Typ::Error && self.open_error(from) {
+			return Ok((self.box_error(val, from), Typ::Error));
+		}
+		if *to == Typ::Any {
+			let id = typeid(from);
+			let v = VariantInfo::new(from.key(), id, vec![from.clone()]);
+			return Ok((self.make_enum(&[v], id, &[val]), Typ::Any));
+		}
+		if let Typ::Annotated(_, inner) = from
+			&& **inner == *to
+		{
+			return Ok((self.fn_cell(val), to.clone()));
+		}
+		// a fixed array widens to a dynamic one at the boundary
+		if let (Typ::FixedArray(e, n), Typ::Array(t)) = (from, to)
+			&& e == t
+		{
+			return Ok((self.fixed_to_array(val, e, *n), to.clone()));
+		}
+		// same member sets with different order
+		if let (Typ::Sum(src), Typ::Sum(dst)) = (from, to)
+			&& let Some(map) = sum_remap(src, dst)
+		{
+			let old = self.enum_tag(from, val);
+			let mut tag = self.b.ins().iconst(self.int, map[0].1);
+			for &(s, d) in &map[1..] {
+				let hit = self.b.ins().icmp_imm(IntCC::Equal, old, s);
+				let dv = self.b.ins().iconst(self.int, d);
+				tag = self.b.ins().select(hit, dv, tag);
+			}
+			if !enum_boxed(dst) {
+				return Ok((tag, to.clone()));
+			}
+			let slots = enum_slots(dst);
+			let ptr = self.call_alloc(slots);
+			self.b.ins().store(MemFlags::new(), tag, ptr, 0);
+			for i in 1..slots {
+				let w = self.b.ins().load(self.int, MemFlags::new(), val, (i * 8) as i32);
+				self.b.ins().store(MemFlags::new(), w, ptr, (i * 8) as i32);
+			}
+			return Ok((ptr, to.clone()));
+		}
+		if let Typ::Sum(variants) = to
+			&& let Some(v) = variants.iter().find(|v| v.payload == [from.clone()])
+		{
+			return Ok((self.make_enum(variants, v.disc, &[val]), to.clone()));
+		}
+		Ok((val, from.clone()))
 	}
 
 	// Box a struct behind its vtable.
