@@ -187,7 +187,7 @@ fn parse_file(map: &SourceMap, base: usize) -> Result<Vec<Spanned<Expr>>, Report
 struct Loader {
 	// entry dir first, then `OI_PATH`
 	roots: Vec<PathBuf>,
-	entry_path: PathBuf,
+	entry_paths: Vec<PathBuf>,
 	map: SourceMap,
 	modules: Vec<Module>,
 	publics: HashSet<String>,
@@ -520,7 +520,9 @@ impl Loader {
 		// resolve core's imports from internal files
 		let from_core = self.loading.last().is_some_and(|m| self.core_origin.contains(m));
 		let file = format!("{name}.oi");
-		let has = |r: &&PathBuf| r.join(name).is_dir() || (r.join(&file).is_file() && r.join(&file) != self.entry_path);
+		let has = |r: &&PathBuf| {
+			r.join(name).is_dir() || (r.join(&file).is_file() && !self.entry_paths.contains(&r.join(&file)))
+		};
 		let root = self.roots.iter().find(has).unwrap_or(&self.roots[0]);
 		let mut disk: Vec<_> = if from_core {
 			vec![]
@@ -544,7 +546,7 @@ impl Loader {
 					)
 				})
 				.collect()
-		} else if !from_core && candidate.is_file() && candidate != self.entry_path {
+		} else if !from_core && candidate.is_file() && !self.entry_paths.contains(&candidate) {
 			vec![(
 				candidate.display().to_string(),
 				fs::read_to_string(&candidate).unwrap_or_default(),
@@ -650,9 +652,12 @@ pub fn home() -> PathBuf {
 		.unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".oi"))
 }
 
-// Load the whole program starting from the entry source.
+// Entry files.
+pub type Entry = Vec<(String, String)>;
+
+// Load the whole program from the entry's files.
 // `root` anchors module lookups.
-pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program, Reported> {
+pub fn load(entry: Entry, root: &Path) -> Result<Program, Reported> {
 	let deps = std::env::var_os("OI_PATH").unwrap_or_default();
 	let deps = std::env::split_paths(&deps).filter(|p| !p.as_os_str().is_empty());
 	let mut loader = Loader {
@@ -660,7 +665,10 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 			.chain(deps)
 			.chain(std::iter::once(home().join("lib")))
 			.collect(),
-		entry_path: root.join(Path::new(entry_name).file_name().unwrap_or_default()),
+		entry_paths: entry
+			.iter()
+			.map(|(n, _)| root.join(Path::new(n).file_name().unwrap_or_default()))
+			.collect(),
 		map: SourceMap::default(),
 		modules: vec![],
 		publics: HashSet::new(),
@@ -673,7 +681,7 @@ pub fn load(entry_name: &str, entry_src: String, root: &Path) -> Result<Program,
 	};
 	// import core implicitly
 	loader.load_files("core", core_files(&CORE))?;
-	loader.load_files("main", vec![(entry_name.into(), entry_src)])?;
+	loader.load_files("main", entry)?;
 	let reexports = loader.resolve_reexports();
 	loader.seed_prelude();
 	loader.check_selected()?;

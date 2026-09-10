@@ -66,7 +66,8 @@ pub fn run() -> Result<(), Reported> {
 				}
 
 				let candidate = format!("{session}{line}\n");
-				if run_source("<repl>", &candidate, std::path::Path::new("."), DebugOpts::default()).is_ok() {
+				let entry = vec![("<repl>".into(), candidate.clone())];
+				if run_source(entry, std::path::Path::new("."), DebugOpts::default()).is_ok() {
 					session = candidate;
 				}
 			}

@@ -23,3 +23,11 @@ fn timings_prints_phases_to_stderr() {
 	assert!(stderr.contains("codegen"), "stderr was:\n{stderr}");
 	assert!(stderr.contains("run"), "stderr was:\n{stderr}");
 }
+
+#[test]
+fn directory_entry_runs_all_its_files_as_one_main() {
+	let dir = Project::new()
+		.file("src/a.oi", "f :: fn() int { 42 }")
+		.file("src/b.oi", "print(f())");
+	assert_eq!(ok(oi(&["run", "src"]).current_dir(&dir).run(None)), "42");
+}

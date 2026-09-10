@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use crate::Reported;
 use crate::compiler::Compiler;
-use crate::loader;
+use crate::loader::{self, Entry};
 
 /// Flags that toggle introspection.
 #[derive(Default, Clone, Copy)]
@@ -12,15 +12,11 @@ pub struct DebugOpts {
 	pub timings: bool,
 }
 
-/// Compile and run a program from its source text.
-///
-/// `name` labels the source in diagnostics (a file path, or `<exec>` / `<stdin>`).
-/// `root` anchors module lookups.
-/// On failure the diagnostic is rendered to stderr.
-pub fn run_source(name: &str, src: &str, root: &Path, opts: DebugOpts) -> Result<(), Reported> {
+/// Compile and run a program from its entry files.
+pub fn run_source(entry: Entry, root: &Path, opts: DebugOpts) -> Result<(), Reported> {
 	let mut compiler = Compiler::default();
 	let t = Instant::now();
-	let program = loader::load(name, src.to_string(), root)?;
+	let program = loader::load(entry, root)?;
 	compiler.timings.push(("load", t.elapsed()));
 
 	let code = match compiler.compile(&program) {
@@ -68,10 +64,8 @@ const LIBS: &[&str] = &[
 ];
 
 /// Compile a program to a native executable at `out`, linked against the static runtime.
-/// With `lib`, emits a shared library exporting `oi_init` plus every `pub` free fn instead.
-pub fn build_source(name: &str, src: &str, root: &Path, out: &Path, lib: bool) -> Result<(), Reported> {
-	let program = loader::load(name, src.to_string(), root)?;
-	let stem = Path::new(name).file_stem().and_then(|s| s.to_str()).unwrap_or("main");
+pub fn build_source(entry: Entry, root: &Path, stem: &str, out: &Path, lib: bool) -> Result<(), Reported> {
+	let program = loader::load(entry, root)?;
 	let (obj, link_libs) = Compiler::object(stem, lib).compile_object(&program).map_err(|e| {
 		e.report_mapped(&program.map);
 		Reported
@@ -115,8 +109,8 @@ fn fail(msg: impl std::fmt::Display) -> Reported {
 }
 
 /// Compile a program in test mode and run every `@test` fn in the main module.
-pub fn test_source(name: &str, src: &str, root: &Path, pattern: Option<&str>) -> Result<(), Reported> {
-	let program = loader::load(name, src.to_string(), root)?;
+pub fn test_source(entry: Entry, root: &Path, pattern: Option<&str>) -> Result<(), Reported> {
+	let program = loader::load(entry, root)?;
 	let mut compiler = Compiler::default();
 	compiler.include_tests = true;
 	if let Err(error) = compiler.compile(&program) {

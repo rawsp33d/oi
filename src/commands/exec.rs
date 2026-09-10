@@ -22,7 +22,11 @@ pub fn run(source: Option<String>, timings: bool) -> Result<(), Reported> {
 		}
 		src.push_str(&arg);
 	}
-	run_source(name, &src, std::path::Path::new("."), DebugOpts { timings })
+	run_source(
+		vec![(name.to_string(), src)],
+		std::path::Path::new("."),
+		DebugOpts { timings },
+	)
 }
 
 /// Whether stdin has bytes waiting.
