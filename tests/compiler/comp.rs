@@ -46,6 +46,17 @@ fn comp_folds_structs() {
 }
 
 #[test]
+fn comp_folds_arrays() {
+	let src = indoc! {r#"
+		Method :: struct { name: string, argc: int }
+		methods :: fn() []Method { [Method.{ "add", 2 }, Method.{ "neg", 1 }] }
+		MS :: comp methods()
+		print("{MS.len} {MS[1].name} {MS[1].argc}")
+	"#};
+	check(src, "2 neg 1");
+}
+
+#[test]
 fn comp_calls_an_imported_fn() {
 	let src = indoc! {"
 		use math
@@ -80,7 +91,7 @@ fn comp_if_is_conditional_compilation() {
 
 #[test]
 fn comp_rejects_unreifiable_type() {
-	fail_with("A :: comp [1, 2, 3]", "can't use this type in `comp` yet");
+	fail_with(r#"A :: comp ["a" = 1]"#, "can't use this type in `comp` yet");
 }
 
 #[test]

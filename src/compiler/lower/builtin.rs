@@ -161,6 +161,14 @@ impl<'a, M: Module> Translator<'a, M> {
 				self.b.ins().call(func, &[name, nfields]);
 				return Ok(());
 			}
+			Typ::Array(elem) | Typ::FixedArray(elem, _) => {
+				let (elem, mut err) = ((**elem).clone(), None);
+				self.each_elem(val, typ, |s, _, ev| {
+					err = err.take().or(s.comp_yield(ev, &elem, span).err())
+				});
+				err.map_or(Ok(()), Err)?;
+				(comp::TAG_ARRAY, self.array_parts(val, typ).1)
+			}
 			Typ::Bool => (comp::TAG_BOOL, val),
 			Typ::Str => (comp::TAG_STR, val),
 			Typ::Int(w) if narrow(*w) => (comp::TAG_INT, self.b.ins().sextend(self.int, val)),

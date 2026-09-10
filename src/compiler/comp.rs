@@ -19,6 +19,7 @@ pub(crate) const TAG_FLOAT: i64 = 1;
 pub(crate) const TAG_BOOL: i64 = 2;
 pub(crate) const TAG_STR: i64 = 3;
 pub(crate) const TAG_UNIT: i64 = 4;
+pub(crate) const TAG_ARRAY: i64 = 5;
 
 enum Entry {
 	Scalar(i64, i64),
@@ -106,6 +107,10 @@ fn reify(span: Span) -> Expr {
 			let mut exprs: Vec<Expr> = Vec::new();
 			for entry in stack.drain(..) {
 				let e = match entry {
+					Entry::Scalar(TAG_ARRAY, n) => {
+						let at = exprs.len() - n as usize;
+						Expr::Array(exprs.split_off(at).into_iter().map(|e| (e, span)).collect())
+					}
 					Entry::Scalar(tag, v) => scalar(tag, v),
 					Entry::Struct(name, nfields) => {
 						let at = exprs.len() - nfields;
