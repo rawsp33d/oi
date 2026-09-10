@@ -64,6 +64,7 @@ impl<'a, M: Module> Translator<'a, M> {
 	) -> Result<Option<TypedVal>, Diagnostic> {
 		match name {
 			"print" | "write" | "eprint" | "ewrite" => {
+				self.require_pure(name, span)?;
 				if args.is_empty() {
 					return Err(
 						Diagnostic::new(format!("`{name}` takes at least 1 argument"), span.into_range())

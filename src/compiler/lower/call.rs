@@ -190,6 +190,9 @@ impl<'a, M: Module> Translator<'a, M> {
 		if sig.unsafe_call {
 			self.require_unsafe(name, span)?;
 		}
+		if !sig.pure {
+			self.require_pure(name, span)?;
+		}
 		let self_n = recv.is_some() as usize;
 		// `@params`
 		let synth;
@@ -479,6 +482,7 @@ impl<'a, M: Module> Translator<'a, M> {
 					.with_label(format!("this is {typ}, not a function")));
 			}
 		};
+		self.require_pure(name, span)?;
 		let (mut vals, lent) = self.call_args(name, params, recv, None, args, span)?;
 		let mut sig = self.module.make_signature();
 		sig.params

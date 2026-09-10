@@ -48,6 +48,9 @@ pub c :: ()
 ## Marks a trait as satisfied by shape alone.
 pub implicit :: ()
 
+## Marks a fn as free of I/O and other impure calls.
+pub pure :: ()
+
 # ffi
 
 ## An untyped pointer for C boundaries.

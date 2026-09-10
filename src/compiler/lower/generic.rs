@@ -1,7 +1,7 @@
 use super::call::arg_slots;
 use super::*;
 use crate::ast::TypeParam;
-use crate::compiler::ann;
+use crate::compiler::{ann, role};
 
 // Extend `subst` by matching a declared type against a concrete arg type.
 pub(super) fn unify(
@@ -223,6 +223,10 @@ impl<'a, M: Module> Translator<'a, M> {
 			ret,
 			foreign: false,
 			unsafe_call: false,
+			pure: self
+				.annotations
+				.get(name)
+				.is_some_and(|a| a.iter().any(|x| ann(x, role::PURE).is_some())),
 		};
 		self.mono.insert(sym.clone(), fn_sig.clone());
 		self.pending.push((sym, def.clone(), subst));

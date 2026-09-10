@@ -50,6 +50,7 @@ pub(crate) struct FnSig {
 	pub ret: Typ,
 	pub foreign: bool,
 	pub unsafe_call: bool,
+	pub pure: bool,
 }
 
 impl FnSig {
@@ -142,6 +143,7 @@ struct FnDef<'a> {
 	captures: &'a [(String, Typ, bool)],
 	self_fn: Option<(&'a str, &'a FnSig)>,
 	foreign: bool,
+	pure: bool,
 }
 
 // A generic struct definition.
@@ -1174,6 +1176,13 @@ impl<M: Module> Compiler<M> {
 			let ann_span = |target| anns.into_iter().flatten().find_map(|a| Some((ann(a, target)?, a.1)));
 			let mut is_c_fn = false;
 			let is_unsafe = ann_span("unsafe").is_some();
+			let pure = ann_span(role::PURE).map(|(_, s)| s);
+			if let Some(span) = pure
+				&& access.contains(&Access::Mut)
+			{
+				let msg = "a `@pure` fn can't take `mut` params";
+				return Err(Diagnostic::new(msg, span.into_range()).with_label("mutation is a side effect"));
+			}
 			if let Some((fields, span)) = ann_span(role::EXPORT) {
 				check_c_sig(&item.key, &params, &ret, span)?;
 				let sym = match fields.first() {
@@ -1189,6 +1198,7 @@ impl<M: Module> Compiler<M> {
 			let mut sig = self.declare_fn(&sym, linkage, params, access, ret);
 			sig.foreign = self.exports.contains_key(&item.key) || is_c_fn;
 			sig.unsafe_call = is_unsafe;
+			sig.pure = pure.is_some();
 			funcs.insert(item.key.clone(), sig);
 		}
 
@@ -1283,6 +1293,7 @@ impl<M: Module> Compiler<M> {
 					body: item.body,
 					self_type,
 					foreign: funcs[&item.key].foreign,
+					pure: funcs[&item.key].pure,
 					..FnDef::default()
 				},
 				&funcs,
@@ -1470,6 +1481,7 @@ impl<M: Module> Compiler<M> {
 			ret,
 			foreign: false,
 			unsafe_call: linkage == Linkage::Import,
+			pure: false,
 		}
 	}
 
@@ -1539,6 +1551,7 @@ impl<M: Module> Compiler<M> {
 			temps: HashMap::new(),
 			self_type: def.self_type.map(str::to_owned),
 			is_main: def.is_main,
+			pure: def.pure,
 			self_name: None,
 		};
 

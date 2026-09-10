@@ -344,6 +344,29 @@ fn annotated_types_are_checked() {
 }
 
 #[test]
+fn pure_fn_calls_pure_fn() {
+	check(
+		indoc! {"
+			@pure
+			square :: fn(x: int) int { x * x }
+			@pure
+			sum_of_squares :: fn(a: int, b: int) int { square(a) + square(b) }
+			print(sum_of_squares(2, 3))
+		"},
+		"13",
+	);
+}
+
+#[test]
+fn pure_fn_rejects_impure_calls() {
+	fail_with(["@pure", "f :: fn() { print(1) }"], "isn't allowed in a `@pure` fn");
+	fail_with(
+		["g :: fn() int { 1 }", "@pure", "f :: fn() int { g() }"],
+		"isn't allowed in a `@pure` fn",
+	);
+}
+
+#[test]
 fn unknown_attr_macro_errors() {
 	fail_with(
 		indoc! {"

@@ -79,6 +79,7 @@ pub(super) struct Translator<'a, M: Module> {
 	pub self_type: Option<String>,
 	pub is_main: bool,
 	pub self_name: Option<String>,
+	pub pure: bool,
 }
 
 // A statement that writes through an existing, mutable binding.

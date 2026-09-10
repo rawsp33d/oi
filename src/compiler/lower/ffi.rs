@@ -17,6 +17,14 @@ impl<M: Module> Translator<'_, M> {
 		}
 	}
 
+	pub(super) fn require_pure(&self, what: &str, span: Span) -> Result<(), Diagnostic> {
+		if self.pure {
+			let msg = format!("`{what}` isn't allowed in a `@pure` fn");
+			return Err(Diagnostic::new(msg, span.into_range()).with_label("not `@pure`"));
+		}
+		Ok(())
+	}
+
 	// Copy C struct in/out of foreign memory, based on `read`.
 	pub(super) fn ptr_copy(
 		&mut self,
