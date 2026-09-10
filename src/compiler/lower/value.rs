@@ -259,6 +259,10 @@ impl<'a, M: Module> Translator<'a, M> {
 					None => return Ok(None),
 				}
 			}
+			(_, Typ::Option(inner)) => match self.coerce_lit(value, inner)? {
+				Some(v) => self.make_option(inner, Some(v)),
+				None => return Ok(None),
+			},
 			_ => return Ok(None),
 		};
 		Ok(Some(v))
@@ -601,7 +605,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		{
 			return Ok((self.fn_cell(val), to.clone()));
 		}
-		// a fixed array widens to a dynamic one at the boundary
+		// fixed arrays widen to dynamic
 		if let (Typ::FixedArray(e, n), Typ::Array(t)) = (from, to)
 			&& e == t
 		{
@@ -629,6 +633,12 @@ impl<'a, M: Module> Translator<'a, M> {
 				self.b.ins().store(MemFlags::new(), w, ptr, (i * 8) as i32);
 			}
 			return Ok((ptr, to.clone()));
+		}
+		// values widens into options
+		if let Typ::Option(inner) = to
+			&& **inner == *from
+		{
+			return Ok((self.make_option(inner, Some(val)), to.clone()));
 		}
 		if let Typ::Sum(variants) = to
 			&& let Some(v) = variants.iter().find(|v| v.payload == [from.clone()])

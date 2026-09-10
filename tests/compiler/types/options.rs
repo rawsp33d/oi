@@ -176,3 +176,20 @@ fn array_payload_is_independent_copy() {
 	"};
 	check(src, "[1]");
 }
+
+#[test]
+fn values_coerce_into_options() {
+	let src = indoc! {r#"
+		T :: enum { nil, int, float }
+		S :: struct { ret: ?T, d: ?int }
+		mk :: fn(ret: ?T, d: ?int = none) S { S.{ ret, d } }
+		pick :: fn(b: bool) ?T { if b { .int } else { none } }
+		a: ?int = 3
+		b: ?T = .int
+		s := S.{ .float, 4 }
+		print("{a or 0} {b or .nil} {s.ret or .nil} {s.d or 0}")
+		print("{mk(.int).ret or .nil} {mk(T.int, a).d or 0} {mk(none).ret == none}")
+		print("{pick(true) or .nil} {pick(false) or .nil}")
+	"#};
+	check(src, ["3 int float 4", "int 3 true", "int nil"]);
+}
