@@ -282,6 +282,21 @@ fn ident_names_generated_code() {
 }
 
 #[test]
+fn unquote_expr_names_a_binder() {
+	check(
+		indoc! {r#"
+			def! :: fn() Ast {
+				s := "x"
+				`%{ident("get_" + s)} :: fn() int { 7 }`
+			}
+			def!()
+			print(get_x())
+		"#},
+		"7",
+	);
+}
+
+#[test]
 fn name_reads_a_def() {
 	check(
 		indoc! {r#"

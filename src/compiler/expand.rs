@@ -298,7 +298,7 @@ impl Expander {
 				match &e.0 {
 					Expr::Fn { name, .. } if name.contains('!') => Ok(()),
 					Expr::Quote(_) => fail("quotes are only allowed inside macro definitions", e.1, "stray quote"),
-					Expr::Unquote(_) | Expr::UnquoteExpr(_) | Expr::UnquoteSplat(_) => {
+					Expr::Unquote(_) | Expr::UnquoteExpr(_) | Expr::UnquoteSplat(_) | Expr::UnquoteBind(..) => {
 						fail("unquotes only make sense inside a macro template", e.1, "stray unquote")
 					}
 					Expr::MacroDef { .. } => {
@@ -399,6 +399,14 @@ fn scan(e: &mut Expr, slots: &mut Vec<Slot>, bound: &mut HashSet<String>, nested
 			*e = Expr::Unquote(key);
 		}
 		Expr::Bind { name, .. } if name.starts_with('%') => push_name(slots, &name[1..]),
+		Expr::UnquoteBind(binder, bind) => {
+			let placeholder = (Expr::Unquote(String::new()), (0..0).into());
+			if let Expr::Bind { name, .. } = &mut bind.0 {
+				*name = format!("%{}", slots.len());
+			}
+			slots.push(Slot::Expr(std::mem::replace(binder.as_mut(), placeholder)));
+			*e = std::mem::replace(&mut bind.0, Expr::Unquote(String::new()));
+		}
 		_ => {}
 	}
 	for_binders(e, &mut |n| {

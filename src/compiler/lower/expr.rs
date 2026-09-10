@@ -809,11 +809,10 @@ impl<'a, M: Module> Translator<'a, M> {
 			}
 			Expr::MacroDef { .. } => unreachable!("removed by macro expansion"),
 			Expr::Quote(stmts) => self.quote(stmts, expr.1),
-			Expr::Unquote(_) | Expr::UnquoteExpr(_) | Expr::UnquoteSplat(_) => Err(Diagnostic::new(
-				"unquotes only make sense inside a quote",
-				expr.1.into_range(),
-			)
-			.with_label("stray unquote")),
+			Expr::Unquote(_) | Expr::UnquoteExpr(_) | Expr::UnquoteSplat(_) | Expr::UnquoteBind(..) => Err(
+				Diagnostic::new("unquotes only make sense inside a quote", expr.1.into_range())
+					.with_label("stray unquote"),
+			),
 
 			Expr::Comp(_) => Err(Diagnostic::new("`comp` isn't supported here", expr.1.into_range())
 				.with_label("can't run at compile time")),

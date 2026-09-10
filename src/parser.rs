@@ -510,13 +510,16 @@ where
 	// macro bindings
 	let bind_name = just(Token::Percent)
 		.then_ignore(adjacent)
-		.ignore_then(ident())
-		.map(|n| format!("%{n}"))
-		.or(ident());
+		.ignore_then(
+			ident()
+				.map(|n| (format!("%{n}"), None))
+				.or(brace(expr.clone()).map(|e| ("%".to_string(), Some(e)))),
+		)
+		.or(ident().map(|n| (n, None)));
 	let bind = bind_name
 		.then(value_tail.or(sandwich_tail))
-		.map_with(|(name, (mutable, typ, value)), ex| {
-			(
+		.map_with(|((name, binder), (mutable, typ, value)), ex| {
+			let bind = (
 				Expr::Bind {
 					mutable,
 					name,
@@ -524,7 +527,11 @@ where
 					value: value.map(Box::new),
 				},
 				ex.span(),
-			)
+			);
+			match binder {
+				Some(b) => (Expr::UnquoteBind(Box::new(b), Box::new(bind)), ex.span()),
+				None => bind,
+			}
 		});
 
 	// compound assignment

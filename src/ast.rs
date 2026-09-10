@@ -124,6 +124,8 @@ pub enum Expr {
 	UnquoteExpr(Box<Spanned<Expr>>),
 	// `%{...expr}`
 	UnquoteSplat(Box<Spanned<Expr>>),
+	// `%{expr}`
+	UnquoteBind(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
 	// a macro expansion scoped block
 	Block(Vec<Spanned<Expr>>),
 
@@ -363,6 +365,7 @@ impl Expr {
 			| Expr::IndexAssign { index: a, value: b, .. }
 			| Expr::Pipe { value: a, step: b }
 			| Expr::Cast { target: a, value: b }
+			| Expr::UnquoteBind(a, b)
 			| Expr::Binary(_, a, b) => {
 				f(One(a));
 				f(One(b));
