@@ -1,0 +1,27 @@
+module fs
+
+fopen : fn(path: cstr, mode: cstr) ptr : foreign
+fgetc : fn(stream: ptr) int : foreign
+fclose : fn(stream: ptr) int : foreign
+
+## Read a file's contents as raw bytes, or `none` if it can't be opened.
+## TODO: make Result
+pub read_bytes :: fn(path: string) ?[]u8 {
+	f := unsafe fopen(path.cstr(), "rb")
+	if f.is_null() { return }
+	out: []u8 = []
+	loop {
+		c := unsafe fgetc(f)
+		if c < 0 { break }
+		out << u8.(c)
+	}
+	unsafe fclose(f)
+	out
+}
+
+## Read a file's contents as a string, or `none` if it can't be opened.
+## TODO: make Result
+pub read :: fn(path: string) ?string {
+	bytes := read_bytes(path)?
+	string.(bytes)
+}
