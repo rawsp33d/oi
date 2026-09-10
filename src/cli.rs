@@ -25,6 +25,10 @@ pub enum Command {
 	Run {
 		/// Path to the .oi source file.
 		file: Option<PathBuf>,
+
+		/// Print phase timings to stderr.
+		#[arg(long)]
+		timings: bool,
 	},
 
 	/// Compile an Oi file to a native executable.
@@ -47,6 +51,10 @@ pub enum Command {
 		/// Source to run, appended to piped stdin if any. If omitted, read from stdin.
 		#[arg(allow_hyphen_values = true)]
 		source: Option<String>,
+
+		/// Print phase timings to stderr.
+		#[arg(long)]
+		timings: bool,
 	},
 
 	/// Compile and run a file's `@test` fns.

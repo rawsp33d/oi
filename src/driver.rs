@@ -1,19 +1,28 @@
 use std::io::Write as _;
 use std::path::Path;
+use std::time::Instant;
 
 use crate::Reported;
 use crate::compiler::Compiler;
 use crate::loader;
+
+/// Flags that toggle introspection.
+#[derive(Default, Clone, Copy)]
+pub struct DebugOpts {
+	pub timings: bool,
+}
 
 /// Compile and run a program from its source text.
 ///
 /// `name` labels the source in diagnostics (a file path, or `<exec>` / `<stdin>`).
 /// `root` anchors module lookups.
 /// On failure the diagnostic is rendered to stderr.
-pub fn run_source(name: &str, src: &str, root: &Path) -> Result<(), Reported> {
-	let program = loader::load(name, src.to_string(), root)?;
-
+pub fn run_source(name: &str, src: &str, root: &Path, opts: DebugOpts) -> Result<(), Reported> {
 	let mut compiler = Compiler::default();
+	let t = Instant::now();
+	let program = loader::load(name, src.to_string(), root)?;
+	compiler.timings.push(("load", t.elapsed()));
+
 	let code = match compiler.compile(&program) {
 		Ok(code) => code,
 		Err(error) => {
@@ -23,9 +32,16 @@ pub fn run_source(name: &str, src: &str, root: &Path) -> Result<(), Reported> {
 	};
 
 	// run
+	let t = Instant::now();
 	// SAFETY: `code` is the finalized `__oi_main` entrypoint emitted by `compile`. There are no params or return.
 	let f = unsafe { std::mem::transmute::<*const u8, fn()>(code) };
 	f();
+	compiler.timings.push(("run", t.elapsed()));
+	if opts.timings {
+		for (phase, dur) in &compiler.timings {
+			eprintln!("{phase}  {dur:.1?}");
+		}
+	}
 	crate::runtime::epilogue();
 	Ok(())
 }

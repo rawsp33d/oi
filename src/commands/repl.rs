@@ -1,5 +1,5 @@
 use oi::Reported;
-use oi::driver::run_source;
+use oi::driver::{DebugOpts, run_source};
 
 pub fn run() -> Result<(), Reported> {
 	let commands = vec![
@@ -66,7 +66,7 @@ pub fn run() -> Result<(), Reported> {
 				}
 
 				let candidate = format!("{session}{line}\n");
-				if run_source("<repl>", &candidate, std::path::Path::new(".")).is_ok() {
+				if run_source("<repl>", &candidate, std::path::Path::new("."), DebugOpts::default()).is_ok() {
 					session = candidate;
 				}
 			}

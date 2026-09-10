@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use oi::Reported;
-use oi::driver::{build_source, run_source, test_source};
+use oi::driver::{DebugOpts, build_source, run_source, test_source};
 
 /// Resolve the entry file.
 pub fn entry(file: Option<PathBuf>) -> PathBuf {
@@ -17,8 +17,13 @@ pub fn entry(file: Option<PathBuf>) -> PathBuf {
 }
 
 /// Run a source file.
-pub fn run(file: &Path) -> Result<(), Reported> {
-	run_source(&file.display().to_string(), &read(file)?, root(file))
+pub fn run(file: &Path, timings: bool) -> Result<(), Reported> {
+	run_source(
+		&file.display().to_string(),
+		&read(file)?,
+		root(file),
+		DebugOpts { timings },
+	)
 }
 
 /// Compile a source file to a native executable or shared library.

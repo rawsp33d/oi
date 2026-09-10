@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::env::consts::{DLL_PREFIX, DLL_SUFFIX};
 use std::path::{MAIN_SEPARATOR, Path};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use cranelift::codegen;
 use cranelift::codegen::isa::TargetIsa;
@@ -475,6 +476,7 @@ pub struct Compiler<M: Module = JITModule> {
 	pub(crate) tests: Vec<(String, String, bool)>,
 	link_libs: Vec<String>,
 	exports: HashMap<String, String>,
+	pub timings: Vec<(&'static str, Duration)>,
 }
 
 fn comptime_only(e: &Expr) -> bool {
@@ -628,6 +630,7 @@ impl<M: Module> Compiler<M> {
 			tests: Vec::new(),
 			link_libs: Vec::new(),
 			exports: HashMap::new(),
+			timings: Vec::new(),
 		}
 	}
 
@@ -783,9 +786,13 @@ impl<M: Module> Compiler<M> {
 			.collect();
 
 		// expand user macros to AST
+		let t = Instant::now();
 		let mut expanded = expand(program)?;
+		self.timings.push(("expand", t.elapsed()));
 		// fold `comp` expressions to literals
+		let t = Instant::now();
 		comp::eval(&mut expanded, &mut self.annotations, &mut self.consts, program)?;
+		self.timings.push(("comp", t.elapsed()));
 		if self.aot {
 			expanded.values_mut().for_each(|items| items.retain(|(e, _)| !comptime_only(e)));
 		}
@@ -1649,8 +1656,11 @@ impl<M: Module> Compiler<M> {
 
 impl Compiler {
 	pub fn compile(&mut self, program: &Program) -> Result<*const u8, Diagnostic> {
+		let (t, n) = (Instant::now(), self.timings.len());
 		let id = self.build(program)?;
 		self.module.finalize_definitions().expect("finalize definitions");
+		let inner: Duration = self.timings[n..].iter().map(|(_, d)| *d).sum();
+		self.timings.push(("codegen", t.elapsed().saturating_sub(inner)));
 		Ok(self.module.get_finalized_function(id))
 	}
 

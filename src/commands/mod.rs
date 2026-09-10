@@ -13,9 +13,9 @@ pub fn dispatch(cmd: Command) -> Result<(), Reported> {
 	match cmd {
 		Command::Init => init::init(),
 		Command::New { name } => init::new(&name),
-		Command::Run { file } => run::run(&run::entry(file)),
+		Command::Run { file, timings } => run::run(&run::entry(file), timings),
 		Command::Build { file, out, lib } => run::build(&run::entry(file), out.as_deref(), lib),
-		Command::Exec { source } => exec::run(source),
+		Command::Exec { source, timings } => exec::run(source, timings),
 		Command::Test { file, pattern } => run::test(&run::entry(file), pattern.as_deref()),
 		Command::Repl => repl::run(),
 		Command::Install { path, prefix, link } => install::install(path.as_deref(), prefix.as_deref(), link),
