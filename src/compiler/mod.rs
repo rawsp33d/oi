@@ -1088,6 +1088,41 @@ impl<M: Module> Compiler<M> {
 
 		let field_types =
 			TypeCtx::new(&structs, &enum_names, &aliases, &no_type_params, &generics, &traits).with_consts(consts);
+		// implicit traits
+		for (tn, anns) in &self.annotations {
+			if !traits.contains_key(tn.as_str()) || !anns.iter().any(|a| ann(a, role::IMPLICIT).is_some()) {
+				continue;
+			}
+			for typ in structs.keys() {
+				let pair = (typ.clone(), tn.clone());
+				if self.trait_impls.contains(&pair) {
+					continue;
+				}
+				let mark = others.len();
+				let body = TraitBody {
+					span: Span::default(),
+					typ,
+					trait_name: tn.clone(),
+					via: None,
+					methods: &[],
+					scope: scope_of(typ),
+				};
+				match check_impls(
+					vec![body],
+					&traits,
+					&self.core_traits,
+					&self.trait_impls,
+					field_types,
+					&mut others,
+					&mut self.consts,
+				) {
+					Ok(()) => {
+						self.trait_impls.insert(pair);
+					}
+					Err(_) => others.truncate(mark),
+				}
+			}
+		}
 		check_impls(
 			trait_bodies,
 			&traits,

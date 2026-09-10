@@ -26,3 +26,4 @@ pub(crate) const TEST: &str = "core::test";
 pub(crate) const LINK: &str = "core::link";
 pub(crate) const EXPORT: &str = "core::export";
 pub(crate) const C: &str = "core::c";
+pub(crate) const IMPLICIT: &str = "core::implicit";

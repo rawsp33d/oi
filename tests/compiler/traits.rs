@@ -145,6 +145,19 @@ fn is_expression() {
 }
 
 #[test]
+fn implicit_trait() {
+	let src = indoc! {"
+		@implicit
+		Fruit :: trait { seeds: bool }
+		Kiwi :: struct { seeds := true }
+		Bike :: struct { wheels := 2 }
+		print(Kiwi is Fruit)
+		print(Bike is Fruit)
+	"};
+	check(src, ["true", "false"]);
+}
+
+#[test]
 fn is_expression_unknown_type() {
 	fail(indoc! {"
 		Animal :: trait {}

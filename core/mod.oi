@@ -45,6 +45,9 @@ pub export :: struct { name: string = "" }
 ## Marks a struct as also describing a C struct.
 pub c :: ()
 
+## Marks a trait as satisfied by shape alone.
+pub implicit :: ()
+
 # ffi
 
 ## An untyped pointer for C boundaries.
