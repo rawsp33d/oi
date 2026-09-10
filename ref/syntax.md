@@ -1276,6 +1276,12 @@ main :: fn() {
 	loop [a b] in [[1 2] [3 4]] {
 		print(a + b)
 	}
+	loop b in "hi" {
+		print(b)
+	}
+	loop (k, v) in ["one" = 1, "two" = 2] {
+		print("{k}={v}")
+	}
 
 	# TODO: custom iterators
 

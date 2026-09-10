@@ -550,30 +550,25 @@ impl<'a, M: Module> Translator<'a, M> {
 		body: &[Spanned<Expr>],
 	) -> Result<TypedVal, Diagnostic> {
 		let (val, typ) = self.expr(iter)?;
-		// counter var, upper bound, and (data ptr, elem type) for array iteration
-		let (counter, limit, arr_src): (_, _, Option<TypedVal>) = match typ {
+		let zero = self.b.ins().iconst(self.int, 0);
+		let (start, limit, src, vals): (_, _, Option<TypedVal>, Option<TypedVal>) = match typ {
 			Typ::Range => {
 				let cl = cl_int_for_width(32);
 				let start = self.b.ins().load(cl, MemFlags::new(), val, 0);
 				let end = self.b.ins().load(cl, MemFlags::new(), val, 8);
-				let v = self.b.declare_var(cl);
-				self.b.def_var(v, start);
-				(v, end, None)
+				(start, end, None, None)
 			}
-			Typ::Array(elem) => {
-				let zero = self.b.ins().iconst(self.int, 0);
-				let len = self.array_len(val);
-				let data = self.array_data(val);
-				let v = self.b.declare_var(self.int);
-				self.b.def_var(v, zero);
-				(v, len, Some((data, *elem)))
+			Typ::Array(_) | Typ::FixedArray(..) | Typ::Str => {
+				let (data, len) = self.array_parts(val, &typ);
+				(zero, len, Some((data, array_elem(&typ).clone())), None)
 			}
-			Typ::FixedArray(elem, n) => {
-				let zero = self.b.ins().iconst(self.int, 0);
-				let len = self.b.ins().iconst(self.int, n as i64);
-				let v = self.b.declare_var(self.int);
-				self.b.def_var(v, zero);
-				(v, len, Some((val, *elem)))
+			Typ::Map(k, v) => {
+				let (keys, vals) = (self.map_entries(val, true, &k), self.map_entries(val, false, &v));
+				self.temp(keys, &Typ::Array(k.clone()));
+				self.temp(vals, &Typ::Array(v.clone()));
+				let (kdata, len) = self.array_parts(keys, &Typ::Array(k.clone()));
+				let vdata = self.array_data(vals);
+				(zero, len, Some((kdata, *k)), Some((vdata, *v)))
 			}
 			_ => {
 				return Err(
@@ -582,6 +577,8 @@ impl<'a, M: Module> Translator<'a, M> {
 				);
 			}
 		};
+		let counter = self.b.declare_var(self.b.func.dfg.value_type(start));
+		self.b.def_var(counter, start);
 
 		let (header, body_block, latch, exit) = (
 			self.b.create_block(),
@@ -599,10 +596,6 @@ impl<'a, M: Module> Translator<'a, M> {
 
 		self.b.switch_to_block(body_block);
 		let iv = self.b.use_var(counter);
-		let (val, typ) = match &arr_src {
-			None => (iv, Typ::Int(32)),
-			Some((data, elem)) => (self.load_nth(*data, iv, elem), elem.clone()),
-		};
 		let depth = self.scopes.len();
 		self.loops.push(LoopFrame {
 			top: latch,
@@ -610,7 +603,24 @@ impl<'a, M: Module> Translator<'a, M> {
 			depth,
 		});
 		let flow = self.scoped(|s| {
-			s.bind_pat(pat, val, &typ, Some(false))?;
+			let (item, typ) = match &src {
+				None => (iv, Typ::Int(32)),
+				Some((data, elem)) => (s.load_nth(*data, iv, elem), elem.clone()),
+			};
+			match (&vals, &pat.0) {
+				(None, _) => s.bind_pat(pat, item, &typ, Some(false))?,
+				(Some((vdata, vt)), Expr::Tuple(te)) if te.len() == 2 => {
+					let vv = s.load_nth(*vdata, iv, vt);
+					s.bind_pat(&te[0].1, item, &typ, Some(false))?;
+					s.bind_pat(&te[1].1, vv, vt, Some(false))?;
+				}
+				_ => {
+					return Err(
+						Diagnostic::new("destructure map entries with `(k, v)`", pat.1.into_range())
+							.with_label("expected `(k, v)`"),
+					);
+				}
+			}
 			s.block(body)
 		})?;
 		self.loops.pop().expect("loop frame");

@@ -117,7 +117,7 @@ fn for_range_excludes_end() {
 	let src = indoc! {"
 		loop i in 0..3 { print(i) }
 	"};
-	check(src, "0\n1\n2");
+	check(src, ["0", "1", "2"]);
 }
 
 #[test]
@@ -147,7 +147,7 @@ fn for_range_continue_advances() {
 
 #[test]
 fn for_var_is_scoped() {
-	fail_with("loop i in 0..3 { i }\ni", "undefined variable");
+	fail_with(["loop i in 0..3 { i }", "i"], "undefined variable");
 }
 
 // loops over iterables
@@ -230,5 +230,16 @@ fn for_struct_and_array_patterns() {
 		loop Point.{ x } in [Point.{ 1, 2 }, Point.{ 3, 4 }] { print(x) }
 		loop [a b] in [[1 2] [3 4]] { print(a + b) }
 	"};
-	check(src, "1\n3\n3\n7");
+	check(src, ["1", "3", "3", "7"]);
+}
+
+#[test]
+fn for_each_string_bytes_and_map_entries() {
+	let src = indoc! {r#"
+		loop b in "hi" { print(b) }
+		sum := 0
+		loop (k, v) in ["a" = 1, "bb" = 2] { sum += k.len * v }
+		sum
+	"#};
+	check(src, ["104", "105", "5"]);
 }
