@@ -89,8 +89,8 @@ tags: []
 	- [x] make zeroed fns runnable
 	- [x] add `E!T` shorthand for `Result[T, E]`
 	- [x] make `atom` a usable type
-	- [ ] loop over strings
-	- [ ] make `fs.read*` return a `Result`
+	- [x] loop over strings
+	- [x] make `fs.read*` return a `Result`
 	- [ ] revisit casts. I'm not sure I like the way I did it, where they parse int/float too, and return Options in those cases. Vet existing langs to see what works best for Oi.
 	- [ ] `T.()` doesn't work with tuples. Should it?
 		```oi

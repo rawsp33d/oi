@@ -53,8 +53,7 @@ string :< {
 	## Return string in uppercase.
 	upper :: fn(self) string {
 		out: []u8 = []
-		loop i in 0..self.len {
-			c := self[i]
+		loop c in self {
 			out << if c >= 97 && c <= 122 { c - 32 } else { c }
 		}
 		string.(out)
@@ -63,8 +62,7 @@ string :< {
 	## Return string in lowercase.
 	lower :: fn(self) string {
 		out: []u8 = []
-		loop i in 0..self.len {
-			c := self[i]
+		loop c in self {
 			out << if c >= 65 && c <= 90 { c + 32 } else { c }
 		}
 		string.(out)
@@ -157,8 +155,8 @@ pub parse_float :: fn(s: string) ?float {
 digits :: fn(s: string) ?int {
 	if s.len == 0 { return }
 	out := 0
-	loop i in 0..s.len {
-		d :: int.(s[i]) - 48
+	loop c in s {
+		d :: int.(c) - 48
 		if d < 0 || d > 9 { return }
 		out = out * 10 + d
 	}
