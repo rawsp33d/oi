@@ -1,0 +1,8 @@
+module core
+
+use rt
+
+## An Ast holding `s` as a name in a quote.
+pub ident :: fn(s: string) Ast {
+	unsafe rt.oi_ast_ident(s)
+}

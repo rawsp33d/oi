@@ -598,6 +598,13 @@ pub(crate) extern "C" fn rt_ast_lit(tag: i64, bits: i64) -> *mut Spanned<Expr> {
 	Box::into_raw(Box::new((super::comp::scalar(tag, bits), (0..0).into())))
 }
 
+// A process symbol, since core declares it `foreign`
+#[unsafe(export_name = "oi_ast_ident")]
+pub(crate) extern "C" fn rt_ast_ident(s: *const runtime::StrHeader) -> *mut Spanned<Expr> {
+	let name = String::from_utf8_lossy(unsafe { runtime::str_bytes(s) }).into_owned();
+	Box::into_raw(Box::new((Expr::Ident(name), Span::from(0..0))))
+}
+
 // Ast dispatch for the lowerer.
 pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const runtime::StrHeader, arg: i64) -> i64 {
 	let ast = |e: Expr| Box::into_raw(Box::new((e, Span::from(0..0)))) as i64;

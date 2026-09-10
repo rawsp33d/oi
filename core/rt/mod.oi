@@ -37,6 +37,9 @@ pub oi_ref_share : fn(p: ptr) ptr : foreign
 pub oi_ref_release : fn(p: ptr) : foreign
 pub oi_epilogue : fn() : foreign
 
+# ast
+pub oi_ast_ident : fn(s: string) Ast : foreign
+
 # misc
 pub oi_write : fn(tag: isize, bits: isize, width: isize, quote: isize, sink: isize) : foreign
 pub oi_write_sep : fn(i: isize, sink: isize) : foreign

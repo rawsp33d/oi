@@ -470,10 +470,24 @@ pub struct Compiler<M: Module = JITModule> {
 	map: SourceMap,
 	hoisted: HashMap<String, FnSig>,
 	lib: bool,
+	aot: bool,
 	pub(crate) include_tests: bool,
 	pub(crate) tests: Vec<(String, String, bool)>,
 	link_libs: Vec<String>,
 	exports: HashMap<String, String>,
+}
+
+fn comptime_only(e: &Expr) -> bool {
+	let ast = |t: &TypeExpr| matches!(t, TypeExpr::Name(n) if n == "Ast");
+	match e {
+		Expr::Pub(inner) | Expr::Annotated(_, inner) => comptime_only(&inner.0),
+		Expr::Fn { params, ret, .. } => params.iter().any(|p| ast(&p.typ)) || ret.as_ref().is_some_and(|r| ast(&r.0)),
+		Expr::Bind {
+			typ: Some((TypeExpr::Fn(ps, r), _)),
+			..
+		} => ps.iter().any(|(_, _, t)| ast(t)) || ast(r),
+		_ => false,
+	}
 }
 
 /// Whether `name` resolves in the running process (libc/libm etc).
@@ -543,6 +557,7 @@ impl Compiler<ObjectModule> {
 		let builder = ObjectBuilder::new(isa(true), name, cranelift_module::default_libcall_names()).unwrap();
 		let mut compiler = Self::new(ObjectModule::new(builder));
 		compiler.lib = lib;
+		compiler.aot = true;
 		compiler
 	}
 
@@ -608,6 +623,7 @@ impl<M: Module> Compiler<M> {
 			map: SourceMap::default(),
 			hoisted: HashMap::new(),
 			lib: false,
+			aot: false,
 			include_tests: false,
 			tests: Vec::new(),
 			link_libs: Vec::new(),
@@ -770,6 +786,9 @@ impl<M: Module> Compiler<M> {
 		let mut expanded = expand(program)?;
 		// fold `comp` expressions to literals
 		comp::eval(&mut expanded, &mut self.annotations, &mut self.consts, program)?;
+		if self.aot {
+			expanded.values_mut().for_each(|items| items.retain(|(e, _)| !comptime_only(e)));
+		}
 		let items = || {
 			program
 				.modules

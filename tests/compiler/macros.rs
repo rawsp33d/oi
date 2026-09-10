@@ -267,6 +267,21 @@ fn ident_compares_with_str() {
 }
 
 #[test]
+fn ident_names_generated_code() {
+	check(
+		indoc! {r#"
+			def! :: fn() Ast {
+				n := ident("seven")
+				`%n :: fn() int { 7 }`
+			}
+			def!()
+			print(seven())
+		"#},
+		"7",
+	);
+}
+
+#[test]
 fn name_reads_a_def() {
 	check(
 		indoc! {r#"
