@@ -477,6 +477,20 @@ fn fill_headers_come_from_the_trait() {
 }
 
 #[test]
+fn branches_box_into_the_expected_trait_object() {
+	let src = indoc! {"
+		Shape :: trait { area: fn(self) int }
+		Sq :: struct { s: int }
+		Sq : Shape < { area :: { self.s * self.s } }
+		Ci :: struct { r: int }
+		Ci : Shape < { area :: { 3 * self.r * self.r } }
+		pick :: fn(big: bool) Shape { if big { Ci.{2} } else { Sq.{2} } }
+		print(pick(true).area(), pick(false).area())
+	"};
+	check(src, "12 4");
+}
+
+#[test]
 fn headerless_fill_binds_self() {
 	let src = indoc! {"
 		Shape :: trait { area: fn(self) int }

@@ -48,13 +48,10 @@ impl<'a, M: Module> Translator<'a, M> {
 						self.self_name = Some(name.clone());
 					}
 					let (val, typ) = match (value, annot) {
-						(Some(value), Some(target)) => match self.coerce_lit(value, &target)? {
-							Some(val) => (val, target),
-							None => {
-								let val = self.check_typed(value, &target, "does not match the declared type")?;
-								(val, target)
-							}
-						},
+						(Some(value), Some(target)) => {
+							let val = self.check_typed(value, &target, "does not match the declared type")?;
+							(val, target)
+						}
 						(Some(value), None) => self.expr(value)?,
 						(None, Some(target)) => {
 							if matches!(target, Typ::Ref(_)) {

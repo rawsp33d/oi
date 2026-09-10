@@ -4,6 +4,15 @@ use super::*;
 
 impl<'a, M: Module> Translator<'a, M> {
 	pub fn expr(&mut self, expr: &Spanned<Expr>) -> Result<TypedVal, Diagnostic> {
+		self.lower(expr, None)
+	}
+
+	pub(super) fn lower(&mut self, expr: &Spanned<Expr>, hint: Option<&Typ>) -> Result<TypedVal, Diagnostic> {
+		if let Some(t) = hint
+			&& let Some(v) = self.coerce_lit(expr, t)?
+		{
+			return Ok((v, t.clone()));
+		}
 		match &expr.0 {
 			Expr::Int(n) => {
 				if (i32::MIN as i64..=i32::MAX as i64).contains(n) {
@@ -365,10 +374,17 @@ impl<'a, M: Module> Translator<'a, M> {
 				if elems.is_empty() {
 					return Ok(self.unit_value());
 				}
+				let want = match hint {
+					Some(Typ::Tuple(fs)) if fs.len() == elems.len() => Some(fs),
+					_ => None,
+				};
 				let ptr = self.call_alloc(elems.len());
 				let mut fields = Vec::with_capacity(elems.len());
 				for (i, (name, value)) in elems.iter().enumerate() {
-					let (val, typ) = self.expr(value)?;
+					let (val, typ) = match want {
+						Some(fs) => self.check_expr(value, &fs[i].1)?,
+						None => self.expr(value)?,
+					};
 					let val = self.copy_in(val, &typ);
 					self.b.ins().store(MemFlags::new(), val, ptr, (i * 8) as i32);
 					fields.push((name.clone(), typ));
@@ -557,14 +573,25 @@ impl<'a, M: Module> Translator<'a, M> {
 				Ok((v, field_typ))
 			}
 
-			Expr::Array(elems) => self.array_lit(elems, None, expr.1),
+			Expr::Array(elems) => match hint {
+				Some(Typ::Array(elem)) => self.array_lit(elems, Some(elem), expr.1),
+				Some(t @ Typ::Map(..)) if elems.is_empty() => self.map_lit(&[], expr.1, Some(t)),
+				_ => self.array_lit(elems, None, expr.1),
+			},
 
-			Expr::DotArray(None, elems) => self.fixed_infer(elems, expr.1),
+			Expr::DotArray(None, elems) => match hint {
+				Some(Typ::Array(elem)) => self.array_lit(elems, Some(elem), expr.1),
+				Some(Typ::FixedArray(elem, n)) => self.fixed_lit(elems, elem, *n, expr.1),
+				_ => self.fixed_infer(elems, expr.1),
+			},
 
-			Expr::DotTuple(_) => Err(
-				Diagnostic::new("cannot infer the tuple struct here", expr.1.into_range())
-					.with_label("annotate the binding, or construct with `Name( ... )`"),
-			),
+			Expr::DotTuple(args) => match hint {
+				Some(Typ::TupleStruct(name, _)) => self.construct_tuple_struct(name, args, expr.1),
+				_ => Err(
+					Diagnostic::new("cannot infer the tuple struct here", expr.1.into_range())
+						.with_label("annotate the binding, or construct with `Name( ... )`"),
+				),
+			},
 
 			Expr::DotArray(Some((te, span)), elems) => {
 				let elem = self.types().resolve(te, *span)?;
@@ -613,7 +640,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				Ok((out, typ))
 			}
 
-			Expr::If { cond, then, els } => match self.conditional(cond, then, els.as_deref(), None, expr.1)? {
+			Expr::If { cond, then, els } => match self.conditional(cond, then, els.as_deref(), hint, expr.1)? {
 				Some((v, t)) => Ok((v, t)),
 				None => Err(Diagnostic::new("this `if` never produces a value", expr.1.into_range())
 					.with_label("every branch returns, but a value is needed here")),
@@ -623,7 +650,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				subject,
 				arms,
 				else_body,
-			} => match self.match_expr(subject, arms, else_body.as_deref(), None, expr.1)? {
+			} => match self.match_expr(subject, arms, else_body.as_deref(), hint, expr.1)? {
 				Some((v, t)) => Ok((v, t)),
 				None => Err(
 					Diagnostic::new("this `match` never produces a value", expr.1.into_range())
@@ -652,7 +679,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				name,
 				type_args,
 				fields,
-			} => self.struct_lit(name, type_args, fields, expr.1, None),
+			} => self.struct_lit(name, type_args, fields, expr.1, hint),
 
 			Expr::Ref(inner) => {
 				let (ptr, typ) = self.expr(inner)?;
@@ -679,9 +706,24 @@ impl<'a, M: Module> Translator<'a, M> {
 				Ok((boxp, typ))
 			}
 
-			Expr::Record(entries) => self.record_lit(entries, expr.1, None),
+			Expr::Record(entries) => match hint {
+				Some(Typ::Struct(name, _)) => {
+					let fields = entries
+						.iter()
+						.map(|(k, v)| match &k.0 {
+							Expr::Ident(n) => Ok((Some(n.clone()), v.clone())),
+							_ => Err(
+								Diagnostic::new(format!("`{name}` fields are named by idents"), k.1.into_range())
+									.with_label("not a field name"),
+							),
+						})
+						.collect::<Result<Vec<_>, _>>()?;
+					self.struct_lit(name, &[], &fields, expr.1, hint)
+				}
+				_ => self.record_lit(entries, expr.1, hint),
+			},
 
-			Expr::Map(entries) => self.map_lit(entries, expr.1, None),
+			Expr::Map(entries) => self.map_lit(entries, expr.1, hint),
 
 			Expr::Range { start, end } => {
 				let start_val = match start {
@@ -716,14 +758,18 @@ impl<'a, M: Module> Translator<'a, M> {
 				ret,
 				body,
 			} => {
-				let Some(ret) = ret else {
-					return Err(Diagnostic::new(
-						"anonymous functions need an explicit return type",
-						expr.1.into_range(),
-					)
-					.with_label("add a return type, e.g. `fn [] () int { ... }`"));
+				let sig = match (ret, hint) {
+					(Some(ret), _) => AnonSig::Explicit(ret),
+					(None, Some(t @ Typ::Fn(..))) => AnonSig::Inferred(t.clone()),
+					(None, _) => {
+						return Err(Diagnostic::new(
+							"anonymous functions need an explicit return type",
+							expr.1.into_range(),
+						)
+						.with_label("add a return type, e.g. `fn [] () int { ... }`"));
+					}
 				};
-				self.declare_anon_fn(captures, params, *params_tuple, AnonSig::Explicit(ret), body, expr.1)
+				self.declare_anon_fn(captures, params, *params_tuple, sig, body, expr.1)
 			}
 
 			Expr::Annotated(anns, inner) => {

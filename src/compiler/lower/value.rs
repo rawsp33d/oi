@@ -558,10 +558,6 @@ impl<'a, M: Module> Translator<'a, M> {
 	// Evaluate `value` against an expected type.
 	// Coerces variant shorthands, atoms, and `none`.
 	pub(super) fn check_expr(&mut self, value: &Spanned<Expr>, target: &Typ) -> Result<TypedVal, Diagnostic> {
-		if matches!(target, Typ::Trait(_) | Typ::Error | Typ::Any) {
-			let (val, vt) = self.expr(value)?;
-			return self.coerce(val, &vt, target, value.1);
-		}
 		if let Typ::Annotated(anns, inner) = target
 			&& let Typ::Fn(ps, _) = &**inner
 		{
@@ -580,102 +576,8 @@ impl<'a, M: Module> Translator<'a, M> {
 			}
 			return Ok((self.b.ins().load(self.int, MemFlags::new(), val, 0), target.clone()));
 		}
-		if let Some(v) = self.coerce_lit(value, target)? {
-			return Ok((v, target.clone()));
-		}
-		match &value.0 {
-			Expr::Array(elems) | Expr::DotArray(None, elems) if matches!(target, Typ::Array(_)) => {
-				self.array_lit(elems, Some(&array_elem(target).clone()), value.1)
-			}
-			Expr::Array(elems) if elems.is_empty() && matches!(target, Typ::Map(..)) => {
-				self.map_lit(&[], value.1, Some(target))
-			}
-			Expr::Map(entries) if matches!(target, Typ::Map(..)) => self.map_lit(entries, value.1, Some(target)),
-			Expr::Tuple(elems) if !elems.is_empty() && matches!(target, Typ::Tuple(f) if f.len() == elems.len()) => {
-				let Typ::Tuple(fs) = target else { unreachable!() };
-				let ptr = self.call_alloc(elems.len());
-				for (i, ((_, e), (_, t))) in elems.iter().zip(fs).enumerate() {
-					let val = self.check_typed(e, t, "type mismatch")?;
-					let val = self.copy_in(val, t);
-					self.b.ins().store(MemFlags::new(), val, ptr, (i * 8) as i32);
-				}
-				Ok((ptr, target.clone()))
-			}
-			Expr::DotArray(None, elems) => match target {
-				Typ::FixedArray(elem, n) => self.fixed_lit(elems, elem, *n, value.1),
-				_ => Err(
-					Diagnostic::new("no array type is expected in this position", value.1.into_range())
-						.with_label(format!("this is {target}")),
-				),
-			},
-			Expr::DotTuple(args) => match target {
-				Typ::TupleStruct(name, _) => self.construct_tuple_struct(name, args, value.1),
-				_ => Err(
-					Diagnostic::new("no tuple struct is expected in this position", value.1.into_range())
-						.with_label(format!("this is {target}, write a plain tuple `( ... )` instead")),
-				),
-			},
-			Expr::If { cond, then, els } => {
-				match self.conditional(cond, then, els.as_deref(), Some(target), value.1)? {
-					Some(vt) => Ok(vt),
-					None => Err(
-						Diagnostic::new("this `if` never produces a value", value.1.into_range())
-							.with_label("every branch returns, but a value is needed here"),
-					),
-				}
-			}
-			Expr::Match {
-				subject,
-				arms,
-				else_body,
-			} => match self.match_expr(subject, arms, else_body.as_deref(), Some(target), value.1)? {
-				Some(vt) => Ok(vt),
-				None => Err(
-					Diagnostic::new("this `match` never produces a value", value.1.into_range())
-						.with_label("every arm returns, but a value is needed here"),
-				),
-			},
-			Expr::StructLit {
-				name,
-				type_args,
-				fields,
-			} => self.struct_lit(name, type_args, fields, value.1, Some(target)),
-			Expr::Record(entries) => match target {
-				Typ::Map(..) => self.record_lit(entries, value.1, Some(target)),
-				Typ::Struct(name, _) => {
-					let fields = entries
-						.iter()
-						.map(|(k, v)| match &k.0 {
-							Expr::Ident(n) => Ok((Some(n.clone()), v.clone())),
-							_ => Err(
-								Diagnostic::new(format!("`{name}` fields are named by idents"), k.1.into_range())
-									.with_label("not a field name"),
-							),
-						})
-						.collect::<Result<Vec<_>, _>>()?;
-					self.struct_lit(name, &[], &fields, value.1, Some(target))
-				}
-				_ => self.expr(value),
-			},
-			Expr::AnonFn {
-				captures,
-				params,
-				params_tuple,
-				ret: None,
-				body,
-			} if matches!(target, Typ::Fn(..)) => self.declare_anon_fn(
-				captures,
-				params,
-				*params_tuple,
-				AnonSig::Inferred(target.clone()),
-				body,
-				value.1,
-			),
-			_ => {
-				let (val, vt) = self.expr(value)?;
-				self.coerce(val, &vt, target, value.1)
-			}
-		}
+		let (val, vt) = self.lower(value, Some(target))?;
+		self.coerce(val, &vt, target, value.1)
 	}
 
 	// Convert an already-lowered value to the type expected, or hand it back unchanged.
@@ -877,7 +779,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			"" => match target {
 				Some(Typ::Struct(n, _)) => n.clone(),
 				// anonymous structs
-				None if fields.iter().all(|f| f.0.is_some()) => return self.infer_anon(fields),
+				_ if fields.iter().all(|f| f.0.is_some()) => return self.infer_anon(fields),
 				_ => {
 					return Err(
 						Diagnostic::new("cannot infer the struct type of `.{}` here", span.into_range())
