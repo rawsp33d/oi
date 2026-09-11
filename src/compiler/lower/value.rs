@@ -299,6 +299,20 @@ impl<'a, M: Module> Translator<'a, M> {
 		}
 	}
 
+	// Pick the (first) sum member that matches the hint.
+	pub(super) fn through_sum(&self, hint: Option<&Typ>, pick: impl Fn(&Typ) -> bool) -> Option<Typ> {
+		let Some(sum @ Typ::Sum(..)) = hint else {
+			return hint.cloned();
+		};
+		let hits: Vec<_> = self
+			.variants_of(sum)
+			.into_iter()
+			.filter(|v| v.payload.first().is_some_and(&pick))
+			.collect();
+		let [v] = &hits[..] else { return None };
+		Some(v.payload[0].clone())
+	}
+
 	// The tag of an enum value.
 	pub(super) fn enum_tag(&mut self, typ: &Typ, val: Value) -> Value {
 		if *typ == Typ::Any {

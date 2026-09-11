@@ -92,6 +92,8 @@ tags: []
 	- [x] loop over strings
 	- [x] make `fs.read*` return a `Result`
 	- [ ] revisit casts. I'm not sure I like the way I did it, where they parse int/float too, and return Options in those cases. Vet existing langs to see what works best for Oi.
+	- [ ] make `T.()` work for all types
+	- [ ] make `T.[]` work for all types
 	- [ ] `T.()` doesn't work with tuples. Should it?
 		```oi
 		T :: (int, string, float)
@@ -149,6 +151,8 @@ tags: []
 	- back on the table now that `|x|` lambda fences are gone
 	- that said, `|>` has grown on me
 - mutable `$` by default or opt-in?
+- [jit ctfe](https://www.reddit.com/r/ProgrammingLanguages/comments/16cs6js/comment/jzn7tdr/)
+- `let-else` `rust`
 - call `$` an `anaphor` everywhere? after learning about the concept I think it fits
 - opening up trailing fns to trailing anything, or at least anything with `.` + `{[(`
 - `loop <expr>` rather than any special case dispatch

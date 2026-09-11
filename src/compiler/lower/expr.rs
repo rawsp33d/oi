@@ -575,7 +575,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				Ok((v, field_typ))
 			}
 
-			Expr::Array(elems) => match hint {
+			Expr::Array(elems) => match self.through_sum(hint, |t| matches!(t, Typ::Array(_))).as_ref() {
 				Some(Typ::Array(elem)) => self.array_lit(elems, Some(elem), expr.1),
 				Some(t @ Typ::Map(..)) if elems.is_empty() => self.map_lit(&[], expr.1, Some(t)),
 				_ => self.array_lit(elems, None, expr.1),
@@ -725,7 +725,11 @@ impl<'a, M: Module> Translator<'a, M> {
 				_ => self.record_lit(entries, expr.1, hint),
 			},
 
-			Expr::Map(entries) => self.map_lit(entries, expr.1, hint),
+			Expr::Map(entries) => self.map_lit(
+				entries,
+				expr.1,
+				self.through_sum(hint, |t| matches!(t, Typ::Map(..))).as_ref(),
+			),
 
 			Expr::Range { start, end } => {
 				let start_val = match start {

@@ -509,6 +509,23 @@ fn atom_sum_alias_splices_as_member() {
 }
 
 #[test]
+fn literals_take_the_hint_through_a_sum() {
+	check(
+		indoc! {r#"
+			Arr :: []Json
+			Obj :: [string]Json
+			Json :: :null | bool | float | string | Arr | Obj
+			a : Json : [true, 1.5]
+			m : Json : ["k" = true]
+			n := match a { x @ Arr => x.len, _ => -1 }
+			k := match m { x @ Obj => x.len, _ => -1 }
+			print(n, k)
+		"#},
+		"2 1",
+	);
+}
+
+#[test]
 fn recursive_members() {
 	check(
 		indoc! {"
