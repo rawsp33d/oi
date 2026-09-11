@@ -194,6 +194,9 @@ impl TypeCtx<'_> {
 				span.into_range(),
 			)
 			.with_label("not a parameter")),
+			TypeExpr::Unquote(_) => {
+				Err(Diagnostic::new("unquote outside a macro template", span.into_range()).with_label("stray unquote"))
+			}
 			TypeExpr::Array(elem) => Ok(Typ::Array(Box::new(self.resolve(elem, span)?))),
 			TypeExpr::FixedArray(elem, len) => {
 				if let Expr::Ident(name) = &len.0

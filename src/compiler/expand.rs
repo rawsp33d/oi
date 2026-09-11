@@ -61,7 +61,7 @@ fn for_binders(e: &mut Expr, f: &mut impl FnMut(&mut String)) {
 			pat, mutable: Some(_), ..
 		}
 		| Expr::For { pat, .. } => pat_names(pat).into_iter().for_each(f),
-		Expr::AnonFn { params, .. } => params.iter_mut().for_each(|p| f(&mut p.name)),
+		Expr::AnonFn { params, .. } => params.iter_mut().filter(|p| !p.name.is_empty()).for_each(|p| f(&mut p.name)),
 		Expr::Match { arms, .. } => arms.iter_mut().flat_map(|a| &mut a.binding).for_each(f),
 		_ => {}
 	}
@@ -489,6 +489,12 @@ fn fill(e: &mut Spanned<Expr>, bound: &HashSet<String>, args: &HashMap<&str, Arg
 		}
 	}
 	match &mut e.0 {
+		Expr::Fn { params, ret, .. } | Expr::AnonFn { params, ret, .. } => fill_sig(params, ret.as_mut(), args),
+		Expr::StructDef { fields, .. } => fill_sig(fields, None, args),
+		Expr::Bind { typ: Some((t, _)), .. } => fill_type(t, args),
+		_ => {}
+	}
+	match &mut e.0 {
 		Expr::Call { args: list, .. }
 		| Expr::MacroCall { args: list, .. }
 		| Expr::EnumShorthand { args: list, .. }
@@ -504,6 +510,60 @@ fn fill(e: &mut Spanned<Expr>, bound: &HashSet<String>, args: &HashMap<&str, Arg
 			One(one) => fill(one, bound, args, suffix),
 		}),
 	}
+}
+
+// A `name: Type` param Ast.
+fn to_param(hole: &Param, a: &Spanned<Expr>) -> Param {
+	let mut p = hole.clone();
+	if let Expr::Bind {
+		name,
+		typ: Some(t),
+		value,
+		..
+	} = &a.0
+	{
+		p.name = name.split('#').next().unwrap_or(name).into();
+		(p.typ, p.default) = (t.0.clone(), value.as_deref().cloned());
+	} else {
+		flag("a param hole needs a `name: Type` Ast");
+	}
+	p
+}
+
+// The slot a type hole names.
+fn hole_key(t: &TypeExpr) -> Option<&str> {
+	match t {
+		TypeExpr::Unquote(e) if let Expr::Unquote(k) = &e.0 => Some(k),
+		_ => None,
+	}
+}
+
+// A type hole becomes the type named by its argument.
+fn fill_type(t: &mut TypeExpr, args: &HashMap<&str, Arg>) {
+	let Some(k) = hole_key(t) else { return };
+	match &args[k] {
+		Arg::Ast(a) if let Some(named) = TypeExpr::from_expr(&a.0) => *t = named,
+		_ => flag("a type hole needs an Ast naming a type"),
+	}
+}
+
+// Fill a signature.
+fn fill_sig(params: &mut Vec<Param>, ret: Option<&mut Spanned<TypeExpr>>, args: &HashMap<&str, Arg>) {
+	let mut out = Vec::with_capacity(params.len());
+	for mut p in params.drain(..) {
+		match hole_key(&p.typ).filter(|_| p.name.is_empty()) {
+			Some(k) => match &args[k] {
+				Arg::Ast(a) => out.push(to_param(&p, a)),
+				Arg::Seq(v) => out.extend(v.iter().map(|a| to_param(&p, a))),
+			},
+			None => {
+				fill_type(&mut p.typ, args);
+				out.push(p);
+			}
+		}
+	}
+	*params = out;
+	ret.into_iter().for_each(|(t, _)| fill_type(t, args));
 }
 
 // Walk a sequence position, splicing `%{...expr}` slots in verbatim and filling everything else.

@@ -406,3 +406,34 @@ fn quote_pattern_matches_and_captures() {
 		["-6", "42"],
 	);
 }
+
+#[test]
+fn splat_spreads_into_params() {
+	check(
+		indoc! {r#"
+			def! :: fn(t: Ast) Ast {
+				ps := [`%{ident("a")}: %t`, `%{ident("b")}: %t`]
+				`%{ident("add")} :: fn(%{...ps}) %t { a + b }`
+			}
+			def!(int)
+			print(add(1, 2))
+		"#},
+		"3",
+	);
+}
+
+#[test]
+fn splat_spreads_into_fields() {
+	check(
+		indoc! {r"
+			pair! :: fn() Ast {
+				fs := [`x: int`, `y: int`]
+				`P :: struct { %{...fs} }`
+			}
+			pair!()
+			p := P.{ 1, 2 }
+			print(p.y)
+		"},
+		"2",
+	);
+}

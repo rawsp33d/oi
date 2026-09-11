@@ -246,6 +246,19 @@ where
 		p.map_with(|o, ex| (o, ex.span()))
 	}
 
+	let unquote = just(Token::Percent)
+		.then_ignore(adjacent)
+		.ignore_then(
+			ident().map(Expr::Unquote).or(brace(
+				just(Token::DotDotDot)
+					.ignore_then(expr.clone())
+					.map(|e| Expr::UnquoteSplat(Box::new(e)))
+					.or(expr.clone().map(|e| Expr::UnquoteExpr(Box::new(e)))),
+			)),
+		)
+		.map_with(|e, ex| (e, ex.span()))
+		.boxed();
+
 	// annotations
 	let ann_entry = ident().then_ignore(just(Token::Assign)).or_not().then(expr.clone());
 	let ann_tag = spanned(select! { Token::Atom(name) => Expr::Atom(name) });
@@ -359,7 +372,10 @@ where
 				))
 				.map(|(name, args)| TypeExpr::Generic(name, args));
 
+			let hole = unquote.clone().map(|u| TypeExpr::Unquote(Box::new(u)));
+
 			choice((
+				hole,
 				unit,
 				annotated,
 				fn_type,
@@ -438,6 +454,16 @@ where
 				annotations: vec![],
 			}
 		});
+	let param_hole = unquote.clone().map_with(|u, ex| Param {
+		name: String::new(),
+		typ: TypeExpr::Unquote(Box::new(u)),
+		span: ex.span(),
+		default: None,
+		access: Access::Read,
+		public: false,
+		annotations: vec![],
+	});
+	let param = param_hole.clone().or(param).boxed();
 	// NOTE: a trailing comma forces a tuple even for one param
 	let params = paren(
 		param
@@ -955,17 +981,6 @@ where
 			.collect::<Vec<_>>()
 			.delimited_by(just(Token::Backtick), just(Token::Backtick))
 			.map_with(|stmts, ex| (Expr::Quote(stmts), ex.span()));
-		let unquote = just(Token::Percent)
-			.then_ignore(adjacent)
-			.ignore_then(
-				ident().map(Expr::Unquote).or(brace(
-					just(Token::DotDotDot)
-						.ignore_then(expr.clone())
-						.map(|e| Expr::UnquoteSplat(Box::new(e)))
-						.or(expr.clone().map(|e| Expr::UnquoteExpr(Box::new(e)))),
-				)),
-			)
-			.map_with(|e, ex| (e, ex.span()));
 
 		// inline macro calls
 		let macro_call = dotted_name
@@ -1452,6 +1467,7 @@ where
 			annotations,
 		})
 		.boxed();
+	let struct_field = param_hole.or(struct_field).boxed();
 	anon_fields.define(loose_list(struct_field.clone()));
 	// embedded structs
 	let embedded = just(Token::Pub).or_not().then(ident()).map_with(|(public, name), ex| Param {

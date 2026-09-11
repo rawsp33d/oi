@@ -336,7 +336,11 @@ impl Expr {
 	// Visit every direct child, in whichever shape it's stored.
 	pub fn for_children(&mut self, mut f: impl FnMut(Child)) {
 		match self {
-			Expr::Bind { value, .. } | Expr::Return(value) => value.iter_mut().for_each(|v| f(One(v))),
+			Expr::Bind { typ, value, .. } => {
+				typ.iter_mut().filter_map(|(t, _)| t.hole()).for_each(|e| f(One(e)));
+				value.iter_mut().for_each(|v| f(One(v)));
+			}
+			Expr::Return(value) => value.iter_mut().for_each(|v| f(One(v))),
 			Expr::OptionInit { arg: v, .. }
 			| Expr::ResultInit { arg: v, .. }
 			| Expr::Assign { value: v, .. }
@@ -370,12 +374,19 @@ impl Expr {
 				f(One(a));
 				f(One(b));
 			}
-			Expr::Fn { body, .. }
-			| Expr::AnonFn { body, .. }
-			| Expr::MacroDef { body, .. }
-			| Expr::Block(body)
+			Expr::Fn { params, ret, body, .. }
+			| Expr::AnonFn { params, ret, body, .. }
+			| Expr::MacroDef { params, ret, body, .. } => {
+				let sig = params.iter_mut().map(|p| &mut p.typ).chain(ret.iter_mut().map(|(t, _)| t));
+				sig.filter_map(TypeExpr::hole).for_each(|e| f(One(e)));
+				f(List(body));
+			}
+			Expr::StructDef { fields, fills, .. } => {
+				fields.iter_mut().filter_map(|p| p.typ.hole()).for_each(|e| f(One(e)));
+				f(List(fills));
+			}
+			Expr::Block(body)
 			| Expr::Quote(body)
-			| Expr::StructDef { fills: body, .. }
 			| Expr::Claim { fills: body, .. }
 			| Expr::EnumDef { fills: body, .. }
 			| Expr::TraitDef { methods: body, .. } => f(List(body)),
@@ -559,9 +570,18 @@ pub enum TypeExpr {
 	Ref(Box<TypeExpr>),
 	AnonStruct(Vec<Param>),
 	Variadic(Box<TypeExpr>),
+	Unquote(Box<Spanned<Expr>>),
 }
 
 impl TypeExpr {
+	// This type's unquote, if any.
+	pub fn hole(&mut self) -> Option<&mut Spanned<Expr>> {
+		match self {
+			TypeExpr::Unquote(e) => Some(e),
+			_ => None,
+		}
+	}
+
 	// The type an expression could be naming.
 	pub fn from_expr(e: &Expr) -> Option<TypeExpr> {
 		match e {
