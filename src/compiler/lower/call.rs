@@ -219,6 +219,42 @@ impl<'a, M: Module> Translator<'a, M> {
 		Ok(out)
 	}
 
+	// Swap each spread `...x` for reads of a hidden temp holding x.
+	fn expand_spreads(&mut self, args: &[Spanned<Expr>]) -> Result<Option<Vec<Spanned<Expr>>>, Diagnostic> {
+		if !args.iter().any(|a| matches!(a.0, Expr::Spread(_))) {
+			return Ok(None);
+		}
+		let mut out = Vec::with_capacity(args.len());
+		for (i, arg) in args.iter().enumerate() {
+			let (Expr::Spread(inner), at) = arg else {
+				out.push(arg.clone());
+				continue;
+			};
+			let (val, typ) = self.expr(inner)?;
+			let name = format!("$spread{i}");
+			let ident = || Box::new((Expr::Ident(name.clone()), *at));
+			match &typ {
+				Typ::Tuple(fs) => out.extend((0..fs.len()).map(|f| {
+					let (tuple, field) = (ident(), f.to_string());
+					(Expr::Field { tuple, field }, *at)
+				})),
+				Typ::FixedArray(_, n) => out.extend((0..*n).map(|f| {
+					let (collection, index) = (ident(), Box::new((Expr::Int(f as i64), *at)));
+					(Expr::Index { collection, index }, *at)
+				})),
+				Typ::Array(_) => out.push((Expr::Spread(ident()), *at)),
+				_ => {
+					return Err(Diagnostic::new(format!("cannot spread {typ}"), inner.1.into_range())
+						.with_label("not a tuple or array"));
+				}
+			}
+			let var = self.b.declare_var(self.b.func.dfg.value_type(val));
+			self.b.def_var(var, val);
+			self.vars.insert(name, Local::plain(var, typ, false));
+		}
+		Ok(Some(out))
+	}
+
 	// Slot the args, fill defaults, and evaluate.
 	fn call_args(
 		&mut self,
@@ -230,6 +266,8 @@ impl<'a, M: Module> Translator<'a, M> {
 		span: Span,
 	) -> Result<CallArgs, Diagnostic> {
 		let self_n = recv.is_some() as usize;
+		let expanded = self.expand_spreads(args)?;
+		let args = expanded.as_deref().unwrap_or(args);
 		let access: Vec<Access> = params.iter().map(|p| access_of(&p.typ)).collect();
 		let names: Vec<&str> = (params.iter().skip(self_n))
 			.map(|p| p.name.as_deref().unwrap_or_default())
@@ -242,6 +280,12 @@ impl<'a, M: Module> Translator<'a, M> {
 			span,
 		)?;
 		let args = packed.as_deref().unwrap_or(args);
+		if let Some(arg) = args.iter().find(|a| matches!(a.0, Expr::Spread(_))) {
+			return Err(
+				Diagnostic::new("a `[]T` spread may only feed the vararg slot", arg.1.into_range())
+					.with_label("this slice has no static length"),
+			);
+		}
 		let named = arg_slots(name, &names, args, coerces)?;
 		if named.is_none() {
 			let n_defaults = params.iter().rev().take_while(|p| p.default.is_some()).count();

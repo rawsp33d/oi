@@ -12,10 +12,13 @@ fn vararg_rejections() {
 	}
 	fail_with("f :: fn(a: ...int, b: ...int) {}", "`f` has more than one vararg");
 	fail_with(
-		"f :: fn(a: ...int, b: int) {}\nf()",
+		["f :: fn(a: ...int, b: int) {}", "f()"],
 		"`f` expects 1.. argument(s), got 0",
 	);
-	fail_with("f :: fn(xs: ...int) {}\na :: [1]\nf(a)", "expected int, got []int");
+	fail_with(
+		["f :: fn(xs: ...int) {}", "a :: [1]", "f(a)"],
+		"expected int, got []int",
+	);
 }
 
 #[test]
@@ -48,7 +51,33 @@ fn generic_varargs() {
 	"#};
 	check(src, ["3 2", "1 a"]);
 	fail_with(
-		"first[T] :: fn(xs: ...T) T { xs[0] }\nfirst(1, \"a\")",
+		["first[T] :: fn(xs: ...T) T { xs[0] }", r#"first(1, "a")"#],
 		"array elements must share a type",
 	);
+}
+
+#[test]
+fn spread_args() {
+	let src = indoc! {r#"
+		divmod :: fn(a: int, b: int) (int, int) { (a / b, a % b) }
+		show :: fn(q: int, r: int) { print(q, r) }
+		sum :: fn(xs: ...int) int {
+			t := 0
+			loop x in xs { t = t + x }
+			t
+		}
+		fwd :: fn(a: int, b: int) { show(...$) }
+		pair: [2]int = .[4 5]
+		show(...divmod(10, 3))
+		fwd(7, 2)
+		show(...pair)
+		print(sum(9, ...(1, 2)))
+	"#};
+	check(src, ["3 1", "7 2", "4 5", "12"]);
+	let show = "show :: fn(q: int, r: int) { print(q, r) }";
+	fail_with(
+		[show, "show(...[1, 2])"],
+		"a `[]T` spread may only feed the vararg slot",
+	);
+	fail_with([show, "show(...5)"], "cannot spread int");
 }
