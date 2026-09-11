@@ -548,3 +548,16 @@ fn recursive_members() {
 		"3",
 	);
 }
+
+#[test]
+fn printing_a_recursive_sum_terminates() {
+	check(
+		indoc! {"
+			Json :: :null | bool | float | string | []Json | [string]Json
+			b : Json : true
+			top : Json : [b]
+			print(top)
+		"},
+		"[true]",
+	);
+}

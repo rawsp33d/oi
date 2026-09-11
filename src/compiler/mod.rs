@@ -459,6 +459,7 @@ pub struct Compiler<M: Module = JITModule> {
 	generics: HashMap<String, GenericFnDef>,
 	mono: HashMap<String, FnSig>,
 	pending: Vec<Pending>,
+	printers: Vec<(String, Typ, bool, runtime::Sink)>,
 	trait_impls: HashSet<(String, String)>,
 	core_traits: HashSet<String>,
 	descs: HashMap<String, DataId>,
@@ -613,6 +614,7 @@ impl<M: Module> Compiler<M> {
 			generics: HashMap::new(),
 			mono: HashMap::new(),
 			pending: Vec::new(),
+			printers: Vec::new(),
 			trait_impls: HashSet::new(),
 			core_traits: HashSet::new(),
 			descs: HashMap::new(),
@@ -1429,9 +1431,10 @@ impl<M: Module> Compiler<M> {
 			types,
 		)?;
 		let entry_id = self.finish_fn("oi_main");
+		let id = self.compile_entry(entry_id, typ, &funcs, types);
 
 		// drain generic instances queued by calls we've seen
-		while let Some((sym, def, subst)) = self.pending.pop() {
+		while let Some((sym, def, subst)) = self.pending.pop().or_else(|| self.compile_printers(&funcs, types)) {
 			let home = scopes[if def.module.is_empty() { "main" } else { &def.module }];
 			let types = TypeCtx::new(&structs, &enums, &aliases, &subst, &generics, &traits)
 				.with_consts(consts)
@@ -1455,7 +1458,6 @@ impl<M: Module> Compiler<M> {
 			self.finish_fn(&sym);
 		}
 
-		let id = self.compile_entry(entry_id, typ, &funcs, types);
 		self.hoisted = funcs;
 
 		Ok(id)
@@ -1474,6 +1476,24 @@ impl<M: Module> Compiler<M> {
 		trans.b.finalize();
 
 		self.finish_fn("__oi_main")
+	}
+
+	// Queued printer bodies, and whatever they queued in turn.
+	fn compile_printers(&mut self, funcs: &HashMap<String, FnSig>, types: TypeCtx) -> Option<Pending> {
+		while let Some((sym, typ, quote, sink)) = self.printers.pop() {
+			let params = [(String::new(), typ.clone(), Access::Read)];
+			let def = FnDef {
+				params: &params,
+				..FnDef::default()
+			};
+			let (mut trans, block) = self.translator(&def, funcs, types);
+			let val = trans.b.block_params(block)[0];
+			trans.emit_variant(&typ, val, quote, sink);
+			trans.b.ins().return_(&[]);
+			trans.b.finalize();
+			self.finish_fn(&sym);
+		}
+		self.pending.pop()
 	}
 
 	// A fn's object symbol.
@@ -1567,6 +1587,7 @@ impl<M: Module> Compiler<M> {
 			annotations: &self.annotations,
 			mono: &mut self.mono,
 			pending: &mut self.pending,
+			printers: &mut self.printers,
 			descs: &mut self.descs,
 			string_idx: &mut self.string_idx,
 			atoms: &mut self.atoms,

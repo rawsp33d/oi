@@ -43,8 +43,19 @@ impl<'a, M: Module> Translator<'a, M> {
 		ptr
 	}
 
+	// Variant printing. Handles recursive sums.
+	fn call_variant(&mut self, typ: &Typ, val: Value, quote: bool, sink: runtime::Sink) {
+		let sym = oi_symbol(&format!("print_{}_{}_{}", typ.key(), quote as u8, sink as u8));
+		if self.module.declarations().get_name(&sym).is_none() {
+			self.printers.push((sym.clone(), typ.clone(), quote, sink));
+		}
+		let callee = self.import_fn(&sym, &[cl_type(typ, self.int)], None);
+		self.b.ins().call(callee, &[val]);
+	}
+
 	// Payload `Display`.
-	fn emit_variant(&mut self, typ: &Typ, val: Value, quote: bool, named: bool, sink: runtime::Sink) {
+	pub(crate) fn emit_variant(&mut self, typ: &Typ, val: Value, quote: bool, sink: runtime::Sink) {
+		let named = !matches!(typ, Typ::Sum(..));
 		let done = self.b.create_block();
 		let variants = self.variants_of(typ);
 		let tag = self.enum_tag(typ, val);
@@ -159,12 +170,8 @@ impl<'a, M: Module> Translator<'a, M> {
 				self.emit_frag(runtime::Tag::Raw, val, 0, false, sink);
 			}
 
-			Typ::Enum(_) | Typ::Option(_) | Typ::Result(..) => {
-				self.emit_variant(&typ.clone(), val, quote, true, sink);
-			}
-
-			Typ::Sum(..) => {
-				self.emit_variant(&typ.clone(), val, quote, false, sink);
+			Typ::Enum(_) | Typ::Option(_) | Typ::Result(..) | Typ::Sum(..) => {
+				self.call_variant(&typ.clone(), val, quote, sink);
 			}
 
 			Typ::Range => {

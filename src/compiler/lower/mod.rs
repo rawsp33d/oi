@@ -68,6 +68,7 @@ pub(super) struct Translator<'a, M: Module> {
 	pub annotations: &'a HashMap<String, Vec<Annotation>>,
 	pub mono: &'a mut HashMap<String, FnSig>,
 	pub pending: &'a mut Vec<Pending>,
+	pub printers: &'a mut Vec<(String, Typ, bool, runtime::Sink)>,
 	pub descs: &'a mut HashMap<String, DataId>,
 	pub string_idx: &'a mut usize,
 	pub atoms: &'a mut HashSet<String>,
