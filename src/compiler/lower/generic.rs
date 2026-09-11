@@ -1,4 +1,4 @@
-use super::call::arg_slots;
+use super::call::{arg_slots, pack_varargs};
 use super::*;
 use crate::ast::TypeParam;
 use crate::compiler::{ann, role};
@@ -23,7 +23,9 @@ pub(super) fn unify(
 		};
 	}
 	match (declared, concrete) {
-		(TypeExpr::Array(e), Typ::Array(c)) => unify(e, c, params, subst, generics),
+		(TypeExpr::Array(e), Typ::Array(c)) | (TypeExpr::Variadic(e), Typ::Array(c)) => {
+			unify(e, c, params, subst, generics)
+		}
 		(TypeExpr::FixedArray(e, n), Typ::FixedArray(c, cn)) if matches!(n.0, Expr::Int(n) if n == *cn as i64) => {
 			unify(e, c, params, subst, generics)
 		}
@@ -87,6 +89,13 @@ impl<'a, M: Module> Translator<'a, M> {
 			self.require_unsafe(name, span)?;
 		}
 		let self_n = recv.is_some() as usize;
+		let packed = pack_varargs(
+			name,
+			(def.params[self_n..].iter()).map(|p| (matches!(p.typ, TypeExpr::Variadic(_)), p.default.is_some())),
+			args,
+			span,
+		)?;
+		let args = packed.as_deref().unwrap_or(args);
 		let names: Vec<&str> = def.params[self_n..].iter().map(|p| p.name.as_str()).collect();
 		let named = arg_slots(name, &names, args, false)?;
 		if named

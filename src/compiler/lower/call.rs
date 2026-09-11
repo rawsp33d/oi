@@ -10,19 +10,20 @@ pub(super) fn arg_inner(arg: &Spanned<Expr>) -> &Spanned<Expr> {
 }
 
 // Collect the vararg run into one array literal, leaving a fixed-arity argument list.
-fn pack_varargs(
+pub(super) fn pack_varargs(
 	name: &str,
-	params: &[FnParam],
+	params: impl Iterator<Item = (bool, bool)>,
 	args: &[Spanned<Expr>],
 	span: Span,
 ) -> Result<Option<Vec<Spanned<Expr>>>, Diagnostic> {
-	let Some(v) = params.iter().position(|p| p.variadic) else {
+	let params: Vec<_> = params.collect();
+	let Some(v) = params.iter().position(|&(variadic, _)| variadic) else {
 		return Ok(None);
 	};
 	let named = matches!(args.last(), Some((Expr::Record(es), _)) if !es.is_empty());
 	let pos = &args[..args.len() - named as usize];
 	// defaults after the vararg are named-only
-	let k = params[v + 1..].iter().filter(|p| p.default.is_none()).count();
+	let k = params[v + 1..].iter().filter(|&(_, has_default)| !has_default).count();
 	if pos.len() < v + k {
 		let msg = format!("`{name}` expects {}.. argument(s), got {}", v + k, pos.len());
 		return Err(Diagnostic::new(msg, span.into_range()).with_label("wrong number of arguments"));
@@ -234,7 +235,12 @@ impl<'a, M: Module> Translator<'a, M> {
 			.map(|p| p.name.as_deref().unwrap_or_default())
 			.collect();
 		let coerces = matches!(params.last().map(|p| access_peel(&p.typ)), Some(Typ::Struct(..)));
-		let packed = pack_varargs(name, &params[self_n..], args, span)?;
+		let packed = pack_varargs(
+			name,
+			params[self_n..].iter().map(|p| (p.variadic, p.default.is_some())),
+			args,
+			span,
+		)?;
 		let args = packed.as_deref().unwrap_or(args);
 		let named = arg_slots(name, &names, args, coerces)?;
 		if named.is_none() {

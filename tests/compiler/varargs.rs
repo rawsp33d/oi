@@ -37,3 +37,18 @@ fn varargs() {
 	"#};
 	check(src, ["6 0 9 3", "[2] [0] 2/", "2, 4, 3"]);
 }
+
+#[test]
+fn generic_varargs() {
+	let src = indoc! {r#"
+		count[T] :: fn(xs: ...T) int { xs.len }
+		first[T] :: fn(xs: ...T) T { xs[0] }
+		print(count(1, 2, 3), count("a", "b"))
+		print(first(1, 2, 3), first("a", "b"))
+	"#};
+	check(src, ["3 2", "1 a"]);
+	fail_with(
+		"first[T] :: fn(xs: ...T) T { xs[0] }\nfirst(1, \"a\")",
+		"array elements must share a type",
+	);
+}
