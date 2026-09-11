@@ -423,6 +423,33 @@ fn splat_spreads_into_params() {
 }
 
 #[test]
+fn type_holes_nest_in_option_and_array() {
+	check(
+		indoc! {r"
+			def! :: fn(t: Ast) Ast { `f :: fn(x: ?%t) []%t { [x or 0] }` }
+			def!(int)
+			print(f(5))
+		"},
+		"[5]",
+	);
+}
+
+#[test]
+fn splat_updates_param_tuple_for_dollar() {
+	check(
+		indoc! {r"
+			def! :: fn() Ast {
+				ps := [`a: int`, `b: int`]
+				`sum :: fn(%{...ps}) int { $.0 + $.1 }`
+			}
+			def!()
+			print(sum(1, 2))
+		"},
+		"3",
+	);
+}
+
+#[test]
 fn splat_spreads_into_fields() {
 	check(
 		indoc! {r"

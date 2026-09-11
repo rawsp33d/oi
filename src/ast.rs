@@ -337,7 +337,7 @@ impl Expr {
 	pub fn for_children(&mut self, mut f: impl FnMut(Child)) {
 		match self {
 			Expr::Bind { typ, value, .. } => {
-				typ.iter_mut().filter_map(|(t, _)| t.hole()).for_each(|e| f(One(e)));
+				typ.iter_mut().for_each(|(t, _)| t.holes(|e| f(One(e))));
 				value.iter_mut().for_each(|v| f(One(v)));
 			}
 			Expr::Return(value) => value.iter_mut().for_each(|v| f(One(v))),
@@ -378,11 +378,11 @@ impl Expr {
 			| Expr::AnonFn { params, ret, body, .. }
 			| Expr::MacroDef { params, ret, body, .. } => {
 				let sig = params.iter_mut().map(|p| &mut p.typ).chain(ret.iter_mut().map(|(t, _)| t));
-				sig.filter_map(TypeExpr::hole).for_each(|e| f(One(e)));
+				sig.for_each(|t| t.holes(|e| f(One(e))));
 				f(List(body));
 			}
 			Expr::StructDef { fields, fills, .. } => {
-				fields.iter_mut().filter_map(|p| p.typ.hole()).for_each(|e| f(One(e)));
+				fields.iter_mut().for_each(|p| p.typ.holes(|e| f(One(e))));
 				f(List(fills));
 			}
 			Expr::Block(body)
@@ -574,12 +574,44 @@ pub enum TypeExpr {
 }
 
 impl TypeExpr {
-	// This type's unquote, if any.
-	pub fn hole(&mut self) -> Option<&mut Spanned<Expr>> {
+	// Visit this type and every type nested in it.
+	pub fn walk_mut(&mut self, f: &mut impl FnMut(&mut TypeExpr)) {
+		f(self);
 		match self {
-			TypeExpr::Unquote(e) => Some(e),
-			_ => None,
+			TypeExpr::Array(t)
+			| TypeExpr::FixedArray(t, _)
+			| TypeExpr::Annotated(_, t)
+			| TypeExpr::Option(t)
+			| TypeExpr::Ref(t)
+			| TypeExpr::Variadic(t) => t.walk_mut(f),
+			TypeExpr::Result(t, e) => {
+				t.walk_mut(f);
+				e.iter_mut().for_each(|e| e.walk_mut(f));
+			}
+			TypeExpr::Map(k, v) => {
+				k.walk_mut(f);
+				v.walk_mut(f);
+			}
+			TypeExpr::Fn(params, ret) => {
+				params.iter_mut().for_each(|(.., t)| t.walk_mut(f));
+				ret.walk_mut(f);
+			}
+			TypeExpr::Tuple(fields) | TypeExpr::TupleStruct(_, fields) => {
+				fields.iter_mut().for_each(|(_, t)| t.walk_mut(f));
+			}
+			TypeExpr::Sum(types) | TypeExpr::Generic(_, types) => types.iter_mut().for_each(|t| t.walk_mut(f)),
+			TypeExpr::AnonStruct(fields) => fields.iter_mut().for_each(|p| p.typ.walk_mut(f)),
+			TypeExpr::Name(_) | TypeExpr::AtomSum(_) | TypeExpr::Unquote(_) => {}
 		}
+	}
+
+	// Every unquote in this type.
+	pub fn holes(&mut self, mut f: impl FnMut(&mut Spanned<Expr>)) {
+		self.walk_mut(&mut |t| {
+			if let TypeExpr::Unquote(e) = t {
+				f(e);
+			}
+		});
 	}
 
 	// The type an expression could be naming.

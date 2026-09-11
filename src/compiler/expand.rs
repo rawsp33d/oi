@@ -489,7 +489,21 @@ fn fill(e: &mut Spanned<Expr>, bound: &HashSet<String>, args: &HashMap<&str, Arg
 		}
 	}
 	match &mut e.0 {
-		Expr::Fn { params, ret, .. } | Expr::AnonFn { params, ret, .. } => fill_sig(params, ret.as_mut(), args),
+		Expr::Fn {
+			params,
+			params_tuple,
+			ret,
+			..
+		}
+		| Expr::AnonFn {
+			params,
+			params_tuple,
+			ret,
+			..
+		} => {
+			fill_sig(params, ret.as_mut(), args);
+			*params_tuple |= params.len() != 1;
+		}
 		Expr::StructDef { fields, .. } => fill_sig(fields, None, args),
 		Expr::Bind { typ: Some((t, _)), .. } => fill_type(t, args),
 		_ => {}
@@ -538,13 +552,15 @@ fn hole_key(t: &TypeExpr) -> Option<&str> {
 	}
 }
 
-// A type hole becomes the type named by its argument.
+// Fill every type hole with the type named by its argument.
 fn fill_type(t: &mut TypeExpr, args: &HashMap<&str, Arg>) {
-	let Some(k) = hole_key(t) else { return };
-	match &args[k] {
-		Arg::Ast(a) if let Some(named) = TypeExpr::from_expr(&a.0) => *t = named,
-		_ => flag("a type hole needs an Ast naming a type"),
-	}
+	t.walk_mut(&mut |t| {
+		let Some(k) = hole_key(t) else { return };
+		match &args[k] {
+			Arg::Ast(a) if let Some(named) = TypeExpr::from_expr(&a.0) => *t = named,
+			_ => flag("a type hole needs an Ast naming a type"),
+		}
+	});
 }
 
 // Fill a signature.
