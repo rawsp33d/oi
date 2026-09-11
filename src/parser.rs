@@ -1174,7 +1174,7 @@ where
 			dot_tuple,
 			macro_call,
 			quote,
-			unquote,
+			unquote.clone(),
 			leaf,
 			enum_shorthand,
 			group,
@@ -1561,7 +1561,10 @@ where
 		.then(backing)
 		.then_ignore(just(Token::Enum))
 		.then(brace(loose_list(
-			func.clone().map(Member::Fn).or(variant.map(Member::Variant)),
+			func.clone()
+				.or(unquote.clone())
+				.map(Member::Fn)
+				.or(variant.map(Member::Variant)),
 		)))
 		.validate(|(((name, type_params), backing), members), ex, emitter| {
 			let (_, fills, variants) = split_members(members);

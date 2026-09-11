@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::ast::{Capture, Child, Expr, Param, Span, Spanned, TypeExpr};
+use crate::ast::{Capture, Child, EnumVariant, Expr, Param, Span, Spanned, TypeExpr};
 use crate::diagnostics::Diagnostic;
 use crate::loader::{Module, Program, Scope};
 use crate::runtime;
@@ -528,6 +528,10 @@ fn fill(e: &mut Spanned<Expr>, bound: &HashSet<String>, args: &HashMap<&str, Arg
 			One(one) => fill(one, bound, args, suffix),
 		}),
 	}
+	if let Expr::EnumDef { variants, fills, .. } = &mut e.0 {
+		let spliced = fills.extract_if(.., |f| matches!(f.0, Expr::Ident(_) | Expr::Call { .. }));
+		variants.extend(spliced.map(to_variant));
+	}
 }
 
 // A `name: Type` param Ast.
@@ -584,6 +588,24 @@ fn fill_sig(params: &mut Vec<Param>, ret: Option<&mut Spanned<TypeExpr>>, args: 
 	}
 	*params = out;
 	ret.into_iter().for_each(|(t, _)| fill_type(t, args));
+}
+
+// A `Name` or `Name(Type)` Ast spliced into an enum body.
+fn to_variant((e, _): Spanned<Expr>) -> EnumVariant {
+	let (name, args) = match e {
+		Expr::Call { name, args, .. } => (name, args),
+		Expr::Ident(name) => (name, vec![]),
+		_ => unreachable!(),
+	};
+	let payload: Vec<_> = args.iter().filter_map(|a| Some((TypeExpr::from_expr(&a.0)?, a.1))).collect();
+	if payload.len() != args.len() {
+		flag("an enum variant payload needs Asts naming types");
+	}
+	EnumVariant {
+		name,
+		payload,
+		..Default::default()
+	}
 }
 
 // Walk a sequence position, splicing `%{...expr}` slots in verbatim and filling everything else.

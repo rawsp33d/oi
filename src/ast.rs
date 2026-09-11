@@ -655,7 +655,7 @@ impl UseItem {
 	}
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct EnumVariant {
 	pub name: String,
 	pub disc: Option<i64>,

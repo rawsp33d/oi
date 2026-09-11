@@ -941,3 +941,19 @@ fn str_fill_overrides_derived() {
 		"custom",
 	);
 }
+
+#[test]
+fn variant_holes_from_a_macro() {
+	check(
+		indoc! {r"
+			def! :: fn() Ast {
+				vs := [`A`, `B(int)`]
+				`E :: enum { %{...vs} }`
+			}
+			def!()
+			print(E.A)
+			print(match E.B(7) { .A => 0, .B(n) => n })
+		"},
+		["A", "7"],
+	);
+}
