@@ -806,6 +806,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			}
 			Expr::MacroDef { .. } => unreachable!("removed by macro expansion"),
 			Expr::Quote(stmts) => self.quote(stmts, expr.1),
+			Expr::Arm(_) => Err(Diagnostic::new("a match arm only fits in a match", expr.1.into_range())),
 			Expr::Unquote(_) | Expr::UnquoteExpr(_) | Expr::UnquoteSplat(_) | Expr::UnquoteBind(..) => Err(
 				Diagnostic::new("unquotes only make sense inside a quote", expr.1.into_range())
 					.with_label("stray unquote"),

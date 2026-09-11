@@ -972,16 +972,6 @@ where
 			)
 		});
 
-		// ast literals
-		let quote = item
-			.clone()
-			.or(stmt.clone())
-			.repeated()
-			.at_least(1)
-			.collect::<Vec<_>>()
-			.delimited_by(just(Token::Backtick), just(Token::Backtick))
-			.map_with(|stmts, ex| (Expr::Quote(stmts), ex.span()));
-
 		// inline macro calls
 		let macro_call = dotted_name
 			.clone()
@@ -1078,6 +1068,7 @@ where
 			just(Token::Comma).ignored(),
 			just(Token::RBrace).rewind().ignored(),
 			just(Token::Else).rewind().ignored(),
+			just(Token::Backtick).rewind().ignored(),
 		));
 		let arm_body = block
 			.clone()
@@ -1112,11 +1103,16 @@ where
 				binding,
 				patterns,
 				body,
-			});
+			})
+			.boxed();
+		let arm_spread = unquote.clone().map(|e| MatchArm {
+			body: vec![e],
+			..Default::default()
+		});
 		let match_expr = just(Token::Match)
 			.ignore_then(header_expr.clone())
 			.then(brace(
-				match_arm.repeated().collect::<Vec<_>>().then(
+				match_arm.clone().or(arm_spread).repeated().collect::<Vec<_>>().then(
 					just(Token::Else)
 						.ignore_then(just(Token::FatArrow))
 						.ignore_then(arm_body)
@@ -1134,6 +1130,17 @@ where
 				)
 			})
 			.boxed();
+
+		// ast literals
+		let quote = match_arm
+			.map_with(|a, ex| (Expr::Arm(a), ex.span()))
+			.or(item.clone())
+			.or(stmt.clone())
+			.repeated()
+			.at_least(1)
+			.collect::<Vec<_>>()
+			.delimited_by(just(Token::Backtick), just(Token::Backtick))
+			.map_with(|stmts, ex| (Expr::Quote(stmts), ex.span()));
 
 		// `comp`/`unsafe` take a braced block or a bare expression
 		let kw_block = block.clone().map_with(|stmts, ex| (Expr::Block(stmts), ex.span()));

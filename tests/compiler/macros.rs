@@ -496,3 +496,19 @@ fn stamped_fns_keep_their_own_body() {
 		"1 2 3",
 	);
 }
+
+#[test]
+fn splat_spreads_match_patterns_and_arms() {
+	check(
+		indoc! {r#"
+			rank! :: fn() Ast {
+				low := [`1`, `2`]
+				mid := [`3 => "mid"`]
+				`rank :: fn(n: int) string { match n { %{...low} => "low", %{...mid} else => "high" } }`
+			}
+			rank!()
+			print(rank(1), rank(2), rank(3), rank(4))
+		"#},
+		"low low mid high",
+	);
+}

@@ -203,6 +203,9 @@ pub enum Expr {
 		else_body: Option<Vec<Spanned<Expr>>>,
 	},
 
+	// `pattern => body`
+	Arm(MatchArm),
+
 	// `value |> step`
 	Pipe {
 		value: Box<Spanned<Expr>>,
@@ -432,10 +435,14 @@ impl Expr {
 			} => {
 				f(One(subject));
 				for arm in arms {
-					arm.patterns.iter_mut().for_each(|p| f(One(p)));
+					f(List(&mut arm.patterns));
 					f(List(&mut arm.body));
 				}
 				else_body.iter_mut().for_each(|e| f(List(e)));
+			}
+			Expr::Arm(arm) => {
+				f(List(&mut arm.patterns));
+				f(List(&mut arm.body));
 			}
 			Expr::Bool(_)
 			| Expr::Int(_)
@@ -636,7 +643,7 @@ impl TypeExpr {
 	}
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 // One arm of a `match` expression.
 // `patterns` are compared to the subject (OR'd together).
 // `binding @` names the subject value for the arm body.

@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::ast::{Capture, Child, EnumVariant, Expr, Param, Span, Spanned, TypeExpr};
+use crate::ast::{Capture, Child, EnumVariant, Expr, MatchArm, Param, Span, Spanned, TypeExpr};
 use crate::diagnostics::Diagnostic;
 use crate::loader::{Module, Program, Scope};
 use crate::runtime;
@@ -528,6 +528,15 @@ fn fill(e: &mut Spanned<Expr>, bound: &HashSet<String>, args: &HashMap<&str, Arg
 			One(one) => fill(one, bound, args, suffix),
 		}),
 	}
+	if let Expr::Match { arms, .. } = &mut e.0 {
+		*arms = std::mem::take(arms)
+			.into_iter()
+			.flat_map(|a| match a.patterns.is_empty() {
+				false => vec![a],
+				true => a.body.into_iter().filter_map(|(e, _)| to_arm(e)).collect(),
+			})
+			.collect();
+	}
 	if let Expr::EnumDef { variants, fills, .. } = &mut e.0 {
 		let spliced = fills.extract_if(.., |f| matches!(f.0, Expr::Ident(_) | Expr::Call { .. }));
 		variants.extend(spliced.map(to_variant));
@@ -605,6 +614,16 @@ fn to_variant((e, _): Spanned<Expr>) -> EnumVariant {
 		name,
 		payload,
 		..Default::default()
+	}
+}
+
+fn to_arm(e: Expr) -> Option<MatchArm> {
+	match e {
+		Expr::Arm(arm) => Some(arm),
+		_ => {
+			flag("a match arm spread needs `pattern => body` Asts");
+			None
+		}
 	}
 }
 
