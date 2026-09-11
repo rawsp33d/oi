@@ -1,0 +1,115 @@
+module json
+
+## A JSON value.
+pub Json :: :null | bool | float | string | Arr | Obj
+pub Arr :: []Json
+pub Obj :: [string]Json
+
+## Parse a JSON document.
+pub parse :: fn(s: string) !Json {
+	p := P.{s = s}
+	v := p.value()?
+	p.space()
+	if p.i < s.len { return error("trailing input at {p.i}") }
+	v
+}
+
+P :: struct { s: string, i: int }
+
+P :< {
+	## The byte under the cursor, "" at the end
+	at :: fn(self) string {
+		if self.i < self.s.len {
+			self.s[self.i..self.i + 1]
+		} else { "" }
+	}
+
+	space :: fn(mut self) {
+		loop self.at() != "" && " \t\n\r".contains(self.at()) {
+			self.i += 1
+		}
+	}
+
+	word :: fn(mut self, w: string) !() {
+		self.space()
+		if !self.s[self.i..].starts_with(w) { return error("expected {w} at {self.i}") }
+		self.i += w.len
+	}
+
+	value :: fn(mut self) !Json {
+		self.space()
+		c :: self.at()
+		if c == "{{" { return self.obj() }
+		if c == "[" { return self.arr() }
+		if c == "\"" { return self.str()? }
+		if c == "t" { self.word("true")?; return true }
+		if c == "f" { self.word("false")?; return false }
+		if c == "n" { self.word("null")?; nul : Json : :null; return nul }
+		self.num()
+	}
+
+	num :: fn(mut self) !Json {
+		a :: self.i
+		loop self.at() != "" && "+-.eE0123456789".contains(self.at()) { self.i += 1 }
+		float.(self.s[a..self.i]) or { return error("invalid number at {a}") }
+	}
+
+	str :: fn(mut self) !string {
+		self.word("\"")?
+		out := ""
+		a := self.i
+
+		loop self.at() != "" {
+			c :: self.at()
+			self.i += 1
+			if c != "\"" && c != "\\" { continue }
+
+			out += self.s[a..self.i - 1]
+			if c == "\"" { return out }
+
+			e :: self.at()
+			self.i += 1
+
+			# support `\uXXXX` format
+			out += match e {
+				"n" => "\n", "t" => "\t", "r" => "\r", "b" => string.([u8.(8)]), "f" => string.([u8.(12)]),
+				"\"", "\\", "/" => e,
+				"u" => "\\u",
+				else => { return error("invalid escape at {self.i - 1}") },
+			}
+
+			a = self.i
+		}
+		error("unterminated string")
+	}
+
+	arr :: fn(mut self) !Json {
+		out: Arr = []
+		loop self.more("]")? {
+			out << self.value()?
+		}
+		out
+	}
+
+	obj :: fn(mut self) !Json {
+		out: Obj = []
+		loop self.more("}}")? {
+			k :: self.str()?
+			self.word(":")?
+			out[k] = self.value()?
+		}
+		out
+	}
+
+	## Check whether an item follows a comma.
+	more :: fn(mut self, close: string) !bool {
+		self.space()
+		c :: self.at()
+		self.i += 1
+		if c == close { return false }
+		if c != "," && c != "[" && c != "{{" { return error("expected a comma at {self.i - 1}") }
+		self.space()
+		if self.at() == close && c != "," { self.i += 1; return false }
+		true
+	}
+}

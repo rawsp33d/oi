@@ -146,10 +146,21 @@ pub parse_float :: fn(s: string) ?float {
 	loop i in 0..s.len {
 		if s[i] == 46 {
 			frac :: s[(i + 1)..]
-			return float.(digits(s[..i])?) + float.(digits(frac)?) / 10.0 ** float.(frac.len)
+			return float_digits(s[..i])? + float_digits(frac)? / 10.0 ** float.(frac.len)
 		}
 	}
-	float.(digits(s)?)
+	float_digits(s)
+}
+
+float_digits :: fn(s: string) ?float {
+	if s.len == 0 { return }
+	out := 0.0
+	loop c in s {
+		d :: int.(c) - 48
+		if d < 0 || d > 9 { return }
+		out = out * 10.0 + float.(d)
+	}
+	out
 }
 
 digits :: fn(s: string) ?int {

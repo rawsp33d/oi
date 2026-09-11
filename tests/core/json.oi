@@ -1,0 +1,45 @@
+use json.{ Json, Arr, Obj, parse }
+
+obj :: fn(j: Json) Obj {
+	match j {
+		o @ Obj => o,
+		_ => [],
+	}
+}
+arr :: fn(j: Json) Arr {
+	match j {
+		a @ Arr => a,
+		_ => [],
+	}
+}
+text :: fn(j: Json) string {
+	match j {
+		s @ string => s,
+		_ => "",
+	}
+}
+num :: fn(j: Json) float {
+	match j {
+		f @ float => f,
+		_ => 0.0,
+	}
+}
+
+@test extension_api :: fn() {
+	# TODO: revisit with `r#""#` style strings
+	src :: "{{\"header\": {{\"version_major\": 4}}, \"classes\": [{{\"name\": \"Node\", \"methods\": [{{\"name\": \"get_name\", \"hash\": 3218959716}}]}}]}}"
+	top :: obj(parse(src) or { :null })
+	assert! num(obj(top["header"])["version_major"]) == 4.0
+	method :: obj(arr(obj(arr(top["classes"])[0])["methods"])[0])
+	assert! text(method["name"]) == "get_name"
+	assert! num(method["hash"]) == 3218959716.0
+}
+
+@test escapes :: fn() {
+	assert! text(parse("\"a\\n\\\"b\\u00e9\"") or { :null }) == "a\n\"b\\u00e9"
+}
+
+@test malformed :: fn() {
+	assert! text(parse("[1, 2") or { $.message() }) == "expected a comma at 5"
+	assert! text(parse("{{\"a\": }}") or { $.message() }) == "invalid number at 6"
+}
