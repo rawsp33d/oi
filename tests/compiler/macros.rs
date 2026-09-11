@@ -435,6 +435,18 @@ fn type_holes_nest_in_option_and_array() {
 }
 
 #[test]
+fn quote_literal_arrives_as_ast_arg() {
+	check(
+		indoc! {r"
+			one! :: fn(p: Ast) Ast { `f :: fn(%p) int { n * 2 }` }
+			one!(`n: int`)
+			print(f(21))
+		"},
+		"42",
+	);
+}
+
+#[test]
 fn splat_updates_param_tuple_for_dollar() {
 	check(
 		indoc! {r"

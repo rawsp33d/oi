@@ -251,7 +251,14 @@ impl Expander {
 			return fail("macro expansion is too deep", e.1, "recursion limit");
 		}
 		type Ptr = *mut Spanned<Expr>;
-		let boxed: Vec<Ptr> = args.iter().map(|a| Box::into_raw(Box::new(a.clone()))).collect();
+		let boxed: Vec<Ptr> = args
+			.iter()
+			.map(|a| match &a.0 {
+				Expr::Quote(q) => one(q.clone(), a.1),
+				_ => a.clone(),
+			})
+			.map(|s| Box::into_raw(Box::new(s)))
+			.collect();
 		let arg = |i: usize| boxed.get(i).copied().unwrap_or(std::ptr::null_mut());
 		// SAFETY: stage-0 fns take at most MAX_PARAMS pointer args, all in registers on the ABIs cranelift targets, so a fixed-shape call just leaves the extras unread.
 		let f = unsafe { std::mem::transmute::<*const u8, fn(Ptr, Ptr, Ptr, Ptr) -> Ptr>(ptr) };
@@ -288,11 +295,8 @@ impl Expander {
 				Ok(())
 			}
 			One(e) => {
-				if let Some(mut stmts) = self.call(e, scope, depth)? {
-					e.0 = match stmts.len() {
-						1 => stmts.pop().unwrap().0,
-						_ => Expr::Block(stmts),
-					};
+				if let Some(stmts) = self.call(e, scope, depth)? {
+					e.0 = one(stmts, e.1).0;
 					return Ok(());
 				}
 				match &e.0 {
@@ -628,14 +632,16 @@ pub(crate) extern "C" fn rt_quote(tpl: usize, args: *const *mut Spanned<Expr>, l
 		.collect();
 	let mut stmts = tpl.stmts.clone();
 	splice(&mut stmts, &tpl.bound, &map, suffix);
-	let result = match stmts.len() {
+	let span = stmts.first().map_or((0..0).into(), |s| s.1);
+	Box::into_raw(Box::new(one(stmts, span)))
+}
+
+// Wrap loose stmts into a block when more than one.
+fn one(mut stmts: Vec<Spanned<Expr>>, span: Span) -> Spanned<Expr> {
+	match stmts.len() {
 		1 => stmts.pop().unwrap(),
-		_ => {
-			let span = stmts.first().map_or((0..0).into(), |s| s.1);
-			(Expr::Block(stmts), span)
-		}
-	};
-	Box::into_raw(Box::new(result))
+		_ => (Expr::Block(stmts), span),
+	}
 }
 
 // Structurally match a template's pattern against `subject`, capturing `%name` holes.
