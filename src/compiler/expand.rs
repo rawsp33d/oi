@@ -768,10 +768,11 @@ pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const runtime:
 	let (notes, subject) = peel(unsafe { &(*a).0 });
 	match (m, subject) {
 		(b"notes", _) => list(notes.iter().map(|n| Box::into_raw(Box::new(n.clone())) as i64).collect()),
-		(b"typ", Expr::Bind { typ: Some((t, _)), .. }) => ast(match t {
+		(b"typ", Expr::Bind { typ: Some((t, _)), .. } | Expr::Fn { ret: Some((t, _)), .. }) => ast(match t {
 			TypeExpr::Name(n) => Expr::Ident(n.clone()),
 			t => Expr::TypePat(t.clone()),
 		}),
+		(b"typ", Expr::Fn { ret: None, .. }) => ast(Expr::TypePat(TypeExpr::Tuple(vec![]))),
 		(b"typ", _) => {
 			flag("this Ast has no type");
 			ast(Expr::Tuple(vec![]))
@@ -800,7 +801,10 @@ pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const runtime:
 			| Expr::EnumDef { name, .. }
 			| Expr::Call { name, .. }
 			| Expr::MacroCall { name, .. }
-			| Expr::Bind { name, .. },
+			| Expr::Bind { name, .. }
+			| Expr::Fn { name, .. }
+			| Expr::Claim { typ: name, .. }
+			| Expr::StructLit { name, .. },
 		) => ast(Expr::Ident(name.clone())),
 		(b"name", ident @ Expr::Ident(_)) => ast(ident.clone()),
 		(b"name", _) => {
@@ -813,9 +817,15 @@ pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const runtime:
 			| Expr::DotArray(_, v)
 			| Expr::Block(v)
 			| Expr::Call { args: v, .. }
-			| Expr::MacroCall { args: v, .. },
+			| Expr::MacroCall { args: v, .. }
+			| Expr::Claim { fills: v, .. },
 		) => list(v.iter().map(|e| Box::into_raw(Box::new(e.clone())) as i64).collect()),
-		(b"items", Expr::StructDef { fields, .. }) => list(fields.iter().map(|f| ast(field_ast(f))).collect()),
+		(b"items", Expr::StructDef { fields, .. } | Expr::Fn { params: fields, .. }) => {
+			list(fields.iter().map(|f| ast(field_ast(f))).collect())
+		}
+		(b"items", Expr::StructLit { fields, .. }) => {
+			list(fields.iter().map(|(_, v)| Box::into_raw(Box::new(v.clone())) as i64).collect())
+		}
 		(b"items", Expr::EnumDef { variants, .. }) => {
 			list(variants.iter().map(|v| ast(Expr::Ident(v.name.clone()))).collect())
 		}

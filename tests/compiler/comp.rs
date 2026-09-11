@@ -139,3 +139,34 @@ fn struct_fields_are_typed_asts() {
 		["speed float 1", "3.5"],
 	);
 }
+
+#[test]
+fn fns_claims_and_notes_are_typed_asts() {
+	check(
+		indoc! {r#"
+			export :: struct { hint: string = "" }
+			note! :: fn(s: Ast) Ast {
+				n := s.items[0].notes[0]
+				line := "{n.name.str()} {n.items[0].str()}"
+				`
+					print(%line)
+					%s
+				`
+			}
+			api! :: fn(c: Ast) Ast {
+				m := c.items[0]
+				line := "{c.name.str()} {m.name.str()} {m.items.len} {m.typ.str()}"
+				`
+					print(%line)
+					%c
+				`
+			}
+			@note!
+			Foo :: struct { speed: float @export.{"spd"} }
+			@api!
+			Foo :< { ready :: fn(self) int { 1 } }
+			print(Foo.{speed = 3.5}.ready())
+		"#},
+		["export spd", "Foo ready 1 int", "1"],
+	);
+}
