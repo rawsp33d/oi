@@ -378,8 +378,13 @@ impl<'a, M: Module> Translator<'a, M> {
 
 	// Autowrap return types.
 	// idk whether it'll be more general in the future, but for now this is for `Option` and `Result`.
-	fn autowrap_return(&mut self, val: Value, typ: Typ) -> TypedVal {
-		match self.ret.as_ref().map(|(t, _)| t.clone()) {
+	fn autowrap_return(&mut self, val: Value, typ: Typ, span: Span) -> Result<TypedVal, Diagnostic> {
+		let ret = self.ret.as_ref().map(|(t, _)| t.clone());
+		let (val, typ) = match &ret {
+			Some(Typ::Option(inner) | Typ::Result(inner, _)) => self.coerce(val, &typ, inner, span)?,
+			_ => (val, typ),
+		};
+		Ok(match ret {
 			Some(Typ::Option(inner)) if typ == *inner => {
 				let v = self.make_option(&inner, Some(val));
 				(v, Typ::Option(inner))
@@ -398,12 +403,12 @@ impl<'a, M: Module> Translator<'a, M> {
 				(v, Typ::Result(ok, err))
 			}
 			_ => (val, typ),
-		}
+		})
 	}
 
 	// The first return fixes the fn's type, and later returns must agree.
 	pub fn emit_return(&mut self, val: Value, typ: Typ, span: Span) -> Result<(), Diagnostic> {
-		let (val, typ) = self.autowrap_return(val, typ);
+		let (val, typ) = self.autowrap_return(val, typ, span)?;
 		closure_escape(&typ, span.into_range(), "returned")?;
 		if let Some((declared, _)) = &self.ret
 			&& &typ != declared

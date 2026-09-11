@@ -584,3 +584,15 @@ fn container_members_match_as_types() {
 		["arr of 2", "map of 1", "other"],
 	);
 }
+
+#[test]
+fn a_member_returns_through_a_result() {
+	check(
+		indoc! {"
+			Json :: :null | bool | string
+			f :: fn() !Json { true }
+			print(f() or { :null })
+		"},
+		"true",
+	);
+}
