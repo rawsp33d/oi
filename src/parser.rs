@@ -188,16 +188,17 @@ where
 			None => first,
 		});
 
+	let gap = |sp: Span| Span::from(sp.end..sp.start);
 	// a guard that the next token has no token gap following it
-	let adjacent = empty().map_with(|_, ex| ex.span()).try_map(move |sp: Span, _| {
-		match src.get(sp.end - origin..sp.start - origin) {
+	let adjacent = empty().map_with(move |_, ex| gap(ex.span())).try_map(move |sp: Span, _| {
+		match src.get(sp.start - origin..sp.end - origin) {
 			Some("") => Ok(()),
 			_ => Err(Rich::custom(sp, "must immediately follow, with no space")),
 		}
 	});
 	// a guard that the next token opens on the same line
-	let same_line = empty().map_with(|_, ex| ex.span()).try_map(move |sp: Span, _| {
-		match src.get(sp.end - origin..sp.start - origin) {
+	let same_line = empty().map_with(move |_, ex| gap(ex.span())).try_map(move |sp: Span, _| {
+		match src.get(sp.start - origin..sp.end - origin) {
 			Some(gap) if gap.contains('\n') => Err(Rich::custom(sp, "must continue on the same line")),
 			_ => Ok(()),
 		}

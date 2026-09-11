@@ -62,19 +62,17 @@ fn type_mismatch() {
 
 #[test]
 fn unexpected_token() {
-	// `+` with no RHS runs into end of input
 	fail_with("2 +", "expected");
 }
 
 #[test]
 fn invalid_token() {
-	// a stray char becomes `Token::Error`, surfaced by the parser with its text
 	fail_with("~", "unexpected character `~`");
 }
 
 #[test]
 fn assign_to_immutable() {
-	fail_with("x :: 1\nx = 2", "cannot assign to immutable");
+	fail_with(["x :: 1", "x = 2"], "cannot assign to immutable");
 }
 
 #[test]
@@ -84,7 +82,12 @@ fn assign_to_undefined() {
 
 #[test]
 fn assign_wrong_type() {
-	fail_with("x := 1\nx = 2.0", "cannot assign float");
+	fail_with(["x := 1", "x = 2.0"], "cannot assign float");
+}
+
+#[test]
+fn annotation_space_after_at() {
+	fail_with(["@ c", "f :: fn() int { 42 }"], "must immediately follow, with no space");
 }
 
 #[test]
