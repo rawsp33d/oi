@@ -795,6 +795,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			Expr::Claim { .. } => unreachable!("claim in expression position"),
 			Expr::TraitDef { .. } => unreachable!("trait definition in expression position"),
 			Expr::TypeAlias { .. } => unreachable!("type alias in expression position"),
+			Expr::TypePat(_) => unreachable!("type pattern in expression position"),
 			Expr::FieldAssign { .. } => unreachable!("field assign in expression position"),
 			Expr::Return(..) => unreachable!("return in expression position"),
 			Expr::Break | Expr::Continue => unreachable!("break/continue in expression position"),

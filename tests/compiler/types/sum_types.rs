@@ -561,3 +561,26 @@ fn printing_a_recursive_sum_terminates() {
 		"[true]",
 	);
 }
+
+#[test]
+fn container_members_match_as_types() {
+	check(
+		indoc! {r#"
+			Json :: :null | bool | float | string | []Json | [string]Json
+			show :: fn(j: Json) string {
+				match j {
+					a @ []Json => "arr of {a.len}",
+					m @ [string]Json => "map of {m.len}",
+					_ => "other",
+				}
+			}
+			b : Json : true
+			arr : Json : [b, b]
+			map : Json : ["a" = b]
+			print(show(arr))
+			print(show(map))
+			print(show(:null))
+		"#},
+		["arr of 2", "map of 1", "other"],
+	);
+}

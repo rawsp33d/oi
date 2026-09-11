@@ -1091,9 +1091,15 @@ where
 				let args = vec![(Expr::Record(es), ex.span())];
 				(Expr::EnumShorthand { variant, args }, ex.span())
 			});
+		// container types
+		let type_pat = type_expr
+			.clone()
+			.filter(|t| matches!(t, TypeExpr::Array(_) | TypeExpr::Map(..) | TypeExpr::FixedArray(..)))
+			.map_with(|t, ex| (Expr::TypePat(t), ex.span()));
 		let match_arm = binding
 			.then(
 				struct_pat
+					.or(type_pat)
 					.or(expr.clone())
 					.separated_by(just(Token::Comma))
 					.allow_trailing()

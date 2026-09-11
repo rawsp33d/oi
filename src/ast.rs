@@ -268,6 +268,8 @@ pub enum Expr {
 		typ: TypeExpr,
 	},
 
+	TypePat(TypeExpr),
+
 	// `start..end`, `start..`, `..end`
 	Range {
 		start: Option<Box<Spanned<Expr>>>,
@@ -448,6 +450,7 @@ impl Expr {
 			| Expr::Continue
 			| Expr::Unquote(_)
 			| Expr::TypeAlias { .. }
+			| Expr::TypePat(_)
 			| Expr::Module(_)
 			| Expr::Use { .. }
 			| Expr::Doc(_) => {}
@@ -618,6 +621,7 @@ impl TypeExpr {
 	pub fn from_expr(e: &Expr) -> Option<TypeExpr> {
 		match e {
 			Expr::Ident(n) => Some(TypeExpr::Name(n.clone())),
+			Expr::TypePat(t) => Some(t.clone()),
 			Expr::Tuple(fields) if !fields.is_empty() && fields.iter().all(|(n, _)| n.is_none()) => fields
 				.iter()
 				.map(|(_, v)| Some((None, TypeExpr::from_expr(&v.0)?)))
