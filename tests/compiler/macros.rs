@@ -437,3 +437,23 @@ fn splat_spreads_into_fields() {
 		"2",
 	);
 }
+
+#[test]
+fn stamped_fns_keep_their_own_body() {
+	check(
+		indoc! {r#"
+			def! :: fn() Ast {
+				fns := [`x := 0`]
+				i := 1
+				loop i < 4 {
+					fns << `%{ident("f" + i.str())} :: fn() int { %{i} }`
+					i = i + 1
+				}
+				`%{...fns}`
+			}
+			def!()
+			print(f1(), f2(), f3())
+		"#},
+		"1 2 3",
+	);
+}

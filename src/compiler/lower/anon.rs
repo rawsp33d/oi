@@ -106,7 +106,8 @@ impl<'a, M: Module> Translator<'a, M> {
 			self_name,
 			module: self.scope.module.clone(),
 		};
-		let sig = self.declare_instance(&format!("anon${}_{}", span.start, span.end), &def, subst)?;
+		let sym = format!("anon${}_{}", span.start, self.mono.len());
+		let sig = self.declare_instance(&sym, &def, subst)?;
 		let params = sig.value_params();
 		if resolved.is_empty() {
 			return Ok((self.fn_object(sig.id), Typ::Fn(params, Box::new(sig.ret))));
