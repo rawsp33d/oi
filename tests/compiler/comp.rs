@@ -120,3 +120,22 @@ fn comp_folds_in_an_imported_module() {
 		)
 		.check(["fold", "42"]);
 }
+
+#[test]
+fn struct_fields_are_typed_asts() {
+	check(
+		indoc! {r#"
+			mirror! :: fn(s: Ast) Ast {
+				f := s.items[0]
+				line := "{f.name.str()} {f.typ.str()} {f.notes.len}"
+				`
+					print(%line)
+					show :: fn(%{...s.items}) { print(speed) }
+					show(3.5)
+				`
+			}
+			mirror!(`Ship :: struct { speed: float @required }`)
+		"#},
+		["speed float 1", "3.5"],
+	);
+}

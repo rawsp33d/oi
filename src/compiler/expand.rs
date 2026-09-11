@@ -543,18 +543,28 @@ fn fill(e: &mut Spanned<Expr>, bound: &HashSet<String>, args: &HashMap<&str, Arg
 	}
 }
 
+// Split off annotations.
+fn peel(e: &Expr) -> (&[Spanned<Expr>], &Expr) {
+	match e {
+		Expr::Annotated(notes, inner) => (notes, &inner.0),
+		e => (&[], e),
+	}
+}
+
 // A `name: Type` param Ast.
 fn to_param(hole: &Param, a: &Spanned<Expr>) -> Param {
 	let mut p = hole.clone();
+	let (notes, e) = peel(&a.0);
 	if let Expr::Bind {
 		name,
 		typ: Some(t),
 		value,
 		..
-	} = &a.0
+	} = e
 	{
 		p.name = name.split('#').next().unwrap_or(name).into();
 		(p.typ, p.default) = (t.0.clone(), value.as_deref().cloned());
+		p.annotations.extend_from_slice(notes);
 	} else {
 		flag("a param hole needs a `name: Type` Ast");
 	}
@@ -736,12 +746,36 @@ pub(crate) extern "C" fn rt_ast_ident(s: *const runtime::StrHeader) -> *mut Span
 	Box::into_raw(Box::new((Expr::Ident(name), Span::from(0..0))))
 }
 
+// A field as the Ast a param hole takes.
+fn field_ast(f: &Param) -> Expr {
+	let bind = Expr::Bind {
+		mutable: false,
+		name: f.name.clone(),
+		typ: Some((f.typ.clone(), f.span)),
+		value: f.default.clone().map(Box::new),
+	};
+	match f.annotations.is_empty() {
+		true => bind,
+		false => Expr::Annotated(f.annotations.clone(), Box::new((bind, f.span))),
+	}
+}
+
 // Ast dispatch for the lowerer.
 pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const runtime::StrHeader, arg: i64) -> i64 {
 	let ast = |e: Expr| Box::into_raw(Box::new((e, Span::from(0..0)))) as i64;
 	let list = |ptrs: Vec<i64>| runtime::array_of(&ptrs, 8) as i64;
 	let m = unsafe { runtime::str_bytes(m) };
-	match (m, unsafe { &(*a).0 }) {
+	let (notes, subject) = peel(unsafe { &(*a).0 });
+	match (m, subject) {
+		(b"notes", _) => list(notes.iter().map(|n| Box::into_raw(Box::new(n.clone())) as i64).collect()),
+		(b"typ", Expr::Bind { typ: Some((t, _)), .. }) => ast(match t {
+			TypeExpr::Name(n) => Expr::Ident(n.clone()),
+			t => Expr::TypePat(t.clone()),
+		}),
+		(b"typ", _) => {
+			flag("this Ast has no type");
+			ast(Expr::Tuple(vec![]))
+		}
 		(b"int", Expr::Int(n)) => *n,
 		(b"int", _) => {
 			flag("`.int()` needs an Ast holding an Int literal");
@@ -765,7 +799,8 @@ pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const runtime:
 			Expr::StructDef { name, .. }
 			| Expr::EnumDef { name, .. }
 			| Expr::Call { name, .. }
-			| Expr::MacroCall { name, .. },
+			| Expr::MacroCall { name, .. }
+			| Expr::Bind { name, .. },
 		) => ast(Expr::Ident(name.clone())),
 		(b"name", ident @ Expr::Ident(_)) => ast(ident.clone()),
 		(b"name", _) => {
@@ -780,9 +815,7 @@ pub(crate) extern "C" fn rt_ast_method(a: *mut Spanned<Expr>, m: *const runtime:
 			| Expr::Call { args: v, .. }
 			| Expr::MacroCall { args: v, .. },
 		) => list(v.iter().map(|e| Box::into_raw(Box::new(e.clone())) as i64).collect()),
-		(b"items", Expr::StructDef { fields, .. }) => {
-			list(fields.iter().map(|f| ast(Expr::Ident(f.name.clone()))).collect())
-		}
+		(b"items", Expr::StructDef { fields, .. }) => list(fields.iter().map(|f| ast(field_ast(f))).collect()),
 		(b"items", Expr::EnumDef { variants, .. }) => {
 			list(variants.iter().map(|v| ast(Expr::Ident(v.name.clone()))).collect())
 		}
