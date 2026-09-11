@@ -766,7 +766,7 @@ impl<M: Module> Compiler<M> {
 		let mut struct_items: Vec<(&str, &[Param])> = vec![];
 		let mut generics = Generics::default();
 		let mut enum_items: Vec<EnumItem> = vec![];
-		let mut alias_items: Vec<(&str, &TypeExpr)> = vec![];
+		let mut alias_items: Vec<(&str, TypeExpr)> = vec![];
 		let mut soft_aliases: Vec<(String, TypeExpr)> = vec![];
 		let mut main_body: Option<&[Spanned<Expr>]> = None;
 		let mut others: Vec<FnItem> = vec![];
@@ -882,6 +882,14 @@ impl<M: Module> Compiler<M> {
 						let msg = format!("`{name}` is a builtin type");
 						return Err(Diagnostic::new(msg, item.1.into_range()).with_label("pick another struct name"));
 					}
+					let mut typ = typ.clone();
+					typ.walk_mut(&mut |t| {
+						if let TypeExpr::Name(n) = t
+							&& let Some(q) = scope.env.get(n.as_str())
+						{
+							n.clone_from(q);
+						}
+					});
 					alias_items.push((name.as_str(), typ));
 				}
 				Expr::TraitDef { .. } => {}
@@ -1031,7 +1039,7 @@ impl<M: Module> Compiler<M> {
 		}
 
 		let mut aliases: HashMap<String, TypeExpr> =
-			alias_items.iter().map(|(name, te)| (name.to_string(), (*te).clone())).collect();
+			alias_items.iter().map(|(name, te)| (name.to_string(), te.clone())).collect();
 		aliases.extend(soft_aliases);
 
 		for (name, te) in &mut aliases {

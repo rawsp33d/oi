@@ -433,3 +433,19 @@ fn const_exprs() {
 		)
 		.check(["5", "-2147483648"]);
 }
+
+#[test]
+fn imported_alias_body_resolves_in_its_module() {
+	Project::new()
+		.file("main.oi", ["use m", "print(m.get())"])
+		.file(
+			"m.oi",
+			[
+				"module m",
+				"B :: bool",
+				"pub J :: :null | B",
+				"pub get :: fn() J { true }",
+			],
+		)
+		.check("true");
+}
