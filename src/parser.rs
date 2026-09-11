@@ -1775,22 +1775,6 @@ where
 		.ignore_then(def.clone().or(use_decl.clone()).or(bind.clone()).or(macro_def))
 		.map_with(|d, ex| (Expr::Pub(Box::new(d)), ex.span()));
 
-	// annotation macros
-	let attr_macro = just(Token::At)
-		.then_ignore(adjacent)
-		.ignore_then(dotted_name)
-		.then_ignore(adjacent)
-		.then_ignore(just(Token::Not))
-		.then(spanned(adjacent.ignore_then(paren(loose_list(expr.clone())))).or_not())
-		.then(def.clone())
-		.map_with(|((name, args), item), ex| {
-			let mut args_v = vec![item];
-			if let Some((elems, span)) = args {
-				args_v.push((Expr::Array(elems), span));
-			}
-			(Expr::MacroCall { name, args: args_v }, ex.span())
-		});
-
 	// annotations
 	let annotated = annotations.then(just(Token::Pub).or_not()).then(def.clone().or(bind)).map_with(
 		|((anns, public), item), ex| {
@@ -1801,6 +1785,22 @@ where
 			(Expr::Annotated(anns, Box::new(item)), ex.span())
 		},
 	);
+
+	// annotation macros
+	let attr_macro = just(Token::At)
+		.then_ignore(adjacent)
+		.ignore_then(dotted_name)
+		.then_ignore(adjacent)
+		.then_ignore(just(Token::Not))
+		.then(spanned(adjacent.ignore_then(paren(loose_list(expr.clone())))).or_not())
+		.then(annotated.clone().or(def.clone()))
+		.map_with(|((name, args), item), ex| {
+			let mut args_v = vec![item];
+			if let Some((elems, span)) = args {
+				args_v.push((Expr::Array(elems), span));
+			}
+			(Expr::MacroCall { name, args: args_v }, ex.span())
+		});
 
 	attr_macro
 		.or(annotated)

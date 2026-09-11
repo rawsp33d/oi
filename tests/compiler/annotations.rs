@@ -230,6 +230,24 @@ fn bare_attr_macro_is_identity() {
 }
 
 #[test]
+fn attr_macro_over_annotated_def() {
+	check(
+		indoc! {"
+			deprecated :: struct { reason: string }
+			keep! :: fn(input: Ast) Ast {
+				print(input.notes[0].str())
+				`%input`
+			}
+			@keep!
+			@deprecated
+			f :: fn() int { 42 }
+			print(f())
+		"},
+		["deprecated", "42"],
+	);
+}
+
+#[test]
 fn attr_macro_args_arrive_as_one_list() {
 	check(
 		indoc! {"

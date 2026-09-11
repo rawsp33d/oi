@@ -279,14 +279,8 @@ impl Loader {
 				item => item,
 			};
 			if !anns.is_empty()
-				&& !matches!(
-					item.0,
-					Expr::Fn { .. }
-						| Expr::StructDef { .. }
-						| Expr::EnumDef { .. }
-						| Expr::TypeAlias { .. }
-						| Expr::TraitDef { .. }
-				) && !matches!(&item.0, Expr::Bind { value: Some(v), .. } if matches!(v.0, Expr::Foreign))
+				&& item.0.def_name().is_none()
+				&& !matches!(&item.0, Expr::Bind { value: Some(v), .. } if matches!(v.0, Expr::Foreign))
 			{
 				return Err(err(
 					"annotations only attach to definitions",
@@ -617,14 +611,8 @@ impl Loader {
 				self.consts.contains_key(q)
 					|| self.modules.iter().any(|m| {
 						m.items.iter().any(|i| {
-							matches!(&i.0,
-								Expr::Fn { name, .. }
-								| Expr::StructDef { name, .. }
-								| Expr::EnumDef { name, .. }
-								| Expr::TypeAlias { name, .. }
-								| Expr::TraitDef { name, .. }
-								| Expr::MacroDef { name, .. }
-								| Expr::Bind { name, .. } if name == q)
+							i.0.def_name() == Some(q)
+								|| matches!(&i.0, Expr::MacroDef { name, .. } | Expr::Bind { name, .. } if name == q)
 						})
 					})
 			};

@@ -791,6 +791,18 @@ impl<M: Module> Compiler<M> {
 		let t = Instant::now();
 		let mut expanded = expand(program)?;
 		self.timings.push(("expand", t.elapsed()));
+		for m in &program.modules {
+			for item in expanded.get_mut(&m.name).expect("every module was seeded") {
+				let Expr::Annotated(anns, inner) = &item.0 else {
+					continue;
+				};
+				if let Some(name) = inner.0.def_name() {
+					let anns = qualify_anns(&m.scope, anns);
+					self.annotations.entry(name.into()).or_default().extend(anns);
+				}
+				*item = (**inner).clone();
+			}
+		}
 		// fold `comp` expressions to literals
 		let t = Instant::now();
 		comp::eval(&mut expanded, &mut self.annotations, &mut self.consts, program)?;
@@ -885,6 +897,7 @@ impl<M: Module> Compiler<M> {
 					let mut typ = typ.clone();
 					typ.walk_mut(&mut |t| {
 						if let TypeExpr::Name(n) = t
+							&& !TypeCtx::builtin_type(n)
 							&& let Some(q) = scope.env.get(n.as_str())
 						{
 							n.clone_from(q);

@@ -338,6 +338,18 @@ pub enum Child<'a> {
 use Child::{List, One};
 
 impl Expr {
+	// The name a top-level definition binds.
+	pub fn def_name(&self) -> Option<&str> {
+		match self {
+			Expr::Fn { name, .. }
+			| Expr::StructDef { name, .. }
+			| Expr::EnumDef { name, .. }
+			| Expr::TypeAlias { name, .. }
+			| Expr::TraitDef { name, .. } => Some(name),
+			_ => None,
+		}
+	}
+
 	// Visit every direct child, in whichever shape it's stored.
 	pub fn for_children(&mut self, mut f: impl FnMut(Child)) {
 		match self {
