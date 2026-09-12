@@ -9,6 +9,7 @@ mod literals;
 mod maps;
 mod numbers;
 mod options;
+mod range;
 mod results;
 mod strings;
 mod structs;

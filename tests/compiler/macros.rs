@@ -232,7 +232,7 @@ fn splat_spreads_into_call_args() {
 	check(
 		indoc! {r"
 			add3 :: fn(a: int, b: int, c: int) int { a + b + c }
-			sum! :: fn(xs: Ast) Ast { `add3(%{...xs.items})` }
+			sum! :: fn(xs: Ast) Ast { `add3(%{..xs.items})` }
 			print(sum!([1, 2, 3]))
 		"},
 		"6",
@@ -245,7 +245,7 @@ fn splat_spreads_into_statements() {
 		indoc! {r"
 			noisy! :: fn() Ast {
 				xs := [`print(1)`, `print(2)`]
-				`%{...xs}`
+				`%{..xs}`
 			}
 			noisy!()
 			print(3)
@@ -413,7 +413,7 @@ fn splat_spreads_into_params() {
 		indoc! {r#"
 			def! :: fn(t: Ast) Ast {
 				ps := [`%{ident("a")}: %t`, `%{ident("b")}: %t`]
-				`%{ident("add")} :: fn(%{...ps}) %t { a + b }`
+				`%{ident("add")} :: fn(%{..ps}) %t { a + b }`
 			}
 			def!(int)
 			print(add(1, 2))
@@ -452,7 +452,7 @@ fn splat_updates_param_tuple_for_dollar() {
 		indoc! {r"
 			def! :: fn() Ast {
 				ps := [`a: int`, `b: int`]
-				`sum :: fn(%{...ps}) int { $.0 + $.1 }`
+				`sum :: fn(%{..ps}) int { $.0 + $.1 }`
 			}
 			def!()
 			print(sum(1, 2))
@@ -467,7 +467,7 @@ fn splat_spreads_into_fields() {
 		indoc! {r"
 			pair! :: fn() Ast {
 				fs := [`x: int`, `y: int`]
-				`P :: struct { %{...fs} }`
+				`P :: struct { %{..fs} }`
 			}
 			pair!()
 			p := P.{ 1, 2 }
@@ -488,7 +488,7 @@ fn stamped_fns_keep_their_own_body() {
 					fns << `%{ident("f" + i.str())} :: fn() int { %{i} }`
 					i = i + 1
 				}
-				`%{...fns}`
+				`%{..fns}`
 			}
 			def!()
 			print(f1(), f2(), f3())
@@ -504,7 +504,7 @@ fn splat_spreads_match_patterns_and_arms() {
 			rank! :: fn() Ast {
 				low := [`1`, `2`]
 				mid := [`3 => "mid"`]
-				`rank :: fn(n: int) string { match n { %{...low} => "low", %{...mid} else => "high" } }`
+				`rank :: fn(n: int) string { match n { %{..low} => "low", %{..mid} else => "high" } }`
 			}
 			rank!()
 			print(rank(1), rank(2), rank(3), rank(4))

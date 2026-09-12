@@ -51,11 +51,6 @@ impl<'a, M: Module> Translator<'a, M> {
 			)
 			.with_label("not a module-level binding")),
 
-			Expr::Spread(_) => Err(
-				Diagnostic::new("`...` is only valid inside a struct literal", expr.1.into_range())
-					.with_label("not a struct literal field"),
-			),
-
 			Expr::OptionInit { inner: (te, span), arg } => {
 				let inner_typ = self.types().resolve(te, *span)?;
 				let val = if matches!(arg.0, Expr::None) {
@@ -629,14 +624,15 @@ impl<'a, M: Module> Translator<'a, M> {
 				}
 			}
 
-			Expr::Slice { collection, start, end } => {
+			Expr::Slice { collection, range } => {
 				let (ptr, typ) = self.expr(collection)?;
+				let range = range.as_deref();
 				if typ == Typ::Str {
 					let len = self.array_len(ptr);
-					let (lo, hi) = self.slice_bounds(start, end, len)?;
+					let (lo, hi) = self.slice_bounds(range, len)?;
 					return Ok((self.rt_call("str_slice", &[ptr, lo, hi]).unwrap(), Typ::Str));
 				}
-				let (out, _, elem) = self.slice_copy((ptr, typ), collection.1, start, end)?;
+				let (out, _, elem) = self.slice_copy((ptr, typ), collection.1, range)?;
 				let typ = Typ::Array(Box::new(elem));
 				self.temp(out, &typ);
 				Ok((out, typ))
@@ -731,30 +727,28 @@ impl<'a, M: Module> Translator<'a, M> {
 				self.through_sum(hint, |t| matches!(t, Typ::Map(..))).as_ref(),
 			),
 
-			Expr::Range { start, end } => {
-				let start_val = match start {
-					Some(s) => self.int_value(s, "range start")?,
-					None => self.b.ins().iconst(cl_int_for_width(32), 0),
-				};
-				let end_val = match end {
-					Some(e) => self.int_value(e, "range end")?,
-					None => self.b.ins().iconst(cl_int_for_width(32), 0),
-				};
-				let ptr = self.call_alloc(2);
-				let cl = self.b.func.dfg.value_type(start_val);
-				let s_ext = if cl == self.int {
-					start_val
-				} else {
-					self.b.ins().sextend(self.int, start_val)
-				};
-				let e_ext = if cl == self.int {
-					end_val
-				} else {
-					self.b.ins().sextend(self.int, end_val)
-				};
-				self.b.ins().store(MemFlags::new(), s_ext, ptr, 0);
-				self.b.ins().store(MemFlags::new(), e_ext, ptr, 8);
-				Ok((ptr, Typ::Range))
+			// range literal
+			Expr::Spread(inner) => match self.expr(inner)? {
+				(val, Typ::Int(_)) => Ok((self.make_range(None, val), Typ::Range)),
+				(_, typ) => Err(
+					Diagnostic::new(format!("cannot spread {typ} here"), expr.1.into_range())
+						.with_label("not a literal or call"),
+				),
+			},
+
+			Expr::Range { start, end, inclusive } => {
+				if let Expr::Range { .. } = start.0 {
+					return Err(Diagnostic::new(
+						"stepped ranges aren't lowered yet",
+						start.1.into_range(),
+					));
+				}
+				let no_end = || Diagnostic::new("a range needs an end to be a value", expr.1.into_range());
+				let end = end.as_ref().ok_or_else(no_end)?;
+				let start = self.int_value(start, "range start")?;
+				let end = self.int_value(end, "range end")?;
+				let end = self.b.ins().iadd_imm(end, *inclusive as i64);
+				Ok((self.make_range(Some(start), end), Typ::Range))
 			}
 
 			Expr::AnonFn {

@@ -87,7 +87,10 @@ fn assign_wrong_type() {
 
 #[test]
 fn annotation_space_after_at() {
-	fail_with(["@ c", "f :: fn() int { 42 }"], "must immediately follow, with no space");
+	fail_with(
+		["@ c", "f :: fn() int { 42 }"],
+		"must immediately follow, with no space",
+	);
 }
 
 #[test]

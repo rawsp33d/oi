@@ -442,7 +442,7 @@ fn struct_update_spread() {
 		}
 		register :: fn(u: User) User {
 			return User.{
-				...u
+				..u
 				is_registered = true
 			}
 		}
@@ -459,7 +459,7 @@ fn spread_is_overwritten_by_later_fields() {
 	let src = indoc! {"
 		Point :: struct { x: int, y: int }
 		p :: Point.{ x = 1, y = 2 }
-		Point.{ ...p, y = 9 }.y
+		Point.{ ..p, y = 9 }.y
 	"};
 	check(src, "9");
 }
@@ -469,7 +469,7 @@ fn spread_of_other_struct_error() {
 	fail_with(
 		"A :: struct { x: int }
 		B :: struct { x: int }
-		A.{ ...B.{ x = 1 } }.x",
+		A.{ ..B.{ x = 1 } }.x",
 		"cannot spread B into `A`",
 	);
 }

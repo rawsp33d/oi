@@ -191,8 +191,8 @@ pub enum Token {
 	// delimiters
 	#[token("via")]
 	Via,
-	#[token("...")]
-	DotDotDot,
+	#[token("..=")]
+	DotDotEq,
 	#[token("..")]
 	DotDot,
 	#[token(".")]
@@ -266,7 +266,7 @@ impl fmt::Display for Token {
 			Token::FatArrow => write!(f, "=>"),
 			Token::Atom(name) => write!(f, ":{name}"),
 			Token::Via => write!(f, "via"),
-			Token::DotDotDot => write!(f, "..."),
+			Token::DotDotEq => write!(f, "..="),
 			Token::DotDot => write!(f, ".."),
 			Token::Dot => write!(f, "."),
 			Token::Colon => write!(f, ":"),

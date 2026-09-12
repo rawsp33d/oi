@@ -948,7 +948,7 @@ fn variant_holes_from_a_macro() {
 		indoc! {r"
 			def! :: fn() Ast {
 				vs := [`A`, `B(int)`]
-				`E :: enum { %{...vs} }`
+				`E :: enum { %{..vs} }`
 			}
 			def!()
 			print(E.A)

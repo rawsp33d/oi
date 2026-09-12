@@ -219,7 +219,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		Ok(out)
 	}
 
-	// Swap each spread `...x` for reads of a hidden temp holding x.
+	// Swap each spread `..x` for reads of a hidden temp holding x.
 	fn expand_spreads(&mut self, args: &[Spanned<Expr>]) -> Result<Option<Vec<Spanned<Expr>>>, Diagnostic> {
 		if !args.iter().any(|a| matches!(a.0, Expr::Spread(_))) {
 			return Ok(None);
@@ -230,7 +230,7 @@ impl<'a, M: Module> Translator<'a, M> {
 				out.push(arg.clone());
 				continue;
 			};
-			let (val, typ) = self.expr(inner)?;
+			let (mut val, mut typ) = self.expr(inner)?;
 			let name = format!("$spread{i}");
 			let ident = || Box::new((Expr::Ident(name.clone()), *at));
 			match &typ {
@@ -243,6 +243,11 @@ impl<'a, M: Module> Translator<'a, M> {
 					(Expr::Index { collection, index }, *at)
 				})),
 				Typ::Array(_) => out.push((Expr::Spread(ident()), *at)),
+				// range literal
+				Typ::Int(_) => {
+					(val, typ) = (self.make_range(None, val), Typ::Range);
+					out.push(*ident());
+				}
 				_ => {
 					return Err(Diagnostic::new(format!("cannot spread {typ}"), inner.1.into_range())
 						.with_label("not a tuple or array"));
@@ -394,13 +399,13 @@ impl<'a, M: Module> Translator<'a, M> {
 	// Pass the address of the caller's binding.
 	pub(super) fn lend_mut(&mut self, inner: &Spanned<Expr>) -> Result<(Value, Typ, Lent), Diagnostic> {
 		let (cur, typ, entry) = match &inner.0 {
-			Expr::Slice { collection, start, end } => {
+			Expr::Slice { collection, range } => {
 				let Expr::Ident(name) = &collection.0 else {
 					unreachable!("check_muts admits only ident-based slices")
 				};
 				let parent = self.local(name, collection.1.into_range())?;
 				let opnd = self.expr(collection)?;
-				let (copy, lo, elem) = self.slice_copy(opnd, collection.1, start, end)?;
+				let (copy, lo, elem) = self.slice_copy(opnd, collection.1, range.as_deref())?;
 				let len = self.array_len(copy);
 				(copy, Typ::Array(Box::new(elem)), Lent::Slice { parent, lo, len })
 			}

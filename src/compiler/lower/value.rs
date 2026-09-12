@@ -440,12 +440,26 @@ impl<'a, M: Module> Translator<'a, M> {
 		Some((name.clone(), vi.payload[0].clone(), 8))
 	}
 
+	// Make `{start, end}` range on the heap.
+	pub(super) fn make_range(&mut self, start: Option<Value>, end: Value) -> Value {
+		let ptr = self.call_alloc(2);
+		let start = start.unwrap_or_else(|| self.b.ins().iconst(self.int, 0));
+		for (i, v) in [start, end].into_iter().enumerate() {
+			let v = if self.b.func.dfg.value_type(v) == self.int {
+				v
+			} else {
+				self.b.ins().sextend(self.int, v)
+			};
+			self.b.ins().store(MemFlags::new(), v, ptr, i as i32 * 8);
+		}
+		ptr
+	}
+
 	pub(super) fn range_pattern(
 		&mut self,
 		sv: Value,
 		st: &Typ,
-		start: Option<&Spanned<Expr>>,
-		end: Option<&Spanned<Expr>>,
+		(start, end, inclusive): Bounds,
 		span: Span,
 	) -> Result<Value, Diagnostic> {
 		let Typ::Int(_) = st else {
@@ -453,9 +467,14 @@ impl<'a, M: Module> Translator<'a, M> {
 			return Err(Diagnostic::new(msg, span.into_range()).with_label("not an integer"));
 		};
 		let mut cond = self.b.ins().iconst(types::I8, 1);
-		for (bound, cc) in [(start, IntCC::SignedGreaterThanOrEqual), (end, IntCC::SignedLessThan)] {
+		let bounds = [
+			(start, IntCC::SignedGreaterThanOrEqual, 0),
+			(end, IntCC::SignedLessThan, inclusive as i64),
+		];
+		for (bound, cc, bump) in bounds {
 			if let Some(e) = bound {
 				let (bv, _) = self.check_expr(e, st)?;
+				let bv = self.b.ins().iadd_imm(bv, bump);
 				let c = self.b.ins().icmp(cc, sv, bv);
 				cond = self.b.ins().band(cond, c);
 			}
@@ -874,7 +893,7 @@ impl<'a, M: Module> Translator<'a, M> {
 			if let Expr::Spread(src) = &value.0 {
 				if prefix > 0 {
 					return Err(Diagnostic::new("spread requires named fields", span.into_range())
-						.with_label("`...` cannot be mixed with positional values"));
+						.with_label("`..` cannot be mixed with positional values"));
 				}
 				let (val, typ) = self.expr(src)?;
 				if !matches!(&typ, Typ::Struct(n, _) if *n == name) {

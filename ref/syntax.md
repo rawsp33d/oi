@@ -226,17 +226,17 @@ divmod :: fn(a: int, b: int) out: (int, int) {
 
 # varargs
 
-sum :: fn(xs: ...int) int { xs.fold(0, +) }
-print :: fn(args: ...any)
+sum :: fn(xs: ..int) int { xs.fold(0, +) }
+print :: fn(args: ..any)
 
-between :: fn(open: string, items: ...string, close: string) string
+between :: fn(open: string, items: ..string, close: string) string
 between("[", "a", "b", "c", "]") # ["a", "b", "c"]
 between("[", "]") # []
-join :: fn(parts: ...string, sep := ",") # defaults after varargs are named-only
+join :: fn(parts: ..string, sep := ",") # defaults after varargs are named-only
 join("a", "b", sep = "/")
 
-log(:info, ...parts) # a slice spreads into the vararg slot, no copy
-log(:info, "pre", ...parts, "post")
+log(:info, ..parts) # a slice spreads into the vararg slot, no copy
+log(:info, "pre", ..parts, "post")
 
 ## pure functions
 
@@ -382,7 +382,7 @@ User :: struct {
 
 register :: fn(u: User) User {
 	return User.{
-		...u
+		..u
 		is_registered = true
 	}
 }
@@ -657,13 +657,17 @@ Iterator :: trait {
 	Item: type
 	next: fn(mut self) ?Item
 }
-Range :: struct { cur: int, end: int }
+Range :: struct { start: int, end: ?int, step: int }
 Range : Iterator < {
 	Item :: int
 	next :: fn(mut self) ?int {
-		if self.cur >= self.end { return none }
-		defer self.cur += 1
-		self.cur
+		done := match self.end {
+			some(e) => (self.step > 0 && self.start >= e) || (self.step < 0 && self.start <= e),
+			none => false, # no end means unbounded
+		}
+		if done { return none }
+		defer self.start += self.step
+		self.start
 	}
 }
 
@@ -738,7 +742,7 @@ Car : Animal via Horn < { speak :: fn(self) string { "HONK HONK" } }
 	| `E!T` | Result | `Result<T, E>` (error pinned to `E`) |
 	| `&T` | Shared reference | `Rc<T>` |
 	| `fn (A) R` | Function | `fn(A) -> R` |
-	| `...T` | Vararg, param position only, body sees `[]T` | - |
+	| `..T` | Vararg, param position only, body sees `[]T` | - |
 	| `Foo[T]` | Generic instance | `Foo<T>` |
 	| `Trait` | Trait object | `&dyn Trait` |
 
@@ -831,11 +835,17 @@ main :: fn() {
 	flt :: 69.420
 
 	# ranges
-	# TODO: are until/after possible outside array slices?
-	between := 1..3
+	# half-open by default, `..=` makes it inclusive
+	between := 1..3                    # 1, 2
+	inclusive := 1..=3                 # 1, 2, 3
+	# prefix `..x` on an int is `0..x`, postfix `x..` is open-ended
 	until := ..3
 	after := 1..
 	crossing_over_with_john_edward := -4..4
+
+	# first, second, last: step and its sign are inferred
+	evens := 0..2..=10
+	countdown := 10..9..0
 
 	# paths
 	# TODO: path literal
@@ -958,8 +968,8 @@ main :: fn() {
 	# arrays support dropping the commas when only literals are present
 	even := [2 4 6]
 
-	# `...` spreads an array into a literal
-	all := [...odd, ...even]
+	# `..` spreads an array into a literal
+	all := [..odd, ..even]
 
 	# `in` operator returns whether array contains element
 	assert!(6 in even)
@@ -1074,8 +1084,8 @@ main :: fn() {
 	assert!(result.r == 1)
 
 	# a tuple spreads into fixed slots, arity statically checked
-	show(...divmod(10, 3))
-	forward :: fn(a: int, b: int) string { show(...$) }
+	show(..divmod(10, 3))
+	forward :: fn(a: int, b: int) string { show(..$) }
 
 	# this can be used alongside the named return feature, as they are different systems
 	divmod :: fn(a: int, b: int) out (q: int, r: int) {
@@ -2043,9 +2053,9 @@ main :: fn() {
 	n := 2
 	doubled := `%n + %{compute_rhs()}`
 
-	# %{...xs} spreads an []Ast across a sequence position (call args, array elems, statements, match arms)
+	# %{..xs} spreads an []Ast across a sequence position (call args, array elems, statements, match arms)
 	args := [`1`, `2`, `3`]
-	ast := `sum(%{...args})`
+	ast := `sum(%{..args})`
 
 	# quotes are bidirectional
 	match expr {
@@ -2068,7 +2078,7 @@ main :: fn() {
 				"Debug" => `%name : Debug { ... }`,
 			}
 		})
-		`%{...impls}`
+		`%{..impls}`
 	}
 
 	# `@name!` runs a macro on the following expression

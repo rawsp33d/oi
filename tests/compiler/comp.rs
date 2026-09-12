@@ -130,7 +130,7 @@ fn struct_fields_are_typed_asts() {
 				line := "{f.name.str()} {f.typ.str()} {f.notes.len}"
 				`
 					print(%line)
-					show :: fn(%{...s.items}) { print(speed) }
+					show :: fn(%{..s.items}) { print(speed) }
 					show(3.5)
 				`
 			}

@@ -157,9 +157,9 @@ impl<'a, M: Module> Translator<'a, M> {
 				let eq = if matches!(&pat.0, Expr::Ident(w) if w == "_") {
 					// `_` wildcard
 					self.b.ins().iconst(types::I8, 1)
-				} else if let Expr::Range { start, end } = &pat.0 {
+				} else if let Some(bounds) = pat.0.bounds() {
 					let sv = self.b.use_var(sv_var);
-					self.range_pattern(sv, &st, start.as_deref(), end.as_deref(), pat.1)?
+					self.range_pattern(sv, &st, bounds, pat.1)?
 				} else if st.is_enumish() {
 					let (disc, b) = self.enum_pattern(pat, &st)?;
 					if arm.patterns.len() == 1 {

@@ -9,12 +9,6 @@ use chumsky::{
 	prelude::*,
 };
 
-// The contents of a subscript.
-enum Subscript {
-	Index(Spanned<Expr>),
-	Slice(Option<Spanned<Expr>>, Option<Spanned<Expr>>),
-}
-
 // field/tuple/method access
 enum Dot {
 	Fields(Vec<String>),
@@ -65,6 +59,11 @@ fn pipe_step((e, span): Spanned<Expr>) -> Spanned<Expr> {
 		Expr::Propagate(inner) => (Expr::Propagate(Box::new(pipe_step(*inner))), span),
 		e => (e, span),
 	}
+}
+
+fn range(start: Spanned<Expr>, end: Option<Spanned<Expr>>, inclusive: bool, span: Span) -> Spanned<Expr> {
+	let (start, end) = (Box::new(start), end.map(Box::new));
+	(Expr::Range { start, end, inclusive }, span)
 }
 
 // `value |> step`
@@ -249,14 +248,10 @@ where
 
 	let unquote = just(Token::Percent)
 		.then_ignore(adjacent)
-		.ignore_then(
-			ident().map(Expr::Unquote).or(brace(
-				just(Token::DotDotDot)
-					.ignore_then(expr.clone())
-					.map(|e| Expr::UnquoteSplat(Box::new(e)))
-					.or(expr.clone().map(|e| Expr::UnquoteExpr(Box::new(e)))),
-			)),
-		)
+		.ignore_then(ident().map(Expr::Unquote).or(brace(expr.clone()).map(|e| match e {
+			(Expr::Spread(inner), _) => Expr::UnquoteSplat(inner),
+			e => Expr::UnquoteExpr(Box::new(e)),
+		})))
 		.map_with(|e, ex| (e, ex.span()))
 		.boxed();
 
@@ -342,7 +337,7 @@ where
 				.ignore_then(base.clone())
 				.map(|t| TypeExpr::Option(Box::new(t)));
 			// varargs
-			let variadic = just(Token::DotDotDot)
+			let variadic = just(Token::DotDot)
 				.ignore_then(base.clone())
 				.map(|t| TypeExpr::Variadic(Box::new(t)));
 			// results
@@ -808,13 +803,10 @@ where
 			.then_ignore(just(Token::Assign))
 			.then(mod_arg.clone().or(expr.clone()))
 			.map(|(key, value)| (Some(key), value));
-		let spread_arg = just(Token::DotDotDot)
-			.ignore_then(expr.clone())
-			.map_with(|e, ex| (Expr::Spread(Box::new(e)), ex.span()));
 		// variable vs. call vs. struct literal
 		let args = paren(
 			named_arg
-				.or((spread_arg.or(mod_arg).or(expr.clone()).or(block_lit.clone())).map(|e| (None, e)))
+				.or((mod_arg.or(expr.clone()).or(block_lit.clone())).map(|e| (None, e)))
 				.separated_by(just(Token::Comma))
 				.allow_trailing()
 				.collect::<Vec<_>>(),
@@ -841,11 +833,7 @@ where
 			.then_ignore(just(Token::Assign))
 			.or_not()
 			.then(expr.clone().or(block_lit.clone()));
-		// struct update
-		let spread_entry = just(Token::DotDotDot)
-			.ignore_then(expr.clone())
-			.map_with(|e, ex| (None, (Expr::Spread(Box::new(e)), ex.span())));
-		let struct_body = brace(loose_list(spread_entry.or(struct_field_entry.clone())));
+		let struct_body = brace(loose_list(struct_field_entry.clone()));
 
 		// explicit generic types
 		let call_type_args = bracket(
@@ -996,12 +984,7 @@ where
 		)
 		.map_with(|entries, ex| (Expr::Map(entries), ex.span()));
 
-		// array literals and spreads
-		let array_entry = just(Token::DotDotDot)
-			.ignore_then(expr.clone())
-			.map_with(|e, ex| (Expr::Spread(Box::new(e)), ex.span()))
-			.or(expr.clone());
-		let array = bracket(loose_list(array_entry)).map_with(|elems, ex| (Expr::Array(elems), ex.span()));
+		let array = bracket(loose_list(expr.clone())).map_with(|elems, ex| (Expr::Array(elems), ex.span()));
 
 		let if_expr = recursive(|if_expr| {
 			just(Token::If)
@@ -1227,21 +1210,7 @@ where
 		.boxed();
 
 		// array subscripts
-		let no_start_range = just(Token::DotDot)
-			.ignore_then(expr.clone().or_not())
-			.map(|end| Subscript::Slice(None, end));
-		let with_start = expr
-			.clone()
-			.then(just(Token::DotDot).ignore_then(expr.clone().or_not()).or_not())
-			.map(|(e, extra)| match (e, extra) {
-				// closed range
-				((Expr::Range { start, end }, _), None) => Subscript::Slice(start.map(|s| *s), end.map(|e| *e)),
-				// open range
-				(e, Some(end)) => Subscript::Slice(Some(e), end),
-				// numeric index
-				(e, None) => Subscript::Index(e),
-			});
-		let subscript = bracket(no_start_range.or(with_start)).boxed();
+		let subscript = bracket(expr.clone().map(Some).or(just(Token::DotDot).map(|_| None))).boxed();
 
 		// infix operator builder
 		let binop = |prec, tok: Token, op: BinOp| {
@@ -1281,17 +1250,16 @@ where
 					),
 				}),
 				// indexing and slicing
-				postfix(9, subscript, |lhs, sub, ex| {
+				postfix(9, subscript, |lhs, sub: Option<Spanned<Expr>>, ex| {
 					let collection = Box::new(lhs);
 					let e = match sub {
-						Subscript::Index(index) => Expr::Index {
+						Some(index) if index.0.bounds().is_none() => Expr::Index {
 							collection,
 							index: Box::new(index),
 						},
-						Subscript::Slice(start, end) => Expr::Slice {
+						range => Expr::Slice {
 							collection,
-							start: start.map(Box::new),
-							end: end.map(Box::new),
+							range: range.map(Box::new),
 						},
 					};
 					(e, ex.span())
@@ -1359,15 +1327,20 @@ where
 				binop(3, Token::AndAnd, BinOp::And),
 				binop(2, Token::OrOr, BinOp::Or),
 				// ranges
-				infix(left(1), just(Token::DotDot), |l, _, r, ex| {
-					(
-						Expr::Range {
-							start: Some(Box::new(l)),
-							end: Some(Box::new(r)),
-						},
-						ex.span(),
-					)
-				}),
+				(
+					infix(left(1), just(Token::DotDot), |l, _, r, ex| {
+						range(l, Some(r), false, ex.span())
+					}),
+					infix(left(1), just(Token::DotDotEq), |l, _, r, ex| {
+						range(l, Some(r), true, ex.span())
+					}),
+					postfix(1, just(Token::DotDot).then_ignore(expr.clone().not()), |l, _, ex| {
+						range(l, None, false, ex.span())
+					}),
+					prefix(1, just(Token::DotDot), |_, r, ex| {
+						(Expr::Spread(Box::new(r)), ex.span())
+					}),
+				),
 				// pipelines
 				infix(left(0), just(Token::Pipeline), |l, _, r, ex| pipe(l, r, ex.span())),
 			))

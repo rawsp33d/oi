@@ -139,7 +139,7 @@ fn required_field_provided() {
 			Foo :: struct { n: int @required }
 			a := Foo.{n = 1}
 			b := Foo.{2}
-			c := Foo.{...a}
+			c := Foo.{..a}
 			print("{a.n} {b.n} {c.n}")
 		"#},
 		"1 2 1",

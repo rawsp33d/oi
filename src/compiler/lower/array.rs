@@ -61,6 +61,14 @@ impl<'a, M: Module> Translator<'a, M> {
 			start = i + 1;
 			let Some(inner) = inner else { break };
 			let (val, typ) = self.expr(inner)?;
+			// range literal
+			if let Typ::Int(_) = typ {
+				let val = self.make_range(None, val);
+				unify_elem(&mut elem, &Typ::Range, inner.1)?;
+				let (data, len) = self.heap_alloc(vec![val], &Typ::Range);
+				parts.push(self.make_array(data, len, &Typ::Array(Box::new(Typ::Range))));
+				continue;
+			}
 			let (Typ::Array(t) | Typ::FixedArray(t, _)) = &typ else {
 				return Err(
 					Diagnostic::new(format!("cannot spread {typ}"), inner.1.into_range()).with_label("not an array")
@@ -228,10 +236,10 @@ impl<'a, M: Module> Translator<'a, M> {
 	// Lower slice bounds, defaulting to `0..len`.
 	pub(super) fn slice_bounds(
 		&mut self,
-		start: &Option<Box<Spanned<Expr>>>,
-		end: &Option<Box<Spanned<Expr>>>,
+		range: Option<&Spanned<Expr>>,
 		len: Value,
 	) -> Result<(Value, Value), Diagnostic> {
+		let (start, end, inclusive) = range.and_then(|r| r.0.bounds()).unwrap_or_default();
 		let lo = match start {
 			Some(e) => {
 				let v = self.int_value(e, "slice start")?;
@@ -242,7 +250,8 @@ impl<'a, M: Module> Translator<'a, M> {
 		let hi = match end {
 			Some(e) => {
 				let v = self.int_value(e, "slice end")?;
-				self.b.ins().sextend(self.int, v)
+				let v = self.b.ins().sextend(self.int, v);
+				self.b.ins().iadd_imm(v, inclusive as i64)
 			}
 			None => len,
 		};
@@ -254,8 +263,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		&mut self,
 		(ptr, typ): TypedVal,
 		span: Span,
-		start: &Option<Box<Spanned<Expr>>>,
-		end: &Option<Box<Spanned<Expr>>>,
+		range: Option<&Spanned<Expr>>,
 	) -> Result<(Value, Value, Typ), Diagnostic> {
 		match typ {
 			Typ::Array(_) => {}
@@ -273,7 +281,7 @@ impl<'a, M: Module> Translator<'a, M> {
 		}
 		let elem = array_elem(&typ).clone();
 		let len = self.array_len(ptr);
-		let (lo, hi) = self.slice_bounds(start, end, len)?;
+		let (lo, hi) = self.slice_bounds(range, len)?;
 		let stride = self.elem_stride(&elem);
 		let size = self.b.ins().iconst(self.int, stride);
 		Ok((self.rt_call("slice", &[ptr, lo, hi, size]).unwrap(), lo, elem))

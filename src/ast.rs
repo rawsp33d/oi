@@ -4,6 +4,7 @@ use chumsky::span::SimpleSpan;
 
 pub type Span = SimpleSpan;
 pub type Spanned<T> = (T, Span);
+pub type Bounds<'a> = (Option<&'a Spanned<Expr>>, Option<&'a Spanned<Expr>>, bool);
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -53,7 +54,7 @@ pub enum Expr {
 		mutable: Option<bool>,
 	},
 
-	// `...expr`
+	// `..expr`
 	Spread(Box<Spanned<Expr>>),
 
 	// functions
@@ -122,7 +123,7 @@ pub enum Expr {
 	Unquote(String),
 	// `%{expr}`
 	UnquoteExpr(Box<Spanned<Expr>>),
-	// `%{...expr}`
+	// `%{..expr}`
 	UnquoteSplat(Box<Spanned<Expr>>),
 	// `%{expr}`
 	UnquoteBind(Box<Spanned<Expr>>, Box<Spanned<Expr>>),
@@ -163,9 +164,9 @@ pub enum Expr {
 
 	// arrays
 	Array(Vec<Spanned<Expr>>),
-	// `.[ ...expr ]`, `T.[ ...expr ]`
+	// `.[ ..expr ]`, `T.[ ..expr ]`
 	DotArray(Option<Spanned<TypeExpr>>, Vec<Spanned<Expr>>),
-	// `.( ...expr )`
+	// `.( ..expr )`
 	DotTuple(Vec<Spanned<Expr>>),
 	// `collection[index]`
 	// TODO: handle negative indices
@@ -173,11 +174,10 @@ pub enum Expr {
 		collection: Box<Spanned<Expr>>,
 		index: Box<Spanned<Expr>>,
 	},
-	// `collection[start?..end?]`
+	// `collection[range]`
 	Slice {
 		collection: Box<Spanned<Expr>>,
-		start: Option<Box<Spanned<Expr>>>,
-		end: Option<Box<Spanned<Expr>>>,
+		range: Option<Box<Spanned<Expr>>>,
 	},
 	// `name[index] = value`
 	IndexAssign {
@@ -273,10 +273,10 @@ pub enum Expr {
 
 	TypePat(TypeExpr),
 
-	// `start..end`, `start..`, `..end`
 	Range {
-		start: Option<Box<Spanned<Expr>>>,
+		start: Box<Spanned<Expr>>,
 		end: Option<Box<Spanned<Expr>>>,
+		inclusive: bool,
 	},
 
 	// `Name : backing? : enum {}`
@@ -338,6 +338,15 @@ pub enum Child<'a> {
 use Child::{List, One};
 
 impl Expr {
+	// Get Bounds from range literals.
+	pub fn bounds(&self) -> Option<Bounds<'_>> {
+		match self {
+			Expr::Range { start, end, inclusive } => Some((Some(start), end.as_deref(), *inclusive)),
+			Expr::Spread(end) => Some((None, Some(end), false)),
+			_ => None,
+		}
+	}
+
 	// The name a top-level definition binds.
 	pub fn def_name(&self) -> Option<&str> {
 		match self {
@@ -435,11 +444,10 @@ impl Expr {
 				f(One(k));
 				f(One(v));
 			}),
-			Expr::Slice { collection, start, end } => {
-				f(One(collection));
-				[start, end].into_iter().flatten().for_each(|x| f(One(x)));
+			Expr::Slice { collection, range } => {
+				[Some(collection), range.as_mut()].into_iter().flatten().for_each(|x| f(One(x)))
 			}
-			Expr::Range { start, end } => [start, end].into_iter().flatten().for_each(|x| f(One(x))),
+			Expr::Range { start, end, .. } => [Some(start), end.as_mut()].into_iter().flatten().for_each(|x| f(One(x))),
 			Expr::Match {
 				subject,
 				arms,

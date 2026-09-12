@@ -190,7 +190,7 @@ impl TypeCtx<'_> {
 				Ok(Typ::Tuple(fields))
 			}
 			TypeExpr::Variadic(_) => Err(Diagnostic::new(
-				"`...T` is only allowed as a parameter type",
+				"`..T` is only allowed as a parameter type",
 				span.into_range(),
 			)
 			.with_label("not a parameter")),

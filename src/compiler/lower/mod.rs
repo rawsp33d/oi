@@ -13,7 +13,7 @@ use super::{
 	check_c_sig, cl_int_for_width, cl_type, display_name, elem_size, embeds, enum_boxed, enum_slots, is_c_struct,
 	mentions, oi_symbol, option_variants, result_variants, sum_remap, trait_fns, type_expr, typeid,
 };
-use crate::ast::{Access, Annotation, BinOp, Expr, MatchArm, Span, Spanned, TypeExpr};
+use crate::ast::{Access, Annotation, BinOp, Bounds, Expr, MatchArm, Span, Spanned, TypeExpr};
 use crate::diagnostics::{Diagnostic, SourceMap};
 use crate::loader::Scope;
 use crate::runtime;

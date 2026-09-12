@@ -282,7 +282,7 @@ impl fmt::Display for Typ {
 						write!(f, ", ")?;
 					}
 					match (p.variadic, &p.typ) {
-						(true, Typ::Array(e)) => write!(f, "...{e}")?,
+						(true, Typ::Array(e)) => write!(f, "..{e}")?,
 						_ => write!(f, "{}", p.typ)?,
 					}
 				}

@@ -453,7 +453,7 @@ fn fill(e: &mut Spanned<Expr>, bound: &HashSet<String>, args: &HashMap<&str, Arg
 		match &args[name.as_str()] {
 			Arg::Ast(v) => *e = (*v).clone(),
 			Arg::Seq(_) => {
-				flag("%{...} spread needs a sequence position");
+				flag("%{..} spread needs a sequence position");
 				e.0 = Expr::Tuple(vec![]);
 			}
 		}
@@ -637,7 +637,7 @@ fn to_arm(e: Expr) -> Option<MatchArm> {
 	}
 }
 
-// Walk a sequence position, splicing `%{...expr}` slots in verbatim and filling everything else.
+// Walk a sequence position, splicing `%{..expr}` slots in verbatim and filling everything else.
 fn splice(list: &mut Vec<Spanned<Expr>>, bound: &HashSet<String>, args: &HashMap<&str, Arg>, suffix: usize) {
 	let mut i = 0;
 	while i < list.len() {
